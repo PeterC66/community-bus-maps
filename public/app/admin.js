@@ -23,7 +23,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['applications', 'requests', 'customers', 'messages'];
+const SECTIONS = ['applications', 'requests', 'customers', 'messages', 'audit'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -194,6 +194,43 @@ LOADERS.messages = async () => {
       <td>${fmtDate(m.created_at)}</td><td>${esc(m.kind)}</td>
       <td>${esc(m.name || '')}<div class="sub">${esc(m.email || '')}</div></td>
       <td class="wrap">${esc(m.body)}</td></tr>`).join('')}</tbody></table>`;
+};
+
+// ---- audit ------------------------------------------------------------------
+const ACTION_LABEL = {
+  'version.submit': 'Submitted for publication',
+  'version.publish': 'Published version',
+  'version.reject': 'Sent version back',
+  'version.withdraw': 'Withdrew publish request',
+  'version.save': 'Saved version',
+  'application.approve': 'Approved application',
+  'application.reject': 'Rejected application',
+  'maprequest.approve': 'Approved map request',
+  'maprequest.reject': 'Rejected map request',
+  'customer.update': 'Updated customer',
+};
+function auditDetail(a) {
+  const d = a.detail || {};
+  if (a.action.startsWith('version.')) return esc([d.version, d.note && '“' + d.note + '”'].filter(Boolean).join(' · '));
+  if (a.action.startsWith('application.')) return esc([d.org, d.email].filter(Boolean).join(' · '));
+  if (a.action.startsWith('maprequest.')) return esc([d.name, d.kind].filter(Boolean).join(' · '));
+  if (a.action === 'customer.update') return esc([d.name, `areas ${d.quotaAreas}`, `places ${d.quotaPlaces}`, d.status].filter((x) => x != null).join(' · '));
+  return '';
+}
+LOADERS.audit = async () => {
+  const { body } = await jget('/api/admin/audit');
+  const box = $('audit');
+  const rows = (body && body.audit) || [];
+  if (!rows.length) { box.innerHTML = '<div class="empty">No audit events yet.</div>'; return; }
+  box.innerHTML = `<table class="grid"><thead><tr>
+      <th>When</th><th>Who</th><th>Action</th><th>Map</th><th>Details</th>
+    </tr></thead><tbody>${rows.map((a) => `<tr>
+      <td>${fmtDate(a.at)}</td>
+      <td>${esc(a.actor)}</td>
+      <td>${esc(ACTION_LABEL[a.action] || a.action)}</td>
+      <td>${a.mapName ? esc(a.mapName) : '<span class="muted">—</span>'}</td>
+      <td class="wrap">${auditDetail(a) || '<span class="muted">—</span>'}</td>
+    </tr>`).join('')}</tbody></table>`;
 };
 
 // ---- init -------------------------------------------------------------------

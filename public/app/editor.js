@@ -38,14 +38,25 @@ const isDirty = () => sig(staged) !== savedSig;
 
 const enabledOutputs = () => detail.outputs.filter((o) => o.available && o.enabled);
 const labelForBase = (base) => (detail.outputs.find((o) => o.base === base) || {}).label || base;
+const isLocked = () => detail && detail.editable === false; // frozen while awaiting sign-off
+const DL_LABELS = { 'internal.svg': 'Within · SVG', 'internal.jpg': 'Within · JPG (print)', 'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)' };
 
 // ---- state chips -------------------------------------------------------------
 function refreshState() {
+  const locked = isLocked();
   const dirty = isDirty();
-  $('stateDot').className = 'dot ' + (dirty ? 'dirty' : 'clean');
-  $('stateText').textContent = dirty ? 'Unsaved changes' : 'Saved';
-  $('saveBtn').disabled = !dirty;
-  $('resetBtn').disabled = staged.hide.size === 0 && Object.keys(staged.colors).length === 0;
+  $('stateDot').className = 'dot ' + (locked ? '' : (dirty ? 'dirty' : 'clean'));
+  $('stateText').textContent = locked ? 'Locked for review' : (dirty ? 'Unsaved changes' : 'Saved');
+  $('saveBtn').disabled = locked || !dirty;
+  $('resetBtn').disabled = locked || (staged.hide.size === 0 && Object.keys(staged.colors).length === 0);
+}
+
+// Disable the editing controls while a version awaits publication sign-off.
+function applyLock() {
+  const locked = isLocked();
+  document.querySelectorAll('#routes input, #routes button, #pois input, #outputs input, #resetBtn, #saveNote')
+    .forEach((el) => { el.disabled = locked; });
+  refreshState();
 }
 function setPvState(kind, text) { $('pvDot').className = 'dot ' + kind; $('pvText').textContent = text; }
 
@@ -205,12 +216,104 @@ function notice(kind, text, sticky) {
 function reportRejected(rej) { if (rej && rej.length) notice('warn', 'Some edits were outside what you can change here and were ignored: ' + rej.join('; ')); }
 
 // ---- downloads ---------------------------------------------------------------
+function dlRow(list) {
+  return `<div class="dl-row">${list.map((d) => `<a class="dl" href="${d.url}?download" download>⬇ ${DL_LABELS[d.file] || d.file}</a>`).join('')}</div>`;
+}
 function buildDownloads() {
   const box = $('downloads');
   if (!detail.currentVersion || !detail.downloads.length) { box.innerHTML = ''; return; }
-  const label = { 'internal.svg': 'Within · SVG', 'internal.jpg': 'Within · JPG (print)', 'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)' };
-  box.innerHTML = `<h3>Downloads — saved version ${esc(detail.currentVersion)}</h3>
-    <div class="dl-row">${detail.downloads.map((d) => `<a class="dl" href="${d.url}?download" download>⬇ ${label[d.file] || d.file}</a>`).join('')}</div>`;
+  const published = detail.publishedVersion && detail.publishedVersion === detail.currentVersion;
+  const tag = published ? ' <span class="status-pill pub">published</span>' : ' <span class="status-pill">draft</span>';
+  box.innerHTML = `<h3>Latest version ${esc(detail.currentVersion)}${tag}</h3>${dlRow(detail.downloads)}`;
+}
+
+// ---- publish gate (P4) -------------------------------------------------------
+function renderChangeSummary(sum, pubKey) {
+  if (!sum) return '';
+  const base = sum.base === 'published' ? `the published version (${esc(pubKey)})` : 'the original map';
+  if (sum.unchanged) return `<p class="hint-line">No differences from ${base} yet — make an edit and save first.</p>`;
+  const parts = [];
+  if (sum.routes.length) parts.push(`<li><strong>${sum.routes.length}</strong> route colour${sum.routes.length === 1 ? '' : 's'} changed <span class="muted">(${sum.routes.map((r) => esc(r.id)).join(', ')})</span></li>`);
+  if (sum.poisHidden.length) parts.push(`<li><strong>${sum.poisHidden.length}</strong> landmark${sum.poisHidden.length === 1 ? '' : 's'} hidden</li>`);
+  if (sum.poisShown.length) parts.push(`<li><strong>${sum.poisShown.length}</strong> landmark${sum.poisShown.length === 1 ? '' : 's'} shown</li>`);
+  return `<div class="change-box"><div class="change-title">What publishing will change vs ${base}</div><ul class="change-list">${parts.join('')}</ul></div>`;
+}
+
+function buildPublishedDownloads() {
+  const box = $('publishedDownloads');
+  const pub = detail.publishedVersion;
+  // Only shown when the published (official) version differs from the working head.
+  if (!pub || pub === detail.currentVersion || !detail.publishedDownloads || !detail.publishedDownloads.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<h3>Published files — official version ${esc(pub)}</h3>${dlRow(detail.publishedDownloads)}`;
+}
+
+function buildPublish() {
+  const panel = $('publishPanel');
+  if (!detail.currentVersion) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const head = detail.currentVersion, pub = detail.publishedVersion, pending = detail.pendingRequest;
+  const stateEl = $('publishState'), body = $('publishBody');
+
+  if (pending) stateEl.innerHTML = '<span class="status-pill req">Awaiting sign-off</span>';
+  else if (pub && pub === head) stateEl.innerHTML = `<span class="status-pill pub">Published ${esc(pub)}</span>`;
+  else if (pub) stateEl.innerHTML = `<span class="status-pill pub">Published ${esc(pub)}</span> <span class="muted">· draft ${esc(head)}</span>`;
+  else stateEl.innerHTML = '<span class="status-pill">Not yet published</span>';
+
+  if (pending) {
+    body.innerHTML = `<div class="publish-note-box">
+        <p><strong>Version ${esc(pending.versionKey || head)}</strong> has been submitted for our team's sign-off.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
+        <p class="hint-line">Editing is paused while we review. Withdraw the request if you need to make more changes.</p>
+        <button class="btn btn-ghost btn-sm" id="withdrawBtn" type="button">Withdraw request</button>
+      </div>`;
+    $('withdrawBtn').addEventListener('click', withdrawPublish);
+  } else if (pub === head) {
+    body.innerHTML = '<p class="published-ok">✓ Your latest version is the published one. Make an edit and save to prepare a new version to publish.</p>';
+  } else {
+    body.innerHTML = `${renderChangeSummary(detail.changeSummary, pub)}
+      <label class="hint-line" for="publishNote" style="display:block;margin-top:10px">Note for the reviewer <span class="hint">— optional</span></label>
+      <input class="field" id="publishNote" type="text" maxlength="200" placeholder="e.g. New route 9 colour for the summer timetable">
+      <button class="btn btn-primary btn-sm" id="submitPublishBtn" type="button" style="margin-top:8px">Submit ${esc(head)} for publication</button>`;
+    $('submitPublishBtn').addEventListener('click', submitPublish);
+  }
+  buildPublishedDownloads();
+}
+
+async function reloadPublish() {
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}`);
+    const b = await res.json();
+    if (!res.ok || !b.ok) return;
+    const d = b.map;
+    Object.assign(detail, {
+      changeSummary: d.changeSummary, headState: d.headState, publishedVersion: d.publishedVersion,
+      publishedDownloads: d.publishedDownloads, pendingRequest: d.pendingRequest, editable: d.editable,
+      currentVersion: d.currentVersion, downloads: d.downloads, versions: d.versions, status: d.status,
+    });
+    applyLock(); buildPublish(); buildDownloads();
+  } catch { /* leave as-is */ }
+}
+
+async function submitPublish() {
+  const note = ($('publishNote') || {}).value || '';
+  const btn = $('submitPublishBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/publish-request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
+    });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) { notice('ok', 'Submitted for publication — our team will review it and sign it off.'); await reloadPublish(); }
+    else { notice('err', (b && b.error) || 'Could not submit for publication.'); btn.disabled = false; btn.textContent = `Submit ${esc(detail.currentVersion)} for publication`; }
+  } catch { notice('err', 'Network error while submitting.'); btn.disabled = false; }
+}
+
+async function withdrawPublish() {
+  if (!confirm('Withdraw the publication request? You will be able to edit the map again.')) return;
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/publish-request/withdraw`, { method: 'POST' });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) { notice('warn', 'Request withdrawn — you can edit again.'); await reloadPublish(); }
+    else notice('err', (b && b.error) || 'Could not withdraw the request.');
+  } catch { notice('err', 'Network error while withdrawing.'); }
 }
 
 // ---- load saved-version SVGs -------------------------------------------------
@@ -237,6 +340,7 @@ $('saveBtn').addEventListener('click', async () => {
       if (previewSvg) for (const k of Object.keys(previewSvg)) savedSvg[k] = previewSvg[k];
       previewSvg = null; $('saveNote').value = '';
       buildDownloads(); showStage(); refreshState(); setPvState('clean', 'Showing saved version');
+      reloadPublish(); // head advanced → refresh the publish panel (now ahead of the published version)
       notice('ok', `Saved version ${body.version}. Print-ready files are ready to download below.`);
     } else notice('err', (body && body.error) || 'Save failed.', true);
   } catch { notice('err', 'Network error while saving.', true); }
@@ -295,7 +399,7 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); refreshState();
+    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); applyLock();
 
     await loadSavedSvg();
     buildTabs();

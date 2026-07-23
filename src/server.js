@@ -15,6 +15,9 @@ import {
   listApplications, getApplication, setApplicationReviewed, listMessages,
   insertCustomer, insertUser, getUserByEmail,
   listCustomersAdmin, updateCustomerAdmin, adminSummary,
+  getVersionById, setVersionState, setPublishedVersion,
+  insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests,
+  decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit,
 } from './db/index.js';
 import {
   readRoutesMeta, enumeratePois, readOverrides, preview, renderVersion, outputsForClient,
@@ -24,12 +27,14 @@ import { versionDir, OUTPUTS, OUTPUT_FILES } from './maps/store.js';
 import {
   requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie,
 } from './auth/index.js';
+import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary } from './publish/index.js';
+import { logAudit } from './audit/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.3.0-P3';
+const VERSION = '0.4.0-P4';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
@@ -196,7 +201,17 @@ function requireAdmin(req, reply) {
   return req.user;
 }
 
-// Load a map only if the user may see it. Admins see all; everyone else is
+// Publishing is a platform sign-off (separation of duties from the customer who
+// edits): approvers and admins may review + publish; editors may only submit.
+function requireApprover(req, reply) {
+  if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
+  if (req.user.role !== 'approver' && req.user.role !== 'admin') {
+    reply.code(403).send({ ok: false, error: 'Approver access only.' }); return null;
+  }
+  return req.user;
+}
+
+// Load a map only if the user may EDIT it. Admins edit all; everyone else is
 // scoped to their own customer. Returns { map } or { code, error }.
 function loadOwnedMap(id, user) {
   const m = getMap(id);
@@ -207,12 +222,25 @@ function loadOwnedMap(id, user) {
   return { map: m };
 }
 
+// Load a map the user may READ (view detail / download rendered files). Same as
+// edit scope PLUS platform approvers, who must inspect any submitted map's
+// print-ready files to sign it off — but cannot edit it.
+function loadReadableMap(id, user) {
+  const m = getMap(id);
+  if (!m) return { code: 404, error: 'No such map.' };
+  const owner = user.customer_id != null && m.customer_id === user.customer_id;
+  if (user.role === 'admin' || user.role === 'approver' || owner) return { map: m };
+  return { code: 403, error: 'You do not have access to this map.' };
+}
+
 function downloadsForVersion(id, storageKey) {
   const dir = versionDir(id, storageKey);
   return Object.keys(OUTPUT_FILES)
     .filter((f) => existsSync(path.join(dir, f)))
     .map((f) => ({ file: f, url: `/api/maps/${id}/versions/${storageKey}/${f}` }));
 }
+
+const parseJson = (s) => { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } };
 
 function mapDetail(m) {
   const id = m.id;
@@ -228,6 +256,19 @@ function mapDetail(m) {
       customised: !!savedColors[r], textOn: meta.textOn[r] || '#111', desc: meta.internalDesc[r] || null,
     }));
   const pois = enumeratePois(id).map((p) => ({ ...p, hidden: !!(savedPois[p.key] && savedPois[p.key].hide) }));
+
+  // Publish gate (P4): the pending request (if any) locks editing; the published
+  // pointer + a diff of "what publishing the current head would change".
+  const open = getOpenRequestForMap(id);
+  const pendingVer = open ? getVersionById(open.version_id) : null;
+  const pending = open ? {
+    id: open.id, versionKey: pendingVer ? pendingVer.storage_key : null,
+    note: open.note || '', createdAt: open.created_at,
+  } : null;
+  const summary = m.cur_key
+    ? changeSummary(saved, parseJson(m.pub_overrides), { palette: meta.palette, hasBaseline: !!m.pub_key })
+    : null;
+
   return {
     id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject, status: m.status,
     customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
@@ -235,6 +276,14 @@ function mapDetail(m) {
     routes, pois, outputs: outputsForClient(parseOutputs(m.outputs), id),
     versions: listVersions(id),
     downloads: m.cur_key ? downloadsForVersion(id, m.cur_key) : [],
+    // --- publish gate ---
+    headState: m.cur_state || null,
+    publishedVersion: m.pub_key || null,
+    publishedDownloads: m.pub_key ? downloadsForVersion(id, m.pub_key) : [],
+    pendingRequest: pending,
+    editable: !pending, // locked while a publish request awaits sign-off
+    changeSummary: summary,
+    publishHistory: listPublishRequestsForMap(id),
   };
 }
 
@@ -244,6 +293,11 @@ app.get('/app/admin', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
   if (req.user.role !== 'admin') return reply.redirect('/app');
   return reply.sendFile('app/admin.html');
+});
+app.get('/app/review', async (req, reply) => {
+  if (!req.user) return reply.redirect('/app/login.html');
+  if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
+  return reply.sendFile('app/review.html');
 });
 
 app.get('/api/maps', async (req, reply) => {
@@ -255,6 +309,7 @@ app.get('/api/maps', async (req, reply) => {
     maps: listMaps(scope).map((m) => ({
       id: m.id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject,
       status: m.status, currentVersion: m.cur_key || null,
+      publishedVersion: m.pub_key || null, pendingReview: !!m.pending_reviews,
       customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     })),
   };
@@ -304,7 +359,7 @@ app.post('/api/maps/request', async (req, reply) => {
 
 app.get('/api/maps/:id', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  const { map, code, error } = loadReadableMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
   return { ok: true, map: mapDetail(map) };
 });
@@ -331,6 +386,11 @@ app.post('/api/maps/:id/save', async (req, reply) => {
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
   const id = map.id;
+  // Editing is frozen while a version awaits publication sign-off — withdraw the
+  // request first, so the version an approver reviews is always the head.
+  if (getOpenRequestForMap(id)) {
+    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication sign-off. Withdraw the request to make further changes.' });
+  }
   const meta = readRoutesMeta(id);
   const poiKeys = enumeratePois(id).map((p) => p.key);
   const b = req.body || {};
@@ -342,11 +402,51 @@ app.post('/api/maps/:id/save', async (req, reply) => {
     const versionId = insertVersion({ map_id: id, major, minor, note: str(b.note, 500), overrides: s.overrides, storage_key: storageKey });
     setCurrentVersion(id, versionId);
     req.log.info({ mapId: id, version: storageKey, by: user.email }, 'saved new map version');
+    logAudit(req, 'version.save', { mapId: id, versionId, detail: { version: storageKey, note: str(b.note, 500) } });
     return { ok: true, version: storageKey, rejected: s.rejected, files: r.files, downloads: downloadsForVersion(id, storageKey) };
   } catch (e) {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Render failed: ' + e.message });
   }
+});
+
+// --- publish gate: the editor submits the current head for sign-off, or
+//     withdraws a pending request to resume editing. Approvers/admins decide
+//     (below, under /api/review). Editors never publish their own maps.
+app.post('/api/maps/:id/publish-request', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const id = map.id;
+  if (!map.current_version_id || !map.cur_key) {
+    return reply.code(400).send({ ok: false, error: 'This map has no rendered version to publish yet.' });
+  }
+  if (getOpenRequestForMap(id)) {
+    return reply.code(409).send({ ok: false, error: 'This map is already awaiting publication sign-off.' });
+  }
+  if (map.published_version_id === map.current_version_id) {
+    return reply.code(409).send({ ok: false, error: 'The current version is already the published one.' });
+  }
+  const note = str((req.body || {}).note, 1000);
+  const requestId = insertPublishRequest({ map_id: id, version_id: map.current_version_id, requested_by: user.id, note });
+  setVersionState(map.current_version_id, 'pending');
+  req.log.info({ mapId: id, requestId, version: map.cur_key, by: user.email }, 'publication requested');
+  logAudit(req, 'version.submit', { mapId: id, versionId: map.current_version_id, detail: { requestId, version: map.cur_key, note } });
+  return { ok: true, request: { id: requestId, versionKey: map.cur_key, note } };
+});
+
+app.post('/api/maps/:id/publish-request/withdraw', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const open = getOpenRequestForMap(map.id);
+  if (!open) return reply.code(409).send({ ok: false, error: 'There is no pending request to withdraw.' });
+  withdrawPublishRequest(open.id);
+  // Return the version to draft unless it is the currently-published one.
+  if (open.version_id !== map.published_version_id) setVersionState(open.version_id, 'draft');
+  req.log.info({ mapId: map.id, requestId: open.id, by: user.email }, 'publication request withdrawn');
+  logAudit(req, 'version.withdraw', { mapId: map.id, versionId: open.version_id, detail: { requestId: open.id } });
+  return { ok: true };
 });
 
 // Choose which outputs a map produces (P2 output toggles).
@@ -368,7 +468,7 @@ app.patch('/api/maps/:id/outputs', async (req, reply) => {
 
 app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  const { map, code, error } = loadReadableMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
   const { key, file } = req.params;
   if (!/^v\d+\.\d+$/.test(key) || !Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
@@ -381,6 +481,98 @@ app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
     reply.header('Content-Disposition', `attachment; filename="${map.slug}-${key}-${file}"`);
   }
   return reply.send(createReadStream(p));
+});
+
+// ===========================================================================
+// Review & publish gate (P4) — approvers/admins sign off a submitted version.
+// The customer who edits never publishes (separation of duties). Publishing
+// requires a completed sign-off checklist, records the change-summary evidence,
+// advances the map's public-current pointer, and writes the audit trail.
+// ===========================================================================
+
+app.get('/api/review/queue', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  return { ok: true, requests: listPendingPublishRequests(), checklist: CHECKLIST };
+});
+
+app.get('/api/review/:id', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const pr = getPublishRequest(Number(req.params.id));
+  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
+  const meta = readRoutesMeta(pr.map_id);
+  const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
+  const summary = changeSummary(
+    parseJson(pr.version_overrides), parseJson(pub ? pub.overrides_json : '{}'),
+    { palette: meta.palette, hasBaseline: !!pub },
+  );
+  const decided = pr.status !== 'pending';
+  return {
+    ok: true,
+    request: {
+      id: pr.id, status: pr.status, createdAt: pr.created_at, note: pr.note || '',
+      map: { id: pr.map_id, name: pr.map_name, slug: pr.map_slug, kind: pr.map_kind, subject: pr.map_subject },
+      customer: pr.customer_id ? { id: pr.customer_id, name: pr.customer_name } : null,
+      version: pr.version_key, versionNote: pr.version_note || '',
+      publishedVersion: pub ? pub.storage_key : null,
+      requestedBy: pr.requested_by_email || null,
+      reviewedBy: pr.reviewed_by_email || null, reviewedAt: pr.reviewed_at || null,
+      decisionNote: pr.decision_note || '',
+      evidence: decided ? parseJson(pr.evidence_json) : null,
+    },
+    changeSummary: summary,
+    checklist: CHECKLIST,
+    // Files to eyeball before signing off (approver read-access is enforced above).
+    inspect: downloadsForVersion(pr.map_id, pr.version_key),
+    town: meta.town,
+  };
+});
+
+app.post('/api/review/:id/approve', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const pr = getPublishRequest(Number(req.params.id));
+  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
+  if (pr.status !== 'pending') return reply.code(409).send({ ok: false, error: `This request was already ${pr.status}.` });
+
+  // The sign-off gate: every checklist item must be confirmed. No exceptions —
+  // it is public transit information people rely on.
+  const { ok, missing, checklist } = validateChecklist((req.body || {}).checklist);
+  if (!ok) return reply.code(400).send({ ok: false, error: 'Please confirm every item on the sign-off checklist before publishing.', missing });
+
+  const meta = readRoutesMeta(pr.map_id);
+  const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
+  const summary = changeSummary(
+    parseJson(pr.version_overrides), parseJson(pub ? pub.overrides_json : '{}'),
+    { palette: meta.palette, hasBaseline: !!pub },
+  );
+  const decisionNote = str((req.body || {}).note, 2000);
+  const evidence = { checklistVersion: CHECKLIST_VERSION, checklist, changeSummary: summary, decidedAt: new Date().toISOString() };
+
+  decidePublishRequest(pr.id, { status: 'approved', reviewedBy: user.id, decisionNote, evidence });
+  // Advance the public-current pointer; retire the previous published version.
+  if (pr.published_version_id && pr.published_version_id !== pr.version_id) setVersionState(pr.published_version_id, 'superseded');
+  setVersionState(pr.version_id, 'published');
+  setPublishedVersion(pr.map_id, pr.version_id);
+  setMapStatus(pr.map_id, 'published');
+
+  req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
+  logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote } });
+  return { ok: true, publishedVersion: pr.version_key, downloads: downloadsForVersion(pr.map_id, pr.version_key) };
+});
+
+app.post('/api/review/:id/reject', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const pr = getPublishRequest(Number(req.params.id));
+  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
+  if (pr.status !== 'pending') return reply.code(409).send({ ok: false, error: `This request was already ${pr.status}.` });
+  const note = str((req.body || {}).note, 2000);
+  if (!note) return reply.code(400).send({ ok: false, error: 'Please give a reason so the editor knows what to change.', fields: ['note'] });
+
+  decidePublishRequest(pr.id, { status: 'rejected', reviewedBy: user.id, decisionNote: note, evidence: {} });
+  // Return the version to draft (unless it somehow is the published one) so the editor can revise + resubmit.
+  if (pr.version_id !== pr.published_version_id) setVersionState(pr.version_id, 'rejected');
+  req.log.info({ mapId: pr.map_id, requestId: pr.id, by: user.email }, 'publication rejected');
+  logAudit(req, 'version.reject', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, note } });
+  return { ok: true };
 });
 
 // ===========================================================================
@@ -427,6 +619,7 @@ app.post('/api/admin/applications/:id/approve', async (req, reply) => {
   const link = token ? authLink(req, token) : null;
   if (link) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
   req.log.info({ applicationId: appn.id, customerId, email }, 'application approved → customer + editor created');
+  logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places } });
 
   return {
     ok: true,
@@ -443,6 +636,7 @@ app.post('/api/admin/applications/:id/reject', async (req, reply) => {
   if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
   setApplicationReviewed(appn.id, 'rejected', null);
   req.log.info({ applicationId: appn.id }, 'application rejected');
+  logAudit(req, 'application.reject', { detail: { applicationId: appn.id, org: appn.org_name } });
   return { ok: true };
 });
 
@@ -465,6 +659,7 @@ app.post('/api/admin/maps/:id/approve', async (req, reply) => {
   if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
   setMapStatus(m.id, 'approved');
   req.log.info({ mapId: m.id }, 'map request approved');
+  logAudit(req, 'maprequest.approve', { mapId: m.id, detail: { name: m.name, kind: m.kind } });
   return { ok: true, status: 'approved' };
 });
 
@@ -475,6 +670,7 @@ app.post('/api/admin/maps/:id/reject', async (req, reply) => {
   if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
   setMapStatus(m.id, 'archived');
   req.log.info({ mapId: m.id }, 'map request rejected (archived)');
+  logAudit(req, 'maprequest.reject', { mapId: m.id, detail: { name: m.name, kind: m.kind } });
   return { ok: true, status: 'archived' };
 });
 
@@ -499,12 +695,25 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
   if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
   req.log.info({ customerId: cust.id }, 'customer updated by admin');
   const c = getCustomer(cust.id);
+  logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan } });
   return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places } };
 });
 
 app.get('/api/admin/messages', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   return { ok: true, messages: listMessages() };
+});
+
+// Append-only governance audit trail (publish sign-offs + P3 actions).
+app.get('/api/admin/audit', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const limit = Math.max(1, Math.min(1000, Number((req.query || {}).limit) || 200));
+  const rows = listAudit({ limit }).map((a) => ({
+    id: a.id, at: a.created_at, actor: a.actor_email || 'system', action: a.action,
+    mapId: a.map_id, mapName: a.map_name || null, versionId: a.version_id,
+    detail: parseJson(a.detail_json),
+  }));
+  return { ok: true, audit: rows };
 });
 
 try {

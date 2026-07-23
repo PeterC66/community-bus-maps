@@ -36,6 +36,12 @@ function tableColumns(table) {
   const appCols = tableColumns('application');
   if (!appCols.includes('reviewed_at')) db.exec('ALTER TABLE application ADD COLUMN reviewed_at TEXT');
   if (!appCols.includes('customer_id')) db.exec('ALTER TABLE application ADD COLUMN customer_id INTEGER');
+
+  // P4: publish gate — the public-current pointer + per-version review state.
+  // (publish_request / audit_log are new tables, so CREATE IF NOT EXISTS covers them.)
+  if (!mapCols.includes('published_version_id')) db.exec('ALTER TABLE map ADD COLUMN published_version_id INTEGER');
+  const verCols = tableColumns('map_version');
+  if (!verCols.includes('review_state')) db.exec("ALTER TABLE map_version ADD COLUMN review_state TEXT NOT NULL DEFAULT 'draft'");
 })();
 
 export function insertApplication(a) {
@@ -88,6 +94,8 @@ export function counts() {
     applications: db.prepare('SELECT COUNT(*) AS c FROM application').get().c,
     messages: db.prepare('SELECT COUNT(*) AS c FROM message').get().c,
     maps: db.prepare('SELECT COUNT(*) AS c FROM map').get().c,
+    publishRequests: db.prepare('SELECT COUNT(*) AS c FROM publish_request').get().c,
+    auditEvents: db.prepare('SELECT COUNT(*) AS c FROM audit_log').get().c,
   };
 }
 
@@ -102,10 +110,13 @@ export function listMaps({ customerId } = {}) {
   return db
     .prepare(
       `SELECT m.*, c.name AS customer_name,
-              v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key
+              v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key,
+              pv.storage_key AS pub_key,
+              (SELECT COUNT(*) FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending') AS pending_reviews
          FROM map m
          LEFT JOIN customer c ON c.id = m.customer_id
          LEFT JOIN map_version v ON v.id = m.current_version_id
+         LEFT JOIN map_version pv ON pv.id = m.published_version_id
          ${where}
         ORDER BY c.name, m.name`,
     )
@@ -117,10 +128,14 @@ export function getMap(id) {
     .prepare(
       `SELECT m.*, c.name AS customer_name,
               v.major AS cur_major, v.minor AS cur_minor,
-              v.storage_key AS cur_key, v.overrides_json AS cur_overrides
+              v.storage_key AS cur_key, v.overrides_json AS cur_overrides,
+              v.review_state AS cur_state,
+              pv.storage_key AS pub_key, pv.major AS pub_major, pv.minor AS pub_minor,
+              pv.overrides_json AS pub_overrides
          FROM map m
          LEFT JOIN customer c ON c.id = m.customer_id
          LEFT JOIN map_version v ON v.id = m.current_version_id
+         LEFT JOIN map_version pv ON pv.id = m.published_version_id
         WHERE m.id = ?`,
     )
     .get(Number(id));
@@ -228,7 +243,7 @@ export function setMapDataDir(mapId, dir) {
 export function listVersions(mapId) {
   return db
     .prepare(
-      `SELECT id, major, minor, note, storage_key, created_at
+      `SELECT id, major, minor, note, storage_key, review_state, created_at
          FROM map_version WHERE map_id = ? ORDER BY major DESC, minor DESC`,
     )
     .all(Number(mapId));
@@ -238,6 +253,136 @@ export function getVersion(mapId, storageKey) {
   return db
     .prepare('SELECT * FROM map_version WHERE map_id = ? AND storage_key = ?')
     .get(Number(mapId), storageKey);
+}
+
+export function getVersionById(id) {
+  return db.prepare('SELECT * FROM map_version WHERE id = ?').get(Number(id));
+}
+
+// ---------------------------------------------------------------------------
+// Publish gate (P4): per-version review state, the public-current pointer,
+// publish requests (sign-off workflow), and the append-only audit log.
+// ---------------------------------------------------------------------------
+
+export function setVersionState(versionId, state) {
+  db.prepare('UPDATE map_version SET review_state = ? WHERE id = ?').run(state, Number(versionId));
+}
+
+/** Point the map at its published version (the public-current pointer). */
+export function setPublishedVersion(mapId, versionId) {
+  db.prepare('UPDATE map SET published_version_id = ? WHERE id = ?')
+    .run(versionId != null ? Number(versionId) : null, Number(mapId));
+}
+
+export function insertPublishRequest(r) {
+  const info = db
+    .prepare('INSERT INTO publish_request (map_id, version_id, requested_by, note) VALUES (?, ?, ?, ?)')
+    .run(Number(r.map_id), Number(r.version_id), r.requested_by != null ? Number(r.requested_by) : null, r.note || null);
+  return Number(info.lastInsertRowid);
+}
+
+/** The one open (pending) publish request for a map, if any. */
+export function getOpenRequestForMap(mapId) {
+  return db.prepare("SELECT * FROM publish_request WHERE map_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1").get(Number(mapId));
+}
+
+/** A publish request joined to its map, version and people (for the review UI). */
+export function getPublishRequest(id) {
+  return db
+    .prepare(
+      `SELECT pr.*, m.name AS map_name, m.slug AS map_slug, m.kind AS map_kind, m.subject AS map_subject,
+              m.customer_id, m.published_version_id, c.name AS customer_name,
+              v.storage_key AS version_key, v.major AS version_major, v.minor AS version_minor,
+              v.overrides_json AS version_overrides, v.note AS version_note,
+              ru.email AS requested_by_email, au.email AS reviewed_by_email
+         FROM publish_request pr
+         JOIN map m ON m.id = pr.map_id
+         JOIN map_version v ON v.id = pr.version_id
+         LEFT JOIN customer c ON c.id = m.customer_id
+         LEFT JOIN user ru ON ru.id = pr.requested_by
+         LEFT JOIN user au ON au.id = pr.reviewed_by
+        WHERE pr.id = ?`,
+    )
+    .get(Number(id));
+}
+
+/** All pending publish requests across customers (the approver's review queue). */
+export function listPendingPublishRequests() {
+  return db
+    .prepare(
+      `SELECT pr.id, pr.created_at, pr.note, pr.map_id, pr.version_id,
+              m.name AS map_name, m.kind AS map_kind, m.subject AS map_subject,
+              c.name AS customer_name, v.storage_key AS version_key,
+              ru.email AS requested_by_email
+         FROM publish_request pr
+         JOIN map m ON m.id = pr.map_id
+         JOIN map_version v ON v.id = pr.version_id
+         LEFT JOIN customer c ON c.id = m.customer_id
+         LEFT JOIN user ru ON ru.id = pr.requested_by
+        WHERE pr.status = 'pending'
+        ORDER BY pr.created_at ASC`,
+    )
+    .all();
+}
+
+export function decidePublishRequest(id, { status, reviewedBy, decisionNote, evidence }) {
+  db.prepare(
+    `UPDATE publish_request
+        SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'),
+            decision_note = ?, evidence_json = ?
+      WHERE id = ?`,
+  ).run(
+    status,
+    reviewedBy != null ? Number(reviewedBy) : null,
+    decisionNote || null,
+    JSON.stringify(evidence || {}),
+    Number(id),
+  );
+}
+
+export function withdrawPublishRequest(id) {
+  db.prepare("UPDATE publish_request SET status = 'withdrawn', reviewed_at = datetime('now') WHERE id = ? AND status = 'pending'").run(Number(id));
+}
+
+/** Publish-request history for one map (newest first). */
+export function listPublishRequestsForMap(mapId) {
+  return db
+    .prepare(
+      `SELECT pr.id, pr.created_at, pr.status, pr.note, pr.decision_note, pr.reviewed_at,
+              v.storage_key AS version_key, ru.email AS requested_by_email, au.email AS reviewed_by_email
+         FROM publish_request pr
+         JOIN map_version v ON v.id = pr.version_id
+         LEFT JOIN user ru ON ru.id = pr.requested_by
+         LEFT JOIN user au ON au.id = pr.reviewed_by
+        WHERE pr.map_id = ?
+        ORDER BY pr.id DESC`,
+    )
+    .all(Number(mapId));
+}
+
+export function recordAudit({ actorId, actorEmail, action, mapId, versionId, detail }) {
+  db.prepare(
+    'INSERT INTO audit_log (actor_id, actor_email, action, map_id, version_id, detail_json) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(
+    actorId != null ? Number(actorId) : null,
+    actorEmail || null,
+    action,
+    mapId != null ? Number(mapId) : null,
+    versionId != null ? Number(versionId) : null,
+    JSON.stringify(detail || {}),
+  );
+}
+
+export function listAudit({ limit = 200 } = {}) {
+  return db
+    .prepare(
+      `SELECT a.*, m.name AS map_name
+         FROM audit_log a
+         LEFT JOIN map m ON m.id = a.map_id
+        ORDER BY a.id DESC
+        LIMIT ?`,
+    )
+    .all(Math.max(1, Math.min(1000, Number(limit) | 0)));
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +443,7 @@ export function adminSummary() {
   return {
     pendingApplications: one("SELECT COUNT(*) AS c FROM application WHERE status = 'pending'"),
     pendingMapRequests: one("SELECT COUNT(*) AS c FROM map WHERE status = 'requested'"),
+    pendingPublishRequests: one("SELECT COUNT(*) AS c FROM publish_request WHERE status = 'pending'"),
     customers: one('SELECT COUNT(*) AS c FROM customer'),
     newMessages: one("SELECT COUNT(*) AS c FROM message WHERE status = 'new'"),
   };

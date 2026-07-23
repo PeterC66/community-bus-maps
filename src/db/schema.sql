@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS map (
   requested_by        INTEGER REFERENCES user(id),   -- the user who requested it (P3)
   outputs             TEXT NOT NULL DEFAULT '{}',    -- JSON: which of the 4 outputs this map produces (P2 toggles)
   status              TEXT NOT NULL DEFAULT 'draft', -- requested|approved|building|draft|published|archived (P1: draft)
-  current_version_id  INTEGER REFERENCES map_version(id)  -- latest rendered version (the one shown/downloaded)
+  current_version_id  INTEGER REFERENCES map_version(id),  -- latest rendered version (the working head shown in the editor)
+  published_version_id INTEGER REFERENCES map_version(id)  -- P4: the public-current pointer (the signed-off version); NULL until first publish
 );
 
 CREATE TABLE IF NOT EXISTS map_version (
@@ -101,5 +102,39 @@ CREATE TABLE IF NOT EXISTS map_version (
   note            TEXT,                     -- what changed (customer's save note)
   overrides_json  TEXT NOT NULL DEFAULT '{}', -- the safe-subset overrides snapshot for this version
   storage_key     TEXT NOT NULL,            -- render folder name under maps/<id>/renders/, e.g. 'v1.0'
+  review_state    TEXT NOT NULL DEFAULT 'draft', -- P4: draft|pending|published|superseded|rejected
   UNIQUE (map_id, major, minor)
+);
+
+-- ---------------------------------------------------------------------------
+-- P4 — the publish gate. A saved version is a *draft* until a platform approver
+-- signs it off (with recorded red-team evidence); publishing advances the map's
+-- public-current pointer. Editors submit; approvers/admins decide.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS publish_request (
+  id            INTEGER PRIMARY KEY,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  map_id        INTEGER NOT NULL REFERENCES map(id),
+  version_id    INTEGER NOT NULL REFERENCES map_version(id),
+  requested_by  INTEGER REFERENCES user(id),      -- the editor who asked to publish
+  note          TEXT,                              -- editor's "what changed / why publish"
+  status        TEXT NOT NULL DEFAULT 'pending',   -- pending | approved | rejected | withdrawn
+  reviewed_by   INTEGER REFERENCES user(id),       -- the approver who decided
+  reviewed_at   TEXT,
+  decision_note TEXT,                              -- approver's sign-off note / rejection reason
+  evidence_json TEXT NOT NULL DEFAULT '{}'         -- red-team evidence: sign-off checklist + change summary snapshot
+);
+
+-- Append-only audit of governance actions (publish sign-off, plus the P3
+-- application / map-request / customer actions). Never updated or deleted.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          INTEGER PRIMARY KEY,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  actor_id    INTEGER REFERENCES user(id),   -- who did it (NULL = system)
+  actor_email TEXT,                            -- denormalised so the trail survives user changes
+  action      TEXT NOT NULL,                   -- e.g. version.submit | version.publish | version.reject | application.approve
+  map_id      INTEGER,                         -- subject map (nullable)
+  version_id  INTEGER,                         -- subject version (nullable)
+  detail_json TEXT NOT NULL DEFAULT '{}'       -- structured extras (customer, quota, change summary, …)
 );

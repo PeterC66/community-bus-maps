@@ -14,6 +14,7 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" href="/app/review">Review</a>
     <a class="navlink" href="/app/admin">Admin</a>
     <span class="navlink" id="whoami"></span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
@@ -30,6 +31,7 @@
       <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
       <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
       <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
+      <button class="tab" data-tab="audit" role="tab">Audit</button>
     </div>
 
     <div class="notice" id="banner"></div>
@@ -51,6 +53,11 @@
 
     <section class="admin-section" id="sec-messages" hidden>
       <div class="table-wrap"><div id="messages">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-audit" hidden>
+      <p class="hint-line">Append-only record of governance actions — publication sign-offs, application and map-request decisions, and quota changes. Newest first.</p>
+      <div class="table-wrap"><div id="audit">Loading…</div></div>
     </section>
   </main>
 

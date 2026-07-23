@@ -16,7 +16,12 @@ import { fileURLToPath } from 'node:url';
 import {
   getUserByEmail, insertUser, getCustomerByName, insertCustomer, getMapBySlug,
   insertApplication, listApplications, insertMap,
+  nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap,
+  insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion,
+  setMapStatus, recordAudit,
 } from '../src/db/index.js';
+import { renderVersion, defaultOutputs, readRoutesMeta } from '../src/maps/engine.js';
+import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT = path.join(HERE, 'import-map.mjs');
@@ -64,15 +69,20 @@ function newestRenderDir(renderParent) {
   return dirs[0];
 }
 
-// --- admin ---
-ensureUser(ADMIN_EMAIL, 'admin', null, 'Peter (admin)');
+// --- admin + a platform approver (P4: signs off publications, separate from the
+//     editors who make the edits) ---
+const adminId = ensureUser(ADMIN_EMAIL, 'admin', null, 'Peter (admin)');
+const APPROVER_EMAIL = process.env.APPROVER_EMAIL || 'approver@community-bus-maps.example';
+const approverId = ensureUser(APPROVER_EMAIL, 'approver', null, 'Central approver');
 
 // --- demo customers + editors + maps ---
 let imported = 0, skipped = 0;
 let stIves = null;
+const editors = {}; // slug -> editor user id
 for (const d of DEMO) {
   const customerId = ensureCustomer(d.customer, d.type);
   const editorId = ensureUser(d.editor, 'editor', customerId, `${d.customer} editor`);
+  editors[d.slug] = editorId;
   if (d.slug === 'st-ives') stIves = { customerId, editorId };
 
   if (getMapBySlug(d.slug)) { console.log(`· map exists: ${d.slug} (leaving as-is)`); skipped++; continue; }
@@ -112,9 +122,59 @@ if (stIves && !getMapBySlug('st-ives-waitrose')) {
   console.log('· seeded a requested place map: St Ives Waitrose (awaiting admin approval)');
 } else console.log('· demo map request already present (or St Ives not seeded)');
 
+// --- P4: publish gate — a published example + a real pending sign-off ---
+function fullChecklist() { const c = {}; for (const item of CHECKLIST) c[item.id] = true; return c; }
+
+// March: publish its baseline v1.0 as the first official version (shows a
+// "Published" map + a publish audit entry out of the box).
+const march = getMapBySlug('march');
+if (march && march.current_version_id && !march.published_version_id) {
+  const summary = { base: 'baseline', unchanged: true, routes: [], poisHidden: [], poisShown: [] };
+  const reqId = insertPublishRequest({ map_id: march.id, version_id: march.current_version_id, requested_by: editors['march'], note: 'Initial publication for launch.' });
+  setVersionState(march.current_version_id, 'pending');
+  recordAudit({ actorId: editors['march'], actorEmail: 'clerk@march-tc.example', action: 'version.submit', mapId: march.id, versionId: march.current_version_id, detail: { version: 'v1.0' } });
+  decidePublishRequest(reqId, {
+    status: 'approved', reviewedBy: approverId, decisionNote: 'Approved — baseline is accurate and legible.',
+    evidence: { checklistVersion: CHECKLIST_VERSION, checklist: fullChecklist(), changeSummary: summary, decidedAt: new Date().toISOString() },
+  });
+  setVersionState(march.current_version_id, 'published');
+  setPublishedVersion(march.id, march.current_version_id);
+  setMapStatus(march.id, 'published');
+  recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: march.id, versionId: march.current_version_id, detail: { version: 'v1.0', changeSummary: summary } });
+  console.log('· published March v1.0 as the first official version (demo published example)');
+} else console.log('· March already published (or not seeded)');
+
+// St Ives: a real customer edit (recolour a route) saved as v1.1 and submitted
+// for sign-off, so the review queue is non-empty with a genuine change.
+const stMap = getMapBySlug('st-ives');
+const stFresh = stMap && stMap.current_version_id && !getOpenRequestForMap(stMap.id)
+  && nextVersion(stMap.id).major === 1 && nextVersion(stMap.id).minor === 1; // only the baseline exists
+if (stFresh) {
+  try {
+    const meta = readRoutesMeta(stMap.id);
+    const routeId = meta.palette['9'] ? '9' : Object.keys(meta.palette)[0];
+    const def = String(meta.palette[routeId] || '').toLowerCase();
+    const newColor = def === '#000000' ? '#e6194b' : '#000000';
+    const overrides = { routeColors: { [routeId]: newColor } };
+    const { major, minor } = nextVersion(stMap.id);
+    const key = `v${major}.${minor}`;
+    console.log(`· rendering St Ives ${key} (recolour route ${routeId}) for a demo sign-off…`);
+    await renderVersion(stMap.id, overrides, key, defaultOutputs());
+    const vid = insertVersion({ map_id: stMap.id, major, minor, note: `Recoloured route ${routeId} (demo)`, overrides, storage_key: key });
+    setCurrentVersion(stMap.id, vid);
+    insertPublishRequest({ map_id: stMap.id, version_id: vid, requested_by: editors['st-ives'], note: `Please publish the new route ${routeId} colour for the summer timetable.` });
+    setVersionState(vid, 'pending');
+    recordAudit({ actorId: editors['st-ives'], actorEmail: 'clerk@st-ives-tc.example', action: 'version.submit', mapId: stMap.id, versionId: vid, detail: { version: key } });
+    console.log(`· St Ives ${key} submitted for publication (demo pending review)`);
+  } catch (e) {
+    console.warn('· ⚠ could not seed the St Ives pending sign-off:', e.message);
+  }
+} else console.log('· St Ives sign-off demo already present (or St Ives not seeded)');
+
 console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped} skipped.`);
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');
-console.log(`    admin  : ${ADMIN_EMAIL}`);
-for (const d of DEMO) console.log(`    editor : ${d.editor}   (${d.customer})`);
+console.log(`    admin    : ${ADMIN_EMAIL}`);
+console.log(`    approver : ${APPROVER_EMAIL}   (reviews + publishes at /app/review)`);
+for (const d of DEMO) console.log(`    editor   : ${d.editor}   (${d.customer})`);
 console.log('  The sign-in link is printed to the SERVER console.');
 process.exit(0);

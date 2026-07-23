@@ -26,8 +26,8 @@ internal schematic, internal diagram, external).
 
 1. **Organisation** — a public application → an admin approves → a customer account is created. *(P3 ✅)*
 2. **Map request** — an approved customer requests an area/place map (within quota) → admin approves. *(P3 ✅)*
-3. **Publish** — a rendered map stays a *draft* until a human signs it off (with red-team evidence)
-   before it can be printed. *(P4)*
+3. **Publish** — a rendered map stays a *draft* until a platform approver signs it off (with recorded
+   red-team evidence); publishing advances the map's public-current pointer. *(P4 ✅)*
 
 ## Build phases
 
@@ -37,7 +37,7 @@ internal schematic, internal diagram, external).
 | **P1** | Re-home the editor behind the app as the **safe-subset** editor (recolour routes, toggle POIs) → save → version → render → download; object store; importer seeds a baseline. | ✅ **done (2026-07-23)** |
 | **P2** | Multi-customer + magic-link auth + roles + tenant isolation; per-map output toggles; demo seed of existing towns as customers. *(Area maps only — the place engine is a follow-up; approver-role powers land in P4.)* | ✅ **done (2026-07-23)** |
 | **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off); admin console. | ✅ **done (2026-07-23)** |
-| **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | |
+| **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | ✅ **done (2026-07-23)** |
 | **P5** | Monthly change acceptance: central refresh → `proposed_update`; review queue; old-vs-new preview; accept re-applies overrides. | |
 | **P6** | Full public marketing front (extends P0's shopfront) + per-customer branding. | *(partly brought forward in P0)* |
 | **P7** | Expert diagram/pin editor (expert side) + ops hardening: backups, audit, licensing sign-off, monitoring, deploy. | |
@@ -72,9 +72,10 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 
 - **Run:** `npm run dev` → `http://127.0.0.1:5180` (shopfront) and `/app` (sign-in → editor). **Prove the
   renderer:** set `FIXTURE_DIR` to a staged town render folder from the Buses repo, then `npm run verify`.
-- **Demo (P2):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + two councils + their maps.
-  Sign in with a seeded email; the one-time link is printed to the **server console**. **Stop the dev
-  server first** (one SQLite writer).
+- **Demo (P2/P3/P4):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
+  + two councils each with an editor + their maps, plus a pending application, a requested map,
+  **March published v1.0**, and a **St Ives v1.1 submitted for sign-off**. Sign in with a seeded email;
+  the one-time link is printed to the **server console**. **Stop the dev server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
   admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
 - **Admin console (P3):** `/app/admin` (admin-only) reviews applications (approve → customer + editor +
@@ -85,6 +86,16 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 - **Map lifecycle:** `requested` → (admin) `approved` → *(central build, P5)* → `draft`/`published`; a
   map with no rendered version shows as "being prepared" and is not editable. `reject` → `archived`
   (frees quota).
+- **Publish gate (P4):** each map carries **two** version pointers — `current_version_id` (working head,
+  moves on every save) and `published_version_id` (the **public-current** official version, moves only on
+  sign-off). An editor **submits** the head at `/app/maps/:id`; editing then **freezes** (save → 409)
+  until a platform **approver/admin** decides at **`/app/review`**. Publishing requires a **complete
+  sign-off checklist** (server-enforced in `src/publish/index.js`), records **red-team evidence** (the
+  deterministic `changeSummary` of submitted-vs-published + the checklist), advances the pointer, and
+  retires the prior published version to `superseded`. Every action lands in the append-only **audit log**
+  (admin **Audit** tab, `/api/admin/audit`). Approvers can **read/inspect any** map (`loadReadableMap`)
+  but never edit (`loadOwnedMap`). Publishing **never re-renders**, so the P0 byte-identical guarantee is
+  untouched.
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is

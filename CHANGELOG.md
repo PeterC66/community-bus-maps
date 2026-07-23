@@ -2,6 +2,91 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.4.0-P4] — 2026-07-23
+
+Phase **P4** — **the publish gate.** A rendered map version is now a private **draft** until a platform
+**approver** signs it off with recorded **red-team evidence**; publishing advances the map's
+**public-current pointer** and writes an **append-only audit trail**. This closes the third and final
+approval gate (organisation → map-request → **publish**). The editor who makes the change never
+publishes it — separation of duties.
+
+### Added
+- **Version review states + the public-current pointer** (`schema.sql`, migrated): `map_version` gains
+  `review_state` (`draft`→`pending`→`published`→`superseded`/`rejected`); `map` gains
+  `published_version_id` — the one **official** version, distinct from `current_version_id` (the working
+  head). A guarded migration adds both to a pre-P4 DB (unit-tested on a synthetic P3-shape DB).
+- **Publish requests + red-team evidence** (`publish_request` table, `src/publish/index.js`): an editor
+  **submits the current head** for sign-off. Two pieces of evidence back the decision — a **deterministic
+  `changeSummary()`** (because the safe subset only permits route recolours + POI show/hide, the diff of
+  the submitted version vs the currently-published one is *complete*: the approver sees exactly what
+  changed and can be sure nothing else did) and a fixed **sign-off checklist** (`CHECKLIST`, five transit-
+  safety confirmations). `validateChecklist()` enforces completeness **on the server** — a map cannot be
+  published without every item confirmed. The evidence (checklist answers + change-summary snapshot +
+  notes + who/when) is stored on the request.
+- **Review console** (`/app/review`, `public/app/review.html` + `review.js`; approver/admin only — the
+  page redirects others and `requireApprover` re-checks the role on every `/api/review/*` route): a queue
+  of pending submissions; open one to see the change summary, **inspect the print-ready JPGs inline**,
+  complete the checklist, and **Publish** (advances the pointer, retires the previous published version to
+  `superseded`, sets the map `published`) or **Send back** (requires a reason; returns the version to
+  `rejected` so the editor can revise + resubmit).
+- **Editor publish panel** (`editor.html` + `editor.js`): shows the draft/published state, a live
+  "what publishing will change" summary, **Submit for publication**, and **Withdraw**. Editing is
+  **frozen while a request is pending** (server returns 409 on save; the controls disable) so the version
+  an approver reviews is always the head. Published (official) files are surfaced distinctly from the
+  working draft.
+- **Append-only audit log** (`audit_log` table, `src/audit/index.js`): every governance action —
+  `version.submit` / `publish` / `reject` / `withdraw` / `save`, plus the retrofitted P3 actions
+  (`application.approve`/`reject`, `maprequest.approve`/`reject`, `customer.update`) — records who, what,
+  when, and against which map/version. New admin **Audit** tab (`/api/admin/audit`, admin-only) renders it
+  newest-first with friendly labels.
+- **Roles activated**: the P2 `approver` role now has powers — a platform reviewer who can read/inspect
+  and publish **any** map's submitted version but cannot edit it (`loadReadableMap` vs `loadOwnedMap`).
+  A **Review** nav link appears for approvers + admins.
+- **Demo seed** now also creates a platform **approver** (`approver@community-bus-maps.example`),
+  **publishes March v1.0** as a first official version, and renders a real **St Ives v1.1** (route 9
+  recolour) **submitted for sign-off** — so the review queue, a published map and the audit trail are all
+  non-empty on first run.
+
+### Verified (end-to-end, fresh scratch server + demo seed, in-app browser)
+- **Sign-off gate**: approving with an **incomplete checklist → 400** (server lists the missing items);
+  the UI **Publish** button stays disabled until all 5 boxes are ticked (disabled at 4/5, enabled at 5/5).
+  Rejecting with **no reason → 400**.
+- **Publish + supersede**: approving St Ives **v1.1** set `published_version_id`, map `published`, and the
+  official pointer; then editing → save **v1.2** → submit → approving **v1.2** left versions as
+  **`v1.2:published, v1.1:superseded, v1.0:draft`** and advanced the pointer. Publishing never re-renders:
+  the **v1.0 baseline stayed byte-identical** (471,569 / 1,172,380 / 33,768 / 987,563 B).
+- **Editing lock**: while a request is pending the editor is locked (controls disabled, state
+  "Locked for review") and a direct `POST /save` returns **409**; **Withdraw** returns it to draft and
+  re-enables editing.
+- **Separation of duties / isolation**: the **approver** got **403** on save/preview/publish-request
+  (can't edit) and on `/api/admin/*` (not admin), but **200** on read-detail + version-file download (to
+  inspect). The **editor** got **403** on another customer's map (isolation intact from P2).
+- **Audit**: all nine actions recorded with correct actor attribution (editor submit/withdraw; approver +
+  admin publishes) and rendered in the admin **Audit** tab. No console errors on any app page.
+- **Pure-logic unit tests** (`changeSummary` + `validateChecklist`) and the **migration** test both green.
+
+### Lessons learned
+- **The change summary is only "complete" because the safe subset is small.** P4 leans on P1's boundary:
+  since a customer can *only* recolour routes and hide/show POIs, a diff of two versions' overrides is an
+  exhaustive account of what changed — there is no hidden geometry edit to miss. That is what lets a human
+  sign off with confidence, and why the evidence can be generated deterministically rather than re-derived.
+- **Two pointers, not one.** `current_version_id` (working head, moves on every save) and
+  `published_version_id` (the official/public version, moves only on sign-off) must be separate. Reusing
+  one would either publish drafts automatically or freeze editing after the first publish.
+- **Freeze editing while pending, don't chase a moving head.** Allowing saves during review would let the
+  head advance past the version under review (stale sign-off). Blocking `save` with a 409 while a request
+  is open keeps "the head" and "the submitted version" identical, so the state machine stays a simple
+  draft ↔ pending ↔ published loop. Withdraw is the escape hatch.
+- **Separate read-scope from edit-scope.** Approvers must fetch *any* submitted map's rendered files to
+  eyeball them, but must never edit — so `loadReadableMap` (admin/owner/**approver**) guards GET detail +
+  downloads while `loadOwnedMap` (admin/owner) still guards preview/save/submit. One shared loader would
+  have leaked edit access to reviewers.
+- **`confirm()`/`requestSubmit()` are unavailable in the in-app browser** (seen again from P3): tests
+  override `window.confirm = () => true` and click handlers directly; the checklist→enable wiring is
+  driven by dispatching `change` events, as in prior phases.
+- **Audit writes must never break the action.** `logAudit` swallows its own errors (logging a warning) so
+  a bad audit insert can't fail a publish — the audit is a record of the action, not a precondition for it.
+
 ## [0.3.0-P3] — 2026-07-23
 
 Phase **P3** — **onboarding + governance.** The public *apply* form from P0 now has the other half:

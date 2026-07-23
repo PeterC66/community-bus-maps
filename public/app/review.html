@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Review &amp; publish — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" id="adminLink" href="/app/admin" style="display:none">Admin</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1>Review &amp; publish</h1>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="refreshBtn" type="button">Refresh</button>
+    </div>
+    <p class="hint-line">Sign off submitted map versions before they become the official, print-ready public version. Every item on the checklist must be confirmed — it is public transit information people rely on.</p>
+
+    <div class="notice" id="banner"></div>
+
+    <div class="review-layout">
+      <aside class="review-queue">
+        <h2 class="review-h">Awaiting sign-off <span class="count-badge" id="queueCount"></span></h2>
+        <div id="queue" aria-live="polite"><div class="empty">Loading…</div></div>
+      </aside>
+      <section class="review-detail" id="detail">
+        <div class="empty">Select a submission on the left to review it.</div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/app/review.js"></script>
+</body>
+</html>

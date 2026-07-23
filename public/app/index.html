@@ -14,6 +14,7 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" id="reviewLink" href="/app/review" style="display:none">Review</a>
     <a class="navlink" id="adminLink" href="/app/admin" style="display:none">Admin</a>
     <span class="navlink" id="whoami"></span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
@@ -101,11 +102,18 @@
         : `You can request ${Math.max(0, c.quotaAreas - c.usedAreas)} more area and ${Math.max(0, c.quotaPlaces - c.usedPlaces)} more place map${(c.quotaPlaces - c.usedPlaces) === 1 ? '' : 's'}.`;
     }
 
+    // A publish-state pill for a built map (draft / awaiting sign-off / published).
+    function publishPill(m) {
+      if (m.pendingReview) return '<span class="status-pill req">Awaiting sign-off</span>';
+      if (m.publishedVersion && m.publishedVersion === m.currentVersion) return `<span class="status-pill pub">Published ${escapeHtml(m.publishedVersion)}</span>`;
+      if (m.publishedVersion) return `<span class="status-pill pub">Published ${escapeHtml(m.publishedVersion)}</span> <span class="status-pill">draft ahead</span>`;
+      return '<span class="status-pill">Draft</span>';
+    }
     function cardFor(m, isAdmin) {
       const owner = isAdmin && m.customer ? `<div class="meta owner">${escapeHtml(m.customer.name)}</div>` : '';
       const sub = `<div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + escapeHtml(m.currentVersion) : ''}</div>`;
       if (m.currentVersion) {
-        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}${owner}</a>`;
+        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}<div class="card-pills">${publishPill(m)}</div>${owner}</a>`;
       }
       const st = STATUS[m.status] || { label: m.status, cls: 'req' };
       return `<div class="card map-card is-pending"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>
@@ -161,12 +169,16 @@
       } catch { $('maps').innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
 
       const isAdmin = me.role === 'admin';
-      $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
+      $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · ${me.role}`;
       $('logoutBtn').style.display = '';
+      if (isAdmin || me.role === 'approver') $('reviewLink').style.display = '';
       if (isAdmin) {
         $('adminLink').style.display = '';
         $('dashTitle').textContent = 'All maps';
         $('dashIntro').textContent = 'Admin view — every customer’s maps. Open one to edit, or switch outputs. Layout/geometry edits remain expert-only.';
+      } else if (me.role === 'approver') {
+        $('dashTitle').textContent = 'Review & publish';
+        $('dashIntro').innerHTML = 'You are a platform approver. Head to <a href="/app/review">Review</a> to sign off submitted map versions.';
       }
       if (me.customer) { $('requestBtn').style.display = ''; renderQuota(); }
 
