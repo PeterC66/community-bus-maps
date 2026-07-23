@@ -1,0 +1,31 @@
+Community Bus Maps — portal
+Copyright 2026 Peter Cooper
+
+This product includes software developed by Peter Cooper, licensed under the
+Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Data & attribution
+--------------------------------------------------------------------------------
+
+The bus maps produced and displayed by this software are derived from:
+
+  * OpenStreetMap — map geometry (roads, rivers, points of interest).
+    (C) OpenStreetMap contributors, available under the Open Database Licence
+    (ODbL): https://www.openstreetmap.org/copyright
+    Maps and any derived data are © OpenStreetMap contributors and are
+    share-alike under the ODbL.
+
+  * Bus service data — routes, stops, operators, days of operation — via the
+    UK Bus Open Data Service (BODS), published under the Open Government
+    Licence v3.0 (OGL): https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data
+
+  * Live timetable cross-checks reference bustimes.org. Confirm any
+    reproduction at service scale against that site's terms of use.
+
+Any example images distributed with this repository (under public/examples/)
+are the project's own rendered bus leaflets and are provided for demonstration;
+they carry the OpenStreetMap and BODS attributions above.
+
+This NOTICE file is provided for attribution purposes and does not modify the
+License.

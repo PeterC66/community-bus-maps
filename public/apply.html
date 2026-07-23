@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apply — Community Bus Maps</title>
+  <meta name="description" content="Apply to become a Community Bus Maps customer. Tell us about your organisation and the area or places you'd like a bus map for.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+    <a class="navlink" href="/contact.html">Contact</a>
+    <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+  </nav></div></header>
+
+  <main>
+    <section><div class="container">
+      <h2 class="mt-0">Apply to become a customer</h2>
+      <p class="section-intro">Tell us a little about your organisation and what you’d like. We review every application and will get back to you. There’s no charge at the moment, and to start with each customer can have <strong>one area and a few places</strong>.</p>
+
+      <form class="form-wrap" data-endpoint="/api/apply" data-success="Thank you — your application has been received. We’ll review it and be in touch by email.">
+        <!-- honeypot: hidden from people, catches bots -->
+        <div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="website_hp" tabindex="-1" autocomplete="off"></label></div>
+
+        <div class="field">
+          <label for="org_name">Organisation name</label>
+          <input id="org_name" name="org_name" type="text" required maxlength="200" autocomplete="organization">
+        </div>
+
+        <div class="field">
+          <label for="org_type">Type of organisation</label>
+          <select id="org_type" name="org_type" required>
+            <option value="" selected disabled>Choose one…</option>
+            <option value="council">Town / parish council</option>
+            <option value="shop">Shop</option>
+            <option value="business">Business</option>
+            <option value="school">School / college</option>
+            <option value="function-organiser">Event / function organiser</option>
+            <option value="charity-nt">Charity / National Trust / attraction</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="contact_name">Your name</label>
+          <input id="contact_name" name="contact_name" type="text" required maxlength="120" autocomplete="name">
+        </div>
+
+        <div class="field">
+          <label for="email">Email <span class="hint">— where we’ll reply</span></label>
+          <input id="email" name="email" type="email" required maxlength="200" autocomplete="email">
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone <span class="hint">— optional</span></label>
+          <input id="phone" name="phone" type="tel" maxlength="60" autocomplete="tel">
+        </div>
+
+        <div class="field">
+          <label for="website">Website <span class="hint">— optional</span></label>
+          <input id="website" name="website" type="url" maxlength="200" placeholder="https://" autocomplete="url">
+        </div>
+
+        <div class="field">
+          <label for="wants">What would you like a map of? <span class="hint">— an area (a town/parish) and/or places (a shop, school, centre…)</span></label>
+          <textarea id="wants" name="wants" maxlength="2000" placeholder="e.g. an area map of Ramsey, plus a place map centred on our shop on the High Street."></textarea>
+        </div>
+
+        <div class="field">
+          <label for="message">Anything else? <span class="hint">— optional</span></label>
+          <textarea id="message" name="message" maxlength="4000"></textarea>
+        </div>
+
+        <p class="form-note">We’ll only use these details to consider and set up your maps. See our approach to data in the <a href="/faq.html">FAQ</a>.</p>
+
+        <button class="btn btn-primary" type="submit">Send application</button>
+        <div class="form-msg" role="status" aria-live="polite"></div>
+      </form>
+    </div></section>
+  </main>
+
+  <footer class="site-footer"><div class="container"><div class="cols">
+    <div class="attrib">
+      <strong>Community Bus Maps</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
+      Maps © OpenStreetMap contributors (ODbL); bus service data via BODS (Open Government Licence).
+    </div>
+    <div>
+      <a href="/examples.html">Examples</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a><br>
+      <span class="muted">Open-source (Apache-2.0) · <a href="https://github.com/PeterC66/community-bus-maps">GitHub</a></span>
+    </div>
+  </div></div></footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

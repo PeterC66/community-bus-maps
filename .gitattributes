@@ -1,0 +1,8 @@
+# Normalise line endings: store text as LF in the repo (deploys to Linux later).
+* text=auto eol=lf
+
+# Treat images as binary (no EOL munging).
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.svg text eol=lf

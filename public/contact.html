@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact — Community Bus Maps</title>
+  <meta name="description" content="Ask a question, send feedback, or get in touch with Community Bus Maps.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+    <a class="navlink" href="/contact.html">Contact</a>
+    <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+  </nav></div></header>
+
+  <main>
+    <section><div class="container">
+      <h2 class="mt-0">Get in touch</h2>
+      <p class="section-intro">A question, some feedback, or just curious? Send us a note. If you’d like your own maps, the <a href="/apply.html">application form</a> is the quickest way in.</p>
+
+      <form class="form-wrap" data-endpoint="/api/contact" data-success="Thanks for getting in touch — we’ve received your message.">
+        <div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="website_hp" tabindex="-1" autocomplete="off"></label></div>
+
+        <div class="field">
+          <label for="kind">What’s this about?</label>
+          <select id="kind" name="kind">
+            <option value="enquiry" selected>General enquiry</option>
+            <option value="question">A question</option>
+            <option value="feedback">Feedback</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="name">Your name <span class="hint">— optional</span></label>
+          <input id="name" name="name" type="text" maxlength="120" autocomplete="name">
+        </div>
+
+        <div class="field">
+          <label for="email">Email <span class="hint">— optional, but needed if you’d like a reply</span></label>
+          <input id="email" name="email" type="email" maxlength="200" autocomplete="email">
+        </div>
+
+        <div class="field">
+          <label for="body">Message</label>
+          <textarea id="body" name="body" required maxlength="4000"></textarea>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Send message</button>
+        <div class="form-msg" role="status" aria-live="polite"></div>
+      </form>
+    </div></section>
+  </main>
+
+  <footer class="site-footer"><div class="container"><div class="cols">
+    <div class="attrib">
+      <strong>Community Bus Maps</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
+      Maps © OpenStreetMap contributors (ODbL); bus service data via BODS (Open Government Licence).
+    </div>
+    <div>
+      <a href="/examples.html">Examples</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a><br>
+      <span class="muted">Open-source (Apache-2.0) · <a href="https://github.com/PeterC66/community-bus-maps">GitHub</a></span>
+    </div>
+  </div></div></footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
