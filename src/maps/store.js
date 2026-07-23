@@ -44,10 +44,22 @@ export function ensureMapDirs(id) {
   return dirs;
 }
 
-// The four artefacts a rendered version holds, and their content types.
-export const OUTPUT_FILES = {
-  'internal.svg': 'image/svg+xml',
-  'internal.jpg': 'image/jpeg',
-  'external.svg': 'image/svg+xml',
-  'external.jpg': 'image/jpeg',
+// The four possible outputs of a map. `portal:true` = the portal engine can
+// render it today (geographic + external); the schematic + diagram outputs are
+// modelled so the toggle UI + data model are complete, but their generators are
+// re-homed later (expert styles, P7), so they render as `portal:false` for now.
+// `base` is the artefact basename in a render folder (<base>.svg / <base>.jpg).
+export const OUTPUTS = {
+  internal_geographic: { gen: 'gen_internal.js',       base: 'internal',           label: 'Within the area', portal: true },
+  external:            { gen: 'gen_external.js',        base: 'external',           label: 'To nearby towns', portal: true },
+  internal_schematic:  { gen: 'schematize_internal.js', base: 'internal-schematic', label: 'Octolinear schematic', portal: false },
+  internal_diagram:    { gen: 'diagram_internal.js',    base: 'internal-diagram',   label: 'Tube-map diagram', portal: false },
 };
+
+// Files a rendered version can hold, with content types (derived from OUTPUTS).
+export const OUTPUT_FILES = Object.fromEntries(
+  Object.values(OUTPUTS).flatMap((o) => [
+    [`${o.base}.svg`, 'image/svg+xml'],
+    [`${o.base}.jpg`, 'image/jpeg'],
+  ]),
+);

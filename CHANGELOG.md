@@ -2,6 +2,65 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.2.0-P2] — 2026-07-23
+
+Phase **P2** — **multi-customer, authenticated, isolated.** The editor spine from P1 becomes a real
+two-sided service: organisations sign in passwordlessly, see only their own maps, and choose which
+outputs each map produces. This is the demo cut (P0+P1+P2): an org logs in, opens its map, recolours a
+route, re-renders, downloads — with every other org's data invisible and inaccessible.
+
+### Added
+- **Data model** (`schema.sql` + `src/db/index.js`): `customer` (type, status, dormant plan + quotas,
+  branding), `user` (belongs to a customer; role editor/approver/admin; admins have no customer),
+  `session` (opaque server-side token), `magic_link` (single-use, 15-min). `map` gains `customer_id`
+  (owner) and `outputs` (which of the four outputs it produces). A guarded **migration** adds the two
+  `map` columns to a pre-P2 DB without touching existing rows (verified on a synthetic P1 DB).
+- **Passwordless magic-link auth** (`src/auth/index.js`, no new deps): request a link → it's printed to
+  the **server console** in dev (a real email provider is a launch task) → `/auth/verify` consumes it and
+  sets an **httpOnly, SameSite=Lax session cookie** holding only an opaque random token. Login/logout,
+  `GET /api/me`, and a periodic expired-session purge.
+- **Tenant isolation** — every `/api/maps*` route requires a session and is scoped by `customer_id`:
+  non-admins can only list/open/preview/save/download/toggle **their own** maps; admins see all. Enforced
+  server-side on every access vector (detail, preview, save, download, output PATCH).
+- **Output toggles** (`src/maps/store.js` `OUTPUTS`, `PATCH /api/maps/:id/outputs`): a map's four outputs
+  are modelled (geographic, external, octolinear schematic, tube-map diagram); the portal renders the two
+  the vendored engine supports today and marks schematic/diagram "coming with expert styles". Preview,
+  render and downloads all follow the enabled set; a map must keep ≥1 output on.
+- **UI**: a login page; the dashboard + editor are auth-gated (redirect to login, user + sign-out in the
+  header, admins get an "all maps" view labelled by customer); the editor gains an **Outputs** panel and
+  builds its preview tabs dynamically from the enabled outputs.
+- **Demo seed** (`scripts/seed-demo.mjs` + `import-map.mjs --customer`): sets up an admin, two demo
+  councils each with an editor user, and imports their maps — a reproducible multi-tenant demo. Idempotent.
+
+### Verified (end-to-end, fresh server + demo seed)
+- **Isolation**: signed in as the St Ives editor, `/api/maps` returns only St Ives; March's detail,
+  **preview and download all return 403**. Admin (Peter) sees both councils' maps and can open March.
+- **Auth**: anon `/api/maps` → 401; magic-link request → console link → verify → session cookie → app;
+  wrong/expired token → back to login with an error.
+- **Output toggles**: turning external off persists and re-scopes preview/downloads; turning everything
+  off is rejected (400); schematic/diagram show as unavailable.
+- **Baselines still byte-identical**: St Ives and March both import + render v1.0 through the object store
+  (St Ives all four artefacts identical to the shipped v6.6).
+- **Migration**: a synthetic pre-P2 `map` table gains `customer_id`/`outputs` on boot, existing row intact.
+
+### Lessons learned
+- **Place maps don't fit the object-store model yet.** Area maps carry their generators per-map
+  (`gen_internal.js`/`gen_external.js`), which the portal vendors — that's why St Ives/March "just work".
+  **Place maps** (`make-place-bus-leaflet`) keep their *different* engine in the skill, not per-map, so a
+  place render dir carries **no generators**; importing one produced an unrenderable map. The importer now
+  **fails fast** when no portal generator is present, and the demo is area-maps-only until the place engine
+  is vendored (its own follow-up, analogous to P1 for places).
+- **SQLite datetime format matters for session expiry.** `datetime('now')` is `YYYY-MM-DD HH:MM:SS`;
+  storing an ISO string (`…T…Z`) breaks the `expires_at > datetime('now')` string comparison (the `T`
+  sorts after a space). Store expiries via `toISOString().slice(0,19).replace('T',' ')`.
+- **`node:sqlite` enforces foreign keys** (seen again): deleting `map` while `map.current_version_id`
+  points at a `map_version` fails; the demo re-seed wipes the DB file instead of DELETEing in-place.
+- **No new deps for auth.** Cookies are hand-rolled and the session token is an opaque server-side key, so
+  there's nothing to sign — `node:crypto` + a `session` table is enough. SameSite=Lax covers cross-site
+  POST; a dedicated CSRF token is a later hardening item.
+- **One SQLite writer.** The seed/import scripts and the dev server share `portal.sqlite`; run seeds with
+  the server stopped (P2 has no job queue yet — that's P5's territory).
+
 ## [0.1.0-P1] — 2026-07-23
 
 Phase **P1** — the **editor spine**. The bus-leaflet editor is re-homed behind the app as a

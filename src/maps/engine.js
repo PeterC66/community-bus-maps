@@ -14,9 +14,45 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, OUTPUT_FILES } from './store.js';
+import { mapDataDir, overridesPath, versionDir, OUTPUTS, OUTPUT_FILES } from './store.js';
 
-const GEN = { internal: 'gen_internal.js', external: 'gen_external.js' };
+const GEN_INTERNAL = 'gen_internal.js';
+
+/** Default output enablement: portal-supported outputs on, the rest off. */
+export function defaultOutputs() {
+  const o = {};
+  for (const [key, meta] of Object.entries(OUTPUTS)) o[key] = !!meta.portal;
+  return o;
+}
+
+/**
+ * The outputs to actually render for a map: enabled AND portal-supported AND the
+ * generator is present. An empty/absent config means "portal defaults on" — so a
+ * map imported before output toggles existed still renders both.
+ * @returns {{ key:string, gen:string, base:string, label:string }[]}
+ */
+export function effectiveOutputs(config, dataDir) {
+  const cfg = config && typeof config === 'object' ? config : {};
+  const out = [];
+  for (const [key, meta] of Object.entries(OUTPUTS)) {
+    if (!meta.portal) continue;
+    if (cfg[key] === false) continue; // undefined => on
+    if (!existsSync(path.join(dataDir, meta.gen))) continue;
+    out.push({ key, ...meta });
+  }
+  return out;
+}
+
+/** Full 4-output descriptor for the UI (toggles): what's available + enabled. */
+export function outputsForClient(config, id) {
+  const dataDir = mapDataDir(id);
+  const cfg = config && typeof config === 'object' ? config : {};
+  return Object.entries(OUTPUTS).map(([key, meta]) => ({
+    key, base: meta.base, label: meta.label, portal: !!meta.portal,
+    available: !!meta.portal && existsSync(path.join(dataDir, meta.gen)),
+    enabled: meta.portal ? cfg[key] !== false : false,
+  }));
+}
 
 function readJson(p, fallback = null) {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return fallback; }
@@ -49,14 +85,14 @@ const poiCache = new Map();
 export function enumeratePois(id) {
   if (poiCache.has(id)) return poiCache.get(id);
   const dataDir = mapDataDir(id);
-  if (!existsSync(path.join(dataDir, GEN.internal))) return [];
+  if (!existsSync(path.join(dataDir, GEN_INTERNAL))) return [];
   // Baseline (no overrides) so every POI is present; keys captured via EDITOR_KEYS.
   const empty = path.join(os.tmpdir(), `cbm-enum-${process.pid}-${Date.now()}.json`);
   writeFileSync(empty, '{}');
   let svg = '';
   try {
     const { svgPath } = generateSvg({
-      dataDir, generator: GEN.internal, iconsDir: ENGINE_DIR,
+      dataDir, generator: GEN_INTERNAL, iconsDir: ENGINE_DIR,
       overridesFile: empty, editorKeys: true,
     });
     svg = readFileSync(svgPath, 'utf8');
@@ -90,24 +126,23 @@ export function readOverrides(id) {
 }
 
 /**
- * Render both maps for a candidate overrides object WITHOUT persisting anything.
- * Writes the overrides to a temp file and returns the two SVG strings.
+ * Render a map's enabled outputs for a candidate overrides object WITHOUT
+ * persisting anything. Returns SVG strings keyed by artefact base name.
  */
-export function preview(id, overrides) {
+export function preview(id, overrides, outputsConfig) {
   const dataDir = mapDataDir(id);
   const tmp = path.join(os.tmpdir(), `cbm-preview-${process.pid}-${Date.now()}.json`);
   writeFileSync(tmp, JSON.stringify(overrides || {}));
   const result = {};
   try {
-    for (const [name, gen] of Object.entries(GEN)) {
-      if (!existsSync(path.join(dataDir, gen))) continue;
-      const { svgPath } = generateSvg({ dataDir, generator: gen, iconsDir: ENGINE_DIR, overridesFile: tmp });
-      result[name] = readFileSync(svgPath, 'utf8');
+    for (const o of effectiveOutputs(outputsConfig, dataDir)) {
+      const { svgPath } = generateSvg({ dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp });
+      result[o.base] = readFileSync(svgPath, 'utf8');
     }
   } finally {
     try { unlinkSync(tmp); } catch {}
   }
-  return result; // { internal?: svgString, external?: svgString }
+  return result; // { internal?: svg, external?: svg, ... } by base name
 }
 
 /**
@@ -116,7 +151,7 @@ export function preview(id, overrides) {
  * copy the four artefacts into renders/<storageKey>/ with a meta.json.
  * @returns {{ storageKey:string, files: Record<string,number>, log: string[] }}
  */
-export async function renderVersion(id, overrides, storageKey) {
+export async function renderVersion(id, overrides, storageKey, outputsConfig) {
   const dataDir = mapDataDir(id);
   const outDir = versionDir(id, storageKey);
   mkdirSync(outDir, { recursive: true });
@@ -129,16 +164,15 @@ export async function renderVersion(id, overrides, storageKey) {
   const files = {};
   const log = [];
   try {
-    for (const [name, gen] of Object.entries(GEN)) {
-      if (!existsSync(path.join(dataDir, gen))) continue;
-      const { svgPath, log: genLog } = generateSvg({ dataDir, generator: gen, iconsDir: ENGINE_DIR, overridesFile: tmp });
-      if (genLog) log.push(`${gen}: ${genLog}`);
-      const svgOut = path.join(outDir, `${name}.svg`);
-      const jpgOut = path.join(outDir, `${name}.jpg`);
+    for (const o of effectiveOutputs(outputsConfig, dataDir)) {
+      const { svgPath, log: genLog } = generateSvg({ dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp });
+      if (genLog) log.push(`${o.gen}: ${genLog}`);
+      const svgOut = path.join(outDir, `${o.base}.svg`);
+      const jpgOut = path.join(outDir, `${o.base}.jpg`);
       cpSync(svgPath, svgOut);
       await rasterise(svgPath, jpgOut);
-      files[`${name}.svg`] = statSync(svgOut).size;
-      files[`${name}.jpg`] = statSync(jpgOut).size;
+      files[`${o.base}.svg`] = statSync(svgOut).size;
+      files[`${o.base}.jpg`] = statSync(jpgOut).size;
     }
   } finally {
     try { unlinkSync(tmp); } catch {}

@@ -35,7 +35,7 @@ internal schematic, internal diagram, external).
 |---|---|---|
 | **P0** | Public repo + Apache-2.0 + hygiene; render wrapper proven **byte-identical**; public shopfront (marketing, examples, apply, FAQ, contact) + `/api/apply` + `/api/contact`. | ✅ **done (2026-07-23)** |
 | **P1** | Re-home the editor behind the app as the **safe-subset** editor (recolour routes, toggle POIs) → save → version → render → download; object store; importer seeds a baseline. | ✅ **done (2026-07-23)** |
-| **P2** | Multi-customer + magic-link auth + roles + tenant isolation; typed maps (area/place) + output toggles; importer loads existing towns/places as demo customers. | |
+| **P2** | Multi-customer + magic-link auth + roles + tenant isolation; per-map output toggles; demo seed of existing towns as customers. *(Area maps only — the place engine is a follow-up; approver-role powers land in P4.)* | ✅ **done (2026-07-23)** |
 | **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off). | |
 | **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | |
 | **P5** | Monthly change acceptance: central refresh → `proposed_update`; review queue; old-vs-new preview; accept re-applies overrides. | |
@@ -59,12 +59,26 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 | Accept/defer the monthly change — *P5* | New-map onboarding / bootstrapping a subject |
 | Choose which of the 4 outputs a map produces — *P2 (typed maps + output toggles); P1 renders internal + external* | Anything touching upstream (S1/S2) data |
 
+## Known follow-ups (not blocking a phase)
+
+- **Place maps.** Only **area** maps render in the portal: their generators travel per-map and are
+  vendored. Place maps (`make-place-bus-leaflet`) use a *different* engine kept in the skill, not per-map,
+  so their render dirs carry no generators. Vendoring that engine into the object store (its own "P1 for
+  places") is the follow-up; until then the importer refuses place maps and the demo is area-only.
+- **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
+- **Email provider** for magic links (dev prints them to the server console).
+
 ## Key facts for continuation
 
-- **Run:** `npm run dev` → `http://127.0.0.1:5180` (shopfront) and `/app` (the editor). **Prove the
+- **Run:** `npm run dev` → `http://127.0.0.1:5180` (shopfront) and `/app` (sign-in → editor). **Prove the
   renderer:** set `FIXTURE_DIR` to a staged town render folder from the Buses repo, then `npm run verify`.
-- **Seed a map (P1):** `node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" --slug st-ives`
-  → renders **v1.0 = the byte-identical baseline**. **Stop the dev server first** (one SQLite writer).
+- **Demo (P2):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + two councils + their maps.
+  Sign in with a seeded email; the one-time link is printed to the **server console**. **Stop the dev
+  server first** (one SQLite writer).
+- **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
+  admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
+- **Seed one map (P1/P2):** `node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" --slug st-ives --customer "St Ives Town Council"`
+  → renders **v1.0 = the byte-identical baseline**.
 - **Object store:** each map lives at `data/maps/<id>/` — `data/` (generators + inputs, with a
   `{"type":"commonjs"}` marker so the CJS generators run inside this `type:module` repo),
   `overrides.json` (canonical safe-subset edits), `renders/v<maj>.<min>/` (four artefacts + meta). All

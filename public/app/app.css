@@ -114,3 +114,13 @@
 
 .btn-sm { padding: 8px 14px; font-size: .9rem; }
 .save-note { width: 100%; margin-bottom: 8px; }
+
+/* output toggles + misc */
+.soon { color: var(--muted); font-size: .78rem; font-style: italic; }
+.poi-item input:disabled + label { color: var(--muted); }
+.map-card .meta.owner { margin-top: 6px; font-weight: 600; color: var(--primary); font-size: .82rem; }
+.nav .navlink#whoami { font-size: .82rem; color: var(--muted); }
+
+/* login */
+.login-card { max-width: 460px; margin: 40px auto; }
+.login-card h1 { font-size: 1.5rem; }

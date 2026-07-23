@@ -16,9 +16,12 @@ import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:
 import path from 'node:path';
 import {
   getMapBySlug, insertMap, setMapDataDir, insertVersion, setCurrentVersion,
+  getCustomerByName, insertCustomer,
 } from '../src/db/index.js';
 import { ensureMapDirs, mapDataDir, overridesPath } from '../src/maps/store.js';
-import { renderVersion } from '../src/maps/engine.js';
+import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
+
+const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -37,18 +40,46 @@ const SRC = path.resolve(src);
 const slug = slugify(arg('slug', name));
 const kind = arg('kind', 'area');
 const subject = arg('subject', name);
+const customerName = arg('customer');
+const customerType = arg('customer-type', 'other');
 
 if (!existsSync(SRC)) { console.error(`✗ --src not found: ${SRC}`); process.exit(1); }
-for (const g of ['gen_internal.js', 'gen_external.js']) {
-  if (!existsSync(path.join(SRC, g))) console.warn(`· note: ${g} not in --src (that output will be skipped)`);
+
+// The portal vendors the AREA engine (gen_internal.js / gen_external.js travel
+// per-map). PLACE maps use a different engine kept in the make-place-bus-leaflet
+// skill (not per-map), so their render dirs carry no generators — the portal
+// can't render them yet. Fail fast rather than create an unrenderable map.
+const PORTAL_GENS = ['gen_internal.js', 'gen_external.js'];
+const presentGens = PORTAL_GENS.filter((g) => existsSync(path.join(SRC, g)));
+if (!presentGens.length) {
+  console.error(`✗ --src carries none of the portal generators (${PORTAL_GENS.join(', ')}).`);
+  console.error('  This looks like a place map — its engine is not vendored in the portal yet. Skipping.');
+  process.exit(3);
 }
+for (const g of PORTAL_GENS) if (!existsSync(path.join(SRC, g))) console.warn(`· note: ${g} not present — that output will be skipped`);
 if (getMapBySlug(slug)) {
   console.error(`✗ a map with slug "${slug}" already exists — pick another --slug or remove it from the DB.`);
   process.exit(1);
 }
 
+// Resolve (or create) the owning customer.
+let customerId = null;
+if (customerName) {
+  const existing = getCustomerByName(customerName);
+  if (existing) {
+    customerId = existing.id;
+    console.log(`· owner: existing customer "${customerName}" (#${customerId})`);
+  } else {
+    const type = ORG_TYPES.includes(customerType) ? customerType : 'other';
+    customerId = insertCustomer({ name: customerName, type });
+    console.log(`· owner: created customer "${customerName}" (#${customerId}, ${type})`);
+  }
+} else {
+  console.warn('· note: no --customer given → map is unowned (only an admin can see it). Pass --customer "Name".');
+}
+
 // 1) DB row + object-store folders
-const id = insertMap({ slug, name, kind, subject, data_dir: '', status: 'draft' });
+const id = insertMap({ customer_id: customerId, slug, name, kind, subject, data_dir: '', outputs: defaultOutputs(), status: 'draft' });
 const dirs = ensureMapDirs(id);
 setMapDataDir(id, dirs.data);
 
@@ -68,7 +99,7 @@ console.log(`· copied ${copied} payload files → ${dest}`);
 writeFileSync(overridesPath(id), '{}\n');
 const storageKey = 'v1.0';
 console.log('· rendering baseline v1.0 (this runs both generators + rasterises)…');
-const r = await renderVersion(id, {}, storageKey);
+const r = await renderVersion(id, {}, storageKey, defaultOutputs());
 const versionId = insertVersion({ map_id: id, major: 1, minor: 0, note: 'Imported baseline', overrides: {}, storage_key: storageKey });
 setCurrentVersion(id, versionId);
 

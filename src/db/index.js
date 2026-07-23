@@ -19,6 +19,17 @@ export const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec(readFileSync(path.join(HERE, 'schema.sql'), 'utf8'));
 
+// Lightweight migrations for DBs created before a column existed. (schema.sql is
+// CREATE TABLE IF NOT EXISTS, so an existing table won't pick up new columns.)
+function tableColumns(table) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+}
+(function migrate() {
+  const mapCols = tableColumns('map');
+  if (!mapCols.includes('customer_id')) db.exec('ALTER TABLE map ADD COLUMN customer_id INTEGER');
+  if (!mapCols.includes('outputs')) db.exec("ALTER TABLE map ADD COLUMN outputs TEXT NOT NULL DEFAULT '{}'");
+})();
+
 export function insertApplication(a) {
   const info = db
     .prepare(
@@ -57,22 +68,32 @@ export function counts() {
 // Maps + versions (P1 editor spine)
 // ---------------------------------------------------------------------------
 
-export function listMaps() {
+// Pass { customerId } to scope to one customer's maps; omit for all (admin view).
+export function listMaps({ customerId } = {}) {
+  const where = customerId != null ? 'WHERE m.customer_id = ?' : '';
+  const args = customerId != null ? [Number(customerId)] : [];
   return db
     .prepare(
-      `SELECT m.*, v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key
-         FROM map m LEFT JOIN map_version v ON v.id = m.current_version_id
-        ORDER BY m.name`,
+      `SELECT m.*, c.name AS customer_name,
+              v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key
+         FROM map m
+         LEFT JOIN customer c ON c.id = m.customer_id
+         LEFT JOIN map_version v ON v.id = m.current_version_id
+         ${where}
+        ORDER BY c.name, m.name`,
     )
-    .all();
+    .all(...args);
 }
 
 export function getMap(id) {
   return db
     .prepare(
-      `SELECT m.*, v.major AS cur_major, v.minor AS cur_minor,
+      `SELECT m.*, c.name AS customer_name,
+              v.major AS cur_major, v.minor AS cur_minor,
               v.storage_key AS cur_key, v.overrides_json AS cur_overrides
-         FROM map m LEFT JOIN map_version v ON v.id = m.current_version_id
+         FROM map m
+         LEFT JOIN customer c ON c.id = m.customer_id
+         LEFT JOIN map_version v ON v.id = m.current_version_id
         WHERE m.id = ?`,
     )
     .get(Number(id));
@@ -85,11 +106,26 @@ export function getMapBySlug(slug) {
 export function insertMap(m) {
   const info = db
     .prepare(
-      `INSERT INTO map (slug, name, kind, subject, data_dir, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO map (customer_id, slug, name, kind, subject, data_dir, outputs, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(m.slug, m.name, m.kind || 'area', m.subject || null, m.data_dir, m.status || 'draft');
+    .run(
+      m.customer_id != null ? Number(m.customer_id) : null,
+      m.slug, m.name, m.kind || 'area', m.subject || null, m.data_dir,
+      JSON.stringify(m.outputs || {}), m.status || 'draft',
+    );
   return Number(info.lastInsertRowid);
+}
+
+export function setMapOutputs(mapId, outputs) {
+  db.prepare('UPDATE map SET outputs = ? WHERE id = ?').run(JSON.stringify(outputs || {}), Number(mapId));
+}
+
+export function countMapsByKind(customerId) {
+  return db
+    .prepare(`SELECT kind, COUNT(*) AS c FROM map WHERE customer_id = ? GROUP BY kind`)
+    .all(Number(customerId))
+    .reduce((acc, r) => ((acc[r.kind] = r.c), acc), {});
 }
 
 /** Next version number: first is 1.0, later saves bump the minor (major bumps are for data refreshes, P5). */
@@ -139,4 +175,93 @@ export function getVersion(mapId, storageKey) {
   return db
     .prepare('SELECT * FROM map_version WHERE map_id = ? AND storage_key = ?')
     .get(Number(mapId), storageKey);
+}
+
+// ---------------------------------------------------------------------------
+// Customers, users, sessions, magic links (P2 auth + multi-tenancy)
+// ---------------------------------------------------------------------------
+
+export function insertCustomer(c) {
+  const info = db
+    .prepare(
+      `INSERT INTO customer (name, type, status, plan, quota_areas, quota_places)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      c.name, c.type || 'other', c.status || 'active', c.plan || 'free',
+      c.quota_areas != null ? c.quota_areas : 1,
+      c.quota_places != null ? c.quota_places : 3,
+    );
+  return Number(info.lastInsertRowid);
+}
+export function getCustomer(id) {
+  return db.prepare('SELECT * FROM customer WHERE id = ?').get(Number(id));
+}
+export function getCustomerByName(name) {
+  return db.prepare('SELECT * FROM customer WHERE name = ?').get(name);
+}
+export function listCustomers() {
+  return db.prepare('SELECT * FROM customer ORDER BY name').all();
+}
+
+export function insertUser(u) {
+  const info = db
+    .prepare(`INSERT INTO user (customer_id, email, name, role, status) VALUES (?, ?, ?, ?, ?)`)
+    .run(
+      u.customer_id != null ? Number(u.customer_id) : null,
+      String(u.email).toLowerCase(), u.name || null, u.role || 'editor', u.status || 'active',
+    );
+  return Number(info.lastInsertRowid);
+}
+export function getUser(id) {
+  return db.prepare('SELECT * FROM user WHERE id = ?').get(Number(id));
+}
+export function getUserByEmail(email) {
+  return db.prepare('SELECT * FROM user WHERE email = ?').get(String(email).toLowerCase());
+}
+export function listUsers() {
+  return db
+    .prepare('SELECT u.*, c.name AS customer_name FROM user u LEFT JOIN customer c ON c.id = u.customer_id ORDER BY u.email')
+    .all();
+}
+
+export function insertSession(token, userId, expiresAt) {
+  db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, Number(userId), expiresAt);
+}
+export function getSession(token) {
+  // returns the joined user row when the session is live, else undefined
+  return db
+    .prepare(
+      `SELECT s.token, s.expires_at,
+              u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id
+         FROM session s JOIN user u ON u.id = s.user_id
+        WHERE s.token = ? AND s.expires_at > datetime('now')`,
+    )
+    .get(token);
+}
+export function deleteSession(token) {
+  db.prepare('DELETE FROM session WHERE token = ?').run(token);
+}
+export function purgeExpiredSessions() {
+  db.prepare("DELETE FROM session WHERE expires_at <= datetime('now')").run();
+}
+
+export function insertMagicLink(token, email, expiresAt) {
+  db.prepare('INSERT INTO magic_link (token, email, expires_at) VALUES (?, ?, ?)').run(token, String(email).toLowerCase(), expiresAt);
+}
+export function consumeMagicLink(token) {
+  // atomically mark a valid, unused, unexpired token as used; return its row or undefined
+  const row = db
+    .prepare("SELECT * FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
+    .get(token);
+  if (!row) return undefined;
+  db.prepare("UPDATE magic_link SET used_at = datetime('now') WHERE token = ?").run(token);
+  return row;
+}
+
+export function authCounts() {
+  return {
+    customers: db.prepare('SELECT COUNT(*) AS c FROM customer').get().c,
+    users: db.prepare('SELECT COUNT(*) AS c FROM user').get().c,
+  };
 }

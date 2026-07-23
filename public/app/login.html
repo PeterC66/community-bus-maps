@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/">Home</a>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="login-card card">
+      <h1 class="mt-0">Sign in</h1>
+      <p class="hint-line">Enter your email and we'll send you a one-time sign-in link — no password needed.</p>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email address</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@organisation.org">
+        </div>
+        <button class="btn btn-primary" type="submit" id="loginBtn">Send me a sign-in link</button>
+        <div class="form-msg" id="loginMsg"></div>
+      </form>
+
+      <p class="hint-line" style="margin-top:18px">
+        Not a customer yet? <a href="/apply.html">Apply to join</a>.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (params.get('error') === 'expired') {
+      const m = document.getElementById('loginMsg');
+      m.textContent = 'That sign-in link was invalid or has expired. Please request a new one.';
+      m.className = 'form-msg err show';
+    }
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const msg = document.getElementById('loginMsg');
+      const email = document.getElementById('email').value.trim();
+      btn.disabled = true; btn.textContent = 'Sending…';
+      try {
+        const res = await fetch('/api/auth/request', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body.ok) {
+          msg.textContent = body.message || 'Check your email for a sign-in link.';
+          msg.className = 'form-msg ok show';
+        } else {
+          msg.textContent = (body && body.error) || 'Something went wrong. Please try again.';
+          msg.className = 'form-msg err show';
+        }
+      } catch {
+        msg.textContent = 'Network error — please try again.';
+        msg.className = 'form-msg err show';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Send me a sign-in link';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -19,12 +19,13 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (diagram)** | a tube-map-style diagram |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: early build (P0 + P1).** This repo contains the public **shopfront** (marketing, examples,
-> "apply to become a customer"), the deterministic **render wrapper** with a **byte-identical
-> reproduction test**, and the **safe-subset editor** (P1): open a map, recolour a route or show/hide a
-> landmark, preview the real render live, then save a numbered version and download print-ready files.
-> Multi-customer auth, the approval gates and monthly-change acceptance follow in later phases — see
-> [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: early build (P0 + P1 + P2).** This repo contains the public **shopfront** (marketing,
+> examples, "apply to become a customer"), the deterministic **render wrapper** with a **byte-identical
+> reproduction test**, the **safe-subset editor** (P1), and **multi-customer auth + tenant isolation**
+> (P2): organisations sign in passwordlessly, see only their own maps, recolour routes / toggle
+> landmarks / choose outputs, save numbered versions and download print-ready files. The approval gates
+> and monthly-change acceptance follow in later phases — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and
+> [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
 
@@ -54,24 +55,36 @@ Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate B
 npm run verify
 ```
 
-### Try the editor (P1)
+### Set up the multi-customer demo (P2)
 
-Seed one map into the object store from a staged Buses run dir, then open the editor. **Stop the dev
-server first** — the importer and server both write the SQLite file, and one writer at a time is the
-rule for now:
+Seed an admin, two demo councils (each with an editor user) and their maps. **Stop the dev server
+first** — the seed and the server share the SQLite file, and it's one writer at a time for now:
 
 ```bash
-node scripts/import-map.mjs --src "/path/to/St Ives/S5-render/v6.6_..." --name "St Ives" --slug st-ives --kind area --subject "St Ives, Cambridgeshire"
+BUSES_DIR="/path/to/Buses" node scripts/seed-demo.mjs
 ```
 
-Then `npm run dev` and open **http://127.0.0.1:5180/app** → pick the map. You can recolour any route,
-tick/untick landmarks, watch the live preview, and **Save new version** to render print-ready
-SVG + JPG for both the "within the area" and "to nearby towns" maps. Version **1.0 is the imported
-baseline** (empty overrides ⇒ byte-identical to the shipped leaflet); each save bumps the minor and
-keeps every earlier version.
+Then `npm run dev` and open **http://127.0.0.1:5180/app**. You'll be sent to a **sign-in** page — enter
+one of the seeded emails and the one-time link is **printed to the server console** (no email provider
+in dev):
 
-The editor is locked to a **safe subset** — recolour + POI toggle — enforced on the server, not just
-hidden in the UI. Layout, geometry, straightening and diagram-pin edits stay expert-only.
+- `peter@pcooper.me.uk` — **admin**: sees every customer's maps.
+- `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's map.
+
+Open a map to recolour routes, tick/untick landmarks, choose which **outputs** it produces, and **Save
+new version** for print-ready SVG + JPG. Version **1.0 is the imported baseline** (empty overrides ⇒
+byte-identical to the shipped leaflet); each save bumps the minor and keeps every earlier version.
+
+To import a single map yourself (attaching it to a customer, created if new):
+
+```bash
+node scripts/import-map.mjs --src "/path/to/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "March Town Council" --customer-type council
+```
+
+Two boundaries are **enforced on the server**, not just hidden in the UI: the editor is locked to a
+**safe subset** (recolour + POI toggle; layout/geometry/diagram-pins stay expert-only), and every map is
+**tenant-isolated** — a customer can never list, open, preview, download or re-configure another
+customer's map. Only **area** maps are supported so far; place maps use a separate engine (a follow-up).
 
 ## Data hygiene (important — this is a public repo)
 
@@ -95,11 +108,12 @@ via **BODS** (Open Government Licence). See [NOTICE](NOTICE) for full attributio
 ```
 engine/     the deterministic renderer (vendored reference: render.js, icons.js as a CommonJS island)
 src/
-  db/       node:sqlite schema + helpers (applications, messages, maps, versions)
+  db/       node:sqlite schema + helpers (customers, users, sessions, maps, versions, messages)
+  auth/     magic-link + server-side sessions + hand-rolled cookies (no deps)
   render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
-  maps/     store.js (object store) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render)
-  server.js Fastify server: shopfront API + the P1 editor API
-public/     the shopfront (marketing, examples, apply) + app/ (the editor dashboard + two-pane editor)
-scripts/    import-map.mjs (seed a map) · verify-reproduce.mjs (byte-identical test)
+  maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render)
+  server.js Fastify server: shopfront + auth + the tenant-scoped editor API
+public/     the shopfront + app/ (login, dashboard, two-pane editor)
+scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · verify-reproduce.mjs (byte-identical test)
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 ```

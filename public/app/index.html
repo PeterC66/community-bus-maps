@@ -14,15 +14,16 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
-    <a class="navlink" href="/faq.html">FAQ</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
   </nav></div></header>
 
   <main class="app-main">
     <div class="app-sub">
-      <h1>My maps</h1>
+      <h1 id="dashTitle">My maps</h1>
       <span class="spacer"></span>
     </div>
-    <p class="hint-line">Open a map to recolour its routes, show or hide points of interest, then save a new version and download print-ready sheets. Layout and geometry stay with our team.</p>
+    <p class="hint-line" id="dashIntro">Open a map to recolour its routes, show or hide points of interest, then save a new version and download print-ready sheets. Layout and geometry stay with our team.</p>
 
     <div id="maps" class="map-list" aria-live="polite">
       <div class="empty">Loading your maps…</div>
@@ -31,11 +32,33 @@
 
   <script>
     const tag = (k) => `<span class="tag ${k === 'place' ? 'place' : 'area'}">${k === 'place' ? 'Place' : 'Area'}</span>`;
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+      location.href = '/app/login.html';
+    });
+
     (async () => {
+      // gate: who am I?
+      let me;
+      try {
+        const r = await fetch('/api/me');
+        if (r.status === 401) { location.href = '/app/login.html'; return; }
+        me = (await r.json()).user;
+      } catch { document.getElementById('maps').innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
+
+      const isAdmin = me.role === 'admin';
+      document.getElementById('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
+      document.getElementById('logoutBtn').style.display = '';
+      if (isAdmin) {
+        document.getElementById('dashTitle').textContent = 'All maps';
+        document.getElementById('dashIntro').textContent = 'Admin view — every customer’s maps. Open one to edit, or switch outputs. Layout/geometry edits remain expert-only.';
+      }
+
       const box = document.getElementById('maps');
       try {
-        const res = await fetch('/api/maps');
-        const body = await res.json();
+        const body = await (await fetch('/api/maps')).json();
         const maps = (body && body.maps) || [];
         if (!maps.length) {
           box.innerHTML = '<div class="empty">No maps yet. Once a map is approved for your organisation it will appear here.</div>';
@@ -45,12 +68,12 @@
           <a class="card map-card" href="/app/maps/${m.id}">
             <h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>
             <div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + m.currentVersion : ''}</div>
+            ${isAdmin && m.customer ? `<div class="meta owner">${escapeHtml(m.customer.name)}</div>` : ''}
           </a>`).join('');
       } catch {
-        box.innerHTML = '<div class="empty">Could not load maps. Is the server running?</div>';
+        box.innerHTML = '<div class="empty">Could not load maps.</div>';
       }
     })();
-    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   </script>
 </body>
 </html>

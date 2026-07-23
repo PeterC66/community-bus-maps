@@ -14,6 +14,8 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">← My maps</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
   </nav></div></header>
 
   <main class="app-main">
@@ -29,6 +31,14 @@
       <!-- ---------------- controls ---------------- -->
       <div>
         <div class="controls">
+          <div class="panel">
+            <header>Outputs <span class="count" id="outputCount"></span></header>
+            <div class="body">
+              <p class="hint-line">Choose which sheets this map produces. Saving re-renders the ones that are on.</p>
+              <div id="outputs"></div>
+            </div>
+          </div>
+
           <div class="panel">
             <header>Route colours <span class="count" id="routeCount"></span></header>
             <div class="body">
@@ -59,10 +69,7 @@
       <!-- ---------------- preview + output ---------------- -->
       <div>
         <div class="preview-head">
-          <div class="tabs" role="tablist">
-            <button class="tab active" id="tabInternal" data-map="internal" role="tab">Within the area</button>
-            <button class="tab" id="tabExternal" data-map="external" role="tab">To nearby towns</button>
-          </div>
+          <div class="tabs" role="tablist" id="tabs"></div>
           <span class="spacer"></span>
           <span class="status-chip"><span class="dot clean" id="pvDot"></span><span id="pvText">Showing saved version</span></span>
         </div>
