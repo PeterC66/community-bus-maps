@@ -249,6 +249,23 @@ $('previewBtn').addEventListener('click', () => { clearTimeout(debounce); runPre
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
 window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
+// ---- not-yet-built maps (requested/approved/building) ------------------------
+function showPending() {
+  const phrase = {
+    requested: 'awaiting review',
+    approved: 'approved and queued for our team to build',
+    building: 'being prepared by our team',
+  }[detail.status] || detail.status;
+  $('stateDot').className = 'dot';
+  $('stateText').textContent = 'Not built yet';
+  document.querySelector('.editor').innerHTML =
+    `<div class="panel" style="grid-column:1/-1"><div class="body">
+      <p>This ${detail.kind === 'place' ? 'place' : 'area'} map is <strong>${esc(phrase)}</strong>.</p>
+      <p class="hint-line">Once our team has built the base map you'll be able to recolour routes, show or hide points of interest, and download print-ready sheets right here. We'll let you know by email.</p>
+      <a class="btn btn-ghost btn-sm" href="/app">← Back to my maps</a>
+    </div></div>`;
+}
+
 // ---- init --------------------------------------------------------------------
 (async () => {
   // gate
@@ -271,6 +288,10 @@ window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefau
     $('mapName').textContent = detail.name;
     $('mapTag').innerHTML = `<span class="tag ${detail.kind === 'place' ? 'place' : 'area'}">${detail.kind === 'place' ? 'Place' : 'Area'}</span>`;
     $('mapCrumb').textContent = [detail.subject, detail.currentVersion ? 'current ' + detail.currentVersion : ''].filter(Boolean).join(' · ');
+
+    // A requested/approved/building map has no rendered version yet — show a
+    // friendly "being prepared" state instead of empty editing controls.
+    if (!detail.currentVersion) { showPending(); return; }
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);

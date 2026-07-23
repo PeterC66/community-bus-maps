@@ -14,6 +14,7 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" id="adminLink" href="/app/admin" style="display:none">Admin</a>
     <span class="navlink" id="whoami"></span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
   </nav></div></header>
@@ -22,57 +23,154 @@
     <div class="app-sub">
       <h1 id="dashTitle">My maps</h1>
       <span class="spacer"></span>
+      <button class="btn btn-primary btn-sm" id="requestBtn" type="button" style="display:none">Request a map</button>
     </div>
     <p class="hint-line" id="dashIntro">Open a map to recolour its routes, show or hide points of interest, then save a new version and download print-ready sheets. Layout and geometry stay with our team.</p>
+    <div class="quota-bar" id="quotaBar" style="display:none"></div>
 
     <div id="maps" class="map-list" aria-live="polite">
       <div class="empty">Loading your maps…</div>
     </div>
   </main>
 
+  <!-- Request-a-map dialog -->
+  <dialog id="requestDialog" class="dialog">
+    <form id="requestForm" method="dialog">
+      <h2 class="mt-0">Request a map</h2>
+      <p class="hint-line" id="requestQuota"></p>
+      <div class="field">
+        <label>Type of map</label>
+        <div class="radio-row">
+          <label class="radio"><input type="radio" name="kind" value="area" checked> <span><strong>Area</strong> — a whole town or parish</span></label>
+          <label class="radio"><input type="radio" name="kind" value="place"> <span><strong>Place</strong> — a single point (shop, school, centre…)</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="reqName">Name</label>
+        <input id="reqName" name="name" type="text" required maxlength="120" placeholder="e.g. Ramsey, or Tesco Extra">
+      </div>
+      <div class="field">
+        <label for="reqSubject">Which town / place exactly? <span class="hint">— optional, helps us find it</span></label>
+        <input id="reqSubject" name="subject" type="text" maxlength="200" placeholder="e.g. Ramsey, Cambridgeshire">
+      </div>
+      <div class="field">
+        <label for="reqNote">Anything we should know? <span class="hint">— optional</span></label>
+        <textarea id="reqNote" name="note" maxlength="2000" placeholder="Routes to emphasise, points of interest, deadlines…"></textarea>
+      </div>
+      <div class="notice" id="requestMsg"></div>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="requestCancel">Cancel</button>
+        <span class="grow"></span>
+        <button class="btn btn-primary btn-sm" type="submit" id="requestSubmit">Send request</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     const tag = (k) => `<span class="tag ${k === 'place' ? 'place' : 'area'}">${k === 'place' ? 'Place' : 'Area'}</span>`;
-    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const $ = (id) => document.getElementById(id);
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
+    // Non-editable lifecycle states → a pill (editable maps have a currentVersion and link to the editor).
+    const STATUS = {
+      requested: { label: 'Requested', cls: 'req' },
+      approved:  { label: 'Approved — being prepared', cls: 'prep' },
+      building:  { label: 'Being prepared', cls: 'prep' },
+      published: { label: 'Published', cls: 'pub' },
+    };
+
+    $('logoutBtn').addEventListener('click', async () => {
       await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       location.href = '/app/login.html';
     });
 
+    let me = null;
+
+    function renderQuota() {
+      if (!me || !me.customer) return;
+      const c = me.customer;
+      const bar = $('quotaBar');
+      bar.style.display = '';
+      bar.innerHTML =
+        `<span class="quota-pill"><strong>${c.usedAreas}</strong> / ${c.quotaAreas} area map${c.quotaAreas === 1 ? '' : 's'}</span>` +
+        `<span class="quota-pill"><strong>${c.usedPlaces}</strong> / ${c.quotaPlaces} place map${c.quotaPlaces === 1 ? '' : 's'}</span>` +
+        `<span class="quota-hint">Need more? <a href="/contact.html">Contact us.</a></span>`;
+      const areaFull = c.usedAreas >= c.quotaAreas, placeFull = c.usedPlaces >= c.quotaPlaces;
+      $('requestQuota').textContent = areaFull && placeFull
+        ? 'You have used your full quota. You can still request, but we may ask you to raise your plan.'
+        : `You can request ${Math.max(0, c.quotaAreas - c.usedAreas)} more area and ${Math.max(0, c.quotaPlaces - c.usedPlaces)} more place map${(c.quotaPlaces - c.usedPlaces) === 1 ? '' : 's'}.`;
+    }
+
+    function cardFor(m, isAdmin) {
+      const owner = isAdmin && m.customer ? `<div class="meta owner">${escapeHtml(m.customer.name)}</div>` : '';
+      const sub = `<div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + escapeHtml(m.currentVersion) : ''}</div>`;
+      if (m.currentVersion) {
+        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}${owner}</a>`;
+      }
+      const st = STATUS[m.status] || { label: m.status, cls: 'req' };
+      return `<div class="card map-card is-pending"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>
+        <div class="meta">${escapeHtml(m.subject || '')}</div>
+        <span class="status-pill ${st.cls}">${escapeHtml(st.label)}</span>${owner}</div>`;
+    }
+
+    async function loadMaps(isAdmin) {
+      const box = $('maps');
+      try {
+        const body = await (await fetch('/api/maps')).json();
+        const maps = ((body && body.maps) || []).filter((m) => m.status !== 'archived');
+        if (!maps.length) {
+          box.innerHTML = `<div class="empty">No maps yet. ${isAdmin ? 'Approved requests will appear here once built.' : 'Request one above, or once a map is approved for your organisation it will appear here.'}</div>`;
+          return;
+        }
+        box.innerHTML = maps.map((m) => cardFor(m, isAdmin)).join('');
+      } catch {
+        box.innerHTML = '<div class="empty">Could not load maps.</div>';
+      }
+    }
+
+    // ---- request dialog ----
+    const dlg = $('requestDialog');
+    $('requestBtn').addEventListener('click', () => { renderQuota(); $('requestMsg').className = 'notice'; dlg.showModal(); });
+    $('requestCancel').addEventListener('click', () => dlg.close());
+    $('requestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = $('requestSubmit'); const msg = $('requestMsg');
+      const data = {}; new FormData(e.target).forEach((v, k) => { data[k] = v; });
+      btn.disabled = true; btn.textContent = 'Sending…'; msg.className = 'notice';
+      try {
+        const res = await fetch('/api/maps/request', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body.ok) {
+          if (body.usage) { me.customer.usedAreas = body.usage.usedAreas; me.customer.usedPlaces = body.usage.usedPlaces; }
+          dlg.close(); e.target.reset();
+          renderQuota(); await loadMaps(me.role === 'admin');
+        } else {
+          msg.className = 'notice err show'; msg.textContent = (body && body.error) || 'Could not send the request.';
+        }
+      } catch { msg.className = 'notice err show'; msg.textContent = 'Network error — please try again.'; }
+      finally { btn.disabled = false; btn.textContent = 'Send request'; }
+    });
+
     (async () => {
-      // gate: who am I?
-      let me;
       try {
         const r = await fetch('/api/me');
         if (r.status === 401) { location.href = '/app/login.html'; return; }
         me = (await r.json()).user;
-      } catch { document.getElementById('maps').innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
+      } catch { $('maps').innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
 
       const isAdmin = me.role === 'admin';
-      document.getElementById('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
-      document.getElementById('logoutBtn').style.display = '';
+      $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
+      $('logoutBtn').style.display = '';
       if (isAdmin) {
-        document.getElementById('dashTitle').textContent = 'All maps';
-        document.getElementById('dashIntro').textContent = 'Admin view — every customer’s maps. Open one to edit, or switch outputs. Layout/geometry edits remain expert-only.';
+        $('adminLink').style.display = '';
+        $('dashTitle').textContent = 'All maps';
+        $('dashIntro').textContent = 'Admin view — every customer’s maps. Open one to edit, or switch outputs. Layout/geometry edits remain expert-only.';
       }
+      if (me.customer) { $('requestBtn').style.display = ''; renderQuota(); }
 
-      const box = document.getElementById('maps');
-      try {
-        const body = await (await fetch('/api/maps')).json();
-        const maps = (body && body.maps) || [];
-        if (!maps.length) {
-          box.innerHTML = '<div class="empty">No maps yet. Once a map is approved for your organisation it will appear here.</div>';
-          return;
-        }
-        box.innerHTML = maps.map((m) => `
-          <a class="card map-card" href="/app/maps/${m.id}">
-            <h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>
-            <div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + m.currentVersion : ''}</div>
-            ${isAdmin && m.customer ? `<div class="meta owner">${escapeHtml(m.customer.name)}</div>` : ''}
-          </a>`).join('');
-      } catch {
-        box.innerHTML = '<div class="empty">Could not load maps.</div>';
-      }
+      await loadMaps(isAdmin);
     })();
   </script>
 </body>

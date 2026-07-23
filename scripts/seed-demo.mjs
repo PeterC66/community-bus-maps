@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   getUserByEmail, insertUser, getCustomerByName, insertCustomer, getMapBySlug,
+  insertApplication, listApplications, insertMap,
 } from '../src/db/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -68,9 +69,11 @@ ensureUser(ADMIN_EMAIL, 'admin', null, 'Peter (admin)');
 
 // --- demo customers + editors + maps ---
 let imported = 0, skipped = 0;
+let stIves = null;
 for (const d of DEMO) {
   const customerId = ensureCustomer(d.customer, d.type);
-  ensureUser(d.editor, 'editor', customerId, `${d.customer} editor`);
+  const editorId = ensureUser(d.editor, 'editor', customerId, `${d.customer} editor`);
+  if (d.slug === 'st-ives') stIves = { customerId, editorId };
 
   if (getMapBySlug(d.slug)) { console.log(`· map exists: ${d.slug} (leaving as-is)`); skipped++; continue; }
   const src = newestRenderDir(d.renderParent);
@@ -86,6 +89,28 @@ for (const d of DEMO) {
     console.error(`· ✗ import failed for ${d.name}: ${e.message}`);
   }
 }
+
+// --- P3: a pending application, so the approval flow is demoable out of the box ---
+const DEMO_APP_EMAIL = 'clerk@ramsey-tc.example';
+if (!listApplications().some((a) => a.email === DEMO_APP_EMAIL)) {
+  insertApplication({
+    org_name: 'Ramsey Town Council', org_type: 'council',
+    contact_name: 'Jo Clark', email: DEMO_APP_EMAIL, website: 'https://ramsey-tc.example',
+    wants: 'An area map of Ramsey, plus a place map for the Great Whyte shops.',
+    message: 'We hand these out at the library and the GP surgery.',
+  });
+  console.log(`· seeded a pending application: Ramsey Town Council (${DEMO_APP_EMAIL})`);
+} else console.log('· pending demo application already present');
+
+// --- P3: a requested map, so the map-request queue is demoable ---
+if (stIves && !getMapBySlug('st-ives-waitrose')) {
+  insertMap({
+    customer_id: stIves.customerId, slug: 'st-ives-waitrose', name: 'St Ives Waitrose', kind: 'place',
+    subject: 'Waitrose, St Ives', request_note: 'Centred on the Waitrose car park; please show the guided busway stop.',
+    requested_by: stIves.editorId, status: 'requested',
+  });
+  console.log('· seeded a requested place map: St Ives Waitrose (awaiting admin approval)');
+} else console.log('· demo map request already present (or St Ives not seeded)');
 
 console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped} skipped.`);
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');

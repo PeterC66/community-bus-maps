@@ -10,8 +10,11 @@ import { createReadStream, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   insertApplication, insertMessage, counts, authCounts,
-  listMaps, getMap, nextVersion, insertVersion, setCurrentVersion, listVersions,
-  setMapOutputs, getCustomer, purgeExpiredSessions,
+  listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions,
+  setMapOutputs, setMapStatus, listMapsByStatus, quotaUsage, getCustomer, purgeExpiredSessions,
+  listApplications, getApplication, setApplicationReviewed, listMessages,
+  insertCustomer, insertUser, getUserByEmail,
+  listCustomersAdmin, updateCustomerAdmin, adminSummary,
 } from './db/index.js';
 import {
   readRoutesMeta, enumeratePois, readOverrides, preview, renderVersion, outputsForClient,
@@ -26,15 +29,21 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.2.0-P2';
+const VERSION = '0.3.0-P3';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
+const MAP_KINDS = ['area', 'place'];
+// In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
+// so the whole apply→approve→sign-in loop is demoable without a mailbox.
+const DEV_LINKS = !process.env.EMAIL_PROVIDER;
 
 const str = (v, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const isEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 const isHttps = (req) => req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
 const parseOutputs = (json) => { try { return JSON.parse(json || '{}') || {}; } catch { return {}; } };
+const slugify = (s) => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const authLink = (req, token) => `${req.protocol}://${req.headers.host}/auth/verify?token=${token}`;
 
 const app = Fastify({ logger: true, bodyLimit: 256 * 1024 });
 
@@ -149,11 +158,16 @@ app.post('/api/auth/logout', async (req, reply) => {
 app.get('/api/me', async (req, reply) => {
   if (!req.user) return reply.code(401).send({ ok: false, error: 'Not signed in.' });
   const cust = req.user.customer_id ? getCustomer(req.user.customer_id) : null;
+  const usage = cust ? quotaUsage(cust.id) : null;
   return {
     ok: true,
     user: {
       id: req.user.id, email: req.user.email, name: req.user.name, role: req.user.role,
-      customer: cust ? { id: cust.id, name: cust.name, type: cust.type, quotaAreas: cust.quota_areas, quotaPlaces: cust.quota_places } : null,
+      customer: cust ? {
+        id: cust.id, name: cust.name, type: cust.type,
+        quotaAreas: cust.quota_areas, quotaPlaces: cust.quota_places,
+        usedAreas: usage.area, usedPlaces: usage.place,
+      } : null,
     },
   };
 });
@@ -173,6 +187,12 @@ function withMapLock(id, fn) {
 
 function requireUser(req, reply) {
   if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
+  return req.user;
+}
+
+function requireAdmin(req, reply) {
+  if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
+  if (req.user.role !== 'admin') { reply.code(403).send({ ok: false, error: 'Admin access only.' }); return null; }
   return req.user;
 }
 
@@ -220,6 +240,11 @@ function mapDetail(m) {
 
 app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html') : reply.redirect('/app/login.html')));
 app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html') : reply.redirect('/app/login.html')));
+app.get('/app/admin', async (req, reply) => {
+  if (!req.user) return reply.redirect('/app/login.html');
+  if (req.user.role !== 'admin') return reply.redirect('/app');
+  return reply.sendFile('app/admin.html');
+});
 
 app.get('/api/maps', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
@@ -232,6 +257,48 @@ app.get('/api/maps', async (req, reply) => {
       status: m.status, currentVersion: m.cur_key || null,
       customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     })),
+  };
+});
+
+// A customer requests a new map (area or place), within quota. It starts in
+// 'requested'; an admin approves it (P3) and the central pipeline builds the
+// data later — so no object store / render exists yet.
+app.post('/api/maps/request', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  if (user.customer_id == null) return reply.code(400).send({ ok: false, error: 'Only a customer account can request maps.' });
+  const cust = getCustomer(user.customer_id);
+  if (!cust) return reply.code(400).send({ ok: false, error: 'Your organisation record is missing — please contact us.' });
+
+  const b = req.body || {};
+  const kind = MAP_KINDS.includes(b.kind) ? b.kind : '';
+  const name = str(b.name, 120);
+  const fields = [];
+  if (!kind) fields.push('kind');
+  if (!name) fields.push('name');
+  if (fields.length) return reply.code(400).send({ ok: false, error: 'Please choose a type and give the map a name.', fields });
+
+  const usage = quotaUsage(cust.id);
+  const limit = kind === 'area' ? cust.quota_areas : cust.quota_places;
+  if (usage[kind] >= limit) {
+    const noun = kind === 'area' ? 'area map' : 'place map';
+    return reply.code(400).send({ ok: false, error: `Your plan includes ${limit} ${noun}${limit === 1 ? '' : 's'} and you already have ${usage[kind]}. Contact us to raise your quota.` });
+  }
+
+  // Unique slug (append a counter if the base is taken).
+  let slug = slugify(name) || kind;
+  for (let n = 2; getMapBySlug(slug); n++) slug = `${slugify(name) || kind}-${n}`;
+
+  const id = insertMap({
+    customer_id: cust.id, slug, name, kind,
+    subject: str(b.subject, 200), request_note: str(b.note, 2000),
+    requested_by: user.id, data_dir: '', status: 'requested',
+  });
+  req.log.info({ mapId: id, kind, by: user.email }, 'map requested');
+  const after = quotaUsage(cust.id);
+  return {
+    ok: true,
+    map: { id, slug, name, kind, subject: str(b.subject, 200), status: 'requested' },
+    usage: { usedAreas: after.area, usedPlaces: after.place, quotaAreas: cust.quota_areas, quotaPlaces: cust.quota_places },
   };
 });
 
@@ -314,6 +381,130 @@ app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
     reply.header('Content-Disposition', `attachment; filename="${map.slug}-${key}-${file}"`);
   }
   return reply.send(createReadStream(p));
+});
+
+// ===========================================================================
+// Admin console (P3) — application review, map-request lifecycle, customers.
+// Every route is admin-only (403 for signed-in non-admins, 401 for anon).
+// ===========================================================================
+
+app.get('/api/admin/summary', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  return { ok: true, summary: adminSummary() };
+});
+
+app.get('/api/admin/applications', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const status = ['pending', 'approved', 'rejected'].includes((req.query || {}).status) ? req.query.status : undefined;
+  return { ok: true, applications: listApplications({ status }) };
+});
+
+// Approve an application: create the customer, its first editor user, and issue
+// a passwordless invite (printed to the server console; surfaced to the admin in
+// dev so the loop is demoable without email).
+app.post('/api/admin/applications/:id/approve', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const appn = getApplication(Number(req.params.id));
+  if (!appn) return reply.code(404).send({ ok: false, error: 'No such application.' });
+  if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
+
+  const email = str(appn.email, 200).toLowerCase();
+  if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'The application has no valid contact email.' });
+  if (getUserByEmail(email)) {
+    return reply.code(409).send({ ok: false, error: `${email} already has an account. Approve this organisation manually or ask them to sign in.` });
+  }
+
+  const b = req.body || {};
+  const type = ORG_TYPES.includes(appn.org_type) ? appn.org_type : 'other';
+  const quota_areas = b.quotaAreas != null ? Math.max(0, Number(b.quotaAreas) | 0) : 1;
+  const quota_places = b.quotaPlaces != null ? Math.max(0, Number(b.quotaPlaces) | 0) : 3;
+
+  const customerId = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
+  insertUser({ customer_id: customerId, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
+  setApplicationReviewed(appn.id, 'approved', customerId);
+
+  const token = requestMagicLink(email);
+  const link = token ? authLink(req, token) : null;
+  if (link) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+  req.log.info({ applicationId: appn.id, customerId, email }, 'application approved → customer + editor created');
+
+  return {
+    ok: true,
+    customer: { id: customerId, name: appn.org_name, type, quotaAreas: quota_areas, quotaPlaces: quota_places },
+    user: { email },
+    inviteLink: DEV_LINKS ? link : undefined,
+  };
+});
+
+app.post('/api/admin/applications/:id/reject', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const appn = getApplication(Number(req.params.id));
+  if (!appn) return reply.code(404).send({ ok: false, error: 'No such application.' });
+  if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
+  setApplicationReviewed(appn.id, 'rejected', null);
+  req.log.info({ applicationId: appn.id }, 'application rejected');
+  return { ok: true };
+});
+
+// Map-request queue + lifecycle. Approving accepts the request (the central
+// pipeline builds the data later); rejecting archives it and frees the quota slot.
+app.get('/api/admin/map-requests', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const rows = listMapsByStatus(['requested']).map((m) => ({
+    id: m.id, name: m.name, kind: m.kind, subject: m.subject, requestNote: m.request_note,
+    customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
+    requestedBy: m.requested_by_email || null, createdAt: m.created_at,
+  }));
+  return { ok: true, requests: rows };
+});
+
+app.post('/api/admin/maps/:id/approve', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const m = getMap(Number(req.params.id));
+  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+  if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
+  setMapStatus(m.id, 'approved');
+  req.log.info({ mapId: m.id }, 'map request approved');
+  return { ok: true, status: 'approved' };
+});
+
+app.post('/api/admin/maps/:id/reject', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const m = getMap(Number(req.params.id));
+  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+  if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
+  setMapStatus(m.id, 'archived');
+  req.log.info({ mapId: m.id }, 'map request rejected (archived)');
+  return { ok: true, status: 'archived' };
+});
+
+app.get('/api/admin/customers', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const rows = listCustomersAdmin().map((c) => ({
+    id: c.id, name: c.name, type: c.type, status: c.status, plan: c.plan,
+    quotaAreas: c.quota_areas, quotaPlaces: c.quota_places,
+    usedAreas: c.area_used, usedPlaces: c.place_used, users: c.users, createdAt: c.created_at,
+  }));
+  return { ok: true, customers: rows };
+});
+
+app.patch('/api/admin/customers/:id', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const cust = getCustomer(Number(req.params.id));
+  if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
+  const b = req.body || {};
+  const ok = updateCustomerAdmin(cust.id, {
+    quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
+  });
+  if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
+  req.log.info({ customerId: cust.id }, 'customer updated by admin');
+  const c = getCustomer(cust.id);
+  return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places } };
+});
+
+app.get('/api/admin/messages', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  return { ok: true, messages: listMessages() };
 });
 
 try {

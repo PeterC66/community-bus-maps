@@ -19,13 +19,14 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (diagram)** | a tube-map-style diagram |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: early build (P0 + P1 + P2).** This repo contains the public **shopfront** (marketing,
+> **Status: early build (P0 + P1 + P2 + P3).** This repo contains the public **shopfront** (marketing,
 > examples, "apply to become a customer"), the deterministic **render wrapper** with a **byte-identical
-> reproduction test**, the **safe-subset editor** (P1), and **multi-customer auth + tenant isolation**
-> (P2): organisations sign in passwordlessly, see only their own maps, recolour routes / toggle
-> landmarks / choose outputs, save numbered versions and download print-ready files. The approval gates
-> and monthly-change acceptance follow in later phases — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and
-> [`CHANGELOG.md`](CHANGELOG.md).
+> reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant isolation**
+> (P2), and **onboarding + governance** (P3): an admin reviews applications and approves one into a
+> customer + editor + invite, and customers **request maps within a quota**. Organisations sign in
+> passwordlessly, see only their own maps, recolour routes / toggle landmarks / choose outputs, save
+> numbered versions and download print-ready files. The publish gate and monthly-change acceptance
+> follow in later phases — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
 
@@ -55,10 +56,11 @@ Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate B
 npm run verify
 ```
 
-### Set up the multi-customer demo (P2)
+### Set up the multi-customer demo (P2 + P3)
 
-Seed an admin, two demo councils (each with an editor user) and their maps. **Stop the dev server
-first** — the seed and the server share the SQLite file, and it's one writer at a time for now:
+Seed an admin, two demo councils (each with an editor user) and their maps, plus a **pending
+application** and a **requested map** so the P3 queues aren't empty. **Stop the dev server first** — the
+seed and the server share the SQLite file, and it's one writer at a time for now:
 
 ```bash
 BUSES_DIR="/path/to/Buses" node scripts/seed-demo.mjs
@@ -68,12 +70,18 @@ Then `npm run dev` and open **http://127.0.0.1:5180/app**. You'll be sent to a *
 one of the seeded emails and the one-time link is **printed to the server console** (no email provider
 in dev):
 
-- `peter@pcooper.me.uk` — **admin**: sees every customer's maps.
-- `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's map.
+- `peter@pcooper.me.uk` — **admin**: sees every customer's maps, plus the **Admin** console.
+- `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's maps.
 
-Open a map to recolour routes, tick/untick landmarks, choose which **outputs** it produces, and **Save
-new version** for print-ready SVG + JPG. Version **1.0 is the imported baseline** (empty overrides ⇒
-byte-identical to the shipped leaflet); each save bumps the minor and keeps every earlier version.
+As an **editor**, open a map to recolour routes, tick/untick landmarks, choose which **outputs** it
+produces, and **Save new version** for print-ready SVG + JPG. Version **1.0 is the imported baseline**
+(empty overrides ⇒ byte-identical to the shipped leaflet); each save bumps the minor and keeps every
+earlier version. Use **Request a map** to ask for a new area/place map within your quota.
+
+As the **admin**, open **/app/admin** to review **applications** (approve → creates a customer + editor
++ invite link), work the **map-request** queue, and adjust **customer** quotas. Approving the seeded
+*Ramsey Town Council* application prints an invite link to the console — sign in with it to see the new
+customer's empty dashboard.
 
 To import a single map yourself (attaching it to a customer, created if new):
 

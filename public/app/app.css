@@ -124,3 +124,65 @@
 /* login */
 .login-card { max-width: 460px; margin: 40px auto; }
 .login-card h1 { font-size: 1.5rem; }
+
+/* ---------- P3: quota bar, request, status pills ---------- */
+.mt-0 { margin-top: 0; }
+.btn-xs { padding: 5px 10px; font-size: .8rem; border-radius: 8px; }
+
+.quota-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 18px; }
+.quota-pill { font-size: .84rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; color: var(--muted); }
+.quota-pill strong { color: var(--text); }
+.quota-hint { font-size: .82rem; color: var(--muted); }
+
+.status-pill {
+  display: inline-block; margin-top: 8px; font-size: .74rem; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px; letter-spacing: .01em;
+}
+.status-pill.req  { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.status-pill.prep { background: var(--primary-soft); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); }
+.status-pill.pub  { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); }
+.status-pill.rej  { background: color-mix(in srgb, var(--err) 12%, transparent); color: var(--err); border: 1px solid color-mix(in srgb, var(--err) 40%, transparent); }
+.map-card.is-pending { cursor: default; opacity: .92; }
+.map-card.is-pending:hover { border-color: var(--border); }
+
+/* ---------- dialogs ---------- */
+dialog.dialog {
+  width: min(560px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--text); box-shadow: var(--shadow); padding: 22px;
+}
+dialog.dialog::backdrop { background: rgba(10, 15, 25, .5); }
+.dialog-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.dialog-actions .grow { flex: 1; }
+.field-row { display: flex; gap: 12px; }
+.field-row .field { flex: 1; }
+.radio-row { display: grid; gap: 8px; }
+.radio { display: flex; align-items: center; gap: 9px; font-size: .9rem; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.radio input { accent-color: var(--primary); }
+.radio:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+
+/* ---------- admin console ---------- */
+.admin-tabs { margin-bottom: 16px; }
+.count-badge { display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: .72rem; font-weight: 700; line-height: 18px; text-align: center; }
+.count-badge.warn { background: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .count-badge.warn { color: #0b1017; } }
+.admin-section { margin-top: 6px; }
+.check-inline { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); margin-bottom: 10px; }
+.check-inline input { accent-color: var(--primary); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+table.grid { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 640px; }
+table.grid th { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 12px; background: var(--surface); border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.grid td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.grid tr:last-child td { border-bottom: 0; }
+table.grid td.wrap { min-width: 200px; max-width: 340px; white-space: pre-wrap; }
+table.grid .sub { color: var(--muted); font-size: .8rem; margin-top: 2px; }
+table.grid .muted { color: var(--muted); }
+td.actions { white-space: nowrap; text-align: right; }
+td.actions .btn + .btn { margin-left: 6px; }
+.qcell .used { font-weight: 700; }
+.qcell.over .used { color: var(--err); }
+.qnum { width: 52px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
+.planin { width: 90px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
+table.grid select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
+.invite { margin-top: 8px; font-size: .84rem; }
+.invite code { background: var(--surface-2); padding: 2px 7px; border-radius: 6px; word-break: break-all; }

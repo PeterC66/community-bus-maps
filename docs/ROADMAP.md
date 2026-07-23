@@ -24,10 +24,10 @@ internal schematic, internal diagram, external).
 
 ## Three approval gates
 
-1. **Organisation** — a public application → an admin approves → a customer account is created.
-2. **Map request** — an approved customer requests an area/place map (within quota) → admin approves.
+1. **Organisation** — a public application → an admin approves → a customer account is created. *(P3 ✅)*
+2. **Map request** — an approved customer requests an area/place map (within quota) → admin approves. *(P3 ✅)*
 3. **Publish** — a rendered map stays a *draft* until a human signs it off (with red-team evidence)
-   before it can be printed.
+   before it can be printed. *(P4)*
 
 ## Build phases
 
@@ -36,7 +36,7 @@ internal schematic, internal diagram, external).
 | **P0** | Public repo + Apache-2.0 + hygiene; render wrapper proven **byte-identical**; public shopfront (marketing, examples, apply, FAQ, contact) + `/api/apply` + `/api/contact`. | ✅ **done (2026-07-23)** |
 | **P1** | Re-home the editor behind the app as the **safe-subset** editor (recolour routes, toggle POIs) → save → version → render → download; object store; importer seeds a baseline. | ✅ **done (2026-07-23)** |
 | **P2** | Multi-customer + magic-link auth + roles + tenant isolation; per-map output toggles; demo seed of existing towns as customers. *(Area maps only — the place engine is a follow-up; approver-role powers land in P4.)* | ✅ **done (2026-07-23)** |
-| **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off). | |
+| **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off); admin console. | ✅ **done (2026-07-23)** |
 | **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | |
 | **P5** | Monthly change acceptance: central refresh → `proposed_update`; review queue; old-vs-new preview; accept re-applies overrides. | |
 | **P6** | Full public marketing front (extends P0's shopfront) + per-customer branding. | *(partly brought forward in P0)* |
@@ -77,6 +77,14 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
   admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
+- **Admin console (P3):** `/app/admin` (admin-only) reviews applications (approve → customer + editor +
+  invite), runs the map-request queue, and edits customer quotas/plan; `/api/admin/*` re-checks the role.
+  Customers **request maps within quota** from their dashboard (`POST /api/maps/request`, enforced
+  server-side). The invite in dev is the magic link, logged to the console and returned in the API
+  response (gated on `EMAIL_PROVIDER` unset).
+- **Map lifecycle:** `requested` → (admin) `approved` → *(central build, P5)* → `draft`/`published`; a
+  map with no rendered version shows as "being prepared" and is not editable. `reject` → `archived`
+  (frees quota).
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is
@@ -92,4 +100,4 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 - **Data hygiene:** map data, customer PII and secrets never enter this (public) repo — see the root
   `.gitignore`.
 - **Deploy note:** pin a `sharp`/libvips build compatible with the desktop pipeline to keep byte-parity.
-- See `CHANGELOG.md` for the **P0 and P1** lessons learned.
+- See `CHANGELOG.md` for the **P0, P1, P2 and P3** lessons learned.

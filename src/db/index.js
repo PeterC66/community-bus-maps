@@ -28,6 +28,14 @@ function tableColumns(table) {
   const mapCols = tableColumns('map');
   if (!mapCols.includes('customer_id')) db.exec('ALTER TABLE map ADD COLUMN customer_id INTEGER');
   if (!mapCols.includes('outputs')) db.exec("ALTER TABLE map ADD COLUMN outputs TEXT NOT NULL DEFAULT '{}'");
+  // P3: a requested map records what was asked for and who asked.
+  if (!mapCols.includes('request_note')) db.exec('ALTER TABLE map ADD COLUMN request_note TEXT');
+  if (!mapCols.includes('requested_by')) db.exec('ALTER TABLE map ADD COLUMN requested_by INTEGER');
+
+  // P3: approval links an application to the customer it created.
+  const appCols = tableColumns('application');
+  if (!appCols.includes('reviewed_at')) db.exec('ALTER TABLE application ADD COLUMN reviewed_at TEXT');
+  if (!appCols.includes('customer_id')) db.exec('ALTER TABLE application ADD COLUMN customer_id INTEGER');
 })();
 
 export function insertApplication(a) {
@@ -54,6 +62,25 @@ export function insertMessage(m) {
     .prepare(`INSERT INTO message (kind, name, email, body) VALUES (?, ?, ?, ?)`)
     .run(m.kind || 'enquiry', m.name || null, m.email || null, m.body);
   return Number(info.lastInsertRowid);
+}
+
+// --- applications (P3 admin review) ---
+export function listApplications({ status } = {}) {
+  const where = status ? 'WHERE status = ?' : '';
+  const args = status ? [status] : [];
+  return db.prepare(`SELECT * FROM application ${where} ORDER BY created_at DESC`).all(...args);
+}
+export function getApplication(id) {
+  return db.prepare('SELECT * FROM application WHERE id = ?').get(Number(id));
+}
+export function setApplicationReviewed(id, status, customerId = null) {
+  db.prepare("UPDATE application SET status = ?, reviewed_at = datetime('now'), customer_id = ? WHERE id = ?")
+    .run(status, customerId != null ? Number(customerId) : null, Number(id));
+}
+
+// --- messages (P3 admin read-only view) ---
+export function listMessages() {
+  return db.prepare('SELECT * FROM message ORDER BY created_at DESC').all();
 }
 
 export function counts() {
@@ -106,15 +133,51 @@ export function getMapBySlug(slug) {
 export function insertMap(m) {
   const info = db
     .prepare(
-      `INSERT INTO map (customer_id, slug, name, kind, subject, data_dir, outputs, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO map (customer_id, slug, name, kind, subject, request_note, requested_by, data_dir, outputs, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       m.customer_id != null ? Number(m.customer_id) : null,
-      m.slug, m.name, m.kind || 'area', m.subject || null, m.data_dir,
-      JSON.stringify(m.outputs || {}), m.status || 'draft',
+      m.slug, m.name, m.kind || 'area', m.subject || null,
+      m.request_note || null, m.requested_by != null ? Number(m.requested_by) : null,
+      m.data_dir || '', JSON.stringify(m.outputs || {}), m.status || 'draft',
     );
   return Number(info.lastInsertRowid);
+}
+
+export function setMapStatus(mapId, status) {
+  db.prepare('UPDATE map SET status = ? WHERE id = ?').run(status, Number(mapId));
+}
+
+/** Maps in one of the given statuses across all customers (admin request queue). */
+export function listMapsByStatus(statuses) {
+  const list = Array.isArray(statuses) ? statuses : [statuses];
+  if (!list.length) return [];
+  const holes = list.map(() => '?').join(', ');
+  return db
+    .prepare(
+      `SELECT m.*, c.name AS customer_name, u.email AS requested_by_email
+         FROM map m
+         LEFT JOIN customer c ON c.id = m.customer_id
+         LEFT JOIN user u ON u.id = m.requested_by
+        WHERE m.status IN (${holes})
+        ORDER BY m.created_at DESC`,
+    )
+    .all(...list);
+}
+
+/**
+ * How many maps of each kind a customer currently holds against quota.
+ * Archived maps (rejected/withdrawn requests) do NOT count.
+ * @returns {{ area:number, place:number }}
+ */
+export function quotaUsage(customerId) {
+  const rows = db
+    .prepare(`SELECT kind, COUNT(*) AS c FROM map WHERE customer_id = ? AND status <> 'archived' GROUP BY kind`)
+    .all(Number(customerId));
+  const usage = { area: 0, place: 0 };
+  for (const r of rows) if (r.kind in usage) usage[r.kind] = r.c;
+  return usage;
 }
 
 export function setMapOutputs(mapId, outputs) {
@@ -202,6 +265,42 @@ export function getCustomerByName(name) {
 }
 export function listCustomers() {
   return db.prepare('SELECT * FROM customer ORDER BY name').all();
+}
+/** Customers with user counts + non-archived map usage per kind (admin view). */
+export function listCustomersAdmin() {
+  return db
+    .prepare(
+      `SELECT c.*,
+              (SELECT COUNT(*) FROM user u WHERE u.customer_id = c.id)                          AS users,
+              (SELECT COUNT(*) FROM map m WHERE m.customer_id = c.id AND m.kind='area'  AND m.status<>'archived') AS area_used,
+              (SELECT COUNT(*) FROM map m WHERE m.customer_id = c.id AND m.kind='place' AND m.status<>'archived') AS place_used
+         FROM customer c
+        ORDER BY c.name`,
+    )
+    .all();
+}
+/** Whitelisted admin update of a customer's quota / status / plan. */
+export function updateCustomerAdmin(id, f) {
+  const sets = [], args = [];
+  if (f.quota_areas != null) { sets.push('quota_areas = ?'); args.push(Math.max(0, Number(f.quota_areas) | 0)); }
+  if (f.quota_places != null) { sets.push('quota_places = ?'); args.push(Math.max(0, Number(f.quota_places) | 0)); }
+  if (f.status && ['active', 'suspended'].includes(f.status)) { sets.push('status = ?'); args.push(f.status); }
+  if (f.plan) { sets.push('plan = ?'); args.push(String(f.plan).slice(0, 40)); }
+  if (!sets.length) return false;
+  args.push(Number(id));
+  db.prepare(`UPDATE customer SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+  return true;
+}
+
+/** Counts for the admin console header. */
+export function adminSummary() {
+  const one = (sql, ...a) => db.prepare(sql).get(...a).c;
+  return {
+    pendingApplications: one("SELECT COUNT(*) AS c FROM application WHERE status = 'pending'"),
+    pendingMapRequests: one("SELECT COUNT(*) AS c FROM map WHERE status = 'requested'"),
+    customers: one('SELECT COUNT(*) AS c FROM customer'),
+    newMessages: one("SELECT COUNT(*) AS c FROM message WHERE status = 'new'"),
+  };
 }
 
 export function insertUser(u) {

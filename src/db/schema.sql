@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS application (
   website       TEXT,
   wants         TEXT,                     -- free text: which area + which places they'd like
   message       TEXT,
-  status        TEXT NOT NULL DEFAULT 'pending'  -- pending | approved | rejected
+  status        TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+  reviewed_at   TEXT,                     -- when an admin approved/rejected it (P3)
+  customer_id   INTEGER                   -- the customer created on approval (P3); NULL until then
 );
 
 CREATE TABLE IF NOT EXISTS message (
@@ -82,7 +84,9 @@ CREATE TABLE IF NOT EXISTS map (
   name                TEXT NOT NULL,                 -- display name, e.g. 'St Ives'
   kind                TEXT NOT NULL DEFAULT 'area',  -- area | place
   subject             TEXT,                          -- town / parish / part-of-town / POI (free text)
-  data_dir            TEXT NOT NULL,                 -- object-store folder for this map (under DATA_DIR, NOT in git)
+  request_note        TEXT,                          -- what the customer asked for when requesting the map (P3)
+  data_dir            TEXT NOT NULL DEFAULT '',       -- object-store folder (under DATA_DIR, NOT in git); '' until built
+  requested_by        INTEGER REFERENCES user(id),   -- the user who requested it (P3)
   outputs             TEXT NOT NULL DEFAULT '{}',    -- JSON: which of the 4 outputs this map produces (P2 toggles)
   status              TEXT NOT NULL DEFAULT 'draft', -- requested|approved|building|draft|published|archived (P1: draft)
   current_version_id  INTEGER REFERENCES map_version(id)  -- latest rendered version (the one shown/downloaded)

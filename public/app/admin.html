@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" href="/app/admin">Admin</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1>Admin console</h1>
+      <span class="spacer"></span>
+    </div>
+
+    <div class="tabs admin-tabs" role="tablist" id="tabs">
+      <button class="tab active" data-tab="applications" role="tab">Applications <span class="count-badge" id="badge-applications"></span></button>
+      <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
+      <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
+      <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
+    </div>
+
+    <div class="notice" id="banner"></div>
+
+    <section class="admin-section" id="sec-applications">
+      <label class="check-inline"><input type="checkbox" id="showReviewed"> Show reviewed</label>
+      <div class="table-wrap"><div id="applications">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-requests" hidden>
+      <p class="hint-line">Approving accepts a request — our team then builds the map data. Rejecting archives it and frees the customer's quota slot.</p>
+      <div class="table-wrap"><div id="requests">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-customers" hidden>
+      <p class="hint-line">Quotas cap how many area / place maps a customer may hold. Plan/billing is dormant (no payments yet).</p>
+      <div class="table-wrap"><div id="customers">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-messages" hidden>
+      <div class="table-wrap"><div id="messages">Loading…</div></div>
+    </section>
+  </main>
+
+  <!-- Approve-application dialog -->
+  <dialog id="approveDialog" class="dialog">
+    <form id="approveForm" method="dialog">
+      <h2 class="mt-0">Approve application</h2>
+      <p class="hint-line" id="approveWho"></p>
+      <p class="hint-line">This creates a customer and its first editor, and issues a passwordless sign-in invite.</p>
+      <div class="field-row">
+        <div class="field"><label for="qAreas">Area maps</label><input id="qAreas" name="quotaAreas" type="number" min="0" max="99" value="1"></div>
+        <div class="field"><label for="qPlaces">Place maps</label><input id="qPlaces" name="quotaPlaces" type="number" min="0" max="99" value="3"></div>
+      </div>
+      <div class="field"><label for="editorName">Editor name</label><input id="editorName" name="editorName" type="text" maxlength="120"></div>
+      <div class="notice" id="approveMsg"></div>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="approveCancel">Cancel</button>
+        <span class="grow"></span>
+        <button class="btn btn-primary btn-sm" type="submit" id="approveSubmit">Approve &amp; invite</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app/admin.js"></script>
+</body>
+</html>

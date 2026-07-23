@@ -2,6 +2,79 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.3.0-P3] — 2026-07-23
+
+Phase **P3** — **onboarding + governance.** The public *apply* form from P0 now has the other half:
+an admin reviews applications, approves one into a **customer + its first editor + a passwordless
+invite**, and customers **request maps within a quota** that an admin approves or rejects. This closes
+the first two of the three approval gates (organisation, map-request); the publish gate remains P4.
+
+### Added
+- **Admin console** (`/app/admin`, `public/app/admin.html` + `admin.js`) — admin-only (redirects
+  non-admins; every `/api/admin/*` route re-checks the role). Four tabs with live count badges:
+  - **Applications** — review the queue; **Approve** opens a dialog (editable area/place quota +
+    editor name) that creates the `customer`, its first `editor` user, links the application to the
+    customer, and issues a **passwordless invite** (printed to the server console; the link is also
+    surfaced in the UI in dev so the whole loop is demoable without email). **Reject** marks it rejected.
+  - **Map requests** — the pending-request queue; **Approve** accepts it (→ `approved`, queued for the
+    central build) or **Reject** archives it (freeing the quota slot).
+  - **Customers** — every customer with user count + live area/place usage, and **inline editing** of
+    quotas, status, and the dormant `plan`.
+  - **Messages** — read-only view of the P0 contact `message` table (previously write-only).
+- **Customer map requests + quota** — the dashboard shows a **quota bar** (used / allowed per kind) and
+  a **Request a map** dialog (area or place, name, subject, note). `POST /api/maps/request` enforces the
+  quota **server-side** (a requested/approved/built map counts; archived does not) and creates the map in
+  status `requested` with no object store yet. `GET /api/me` now returns quota usage.
+- **Map lifecycle states surfaced** — non-editable maps (`requested` / `approved` / `building`) render
+  as **status pills** on the dashboard instead of editor links, and opening one shows a friendly
+  **"being prepared"** panel rather than empty controls. Editable maps (a rendered version exists) are
+  unchanged.
+- **Schema (additive + migrated)** — `application` gains `reviewed_at` + `customer_id` (the customer it
+  became); `map` gains `request_note` + `requested_by`, and `data_dir` now defaults to `''` (a requested
+  map has no store yet). A guarded migration adds all four columns to a pre-P3 DB, existing rows intact.
+- **Demo seed** now also plants a **pending application** (Ramsey Town Council) and a **requested map**
+  (St Ives Waitrose) so the approval and request queues are non-empty on first run. Idempotent.
+
+### Verified (end-to-end, fresh server + demo seed, in-app browser)
+- **Approve flow**: approving Ramsey with a custom **1 area / 2 place** quota created customer #3 + editor
+  `clerk@ramsey-tc.example`, linked the application (`status=approved`, `customer_id=3`), surfaced the
+  invite link, and dropped the pending count 1 → 0.
+- **Map-request lifecycle**: the seeded St Ives Waitrose request approved → left the queue (`approved`).
+- **Quota enforcement**: as the St Ives editor (area 1/1, place 1/4) an **area** request was **blocked**
+  ("Your plan includes 1 area map and you already have 1"); a **place** request succeeded, incremented
+  the bar to 2/4, and appeared as a *Requested* card.
+- **Customers tab**: inline-editing St Ives's place quota 3 → 4 persisted.
+- **Editor guard**: opening the approved-but-unbuilt map showed "Not built yet / being prepared", no
+  controls.
+- **Isolation intact (P2)**: the editor saw only its own maps; March (`/api/maps/2`) and every
+  `/api/admin/*` route returned **403**. The admin saw all customers and both councils' maps.
+- **Baselines still byte-identical**: St Ives + March re-imported and rendered v1.0 identical to the
+  shipped figures (St Ives internal 471,569 B SVG / 1,172,380 B JPG). The built-map editor still loads
+  (9 routes, 34 POIs, live preview, both output tabs).
+- **Migration**: a synthetic pre-P3 DB gained all four columns on boot with its rows preserved; the P3
+  DB helpers (quota, lifecycle, application review, customer admin, summary) unit-tested green.
+
+### Lessons learned
+- **Quota is server-enforced, and counts the right rows.** The check lives in `POST /api/maps/request`
+  (never the client), and `quotaUsage` counts every non-`archived` map of a kind — so a *pending request*
+  already consumes a slot (no request spam) and **rejecting frees it** (reject → `archived`). Draft,
+  approved and building all count; only archived is free.
+- **A requested map has no object store.** It's a DB row with `data_dir=''` and no version, so anything
+  that reads the store (`readRoutesMeta`, `enumeratePois`, downloads) must no-op gracefully — they do
+  (empty fallbacks), but the dashboard/editor gate on **"has a current version"** to decide editable vs
+  "being prepared" rather than trusting status alone.
+- **The invite is just a magic link.** Approval reuses `requestMagicLink` against the freshly-created
+  active user — no separate invite token type. In dev the link is both logged and returned in the API
+  response (gated on `EMAIL_PROVIDER` being unset); with a provider set it is only emailed.
+- **`user.email` is UNIQUE**, so approval must refuse when the contact email already has an account
+  (409) rather than let the insert throw — the one real edge in the approve path.
+- **`<dialog>` needs no framework.** Both the request and approve modals are native `<dialog>` +
+  `showModal()`; submitting programmatically in a test uses `dispatchEvent(new Event('submit'))`
+  (`requestSubmit()` was not available in the in-app browser).
+- **The place map request is lifecycle-only.** Approving St Ives Waitrose (a place) proves the request
+  gate, but places still can't be *built* in the portal until the place engine is vendored (the standing
+  P2 follow-up) — the two are independent.
+
 ## [0.2.0-P2] — 2026-07-23
 
 Phase **P2** — **multi-customer, authenticated, isolated.** The editor spine from P1 becomes a real
