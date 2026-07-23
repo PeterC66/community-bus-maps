@@ -23,7 +23,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > (marketing, examples, "apply to become a customer"), the deterministic **render wrapper**, and a
 > **byte-identical reproduction test** that proves the portal reproduces an already-shipped leaflet
 > exactly. The authenticated editor, approval gates and monthly-change acceptance follow in later
-> phases — see `docs/` in the companion planning repo.
+> phases — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
 
