@@ -77,6 +77,10 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
   admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
+- **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
+  network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
+  from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is
+  how P1 and P2 were verified end-to-end.
 - **Seed one map (P1/P2):** `node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" --slug st-ives --customer "St Ives Town Council"`
   → renders **v1.0 = the byte-identical baseline**.
 - **Object store:** each map lives at `data/maps/<id>/` — `data/` (generators + inputs, with a
