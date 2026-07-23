@@ -99,7 +99,18 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is
-  how P1 and P2 were verified end-to-end.
+  how P1–P4 were verified end-to-end. Mechanics that bite (all P4):
+  - `javascript_tool` evaluates a **bare expression** — no top-level `await` and no `return`. Wrap async
+    work in an **async IIFE as the final expression** (no `return` keyword), which the tool awaits:
+    `(async () => { const r = await fetch('/api/…'); return await r.json(); })()`.
+  - Override `window.confirm = () => true` before clicking actions that confirm; drive checklist/toggle
+    wiring by dispatching `change`/`input` events (`requestSubmit()` is unavailable here).
+  - **Screenshots need the Browser pane visible** — if it isn't, `read_page` / `get_page_text` /
+    `javascript_tool` DOM reads are the reliable verification (and preferred anyway).
+  - Run an **isolated scratch server** so you don't collide with another chat on 5180 or touch the real
+    demo DB: a throwaway `.mjs` that sets `process.env.DATA_DIR` + `PORT` then `import()`s `src/server.js`
+    (launch.json entries carry no env), launched via a temporary launch config; **seed that scratch
+    `DATA_DIR` first** (server stopped — one SQLite writer).
 - **Seed one map (P1/P2):** `node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" --slug st-ives --customer "St Ives Town Council"`
   → renders **v1.0 = the byte-identical baseline**.
 - **Object store:** each map lives at `data/maps/<id>/` — `data/` (generators + inputs, with a
