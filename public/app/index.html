@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My maps — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1>My maps</h1>
+      <span class="spacer"></span>
+    </div>
+    <p class="hint-line">Open a map to recolour its routes, show or hide points of interest, then save a new version and download print-ready sheets. Layout and geometry stay with our team.</p>
+
+    <div id="maps" class="map-list" aria-live="polite">
+      <div class="empty">Loading your maps…</div>
+    </div>
+  </main>
+
+  <script>
+    const tag = (k) => `<span class="tag ${k === 'place' ? 'place' : 'area'}">${k === 'place' ? 'Place' : 'Area'}</span>`;
+    (async () => {
+      const box = document.getElementById('maps');
+      try {
+        const res = await fetch('/api/maps');
+        const body = await res.json();
+        const maps = (body && body.maps) || [];
+        if (!maps.length) {
+          box.innerHTML = '<div class="empty">No maps yet. Once a map is approved for your organisation it will appear here.</div>';
+          return;
+        }
+        box.innerHTML = maps.map((m) => `
+          <a class="card map-card" href="/app/maps/${m.id}">
+            <h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>
+            <div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + m.currentVersion : ''}</div>
+          </a>`).join('');
+      } catch {
+        box.innerHTML = '<div class="empty">Could not load maps. Is the server running?</div>';
+      }
+    })();
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  </script>
+</body>
+</html>

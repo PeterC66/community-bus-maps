@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit map — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">← My maps</a>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1 id="mapName">Map</h1>
+      <span id="mapTag"></span>
+      <span class="crumb" id="mapCrumb"></span>
+      <span class="spacer"></span>
+      <span class="status-chip"><span class="dot clean" id="stateDot"></span><span id="stateText">Saved</span></span>
+    </div>
+
+    <div class="editor">
+      <!-- ---------------- controls ---------------- -->
+      <div>
+        <div class="controls">
+          <div class="panel">
+            <header>Route colours <span class="count" id="routeCount"></span></header>
+            <div class="body">
+              <p class="hint-line">Recolour any route. Colours come from a colour-blind-friendly range and apply to every map.</p>
+              <div id="routes"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <header>Points of interest <span class="count" id="poiCount"></span></header>
+            <div class="body">
+              <p class="hint-line">Tick to show a landmark's icon on the “within” map; untick to hide it.</p>
+              <input class="field poi-search" id="poiSearch" type="search" placeholder="Filter landmarks…" aria-label="Filter points of interest">
+              <div class="poi-scroll" id="pois"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="control-actions">
+              <button class="btn btn-ghost btn-sm" id="resetBtn" type="button" title="Return every route colour and landmark to the original">Reset all to baseline</button>
+              <span class="grow"></span>
+              <button class="btn btn-ghost btn-sm" id="previewBtn" type="button">Update preview</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------------- preview + output ---------------- -->
+      <div>
+        <div class="preview-head">
+          <div class="tabs" role="tablist">
+            <button class="tab active" id="tabInternal" data-map="internal" role="tab">Within the area</button>
+            <button class="tab" id="tabExternal" data-map="external" role="tab">To nearby towns</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="status-chip"><span class="dot clean" id="pvDot"></span><span id="pvText">Showing saved version</span></span>
+        </div>
+
+        <div class="stage" id="stage">
+          <div class="placeholder" id="stagePlaceholder">Loading preview…</div>
+          <div class="overlay">Rendering…</div>
+        </div>
+
+        <div class="notice" id="notice"></div>
+
+        <div class="panel" style="margin-top:16px">
+          <header>Save &amp; download</header>
+          <div class="body">
+            <p class="hint-line">Saving renders a new numbered version and its print-ready files. Nothing is deleted — earlier versions stay available.</p>
+            <input class="field save-note" id="saveNote" type="text" maxlength="200" placeholder="Optional note — what did you change?" aria-label="Save note">
+            <button class="btn btn-primary btn-sm" id="saveBtn" type="button">Save new version</button>
+            <div class="downloads" id="downloads"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app/editor.js"></script>
+</body>
+</html>

@@ -19,11 +19,12 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (diagram)** | a tube-map-style diagram |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: early build (P0).** This repo currently contains the public **shopfront**
-> (marketing, examples, "apply to become a customer"), the deterministic **render wrapper**, and a
-> **byte-identical reproduction test** that proves the portal reproduces an already-shipped leaflet
-> exactly. The authenticated editor, approval gates and monthly-change acceptance follow in later
-> phases — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: early build (P0 + P1).** This repo contains the public **shopfront** (marketing, examples,
+> "apply to become a customer"), the deterministic **render wrapper** with a **byte-identical
+> reproduction test**, and the **safe-subset editor** (P1): open a map, recolour a route or show/hide a
+> landmark, preview the real render live, then save a numbered version and download print-ready files.
+> Multi-customer auth, the approval gates and monthly-change acceptance follow in later phases — see
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
 
@@ -53,6 +54,25 @@ Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate B
 npm run verify
 ```
 
+### Try the editor (P1)
+
+Seed one map into the object store from a staged Buses run dir, then open the editor. **Stop the dev
+server first** — the importer and server both write the SQLite file, and one writer at a time is the
+rule for now:
+
+```bash
+node scripts/import-map.mjs --src "/path/to/St Ives/S5-render/v6.6_..." --name "St Ives" --slug st-ives --kind area --subject "St Ives, Cambridgeshire"
+```
+
+Then `npm run dev` and open **http://127.0.0.1:5180/app** → pick the map. You can recolour any route,
+tick/untick landmarks, watch the live preview, and **Save new version** to render print-ready
+SVG + JPG for both the "within the area" and "to nearby towns" maps. Version **1.0 is the imported
+baseline** (empty overrides ⇒ byte-identical to the shipped leaflet); each save bumps the minor and
+keeps every earlier version.
+
+The editor is locked to a **safe subset** — recolour + POI toggle — enforced on the server, not just
+hidden in the UI. Layout, geometry, straightening and diagram-pin edits stay expert-only.
+
 ## Data hygiene (important — this is a public repo)
 
 **No map data, customer data, or secrets ever go in git.**
@@ -73,9 +93,13 @@ via **BODS** (Open Government Licence). See [NOTICE](NOTICE) for full attributio
 ## Layout
 
 ```
-engine/     the deterministic renderer (vendored reference: gen_*.js, render.js, icons.js)
-src/        the portal app (Fastify server, SQLite, render wrapper, API)
-public/     the shopfront (marketing, examples gallery, apply form) + assets
-scripts/    tooling, incl. the byte-identical reproduce test
-data/        runtime data + SQLite (git-ignored)
+engine/     the deterministic renderer (vendored reference: render.js, icons.js as a CommonJS island)
+src/
+  db/       node:sqlite schema + helpers (applications, messages, maps, versions)
+  render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
+  maps/     store.js (object store) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render)
+  server.js Fastify server: shopfront API + the P1 editor API
+public/     the shopfront (marketing, examples, apply) + app/ (the editor dashboard + two-pane editor)
+scripts/    import-map.mjs (seed a map) · verify-reproduce.mjs (byte-identical test)
+data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 ```

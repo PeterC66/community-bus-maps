@@ -34,7 +34,7 @@ internal schematic, internal diagram, external).
 | Phase | Delivers | Status |
 |---|---|---|
 | **P0** | Public repo + Apache-2.0 + hygiene; render wrapper proven **byte-identical**; public shopfront (marketing, examples, apply, FAQ, contact) + `/api/apply` + `/api/contact`. | ✅ **done (2026-07-23)** |
-| **P1** | Re-home the editor behind the app as the **safe-subset** editor (choose outputs, recolour/relabel, toggle POIs) → save → version → render → download. | next |
+| **P1** | Re-home the editor behind the app as the **safe-subset** editor (recolour routes, toggle POIs) → save → version → render → download; object store; importer seeds a baseline. | ✅ **done (2026-07-23)** |
 | **P2** | Multi-customer + magic-link auth + roles + tenant isolation; typed maps (area/place) + output toggles; importer loads existing towns/places as demo customers. | |
 | **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off). | |
 | **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | |
@@ -45,22 +45,33 @@ internal schematic, internal diagram, external).
 First demo cut = **P0 + P1 + P2**: a real organisation logs in, opens a map, recolours a route,
 re-renders, and downloads a print-ready sheet — end to end, no AI.
 
-## The "safe subset" (P1 scope)
+## The "safe subset"
 
-| Customer self-serves (deterministic) | Stays expert-only (requested) |
+Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI — the gate rebuilds
+overrides from scratch on every preview/save, so only whitelisted, validated edits reach the generator.
+
+| Customer self-serves (deterministic) | Stays expert-only |
 |---|---|
-| Choose which outputs a map produces | New-map onboarding |
-| Recolour routes (from the palette) | Drag/move labels & stops |
-| Relabel routes/badges, edit the Services panel | Diagram pin editing, straightening, rotation |
-| Toggle POI icons | Fisheye lenses, route curation |
-| Accept/defer the monthly change | River/rail/road geometry |
-| Preview, re-render, download | Anything touching upstream (S1/S2) data |
+| **Recolour routes** (from the palette) — *shipped in P1* | Drag/move labels & stops |
+| **Toggle POI icons** on/off — *shipped in P1* | Diagram pin editing, straightening, rotation |
+| Preview, re-render, download (SVG + print JPG) — *shipped in P1* | Fisheye lenses, route curation, `skipRoutes` |
+| Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
+| Accept/defer the monthly change — *P5* | New-map onboarding / bootstrapping a subject |
+| Choose which of the 4 outputs a map produces — *P2 (typed maps + output toggles); P1 renders internal + external* | Anything touching upstream (S1/S2) data |
 
 ## Key facts for continuation
 
-- **Run:** `npm run dev` → `http://127.0.0.1:5180`. **Prove the renderer:** set `FIXTURE_DIR` to a
-  staged town render folder from the Buses repo, then `npm run verify`.
+- **Run:** `npm run dev` → `http://127.0.0.1:5180` (shopfront) and `/app` (the editor). **Prove the
+  renderer:** set `FIXTURE_DIR` to a staged town render folder from the Buses repo, then `npm run verify`.
+- **Seed a map (P1):** `node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" --slug st-ives`
+  → renders **v1.0 = the byte-identical baseline**. **Stop the dev server first** (one SQLite writer).
+- **Object store:** each map lives at `data/maps/<id>/` — `data/` (generators + inputs, with a
+  `{"type":"commonjs"}` marker so the CJS generators run inside this `type:module` repo),
+  `overrides.json` (canonical safe-subset edits), `renders/v<maj>.<min>/` (four artefacts + meta). All
+  git-ignored.
+- **Safe subset is server-enforced** in `src/maps/safeSubset.js`; POI keys are enumerated from the
+  generator (`EDITOR_KEYS=1`), never reconstructed from `pois.json`.
 - **Data hygiene:** map data, customer PII and secrets never enter this (public) repo — see the root
-  `.gitignore`. Runtime data lives under `./data` (git-ignored) or an object store.
+  `.gitignore`.
 - **Deploy note:** pin a `sharp`/libvips build compatible with the desktop pipeline to keep byte-parity.
-- See `CHANGELOG.md` for the P0 lessons learned.
+- See `CHANGELOG.md` for the **P0 and P1** lessons learned.

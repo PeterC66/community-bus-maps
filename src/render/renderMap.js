@@ -36,6 +36,7 @@ export function generateSvg({
   generator = 'gen_internal.js',
   iconsDir = ENGINE_DIR,
   overridesFile,
+  editorKeys = false,
 } = {}) {
   if (!dataDir) throw new Error('generateSvg: dataDir is required');
   const genPath = path.join(dataDir, generator);
@@ -43,6 +44,10 @@ export function generateSvg({
   // Only pass OVERRIDES_FILE when explicitly given; otherwise the generator
   // falls back to <dataDir>/overrides.json (absent ⇒ byte-identical baseline).
   if (overridesFile !== undefined) env.OVERRIDES_FILE = overridesFile;
+  // EDITOR_KEYS wraps routes/POIs in data-key groups so the portal can ENUMERATE
+  // them. It is opt-in and never set for a shipped render, so the byte-identical
+  // baseline (P0 gate) is unaffected.
+  if (editorKeys) env.EDITOR_KEYS = '1';
 
   const res = spawnSync(process.execPath, [genPath], {
     cwd: dataDir,
