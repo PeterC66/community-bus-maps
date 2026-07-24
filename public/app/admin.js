@@ -23,7 +23,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['applications', 'requests', 'customers', 'messages', 'audit'];
+const SECTIONS = ['applications', 'requests', 'customers', 'messages', 'refreshes', 'audit'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -42,6 +42,7 @@ async function loadSummary() {
   set('badge-requests', s.pendingMapRequests, true);
   set('badge-customers', s.customers, false);
   set('badge-messages', s.newMessages, false);
+  set('badge-refreshes', s.pendingProposedUpdates, true);
 }
 
 // ---- applications -----------------------------------------------------------
@@ -196,6 +197,45 @@ LOADERS.messages = async () => {
       <td class="wrap">${esc(m.body)}</td></tr>`).join('')}</tbody></table>`;
 };
 
+// ---- refreshes (P5 monthly-update queue, read-only) -------------------------
+function refreshSummaryText(s) {
+  if (!s) return '<span class="muted">—</span>';
+  if (s.unchanged) return '<span class="muted">data only (no service changes)</span>';
+  const bits = [];
+  if (s.routesAdded && s.routesAdded.length) bits.push('+' + s.routesAdded.join('/'));
+  if (s.routesRemoved && s.routesRemoved.length) bits.push('−' + s.routesRemoved.join('/'));
+  if (s.stopsChanged && s.stopsChanged.length) bits.push(s.stopsChanged.length + ' stop change' + (s.stopsChanged.length > 1 ? 's' : ''));
+  if (s.descChanged && s.descChanged.length) bits.push(s.descChanged.length + ' reworded');
+  if (s.validity) bits.push('validity → ' + esc(s.validity.to || '—'));
+  return bits.length ? esc(bits.join(' · ')) : '<span class="muted">minor</span>';
+}
+// Plain-text (unescaped) version for the audit table, which esc()s the result.
+function refreshSummaryTextPlain(s) {
+  if (!s || s.unchanged) return s && s.unchanged ? 'data only' : '';
+  const bits = [];
+  if (s.routesAdded && s.routesAdded.length) bits.push('+' + s.routesAdded.join('/'));
+  if (s.routesRemoved && s.routesRemoved.length) bits.push('−' + s.routesRemoved.join('/'));
+  if (s.stopsChanged && s.stopsChanged.length) bits.push(s.stopsChanged.length + ' stop change' + (s.stopsChanged.length > 1 ? 's' : ''));
+  if (s.descChanged && s.descChanged.length) bits.push(s.descChanged.length + ' reworded');
+  if (s.validity) bits.push('validity → ' + (s.validity.to || '—'));
+  return bits.join(' · ');
+}
+LOADERS.refreshes = async () => {
+  const { body } = await jget('/api/admin/proposed-updates');
+  const box = $('refreshes');
+  const ups = (body && body.updates) || [];
+  if (!ups.length) { box.innerHTML = '<div class="empty">No pending monthly updates. 🎉</div>'; return; }
+  box.innerHTML = `<table class="grid"><thead><tr>
+      <th>Map</th><th>Customer</th><th>Source</th><th>Changes</th><th>Staged</th>
+    </tr></thead><tbody>${ups.map((u) => `<tr>
+      <td><strong>${esc(u.map.name)}</strong> <span class="tag ${u.map.kind === 'place' ? 'place' : 'area'}">${u.map.kind === 'place' ? 'Place' : 'Area'}</span><div class="sub">${esc(u.map.subject || '')}</div></td>
+      <td>${esc(u.customer || '—')}</td>
+      <td class="wrap">${esc(u.sourceNote || '') || '<span class="muted">—</span>'}</td>
+      <td class="wrap">${refreshSummaryText(u.summary)}</td>
+      <td>${fmtDate(u.createdAt)}</td>
+    </tr>`).join('')}</tbody></table>`;
+};
+
 // ---- audit ------------------------------------------------------------------
 const ACTION_LABEL = {
   'version.submit': 'Submitted for publication',
@@ -208,6 +248,8 @@ const ACTION_LABEL = {
   'maprequest.approve': 'Approved map request',
   'maprequest.reject': 'Rejected map request',
   'customer.update': 'Updated customer',
+  'refresh.accept': 'Accepted monthly update',
+  'refresh.decline': 'Declined monthly update',
 };
 function auditDetail(a) {
   const d = a.detail || {};
@@ -215,6 +257,10 @@ function auditDetail(a) {
   if (a.action.startsWith('application.')) return esc([d.org, d.email].filter(Boolean).join(' · '));
   if (a.action.startsWith('maprequest.')) return esc([d.name, d.kind].filter(Boolean).join(' · '));
   if (a.action === 'customer.update') return esc([d.name, `areas ${d.quotaAreas}`, `places ${d.quotaPlaces}`, d.status].filter((x) => x != null).join(' · '));
+  if (a.action.startsWith('refresh.')) {
+    const drops = d.droppedOverrides && d.droppedOverrides.length ? `${d.droppedOverrides.length} override(s) dropped` : '';
+    return esc([d.version, refreshSummaryTextPlain(d.changeSummary), drops].filter(Boolean).join(' · '));
+  }
   return '';
 }
 LOADERS.audit = async () => {

@@ -126,6 +126,28 @@ CREATE TABLE IF NOT EXISTS publish_request (
   evidence_json TEXT NOT NULL DEFAULT '{}'         -- red-team evidence: sign-off checklist + change summary snapshot
 );
 
+-- ---------------------------------------------------------------------------
+-- P5 — monthly change acceptance. The central pipeline (run expertly, elsewhere)
+-- restages a map's data each month and offers it as a *proposed update*. The
+-- customer reviews an old-vs-new preview and Accepts (re-applies their overrides
+-- onto the fresh data as a new MAJOR version) or Declines. Only the review +
+-- accept live in the portal; the data fetch/judgement stays central.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS proposed_update (
+  id                  INTEGER PRIMARY KEY,
+  created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  map_id              INTEGER NOT NULL REFERENCES map(id),
+  source_note         TEXT,                             -- what this refresh is (e.g. 'BODS August 2026 refresh')
+  data_dir            TEXT NOT NULL DEFAULT '',         -- staged payload under maps/<id>/proposed/<pid>/data (git-ignored); '' until staged
+  summary_json        TEXT NOT NULL DEFAULT '{}',       -- deterministic data diff vs the map's current data (routes/stops/desc/validity)
+  status              TEXT NOT NULL DEFAULT 'pending',  -- pending | accepted | declined | superseded
+  reviewed_by         INTEGER REFERENCES user(id),      -- the customer user who accepted/declined
+  reviewed_at         TEXT,
+  decision_note       TEXT,
+  accepted_version_id INTEGER REFERENCES map_version(id) -- the vN.0 created on accept; NULL until accepted
+);
+
 -- Append-only audit of governance actions (publish sign-off, plus the P3
 -- application / map-request / customer actions). Never updated or deleted.
 CREATE TABLE IF NOT EXISTS audit_log (

@@ -10,21 +10,24 @@
 //   editor : clerk@st-ives-tc.example  etc.    (sees only their own org's maps)
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, cpSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   getUserByEmail, insertUser, getCustomerByName, insertCustomer, getMapBySlug,
   insertApplication, listApplications, insertMap,
-  nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap,
+  nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap, getOpenProposedForMap,
   insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion,
   setMapStatus, recordAudit,
 } from '../src/db/index.js';
 import { renderVersion, defaultOutputs, readRoutesMeta } from '../src/maps/engine.js';
+import { mapDataDir } from '../src/maps/store.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT = path.join(HERE, 'import-map.mjs');
+const PROPOSE = path.join(HERE, 'propose-update.mjs');
 const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 
@@ -170,6 +173,54 @@ if (stFresh) {
     console.warn('· ⚠ could not seed the St Ives pending sign-off:', e.message);
   }
 } else console.log('· St Ives sign-off demo already present (or St Ives not seeded)');
+
+// --- P5: stage a demo monthly refresh so the accept/decline flow is demoable ---
+// Build a lightly-mutated copy of a built map's data (as if the central pipeline
+// re-ran for the new month): bump the timetable validity, reword one route's
+// description, and drop one stop from a busy route. March is published with no
+// pending publish request, so its editor can accept the update cleanly.
+function makeDemoRefreshSrc(srcDataDir) {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'cbm-demo-refresh-'));
+  for (const f of readdirSync(srcDataDir)) {
+    const keep = /^gen_.*\.js$/.test(f) || (f.endsWith('.json') && f !== 'package.json' && !f.endsWith('.bak'));
+    if (keep) cpSync(path.join(srcDataDir, f), path.join(tmp, f));
+  }
+  // routes.json: new validity + one reworded description.
+  const rjPath = path.join(tmp, 'routes.json');
+  const rj = JSON.parse(readFileSync(rjPath, 'utf8'));
+  rj.validFrom = 'August 2026';
+  const descKey = rj.internalDesc ? Object.keys(rj.internalDesc)[0] : null;
+  if (descKey && Array.isArray(rj.internalDesc[descKey])) {
+    const d = rj.internalDesc[descKey].slice();
+    d[d.length - 1] = `${d[d.length - 1] || ''} · revised times`.trim();
+    rj.internalDesc[descKey] = d;
+  }
+  writeFileSync(rjPath, JSON.stringify(rj, null, 2));
+  // routes_atco.json: drop one stop from the busiest route (a visible stop change).
+  const atcoPath = path.join(tmp, 'routes_atco.json');
+  if (existsSync(atcoPath)) {
+    const atco = JSON.parse(readFileSync(atcoPath, 'utf8'));
+    const k = Object.keys(atco).sort((a, b) => (atco[b] || []).length - (atco[a] || []).length)[0];
+    if (k && Array.isArray(atco[k]) && atco[k].length >= 4) {
+      atco[k] = atco[k].slice(0, -1);
+      writeFileSync(atcoPath, JSON.stringify(atco, null, 2));
+    }
+  }
+  return tmp;
+}
+
+const marchForRefresh = getMapBySlug('march');
+if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.data_dir && !getOpenProposedForMap(marchForRefresh.id)) {
+  try {
+    const src = makeDemoRefreshSrc(mapDataDir(marchForRefresh.id));
+    execFileSync(process.execPath, [
+      PROPOSE, '--map', 'march', '--src', src, '--note', 'Demo: August 2026 timetable refresh (BODS)',
+    ], { stdio: 'inherit' });
+    console.log('· staged a demo monthly update for March (its editor can accept/decline it)');
+  } catch (e) {
+    console.warn('· ⚠ could not stage the demo refresh for March:', e.message);
+  }
+} else console.log('· demo refresh already staged for March (or March not seeded)');
 
 console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped} skipped.`);
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');

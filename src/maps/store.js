@@ -31,6 +31,19 @@ export function versionDir(id, storageKey) {
   return path.join(rendersDir(id), storageKey);
 }
 
+// P5 — a staged monthly refresh lives under proposed/<pid>/data until the
+// customer accepts it (then it is swapped into data/) or declines (left as-is).
+export function proposedRoot(id) {
+  return path.join(mapDir(id), 'proposed');
+}
+export function proposedDataDir(id, pid) {
+  return path.join(proposedRoot(id), String(pid), 'data');
+}
+// When a refresh is accepted, the outgoing live data is moved here (never deleted).
+export function archiveRoot(id) {
+  return path.join(mapDir(id), 'archive');
+}
+
 /** Create the folder skeleton for a new map and return its paths. */
 export function ensureMapDirs(id) {
   const dirs = { root: mapDir(id), data: mapDataDir(id), renders: rendersDir(id) };
@@ -42,6 +55,19 @@ export function ensureMapDirs(id) {
   const marker = path.join(dirs.data, 'package.json');
   if (!existsSync(marker)) writeFileSync(marker, '{ "type": "commonjs" }\n');
   return dirs;
+}
+
+/**
+ * Create the staging folder for a proposed update and drop the CommonJS-island
+ * marker beside its generators (so the staged generators run when we render the
+ * old-vs-new preview from this folder). Returns the staged data dir.
+ */
+export function ensureProposedDirs(id, pid) {
+  const dataDir = proposedDataDir(id, pid);
+  mkdirSync(dataDir, { recursive: true });
+  const marker = path.join(dataDir, 'package.json');
+  if (!existsSync(marker)) writeFileSync(marker, '{ "type": "commonjs" }\n');
+  return dataDir;
 }
 
 // The four possible outputs of a map. `portal:true` = the portal engine can

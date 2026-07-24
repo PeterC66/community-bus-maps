@@ -243,3 +243,41 @@ table.grid select { padding: 4px 6px; border: 1px solid var(--border); border-ra
 .check-item input { accent-color: var(--primary); width: 17px; height: 17px; margin-top: 1px; flex: 0 0 auto; }
 .check-item:has(input:checked) { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
 .review-detail textarea.field { width: 100%; min-height: 64px; resize: vertical; }
+
+/* ---------- P5: monthly change acceptance ---------- */
+.status-pill.upd { background: var(--primary-soft); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); }
+
+.update-banner {
+  margin: 0 0 18px; border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  border-left: 4px solid var(--primary); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg)); box-shadow: var(--shadow);
+}
+.update-inner { display: flex; gap: 20px; align-items: flex-start; padding: 14px 18px; flex-wrap: wrap; }
+.update-main { flex: 1; min-width: 260px; }
+.update-title { font-weight: 800; font-size: 1.02rem; letter-spacing: -0.01em; }
+.update-src { margin: 4px 0 8px; font-size: .9rem; color: var(--text); }
+.update-list { margin: 6px 0 4px; padding-left: 18px; font-size: .9rem; }
+.update-list li { margin: 3px 0; }
+.update-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; min-width: 160px; }
+.update-actions .link-btn { text-align: center; }
+@media (max-width: 620px) { .update-actions { flex-direction: row; flex-wrap: wrap; } }
+
+/* old-vs-new comparison dialog */
+dialog.compare-dialog {
+  width: min(1240px, calc(100vw - 24px)); max-height: calc(100vh - 24px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--text); box-shadow: var(--shadow); padding: 0;
+}
+dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
+.compare-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; }
+.compare-head .spacer { flex: 1; }
+.compare-body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 18px; }
+@media (max-width: 760px) { .compare-body { grid-template-columns: 1fr; } }
+.compare-col h4 { margin: 0 0 8px; font-size: .92rem; display: flex; align-items: baseline; gap: 8px; }
+.compare-col h4 .muted { font-weight: 500; }
+.compare-col.after h4 { color: var(--primary); }
+.compare-stage { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: auto; max-height: 68vh; }
+.compare-stage svg { width: 100%; height: auto; display: block; }
+.compare-stage .placeholder { padding: 40px 16px; text-align: center; color: var(--muted); }
+.compare-foot { padding: 0 18px 16px; }
+.warn-inline { font-size: .85rem; color: var(--accent); font-weight: 600; }

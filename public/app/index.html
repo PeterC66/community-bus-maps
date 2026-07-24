@@ -109,11 +109,13 @@
       if (m.publishedVersion) return `<span class="status-pill pub">Published ${escapeHtml(m.publishedVersion)}</span> <span class="status-pill">draft ahead</span>`;
       return '<span class="status-pill">Draft</span>';
     }
+    // A monthly refresh is waiting for the customer to accept/decline (P5).
+    const updatePill = () => '<span class="status-pill upd">Update ready</span>';
     function cardFor(m, isAdmin) {
       const owner = isAdmin && m.customer ? `<div class="meta owner">${escapeHtml(m.customer.name)}</div>` : '';
       const sub = `<div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + escapeHtml(m.currentVersion) : ''}</div>`;
       if (m.currentVersion) {
-        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}<div class="card-pills">${publishPill(m)}</div>${owner}</a>`;
+        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}<div class="card-pills">${publishPill(m)}${m.pendingUpdate ? updatePill() : ''}</div>${owner}</a>`;
       }
       const st = STATUS[m.status] || { label: m.status, cls: 'req' };
       return `<div class="card map-card is-pending"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>

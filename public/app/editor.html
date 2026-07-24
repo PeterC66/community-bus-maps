@@ -27,6 +27,9 @@
       <span class="status-chip"><span class="dot clean" id="stateDot"></span><span id="stateText">Saved</span></span>
     </div>
 
+    <!-- ---------- monthly change acceptance (P5) ---------- -->
+    <div class="update-banner" id="updatePanel" hidden></div>
+
     <div class="editor">
       <!-- ---------------- controls ---------------- -->
       <div>
@@ -103,6 +106,27 @@
       </div>
     </div>
   </main>
+
+  <!-- Old-vs-new comparison for a proposed monthly update (P5) -->
+  <dialog id="compareDialog" class="compare-dialog">
+    <div class="compare-head">
+      <strong>Compare — current vs proposed update</strong>
+      <div class="tabs" id="compareTabs" role="tablist"></div>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="compareClose" type="button">Close</button>
+    </div>
+    <div class="compare-body">
+      <div class="compare-col">
+        <h4>Current <span class="muted" id="compareBeforeVer"></span></h4>
+        <div class="compare-stage" id="compareBefore"></div>
+      </div>
+      <div class="compare-col after">
+        <h4>After update</h4>
+        <div class="compare-stage" id="compareAfter"></div>
+      </div>
+    </div>
+    <div class="compare-foot" id="compareFoot"></div>
+  </dialog>
 
   <script src="/app/editor.js"></script>
 </body>

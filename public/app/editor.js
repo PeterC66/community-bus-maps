@@ -316,6 +316,110 @@ async function withdrawPublish() {
   } catch { notice('err', 'Network error while withdrawing.'); }
 }
 
+// ---- monthly change acceptance (P5) ------------------------------------------
+// A one-shot message that survives the reload we do after accept/decline.
+function flash(kind, text) { try { sessionStorage.setItem('cbm_flash', JSON.stringify({ kind, text })); } catch { /* ignore */ } }
+
+function renderDataSummary(sum) {
+  if (!sum) return '';
+  if (sum.unchanged) return '<p class="hint-line">No changes to the service facts — this refresh only updates the underlying map data.</p>';
+  const li = [];
+  const has = (a) => a && a.length;
+  if (has(sum.routesAdded)) li.push(`<li><strong>New route${sum.routesAdded.length > 1 ? 's' : ''}:</strong> ${sum.routesAdded.map(esc).join(', ')}</li>`);
+  if (has(sum.routesRemoved)) li.push(`<li><strong>Withdrawn route${sum.routesRemoved.length > 1 ? 's' : ''}:</strong> ${sum.routesRemoved.map(esc).join(', ')}</li>`);
+  if (has(sum.descChanged)) li.push(`<li><strong>${sum.descChanged.length}</strong> route description${sum.descChanged.length > 1 ? 's' : ''} reworded <span class="muted">(${sum.descChanged.map((d) => esc(d.id)).join(', ')})</span></li>`);
+  if (has(sum.stopsChanged)) li.push(`<li><strong>Stops changed</strong> on ${sum.stopsChanged.map((s) => esc(s.id) + ' (+' + s.added + '/−' + s.removed + ')').join(', ')}</li>`);
+  if (has(sum.operatorsAdded)) li.push(`<li><strong>New operator${sum.operatorsAdded.length > 1 ? 's' : ''}:</strong> ${sum.operatorsAdded.map(esc).join(', ')}</li>`);
+  if (has(sum.operatorsRemoved)) li.push(`<li><strong>Operator${sum.operatorsRemoved.length > 1 ? 's' : ''} removed:</strong> ${sum.operatorsRemoved.map(esc).join(', ')}</li>`);
+  if (sum.validity) li.push(`<li><strong>Timetable valid from:</strong> ${esc(sum.validity.from || '—')} → ${esc(sum.validity.to || '—')}</li>`);
+  return `<ul class="update-list">${li.join('')}</ul>`;
+}
+
+function buildUpdatePanel() {
+  const panel = $('updatePanel');
+  const pu = detail.proposedUpdate;
+  if (!pu) { panel.hidden = true; panel.innerHTML = ''; return; }
+  panel.hidden = false;
+  panel.innerHTML = `<div class="update-inner">
+      <div class="update-main">
+        <div class="update-title">🔄 A monthly update is ready for this map</div>
+        <p class="update-src">${esc(pu.sourceNote || 'A refreshed timetable is available for this map.')}</p>
+        ${renderDataSummary(pu.summary)}
+        <p class="hint-line">Accepting creates a new draft version with your colours and landmark choices re-applied. You then submit it for publication as usual — nothing goes public until it's signed off.</p>
+      </div>
+      <div class="update-actions">
+        <button class="btn btn-ghost btn-sm" id="cmpBtn" type="button">Preview changes</button>
+        <button class="btn btn-primary btn-sm" id="acceptBtn" type="button">Accept update</button>
+        <button class="link-btn" id="declineBtn" type="button">Decline</button>
+      </div>
+    </div>`;
+  $('cmpBtn').addEventListener('click', openCompare);
+  $('acceptBtn').addEventListener('click', acceptUpdate);
+  $('declineBtn').addEventListener('click', declineUpdate);
+}
+
+// old-vs-new comparison dialog
+let cmpData = null, cmpBase = null;
+function buildCompareTabs(bases) {
+  $('compareTabs').innerHTML = bases.map((b) => `<button class="tab ${b === cmpBase ? 'active' : ''}" data-map="${esc(b)}" role="tab">${esc(labelForBase(b))}</button>`).join('');
+  $('compareTabs').querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => { cmpBase = t.dataset.map; showCompare(); }));
+}
+function showCompare() {
+  $('compareBefore').innerHTML = (cmpData.before && cmpData.before[cmpBase]) || '<div class="placeholder">—</div>';
+  $('compareAfter').innerHTML = (cmpData.after && cmpData.after[cmpBase]) || '<div class="placeholder">—</div>';
+  $('compareTabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.map === cmpBase));
+}
+async function openCompare() {
+  const btn = $('cmpBtn'); btn.disabled = true; btn.textContent = 'Rendering…';
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/proposed/${detail.proposedUpdate.id}/preview`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const b = await res.json().catch(() => ({}));
+    if (!res.ok || !b.ok) { notice('err', (b && b.error) || 'Could not render the comparison.'); return; }
+    cmpData = b;
+    const bases = Object.keys(b.after || {}).length ? Object.keys(b.after) : Object.keys(b.before || {});
+    cmpBase = bases[0] || null;
+    $('compareBeforeVer').textContent = detail.currentVersion ? '(' + detail.currentVersion + ')' : '';
+    $('compareFoot').innerHTML = (b.dropped && b.dropped.length)
+      ? `<span class="warn-inline">Note: ${b.dropped.length} of your customisation${b.dropped.length > 1 ? 's' : ''} no longer appl${b.dropped.length > 1 ? 'y' : 'ies'} after this update and will be dropped.</span>`
+      : '';
+    buildCompareTabs(bases); showCompare();
+    $('compareDialog').showModal();
+  } catch { notice('err', 'Network error rendering the comparison.'); }
+  finally { btn.disabled = false; btn.textContent = 'Preview changes'; }
+}
+$('compareClose').addEventListener('click', () => $('compareDialog').close());
+$('compareDialog').addEventListener('click', (e) => { if (e.target === $('compareDialog')) $('compareDialog').close(); });
+
+async function acceptUpdate() {
+  if (!confirm('Accept this update? It becomes a new draft version with your colours and landmark choices re-applied. You can then submit it for publication.')) return;
+  const btn = $('acceptBtn'); btn.disabled = true; btn.textContent = 'Applying…';
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/proposed/${detail.proposedUpdate.id}/accept`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) {
+      let msg = `Update accepted — new draft version ${b.version} is ready. Review it below, then submit it for publication.`;
+      if (b.dropped && b.dropped.length) msg += ` (${b.dropped.length} customisation${b.dropped.length > 1 ? 's' : ''} no longer applied and ${b.dropped.length > 1 ? 'were' : 'was'} dropped.)`;
+      flash('ok', msg); location.reload();
+    } else { notice('err', (b && b.error) || 'Could not accept the update.'); btn.disabled = false; btn.textContent = 'Accept update'; }
+  } catch { notice('err', 'Network error accepting the update.'); btn.disabled = false; btn.textContent = 'Accept update'; }
+}
+
+async function declineUpdate() {
+  if (!confirm('Decline this update? Your map keeps its current data. We can offer a fresh update next month.')) return;
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/proposed/${detail.proposedUpdate.id}/decline`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) { flash('warn', 'Update declined — your map is unchanged.'); location.reload(); }
+    else notice('err', (b && b.error) || 'Could not decline the update.');
+  } catch { notice('err', 'Network error declining the update.'); }
+}
+
 // ---- load saved-version SVGs -------------------------------------------------
 async function loadSavedSvg() {
   if (!detail.currentVersion) return;
@@ -399,10 +503,16 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); applyLock();
+    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); buildUpdatePanel(); applyLock();
 
     await loadSavedSvg();
     buildTabs();
     setPvState('clean', 'Showing saved version');
+
+    // Surface a one-shot message left by a preceding accept/decline reload.
+    try {
+      const f = JSON.parse(sessionStorage.getItem('cbm_flash') || 'null');
+      if (f) { sessionStorage.removeItem('cbm_flash'); notice(f.kind, f.text, true); }
+    } catch { /* ignore */ }
   } catch { $('stagePlaceholder').textContent = 'Could not load this map. Is the server running?'; }
 })();

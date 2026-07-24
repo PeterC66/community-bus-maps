@@ -42,6 +42,9 @@ function tableColumns(table) {
   if (!mapCols.includes('published_version_id')) db.exec('ALTER TABLE map ADD COLUMN published_version_id INTEGER');
   const verCols = tableColumns('map_version');
   if (!verCols.includes('review_state')) db.exec("ALTER TABLE map_version ADD COLUMN review_state TEXT NOT NULL DEFAULT 'draft'");
+
+  // P5: proposed_update is a NEW table (schema.sql CREATE IF NOT EXISTS covers a
+  // pre-P5 DB), so no ALTER is needed here — kept as a marker for the next reader.
 })();
 
 export function insertApplication(a) {
@@ -95,6 +98,7 @@ export function counts() {
     messages: db.prepare('SELECT COUNT(*) AS c FROM message').get().c,
     maps: db.prepare('SELECT COUNT(*) AS c FROM map').get().c,
     publishRequests: db.prepare('SELECT COUNT(*) AS c FROM publish_request').get().c,
+    proposedUpdates: db.prepare('SELECT COUNT(*) AS c FROM proposed_update').get().c,
     auditEvents: db.prepare('SELECT COUNT(*) AS c FROM audit_log').get().c,
   };
 }
@@ -112,7 +116,8 @@ export function listMaps({ customerId } = {}) {
       `SELECT m.*, c.name AS customer_name,
               v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key,
               pv.storage_key AS pub_key,
-              (SELECT COUNT(*) FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending') AS pending_reviews
+              (SELECT COUNT(*) FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending') AS pending_reviews,
+              (SELECT COUNT(*) FROM proposed_update pu WHERE pu.map_id = m.id AND pu.status = 'pending') AS pending_updates
          FROM map m
          LEFT JOIN customer c ON c.id = m.customer_id
          LEFT JOIN map_version v ON v.id = m.current_version_id
@@ -213,6 +218,12 @@ export function nextVersion(mapId) {
     .get(Number(mapId));
   if (!row) return { major: 1, minor: 0 };
   return { major: row.major, minor: row.minor + 1 };
+}
+
+/** Next MAJOR version (x.0) — used when a monthly data refresh is accepted (P5). */
+export function nextMajorVersion(mapId) {
+  const row = db.prepare('SELECT MAX(major) AS m FROM map_version WHERE map_id = ?').get(Number(mapId));
+  return { major: (row && row.m ? row.m : 0) + 1, minor: 0 };
 }
 
 export function insertVersion(v) {
@@ -386,6 +397,90 @@ export function listAudit({ limit = 200 } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Proposed updates (P5): a staged monthly data refresh awaiting the customer's
+// accept/decline. At most one is 'pending' per map (a newer refresh supersedes
+// an older pending one).
+// ---------------------------------------------------------------------------
+
+export function insertProposedUpdate(p) {
+  const info = db
+    .prepare('INSERT INTO proposed_update (map_id, source_note) VALUES (?, ?)')
+    .run(Number(p.map_id), p.source_note || null);
+  return Number(info.lastInsertRowid);
+}
+
+export function getProposedUpdate(id) {
+  return db.prepare('SELECT * FROM proposed_update WHERE id = ?').get(Number(id));
+}
+
+/** The one open (pending) proposed update for a map, if any. */
+export function getOpenProposedForMap(mapId) {
+  return db
+    .prepare("SELECT * FROM proposed_update WHERE map_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1")
+    .get(Number(mapId));
+}
+
+/** Mark every still-pending proposed update for a map as superseded (a newer refresh arrived). */
+export function supersedePendingProposed(mapId) {
+  db.prepare("UPDATE proposed_update SET status = 'superseded', reviewed_at = datetime('now') WHERE map_id = ? AND status = 'pending'")
+    .run(Number(mapId));
+}
+
+export function setProposedDataDir(id, dir) {
+  db.prepare('UPDATE proposed_update SET data_dir = ? WHERE id = ?').run(dir, Number(id));
+}
+
+export function setProposedSummary(id, summary) {
+  db.prepare('UPDATE proposed_update SET summary_json = ? WHERE id = ?').run(JSON.stringify(summary || {}), Number(id));
+}
+
+export function decideProposedUpdate(id, { status, reviewedBy, decisionNote, acceptedVersionId = null }) {
+  db.prepare(
+    `UPDATE proposed_update
+        SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'),
+            decision_note = ?, accepted_version_id = ?
+      WHERE id = ?`,
+  ).run(
+    status,
+    reviewedBy != null ? Number(reviewedBy) : null,
+    decisionNote || null,
+    acceptedVersionId != null ? Number(acceptedVersionId) : null,
+    Number(id),
+  );
+}
+
+/** Proposed-update history for one map (newest first). */
+export function listProposedForMap(mapId) {
+  return db
+    .prepare(
+      `SELECT pu.id, pu.created_at, pu.status, pu.source_note, pu.decision_note, pu.reviewed_at,
+              u.email AS reviewed_by_email, v.storage_key AS accepted_version_key
+         FROM proposed_update pu
+         LEFT JOIN user u ON u.id = pu.reviewed_by
+         LEFT JOIN map_version v ON v.id = pu.accepted_version_id
+        WHERE pu.map_id = ?
+        ORDER BY pu.id DESC`,
+    )
+    .all(Number(mapId));
+}
+
+/** All pending proposed updates across customers (admin visibility of the refresh queue). */
+export function listPendingProposedUpdates() {
+  return db
+    .prepare(
+      `SELECT pu.id, pu.created_at, pu.source_note, pu.summary_json, pu.map_id,
+              m.name AS map_name, m.kind AS map_kind, m.subject AS map_subject,
+              c.name AS customer_name
+         FROM proposed_update pu
+         JOIN map m ON m.id = pu.map_id
+         LEFT JOIN customer c ON c.id = m.customer_id
+        WHERE pu.status = 'pending'
+        ORDER BY pu.created_at ASC`,
+    )
+    .all();
+}
+
+// ---------------------------------------------------------------------------
 // Customers, users, sessions, magic links (P2 auth + multi-tenancy)
 // ---------------------------------------------------------------------------
 
@@ -444,6 +539,7 @@ export function adminSummary() {
     pendingApplications: one("SELECT COUNT(*) AS c FROM application WHERE status = 'pending'"),
     pendingMapRequests: one("SELECT COUNT(*) AS c FROM map WHERE status = 'requested'"),
     pendingPublishRequests: one("SELECT COUNT(*) AS c FROM publish_request WHERE status = 'pending'"),
+    pendingProposedUpdates: one("SELECT COUNT(*) AS c FROM proposed_update WHERE status = 'pending'"),
     customers: one('SELECT COUNT(*) AS c FROM customer'),
     newMessages: one("SELECT COUNT(*) AS c FROM message WHERE status = 'new'"),
   };

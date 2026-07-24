@@ -19,16 +19,19 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (diagram)** | a tube-map-style diagram |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: early build (P0 + P1 + P2 + P3 + P4).** This repo contains the public **shopfront**
+> **Status: early build (P0 + P1 + P2 + P3 + P4 + P5).** This repo contains the public **shopfront**
 > (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a
 > **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant
-> isolation** (P2), **onboarding + governance** (P3), and the **publish gate** (P4). An admin reviews
-> applications and approves one into a customer + editor + invite; customers **request maps within a
-> quota**, sign in passwordlessly, see only their own maps, recolour routes / toggle landmarks / choose
-> outputs, and save numbered versions. Each version stays a private **draft** until a platform **approver**
-> signs it off (with a required checklist + a deterministic change summary as evidence); publishing sets
-> the **official public version** and everything is **audited**. Monthly-change acceptance follows in a
-> later phase — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
+> isolation** (P2), **onboarding + governance** (P3), the **publish gate** (P4), and **monthly change
+> acceptance** (P5). An admin reviews applications and approves one into a customer + editor + invite;
+> customers **request maps within a quota**, sign in passwordlessly, see only their own maps, recolour
+> routes / toggle landmarks / choose outputs, and save numbered versions. Each version stays a private
+> **draft** until a platform **approver** signs it off (with a required checklist + a deterministic change
+> summary as evidence); publishing sets the **official public version** and everything is **audited**. Each
+> month the central pipeline stages a **proposed data update** (`scripts/propose-update.mjs`); the customer
+> reviews a change summary + old-vs-new preview and **accepts** (their edits re-applied onto the fresh data
+> as a new major draft) or **declines** — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and
+> [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
 
@@ -58,12 +61,13 @@ Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate B
 npm run verify
 ```
 
-### Set up the multi-customer demo (P2 + P3 + P4)
+### Set up the multi-customer demo (P2 + P3 + P4 + P5)
 
 Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
-a **pending application**, a **requested map**, a **published** map (March v1.0) and a version **submitted
-for sign-off** (St Ives v1.1) so the P3/P4 queues aren't empty. **Stop the dev server first** — the seed
-and the server share the SQLite file, and it's one writer at a time for now:
+a **pending application**, a **requested map**, a **published** map (March v1.0), a version **submitted
+for sign-off** (St Ives v1.1) and a **pending monthly update** staged for March, so the P3/P4/P5 queues
+aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
+writer at a time for now:
 
 ```bash
 BUSES_DIR="/path/to/Buses" node scripts/seed-demo.mjs
@@ -101,6 +105,18 @@ To import a single map yourself (attaching it to a customer, created if new):
 node scripts/import-map.mjs --src "/path/to/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "March Town Council" --customer-type council
 ```
 
+To offer a customer a **monthly data refresh** (P5): regenerate that town's data centrally, then stage it
+as a *proposed update* (stop the dev server first — one SQLite writer). The customer sees a change
+summary + old-vs-new preview in their editor and accepts or declines it:
+
+```bash
+node scripts/propose-update.mjs --map march --src "/path/to/March/S5-render/v2.1_..." --note "August 2026 timetable"
+```
+
+Accepting re-applies the customer's colours/landmark choices onto the fresh data as a new **major** draft
+version (`vN.0`) — which still goes through the publish gate before it is public. The outgoing data is
+archived, never deleted; the byte-identical published files keep serving until the new version is signed off.
+
 Three boundaries are **enforced on the server**, not just hidden in the UI: the editor is locked to a
 **safe subset** (recolour + POI toggle; layout/geometry/diagram-pins stay expert-only); every map is
 **tenant-isolated** — a customer can never list, open, preview, download or re-configure another
@@ -130,14 +146,15 @@ via **BODS** (Open Government Licence). See [NOTICE](NOTICE) for full attributio
 ```
 engine/     the deterministic renderer (vendored reference: render.js, icons.js as a CommonJS island)
 src/
-  db/       node:sqlite schema + helpers (customers, users, sessions, maps, versions, publish requests, audit, messages)
+  db/       node:sqlite schema + helpers (customers, users, sessions, maps, versions, publish requests, proposed updates, audit, messages)
   auth/     magic-link + server-side sessions + hand-rolled cookies (no deps)
   publish/  the publish gate: deterministic changeSummary() + the enforced sign-off checklist (pure)
+  refresh/  monthly change acceptance: pure diffRouteData() over the service facts (routes/stops/desc/validity)
   audit/    logAudit() — append-only governance trail (who/what/when/which map)
   render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
-  maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render)
-  server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + admin console
+  maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render/swap)
+  server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + monthly updates + admin console
 public/     the shopfront + app/ (login, dashboard, two-pane editor, review console, admin console)
-scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · verify-reproduce.mjs (byte-identical test)
+scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce.mjs (byte-identical test)
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 ```

@@ -31,6 +31,7 @@
       <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
       <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
       <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
+      <button class="tab" data-tab="refreshes" role="tab">Refreshes <span class="count-badge" id="badge-refreshes"></span></button>
       <button class="tab" data-tab="audit" role="tab">Audit</button>
     </div>
 
@@ -53,6 +54,11 @@
 
     <section class="admin-section" id="sec-messages" hidden>
       <div class="table-wrap"><div id="messages">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-refreshes" hidden>
+      <p class="hint-line">Monthly data refreshes staged by the central pipeline, awaiting each customer's accept or decline. Staged via <code>scripts/propose-update.mjs</code>; the customer accepts them from their own editor.</p>
+      <div class="table-wrap"><div id="refreshes">Loading…</div></div>
     </section>
 
     <section class="admin-section" id="sec-audit" hidden>

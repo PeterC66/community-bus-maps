@@ -38,7 +38,7 @@ internal schematic, internal diagram, external).
 | **P2** | Multi-customer + magic-link auth + roles + tenant isolation; per-map output toggles; demo seed of existing towns as customers. *(Area maps only — the place engine is a follow-up; approver-role powers land in P4.)* | ✅ **done (2026-07-23)** |
 | **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off); admin console. | ✅ **done (2026-07-23)** |
 | **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | ✅ **done (2026-07-23)** |
-| **P5** | Monthly change acceptance: central refresh → `proposed_update`; review queue; old-vs-new preview; accept re-applies overrides. | |
+| **P5** | Monthly change acceptance: central refresh → `proposed_update`; change summary + old-vs-new preview; accept re-applies overrides as a new major draft version. | ✅ **done (2026-07-24)** |
 | **P6** | Full public marketing front (extends P0's shopfront) + per-customer branding. | *(partly brought forward in P0)* |
 | **P7** | Expert diagram/pin editor (expert side) + ops hardening: backups, audit, licensing sign-off, monitoring, deploy. | |
 
@@ -56,7 +56,7 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 | **Toggle POI icons** on/off — *shipped in P1* | Diagram pin editing, straightening, rotation |
 | Preview, re-render, download (SVG + print JPG) — *shipped in P1* | Fisheye lenses, route curation, `skipRoutes` |
 | Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
-| Accept/defer the monthly change — *P5* | New-map onboarding / bootstrapping a subject |
+| Accept/decline the monthly change — *shipped in P5* | New-map onboarding / bootstrapping a subject |
 | Choose which of the 4 outputs a map produces — *P2 (typed maps + output toggles); P1 renders internal + external* | Anything touching upstream (S1/S2) data |
 
 ## Known follow-ups (not blocking a phase)
@@ -74,7 +74,8 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   renderer:** set `FIXTURE_DIR` to a staged town render folder from the Buses repo, then `npm run verify`.
 - **Demo (P2/P3/P4):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
   + two councils each with an editor + their maps, plus a pending application, a requested map,
-  **March published v1.0**, and a **St Ives v1.1 submitted for sign-off**. Sign in with a seeded email;
+  **March published v1.0**, a **St Ives v1.1 submitted for sign-off**, and a **pending monthly update
+  staged for March** (P5). Sign in with a seeded email;
   the one-time link is printed to the **server console**. **Stop the dev server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
   admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
@@ -83,7 +84,7 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   Customers **request maps within quota** from their dashboard (`POST /api/maps/request`, enforced
   server-side). The invite in dev is the magic link, logged to the console and returned in the API
   response (gated on `EMAIL_PROVIDER` unset).
-- **Map lifecycle:** `requested` → (admin) `approved` → *(central build, P5)* → `draft`/`published`; a
+- **Map lifecycle:** `requested` → (admin) `approved` → *(central build)* → `draft`/`published`; a
   map with no rendered version shows as "being prepared" and is not editable. `reject` → `archived`
   (frees quota).
 - **Publish gate (P4):** each map carries **two** version pointers — `current_version_id` (working head,
@@ -96,6 +97,18 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   (admin **Audit** tab, `/api/admin/audit`). Approvers can **read/inspect any** map (`loadReadableMap`)
   but never edit (`loadOwnedMap`). Publishing **never re-renders**, so the P0 byte-identical guarantee is
   untouched.
+- **Monthly change acceptance (P5):** the central pipeline restages a map's data with
+  `scripts/propose-update.mjs --map <slug|id> --src <fresh render dir>` (stops the dev server first —
+  single SQLite writer), which stages the payload under `maps/<id>/proposed/<pid>/data` and stores a
+  **pure data diff** (`src/refresh/index.js`, the service facts only). The map's own customer sees a
+  **"monthly update ready"** banner + change summary, an **old-vs-new** compare (`…/proposed/:pid/preview`
+  renders both sides live), and **Accept**/**Decline** (`…/proposed/:pid/accept|decline`, `loadOwnedMap`).
+  **Accept** renders the new **`vN.0`** from the staged data *first*, then swaps that data into the live
+  slot (outgoing data → `maps/<id>/archive/`, never deleted), re-applies the customer's overrides against
+  the new palette/POI keys (orphans dropped + reported), and records a **draft** head — the
+  `published_version_id` **does not move**, so the refreshed version still goes through the P4 gate before
+  it is public. Accept is blocked (409) while a publish request is pending. Admins see the queue read-only
+  at **Refreshes** (`/api/admin/proposed-updates`).
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is
@@ -122,4 +135,4 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 - **Data hygiene:** map data, customer PII and secrets never enter this (public) repo — see the root
   `.gitignore`.
 - **Deploy note:** pin a `sharp`/libvips build compatible with the desktop pipeline to keep byte-parity.
-- See `CHANGELOG.md` for the **P0, P1, P2 and P3** lessons learned.
+- See `CHANGELOG.md` for the **P0–P5** lessons learned.

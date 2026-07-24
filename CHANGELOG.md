@@ -2,6 +2,99 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.5.0-P5] — 2026-07-24
+
+Phase **P5** — **monthly change acceptance.** *The recurring product.* The central pipeline (run
+expertly, elsewhere) restages a map's data each month and offers it as a **proposed update**. The
+customer reviews a plain-language **change summary** and an **old-vs-new preview**, then **Accepts**
+(their colours + landmark choices are **re-applied** onto the fresh data as a new **major** version — a
+draft that still goes through the P4 publish gate) or **Declines** (the map keeps its current data). Only
+the review + accept live in the portal; the data fetch/judgement stays central.
+
+### Added
+- **`proposed_update` table** (`schema.sql`) — a staged monthly refresh awaiting accept/decline
+  (`data_dir` = git-ignored staged payload, `summary_json` = the data diff, status
+  `pending`→`accepted`/`declined`/`superseded`, `accepted_version_id` = the version accept created). It is
+  a *new* table, so `CREATE IF NOT EXISTS` covers a pre-P5 DB — no ALTER needed (migration idempotency
+  unit-tested by dropping + reopening).
+- **The data diff** (`src/refresh/index.js`) — `diffRouteData()` is **pure** (over parsed objects) and
+  reports the *service facts* that changed: routes **added/withdrawn** (palette), a route's destination
+  **reworded** (`internalDesc`/`serviceDesc`), **stops added/removed per route** (`routes_atco.json`,
+  counts), **operators** added/removed, and **timetable validity** moved on (`validFrom`/`version`).
+  Geometry is deliberately not diffed — it is not a fact the customer signs off, and it changes every
+  refresh. `dataChangeSummary()` is the file-reading wrapper.
+- **`scripts/propose-update.mjs`** — the **central-pipeline entry point** (mirrors `import-map.mjs`):
+  `--map <slug|id> --src <fresh render dir> [--note]`. Validates the portal generators, **supersedes** any
+  still-pending refresh for that map, stages the payload under `maps/<id>/proposed/<pid>/data`, computes
+  the diff, and stores it. It never touches the live map and never renders (the diff is JSON-only).
+- **Server routes** (`src/server.js`, tenant-scoped by `loadOwnedMap`): `POST …/proposed/:pid/preview`
+  (renders **both** the live data and the staged data with the customer's overrides re-applied — orphaned
+  ones dropped — for a true side-by-side), `POST …/proposed/:pid/accept`, and `POST …/proposed/:pid/decline`.
+  `mapDetail` surfaces the pending update + `refreshHistory`; the maps list carries `pendingUpdate`;
+  admins get a read-only `GET /api/admin/proposed-updates` queue + summary count.
+- **Accept, done safely** (`renderVersion` gained an optional `srcDataDir`; `swapInProposedData()` in
+  `engine.js`): accept **renders the new `vN.0` from the staged data first**, and only if that succeeds
+  swaps the staged data into the live slot (archiving the outgoing data under `maps/<id>/archive/`, never
+  deleting) and records the new **draft** head. A render failure leaves the live map completely untouched.
+  The **published pointer does not move** — the refreshed version is a draft that must be signed off (P4)
+  before it goes public, so the public map keeps serving the old, already-approved files until then.
+- **Overrides re-applied, orphans dropped**: accept re-sanitises the customer's saved overrides against
+  the **new** data's palette + POI keys (`sanitizeOverrides`), so a recolour/POI-hide survives the refresh
+  **if that route/landmark still exists**, and is silently dropped (and reported) if the refresh removed
+  it.
+- **Editor UI** (`editor.html`/`editor.js` + `app.css`): a prominent **"A monthly update is ready"**
+  banner with the change summary and **Preview changes** / **Accept update** / **Decline**; a full-width
+  **old-vs-new compare dialog** (current vs after, per output, live SVGs). Accept/decline flash a one-shot
+  message across the reload. The dashboard shows an **"Update ready"** pill; the admin console gains a
+  read-only **Refreshes** tab + badge, and the audit trail labels `refresh.accept` / `refresh.decline`.
+- **Demo seed** now stages a demo refresh for **March** (a lightly-mutated copy of its own data — new
+  validity, one reworded description, one dropped stop) so the accept/decline flow is demoable out of the
+  box on a published map.
+
+### Verified (end-to-end, isolated scratch server + demo seed, in-app browser)
+- **Panel + preview**: the update panel shows the correct summary (1 description reworded, `33A` −1 stop,
+  validity June→August 2026); the old-vs-new preview renders **both** internal + external live, and the
+  "after" SVGs differ from "before" (the refresh is genuinely visible).
+- **Accept**: March **v1.0 → v2.0** (major bump), head `draft`, **`published_version_id` stayed `v1.0`**,
+  proposed update consumed, refresh history recorded, flash shown. On disk: **v1.0 stayed byte-identical**
+  (255,878 / 910,694 / 16,088 / 563,548 B — P0 guarantee survives), v2.0 rendered from the **new** data,
+  and the outgoing data landed in `archive/proposed-1-prev/` (validFrom June, vs live August).
+- **Re-apply**: after recolouring route `33A` (v2.1), accepting a second refresh produced **v3.0** whose
+  `overrides.json` **still carried `routeColors["33A"]`** — the customisation survived the data refresh.
+- **Guards**: re-accepting a decided update → **409**; accepting **while a publish sign-off is pending**
+  (St Ives) → **409** with a clear "withdraw first" message; **decline** is allowed regardless and left
+  St Ives's data **unchanged** (validFrom still June, no `archive/` created).
+- **Isolation**: the March editor got **403** on all three of St Ives's `…/proposed/…` endpoints.
+- **Admin + audit**: the **Refreshes** tab + badge render the pending queue; the audit trail shows both
+  accepts (with change summaries) and the decline, correctly attributed to each customer's editor.
+- **Migration idempotency** and the **pure `diffRouteData`** unit tests both green; **zero console errors**.
+
+### Lessons learned
+- **Diff the facts, not the pixels.** Every refresh changes geometry (stop coordinates, road/river paths),
+  so diffing the rendered output or the raw inputs wholesale would flag "everything changed" every month
+  and train customers to rubber-stamp. Diffing only the *service facts* a customer actually signs off
+  (routes, destinations, stop membership, operators, validity) makes the summary meaningful — and it stays
+  **pure/deterministic**, so it is trustworthy evidence.
+- **Render before you swap.** Accept renders `vN.0` from the *staged* data first and only swaps on success
+  (`renderVersion(..., srcDataDir)` + `swapInProposedData`). Swapping first would, on a render failure,
+  leave the live data ahead of the current version — a corrupt half-state. Rendering first makes accept
+  effectively atomic.
+- **A data refresh is a new draft, not a new publication.** Accepting must **not** move the public-current
+  pointer: the refreshed version is unproven until a human signs it off. The two-pointer model from P4 (head
+  vs published) is exactly what lets the public map keep serving the last approved files while the customer
+  prepares the new one. Accept's version note carries the change summary so the P4 approver — whose
+  overrides-diff would otherwise read "unchanged" — sees that the *data* moved.
+- **Re-applying overrides is just re-sanitising against the new universe.** Because the safe subset is
+  small and validated against the live palette/POI keys, "re-apply the customer's edits onto next month's
+  data" is precisely `sanitizeOverrides(saved, { palette:new, poiKeys:new })` — survivors kept, orphans
+  dropped and reported. No special migration logic; the P1 boundary does the work again.
+- **Archive, never delete.** The outgoing data moves to `archive/` on accept. It costs a little disk but
+  means an accepted refresh is reversible and auditable; declined staged data is likewise retained. (A
+  cleanup/retention job is a future ops task, noted as a follow-up.)
+- **One writer.** Staging a refresh (`propose-update.mjs`) writes the shared SQLite, so the dev server must
+  be stopped first — same single-writer rule as the importer/seed (verification stopped the scratch server
+  to stage, then restarted).
+
 ## [0.4.0-P4] — 2026-07-23
 
 Phase **P4** — **the publish gate.** A rendered map version is now a private **draft** until a platform

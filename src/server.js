@@ -18,12 +18,15 @@ import {
   getVersionById, setVersionState, setPublishedVersion,
   insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests,
   decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit,
+  nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate,
+  listProposedForMap, listPendingProposedUpdates,
 } from './db/index.js';
 import {
-  readRoutesMeta, enumeratePois, readOverrides, preview, renderVersion, outputsForClient,
+  readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
+  readOverrides, preview, previewFrom, renderVersion, outputsForClient, swapInProposedData,
 } from './maps/engine.js';
 import { sanitizeOverrides } from './maps/safeSubset.js';
-import { versionDir, OUTPUTS, OUTPUT_FILES } from './maps/store.js';
+import { versionDir, mapDataDir, proposedDataDir, OUTPUTS, OUTPUT_FILES } from './maps/store.js';
 import {
   requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie,
 } from './auth/index.js';
@@ -34,7 +37,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.4.0-P4';
+const VERSION = '0.5.0-P5';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
@@ -242,6 +245,26 @@ function downloadsForVersion(id, storageKey) {
 
 const parseJson = (s) => { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } };
 
+// Load a map's PENDING proposed update, scoped to that map. Returns { pu } or { code, error }.
+function loadPendingProposed(mapId, pid) {
+  const pu = getProposedUpdate(pid);
+  if (!pu || pu.map_id !== mapId) return { code: 404, error: 'No such update for this map.' };
+  if (pu.status !== 'pending') return { code: 409, error: `This update was already ${pu.status}.` };
+  return { pu };
+}
+
+// A short, human phrase for a data-refresh change summary (goes on the version note).
+function refreshNote(s) {
+  if (!s || s.unchanged) return '';
+  const bits = [];
+  if (s.routesAdded && s.routesAdded.length) bits.push(`routes +${s.routesAdded.join('/')}`);
+  if (s.routesRemoved && s.routesRemoved.length) bits.push(`routes −${s.routesRemoved.join('/')}`);
+  if (s.stopsChanged && s.stopsChanged.length) bits.push(`${s.stopsChanged.length} route stop change${s.stopsChanged.length > 1 ? 's' : ''}`);
+  if (s.descChanged && s.descChanged.length) bits.push(`${s.descChanged.length} description change${s.descChanged.length > 1 ? 's' : ''}`);
+  if (s.validity) bits.push(`validity → ${s.validity.to || '—'}`);
+  return bits.join(' · ');
+}
+
 function mapDetail(m) {
   const id = m.id;
   const meta = readRoutesMeta(id);
@@ -269,6 +292,13 @@ function mapDetail(m) {
     ? changeSummary(saved, parseJson(m.pub_overrides), { palette: meta.palette, hasBaseline: !!m.pub_key })
     : null;
 
+  // Monthly change acceptance (P5): a staged data refresh awaiting accept/decline.
+  const openProposed = getOpenProposedForMap(id);
+  const proposedUpdate = openProposed ? {
+    id: openProposed.id, sourceNote: openProposed.source_note || '',
+    createdAt: openProposed.created_at, summary: parseJson(openProposed.summary_json),
+  } : null;
+
   return {
     id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject, status: m.status,
     customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
@@ -284,6 +314,9 @@ function mapDetail(m) {
     editable: !pending, // locked while a publish request awaits sign-off
     changeSummary: summary,
     publishHistory: listPublishRequestsForMap(id),
+    // --- monthly change acceptance (P5) ---
+    proposedUpdate,
+    refreshHistory: listProposedForMap(id),
   };
 }
 
@@ -310,6 +343,7 @@ app.get('/api/maps', async (req, reply) => {
       id: m.id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject,
       status: m.status, currentVersion: m.cur_key || null,
       publishedVersion: m.pub_key || null, pendingReview: !!m.pending_reviews,
+      pendingUpdate: !!m.pending_updates,
       customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     })),
   };
@@ -481,6 +515,122 @@ app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
     reply.header('Content-Disposition', `attachment; filename="${map.slug}-${key}-${file}"`);
   }
   return reply.send(createReadStream(p));
+});
+
+// ===========================================================================
+// Monthly change acceptance (P5) — the central pipeline stages a data refresh
+// (via scripts/propose-update.mjs); the customer reviews an old-vs-new preview
+// and Accepts (re-applies their overrides as a new MAJOR version, which is a
+// draft that still goes through the P4 publish gate) or Declines. Only the map's
+// own customer (or an admin) may act. The data fetch/judgement stays central.
+// ===========================================================================
+
+// Old-vs-new preview: render the LIVE data (with saved overrides) and the STAGED
+// data (with those overrides re-applied — orphans dropped) so the customer can
+// compare exactly what accepting would produce. Nothing is persisted.
+app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const id = map.id;
+  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
+  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
+  if (!map.cur_key) return reply.code(400).send({ ok: false, error: 'This map has no current version to compare against.' });
+
+  const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
+  const outputs = parseOutputs(map.outputs);
+  const saved = readOverrides(id);
+  try {
+    const result = await withMapLock(id, async () => {
+      const palette = readRoutesMetaFromDir(stagedDir).palette;
+      const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
+      const after = sanitizeOverrides(saved, { palette, poiKeys }); // re-apply onto proposed data
+      return {
+        before: previewFrom(mapDataDir(id), saved, outputs),
+        after: previewFrom(stagedDir, after.overrides, outputs),
+        dropped: after.rejected, // overrides the refresh made obsolete
+      };
+    });
+    return { ok: true, ...result, summary: parseJson(pu.summary_json) };
+  } catch (e) {
+    req.log.error(e);
+    return reply.code(500).send({ ok: false, error: 'Preview render failed: ' + e.message });
+  }
+});
+
+// Accept the refresh: render the new major version FROM the staged data first
+// (so a failure leaves the live map untouched), then swap the data in, re-apply
+// the overrides, and record the new draft head + audit. The published pointer is
+// unchanged — the new version must be signed off (P4) before it goes public.
+app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const id = map.id;
+  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
+  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
+  if (!map.current_version_id || !map.cur_key) {
+    return reply.code(400).send({ ok: false, error: 'This map has no current version to update.' });
+  }
+  // Accepting moves the head — not allowed while a publication awaits sign-off.
+  if (getOpenRequestForMap(id)) {
+    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication sign-off. Withdraw that request before accepting an update.' });
+  }
+
+  const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
+  const outputs = parseOutputs(map.outputs);
+  const saved = readOverrides(id);
+  const { major, minor } = nextMajorVersion(id);
+  const storageKey = `v${major}.${minor}`;
+  const decisionNote = str((req.body || {}).note, 1000);
+  const summary = parseJson(pu.summary_json);
+
+  try {
+    const applied = await withMapLock(id, async () => {
+      // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
+      const palette = readRoutesMetaFromDir(stagedDir).palette;
+      const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
+      const reapplied = sanitizeOverrides(saved, { palette, poiKeys });
+      // Render from the staged data BEFORE committing the swap.
+      const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
+      // Render OK → make the staged data the live data (old data archived).
+      swapInProposedData(id, pu.id);
+      return { rend, overrides: reapplied.overrides, dropped: reapplied.rejected };
+    });
+
+    const noteBits = refreshNote(summary);
+    const versionId = insertVersion({
+      map_id: id, major, minor,
+      note: `Accepted monthly update${noteBits ? ' — ' + noteBits : ''}`,
+      overrides: applied.overrides, storage_key: storageKey,
+    });
+    setCurrentVersion(id, versionId);
+    decideProposedUpdate(pu.id, { status: 'accepted', reviewedBy: user.id, decisionNote, acceptedVersionId: versionId });
+    req.log.info({ mapId: id, version: storageKey, proposedId: pu.id, by: user.email }, 'monthly update accepted');
+    logAudit(req, 'refresh.accept', { mapId: id, versionId, detail: { proposedId: pu.id, version: storageKey, changeSummary: summary, droppedOverrides: applied.dropped, note: decisionNote } });
+    return {
+      ok: true, version: storageKey, dropped: applied.dropped,
+      files: applied.rend.files, downloads: downloadsForVersion(id, storageKey),
+    };
+  } catch (e) {
+    req.log.error(e);
+    return reply.code(500).send({ ok: false, error: 'Accepting the update failed: ' + e.message });
+  }
+});
+
+// Decline the refresh: keep the current data; mark the proposal declined.
+app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const id = map.id;
+  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
+  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
+  const note = str((req.body || {}).note, 1000);
+  decideProposedUpdate(pu.id, { status: 'declined', reviewedBy: user.id, decisionNote: note });
+  req.log.info({ mapId: id, proposedId: pu.id, by: user.email }, 'monthly update declined');
+  logAudit(req, 'refresh.decline', { mapId: id, detail: { proposedId: pu.id, note } });
+  return { ok: true };
 });
 
 // ===========================================================================
@@ -702,6 +852,19 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
 app.get('/api/admin/messages', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   return { ok: true, messages: listMessages() };
+});
+
+// Read-only view of the monthly-refresh queue (P5) — proposed updates awaiting a
+// customer's accept/decline. Staged by the central pipeline (propose-update.mjs).
+app.get('/api/admin/proposed-updates', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const updates = listPendingProposedUpdates().map((pu) => ({
+    id: pu.id, createdAt: pu.created_at, sourceNote: pu.source_note || '',
+    summary: parseJson(pu.summary_json),
+    map: { id: pu.map_id, name: pu.map_name, kind: pu.map_kind, subject: pu.map_subject },
+    customer: pu.customer_name || null,
+  }));
+  return { ok: true, updates };
 });
 
 // Append-only governance audit trail (publish sign-offs + P3 actions).
