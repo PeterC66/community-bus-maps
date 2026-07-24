@@ -67,6 +67,10 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   places") is the follow-up; until then the importer refuses place maps and the demo is area-only.
 - **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
 - **Email provider** for magic links (dev prints them to the server console).
+- **Staged-data retention (P5).** Accepted refreshes archive the outgoing data under `maps/<id>/archive/`,
+  and declined/superseded proposed updates keep their staged payload under `maps/<id>/proposed/<pid>/` —
+  both retained deliberately (reversible + auditable), but nothing prunes them. A retention/cleanup job is
+  a future ops task.
 
 ## Key facts for continuation
 

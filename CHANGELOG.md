@@ -91,6 +91,11 @@ the review + accept live in the portal; the data fetch/judgement stays central.
 - **Archive, never delete.** The outgoing data moves to `archive/` on accept. It costs a little disk but
   means an accepted refresh is reversible and auditable; declined staged data is likewise retained. (A
   cleanup/retention job is a future ops task, noted as a follow-up.)
+- **Swapping a map's data must invalidate the memoised POI list.** `enumeratePois(id)` is cached by map id
+  for the process lifetime (enumerating runs a generator). After a data swap the drawn-POI universe can
+  change, so `swapInProposedData()` calls `invalidatePoiCache(id)` — otherwise the editor would offer the
+  *old* map's landmark toggles against the new data. The importer dodged this by running in a separate
+  process; in-process accept does not, so the cache must be dropped explicitly.
 - **One writer.** Staging a refresh (`propose-update.mjs`) writes the shared SQLite, so the dev server must
   be stopped first — same single-writer rule as the importer/seed (verification stopped the scratch server
   to stage, then restarted).
