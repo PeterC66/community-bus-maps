@@ -14,6 +14,7 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" id="brandingLink" href="/app/branding" style="display:none">Public details</a>
     <a class="navlink" id="reviewLink" href="/app/review" style="display:none">Review</a>
     <a class="navlink" id="adminLink" href="/app/admin" style="display:none">Admin</a>
     <span class="navlink" id="whoami"></span>
@@ -111,11 +112,13 @@
     }
     // A monthly refresh is waiting for the customer to accept/decline (P5).
     const updatePill = () => '<span class="status-pill upd">Update ready</span>';
+    // P6: a published, listed map has a public page anyone can view.
+    const publicPill = (m) => (m.publicUrl ? '<span class="status-pill pub">Public page</span>' : '');
     function cardFor(m, isAdmin) {
       const owner = isAdmin && m.customer ? `<div class="meta owner">${escapeHtml(m.customer.name)}</div>` : '';
       const sub = `<div class="meta">${escapeHtml(m.subject || '')}${m.currentVersion ? ' · ' + escapeHtml(m.currentVersion) : ''}</div>`;
       if (m.currentVersion) {
-        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}<div class="card-pills">${publishPill(m)}${m.pendingUpdate ? updatePill() : ''}</div>${owner}</a>`;
+        return `<a class="card map-card" href="/app/maps/${m.id}"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>${sub}<div class="card-pills">${publishPill(m)}${m.pendingUpdate ? updatePill() : ''}${publicPill(m)}</div>${owner}</a>`;
       }
       const st = STATUS[m.status] || { label: m.status, cls: 'req' };
       return `<div class="card map-card is-pending"><h3>${escapeHtml(m.name)} ${tag(m.kind)}</h3>
@@ -182,7 +185,7 @@
         $('dashTitle').textContent = 'Review & publish';
         $('dashIntro').innerHTML = 'You are a platform approver. Head to <a href="/app/review">Review</a> to sign off submitted map versions.';
       }
-      if (me.customer) { $('requestBtn').style.display = ''; renderQuota(); }
+      if (me.customer) { $('requestBtn').style.display = ''; $('brandingLink').style.display = ''; renderQuota(); }
 
       await loadMaps(isAdmin);
     })();

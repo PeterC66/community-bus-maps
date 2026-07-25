@@ -2,6 +2,11 @@
 //   P0: public shopfront (apply / contact / health).
 //   P1: safe-subset editor (object store, versioned save→render→download).
 //   P2: passwordless auth, multi-customer tenant isolation, per-map output toggles.
+//   P3: application approval, map-request lifecycle + quota, admin console.
+//   P4: publish gate (draft/published, approver sign-off, audit).
+//   P5: monthly change acceptance (proposed updates, old-vs-new, accept/decline).
+//   P6: public front — published maps get public pages (/maps, /m/:slug, /o/:slug),
+//       per-customer branding, map feedback, sitemap.
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
@@ -20,7 +25,13 @@ import {
   decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit,
   nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate,
   listProposedForMap, listPendingProposedUpdates,
+  listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug,
+  setCustomerBranding, setMapPublicListed, publicCounts,
 } from './db/index.js';
+import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
+import {
+  publicMap, publicMaps, publicOrg, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
+} from './public/index.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, swapInProposedData,
@@ -37,7 +48,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.6.0-place';
+const VERSION = '0.7.0-P6';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
@@ -77,7 +88,7 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
 
 app.get('/health', async () => ({
   status: 'ok', service: 'community-bus-maps', version: VERSION,
-  time: new Date().toISOString(), ...counts(), ...authCounts(),
+  time: new Date().toISOString(), ...counts(), ...authCounts(), ...publicCounts(),
 }));
 
 // ===========================================================================
@@ -125,6 +136,165 @@ app.post('/api/contact', async (req, reply) => {
   req.log.info({ messageId: id, kind }, 'new message');
   return { ok: true, id };
 });
+
+// ===========================================================================
+// Public front (P6) — the marketing site's live half.
+//
+// Everything below is UNAUTHENTICATED and read-only, and it can only ever reach
+// a map that (a) has a published version, (b) belongs to an active customer and
+// (c) the customer has left listed — enforced in the SQL (src/db/index.js), not
+// here. The files served are the very bytes an approver signed off, because
+// publishing never re-renders (P4).
+// ===========================================================================
+
+const BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+const baseUrl = (req) => BASE_URL || `${req.protocol}://${req.headers.host}`;
+
+// Pretty public URLs. The HTML is a static shell; it fetches the JSON below.
+// Unknown/unpublished slugs 404 with the same shell (so a link that stops being
+// public does not silently render an empty page or leak that a draft exists).
+app.get('/maps', async (req, reply) => reply.sendFile('maps.html'));
+app.get('/m/:slug', async (req, reply) => {
+  const m = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!m) return reply.code(404).type('text/html').send(notFoundPage('map'));
+  return reply.sendFile('map.html');
+});
+// An organisation only has a public page while it has a publicly-visible map —
+// the same condition the API applies, so the page and its data never disagree.
+app.get('/o/:slug', async (req, reply) => {
+  const slug = str(req.params.slug, 120);
+  const c = getCustomerBySlug(slug);
+  if (!c || c.status !== 'active' || !listPublicOrgs().some((o) => o.slug === slug)) {
+    return reply.code(404).type('text/html').send(notFoundPage('organisation'));
+  }
+  return reply.sendFile('org.html');
+});
+
+app.get('/api/public/maps', async () => ({ ok: true, maps: publicMaps(listPublicMaps()) }));
+
+app.get('/api/public/maps/:slug', async (req, reply) => {
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
+  return { ok: true, map: publicMap(row) };
+});
+
+// The published artefacts, straight from the signed-off version's render folder.
+// The version key comes from the DB (never the URL), so there is no version to
+// probe and no path to traverse.
+app.get('/api/public/maps/:slug/:file', async (req, reply) => {
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
+  const { file } = req.params;
+  if (!Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
+    return reply.code(400).send({ ok: false, error: 'Bad file.' });
+  }
+  const p = path.join(versionDir(row.id, row.pub_key), file);
+  if (!existsSync(p)) return reply.code(404).send({ ok: false, error: 'Not found.' });
+  reply.header('Content-Type', OUTPUT_FILES[file]);
+  reply.header('Cache-Control', 'public, max-age=300');
+  if (req.query && 'download' in req.query) {
+    reply.header('Content-Disposition', `attachment; filename="${row.slug}-${row.pub_key}-${file}"`);
+  }
+  return reply.send(createReadStream(p));
+});
+
+// A screen-sized copy of a published print JPG, derived on first request and
+// cached beside it (see src/public/index.js) — the print bytes stay untouched.
+app.get('/api/public/maps/:slug/preview/:base', async (req, reply) => {
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
+  const base = str(req.params.base, 40);
+  if (!PUBLIC_BASES.includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
+  try {
+    const p = await webPreviewPath(row.id, row.pub_key, base);
+    if (!p) return reply.code(404).send({ ok: false, error: 'Not found.' });
+    reply.header('Content-Type', 'image/jpeg');
+    reply.header('Cache-Control', 'public, max-age=3600');
+    return reply.send(createReadStream(p));
+  } catch (e) {
+    req.log.error(e);
+    return reply.code(500).send({ ok: false, error: 'Could not prepare the preview image.' });
+  }
+});
+
+app.get('/api/public/orgs', async () => ({ ok: true, orgs: listPublicOrgs().map(publicOrg) }));
+
+app.get('/api/public/orgs/:slug', async (req, reply) => {
+  const c = getCustomerBySlug(str(req.params.slug, 120));
+  if (!c || c.status !== 'active') return reply.code(404).send({ ok: false, error: 'No such organisation.' });
+  const maps = publicMaps(listPublicMaps()).filter((m) => m.org.slug === c.slug);
+  if (!maps.length) return reply.code(404).send({ ok: false, error: 'No such organisation.' });
+  return { ok: true, org: publicOrg(c), maps };
+});
+
+// "Something looks wrong with this map" from a public map page → the existing
+// message table, with the map attached so we know what it is about.
+app.post('/api/public/feedback', async (req, reply) => {
+  if (rateLimited(req.ip)) return reply.code(429).send({ ok: false, error: 'Too many requests — please try again shortly.' });
+  const b = req.body || {};
+  if (str(b.website_hp)) return { ok: true, id: 0 }; // honeypot
+  const row = getPublicMapBySlug(str(b.mapSlug, 120));
+  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
+  const body = str(b.body, 4000);
+  const email = str(b.email, 200);
+  if (!body) return reply.code(400).send({ ok: false, error: 'Please tell us what looks wrong.', fields: ['body'] });
+  if (email && !isEmail(email)) return reply.code(400).send({ ok: false, error: 'That email address looks wrong.', fields: ['email'] });
+  const id = insertMessage({ kind: 'feedback', name: str(b.name, 120), email, body, map_id: row.id });
+  req.log.info({ messageId: id, mapId: row.id }, 'map feedback received');
+  return { ok: true, id };
+});
+
+// Search engines: only public pages, and only maps that are actually published.
+app.get('/robots.txt', async (req, reply) => {
+  reply.type('text/plain');
+  return [
+    'User-agent: *',
+    'Disallow: /app',
+    'Disallow: /api/',
+    'Disallow: /auth/',
+    `Sitemap: ${baseUrl(req)}/sitemap.xml`,
+    '',
+  ].join('\n');
+});
+
+const STATIC_PAGES = ['/', '/maps', '/examples.html', '/faq.html', '/apply.html', '/contact.html', '/legal.html'];
+
+app.get('/sitemap.xml', async (req, reply) => {
+  const base = baseUrl(req);
+  const maps = publicMaps(listPublicMaps());
+  const orgs = listPublicOrgs().map(publicOrg).filter((o) => o.url);
+  const url = (loc, lastmod) =>
+    `  <url><loc>${xmlEscape(base + loc)}</loc>${lastmod ? `<lastmod>${xmlEscape(lastmod)}</lastmod>` : ''}</url>`;
+  reply.type('application/xml');
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...STATIC_PAGES.map((p) => url(p)),
+    ...maps.map((m) => url(mapPageUrl(m.slug), (m.publishedAt || '').replace(' ', 'T') + 'Z')),
+    ...orgs.map((o) => url(orgPageUrl(o.slug))),
+    '</urlset>',
+    '',
+  ].join('\n');
+});
+
+function xmlEscape(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+}
+
+function notFoundPage(what) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found — Community Bus Maps</title><link rel="stylesheet" href="/css/styles.css"></head>
+<body><header class="site-header"><div class="container"><nav class="nav">
+<a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a><span class="spacer"></span>
+<a class="navlink" href="/maps">Published maps</a></nav></div></header>
+<main><section><div class="container">
+<h2 class="mt-0">We can’t find that ${what}</h2>
+<p class="section-intro">It may never have been published, or it may have been taken down. Every map we publish is listed on our published-maps page.</p>
+<div class="lead-cta"><a class="btn btn-primary" href="/maps">Browse published maps</a>
+<a class="btn btn-ghost" href="/contact.html">Ask us about it</a></div>
+</div></section></main></body></html>`;
+}
 
 // ===========================================================================
 // Auth (P2) — passwordless magic links + server-side sessions
@@ -175,9 +345,49 @@ app.get('/api/me', async (req, reply) => {
         id: cust.id, name: cust.name, type: cust.type,
         quotaAreas: cust.quota_areas, quotaPlaces: cust.quota_places,
         usedAreas: usage.area, usedPlaces: usage.place,
+        // P6 — the organisation's public identity (and where it appears).
+        slug: cust.slug || null,
+        publicUrl: cust.slug ? orgPageUrl(cust.slug) : null,
+        branding: parseJson(cust.branding_json),
+        brandingPublic: brandingForPublic(cust),
       } : null,
     },
   };
+});
+
+// ---------------------------------------------------------------------------
+// Per-customer branding (P6). A customer edits its own public identity; the
+// whitelist in src/branding/index.js is the gate (unknown/invalid fields are
+// dropped and reported, exactly like the safe subset for map edits). Branding
+// decorates the public PAGE, never the printed sheet — see that module's header.
+// ---------------------------------------------------------------------------
+
+app.get('/api/customer/branding', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  if (user.customer_id == null) return reply.code(400).send({ ok: false, error: 'Only a customer account has public branding.' });
+  const cust = getCustomer(user.customer_id);
+  if (!cust) return reply.code(404).send({ ok: false, error: 'Your organisation record is missing — please contact us.' });
+  return {
+    ok: true,
+    customer: { id: cust.id, name: cust.name, slug: cust.slug || null, publicUrl: cust.slug ? orgPageUrl(cust.slug) : null },
+    branding: parseJson(cust.branding_json),
+    preview: brandingForPublic(cust),
+    accents: Object.entries(ACCENTS).map(([key, a]) => ({ key, ...a })),
+    publicMaps: publicMaps(listPublicMaps()).filter((m) => m.org.slug === cust.slug),
+  };
+});
+
+app.patch('/api/customer/branding', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  if (user.customer_id == null) return reply.code(400).send({ ok: false, error: 'Only a customer account has public branding.' });
+  const cust = getCustomer(user.customer_id);
+  if (!cust) return reply.code(404).send({ ok: false, error: 'Your organisation record is missing — please contact us.' });
+  const { branding, rejected } = sanitizeBranding((req.body || {}).branding);
+  setCustomerBranding(cust.id, branding);
+  req.log.info({ customerId: cust.id, rejected }, 'branding updated');
+  logAudit(req, 'branding.update', { detail: { customerId: cust.id, branding, rejected } });
+  const fresh = getCustomer(cust.id);
+  return { ok: true, branding, rejected, preview: brandingForPublic(fresh) };
 });
 
 // ===========================================================================
@@ -317,11 +527,18 @@ function mapDetail(m) {
     // --- monthly change acceptance (P5) ---
     proposedUpdate,
     refreshHistory: listProposedForMap(id),
+    // --- public page (P6) --- `publicUrl` is set only when the map really is
+    // reachable by the public (asked of the same query the public site uses, so
+    // the editor can never be told "you are live" when a suspension hides it).
+    publicListed: !!m.public_listed,
+    publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
+    org: m.customer_id ? brandingForPublic(getCustomer(m.customer_id)) : null,
   };
 }
 
 app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html') : reply.redirect('/app/login.html')));
 app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html') : reply.redirect('/app/login.html')));
+app.get('/app/branding', async (req, reply) => (req.user ? reply.sendFile('app/branding.html') : reply.redirect('/app/login.html')));
 app.get('/app/admin', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
   if (req.user.role !== 'admin') return reply.redirect('/app');
@@ -344,6 +561,9 @@ app.get('/api/maps', async (req, reply) => {
       status: m.status, currentVersion: m.cur_key || null,
       publishedVersion: m.pub_key || null, pendingReview: !!m.pending_reviews,
       pendingUpdate: !!m.pending_updates,
+      // P6 — set only when the map really is on the public site (same query the
+      // public pages use, so a suspension or an un-listing shows through here).
+      publicUrl: m.pub_key && m.public_listed && getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
       customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     })),
   };
@@ -498,6 +718,20 @@ app.patch('/api/maps/:id/outputs', async (req, reply) => {
   setMapOutputs(map.id, clean);
   req.log.info({ mapId: map.id, outputs: clean }, 'updated map outputs');
   return { ok: true, outputs: outputsForClient(clean, map.id) };
+});
+
+// Whether the map's PUBLISHED version appears on the public site (P6). This is
+// the customer's own choice and is independent of the publish gate: un-listing
+// takes the page down without touching the signed-off version or its pointer.
+app.patch('/api/maps/:id/public', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const listed = !!(req.body || {}).listed;
+  setMapPublicListed(map.id, listed);
+  req.log.info({ mapId: map.id, listed }, 'public listing updated');
+  logAudit(req, listed ? 'public.list' : 'public.unlist', { mapId: map.id, detail: { name: map.name } });
+  return { ok: true, publicListed: listed, publicUrl: getPublicMapBySlug(map.slug) ? mapPageUrl(map.slug) : null };
 });
 
 app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
@@ -732,7 +966,7 @@ app.post('/api/review/:id/reject', async (req, reply) => {
 
 app.get('/api/admin/summary', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
-  return { ok: true, summary: adminSummary() };
+  return { ok: true, summary: { ...adminSummary(), ...publicCounts() } };
 });
 
 app.get('/api/admin/applications', async (req, reply) => {
@@ -830,6 +1064,9 @@ app.get('/api/admin/customers', async (req, reply) => {
     id: c.id, name: c.name, type: c.type, status: c.status, plan: c.plan,
     quotaAreas: c.quota_areas, quotaPlaces: c.quota_places,
     usedAreas: c.area_used, usedPlaces: c.place_used, users: c.users, createdAt: c.created_at,
+    // P6 — where the organisation appears publicly, and how it has branded itself.
+    slug: c.slug || null, publicUrl: c.slug ? orgPageUrl(c.slug) : null,
+    branding: parseJson(c.branding_json),
   }));
   return { ok: true, customers: rows };
 });

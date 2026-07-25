@@ -2,6 +2,108 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.7.0-P6] — 2026-07-25
+
+Phase **P6** — **the public front.** P0 shipped a shopfront that *described* the service; P6 makes the
+service's output public. A map that has been through the publish gate now gets a **page anyone can
+visit**: the signed-off sheets to view and download, the publishing organisation's own branding, and a
+"something looks wrong" form that comes back to us with the map attached. Plus a **published-maps
+gallery**, an **organisation page**, a **privacy/licensing page**, `robots.txt` and a live `sitemap.xml`.
+
+The public site is a **read view over what P4 already decided** — it stores nothing of its own and can
+only reach a map that (a) has a `published_version_id`, (b) belongs to an **active** customer and (c) the
+customer has left **listed**. Those three conditions live in the SQL (`src/db/index.js`), so drafts,
+pending versions, archived maps, suspended organisations and all customer PII are unreachable by
+construction rather than by filtering at the edge. Publishing never re-renders (P4), so a public page
+serves the exact bytes an approver signed off.
+
+### Added
+- **Public map pages** — `/m/<slug>` (`public/map.html` + `js/public-map.js`): output tabs, the sheet
+  inline, downloads (print JPG + SVG), version + publication date, the organisation's credit line, and the
+  feedback form. `/maps` (`maps.html` + `js/public-maps.js`) is the gallery; the home page grew a live
+  **"Already published"** strip (`js/published-strip.js`) that stays hidden while nothing is public.
+  Unknown or no-longer-public slugs return a **real 404** page (`notFoundPage()` in `server.js`), never an
+  empty shell — and never a hint that a draft exists.
+- **Public API** (unauthenticated, read-only): `GET /api/public/maps`, `…/maps/:slug`,
+  `…/maps/:slug/:file` (the file list is the `OUTPUT_FILES` whitelist and **the version key comes from
+  the DB, never the URL** — nothing to probe, nothing to traverse), `…/maps/:slug/preview/:base`,
+  `GET /api/public/orgs`, `…/orgs/:slug`, and `POST /api/public/feedback`.
+- **Screen copies of the print sheets** (`src/public/index.js` `webPreviewPath()`) — an A4 300 dpi JPG is
+  ~1 MB, far too heavy for a gallery, so a 1400 px copy is **derived from the signed-off print file on
+  first request** and cached beside it (`<base>-web.jpg`, ~135 KB). Nothing changes at render time, the
+  print bytes are untouched, and versions published before P6 get previews too.
+- **Per-customer branding** (`src/branding/index.js`, `/app/branding` + `PATCH /api/customer/branding`) —
+  public name, one-line blurb, website, badge (emoji or initials) and an accent colour from a **fixed
+  list**. `sanitizeBranding()` is the gate, in the same spirit as `safeSubset.js`: it rebuilds the stored
+  object from a whitelist, drops markup/`javascript:` URLs/free-form hex/unknown keys and **reports what
+  it dropped**. Angle brackets are stripped from name + blurb as well as escaped at render. `customer.slug`
+  (auto-derived, deduped) gives each organisation `/o/<slug>`.
+- **Per-map public listing** (`map.public_listed`, `PATCH /api/maps/:id/public`, the editor's **Public
+  page** panel) — the customer's own switch, independent of the publish gate: un-listing takes the page,
+  its files and the gallery entry down **without** touching the signed-off version or its pointer, and
+  re-listing restores them.
+- **Map feedback** (`message.map_id`) — the public form writes into P0's existing `message` table with the
+  map attached; the admin **Messages** tab gained an **About** column linking to that map's public page.
+- **`/legal.html`** — what we hold and why (application, messages, account, essential cookie, rate-limit
+  logs, governance audit), what we don't do (no tracking, no profiling, no payment data, no personal data
+  on public pages), retention + how to ask for a copy or deletion, the BODS/OSM licences, how the sheets
+  may be reused, and the Apache-2.0 code. **Marked a working draft** — it needs a final read before the
+  service opens publicly.
+- **`robots.txt`** (allows the public pages, disallows `/app`, `/api/`, `/auth/`) and a live
+  **`sitemap.xml`** built from the static pages + every publicly-visible map and organisation
+  (`PUBLIC_BASE_URL` overrides the host when running behind a proxy).
+- **`scripts/test-p6.mjs`** (`npm test` / `npm run test:p6`) — the branding whitelist against a hostile
+  payload, the SQL gate on a synthetic DB (draft / un-listed / archived / suspended-org maps all
+  unreachable), slug derivation + de-duplication, and **both** migration paths: a fresh DB and a
+  **pre-P6 DB** opened in a child process (columns added, existing customers back-filled with slugs,
+  existing maps default to listed).
+
+### Changed
+- Public pages carry a **Published maps** nav link and a **Privacy & licensing** footer link; the FAQ
+  answers "Does our map get a public web page?"; `examples.html` now points at the live gallery first.
+- `/api/me` and `/api/maps` carry the organisation's public identity and each map's `publicUrl`; the
+  dashboard shows a **Public page** pill; `/api/admin/customers` carries the branding + public page link;
+  `/api/admin/summary` and `/health` count public maps and organisations.
+- Public output labels are **kind-aware** (`publicLabel()` — "Buses serving this place" vs "Buses within
+  the area"); the editor keeps `OUTPUTS`' own labels, which are written for the person editing.
+- `.org-badge` accents are **lifted in dark mode** — the fixed palette is chosen for light backgrounds, so
+  a deep green or red badge would otherwise sit too close to the dark surface.
+- Version → `0.7.0-P6`.
+
+### Verified
+- Both byte-identical render gates still **PASS** (`npm run verify`: area 471,569/1,172,380/33,768/987,563
+  and the place fixture 60,014/10,068) — P6 touches no render path.
+- End-to-end on an isolated scratch server + a **copy of the real pre-P6 demo DB**: the migration
+  back-filled slugs, `seed-demo` published both an area (March) and a **place** (Simpson Centre) map, and
+  the gallery, map pages, organisation page, feedback, sitemap and robots all behaved. Branding saved
+  through the UI and reached the public page; a hostile PATCH was reduced to its one legal field with the
+  rest reported as rejected. Un-listing 404'd the page **and** its files and dropped it from the gallery
+  and sitemap; re-listing restored them. A draft-only map (St Ives) is 404 on its page **and** its files.
+  Tenant isolation holds on the new endpoints (March's map → 403 for another customer's editor); anonymous
+  → 401 on branding/listing while the public API stays open; a platform account → 400 on branding.
+  Mobile + dark checked (no horizontal scroll); zero console errors; `npm test` green.
+
+### Notes / lessons
+- **Publish ≠ public.** Two independent switches: the platform's sign-off (P4) decides whether a version
+  is *official*; the customer's listing decides whether it is *shown*. Keeping them apart means a takedown
+  is one tick and never rewrites a signed-off record, and it stops the publish gate doubling as a CMS.
+- **Ask the public query, don't infer.** The editor's "you are live" link is computed with
+  `getPublicMapBySlug()` — the very query the public site runs — rather than by re-deriving
+  "published && listed" in the app layer. That way a suspension or a future condition shows through
+  everywhere at once and the UI can't claim a page exists when it doesn't.
+- **Derive the web-sized image, never re-render it.** Making a screen copy at *render* time would have
+  added artefacts to every version (and a reason to re-run renders); deriving it lazily from the published
+  print JPG keeps the byte-identical guarantee and retro-fits every earlier version.
+- **A whitelist beats an escape.** Branding is user content on a public page, so it is validated on the
+  way in (fixed accents, parsed URLs, markup rejected) *and* escaped on the way out. Two independent
+  failures would be needed to put markup on a page.
+- **The 404 must be a real 404.** A pretty-URL SPA shell that always returns 200 hides taken-down maps
+  from search engines and tells a prober that a slug exists; checking the slug in the route handler (and
+  making `/o/:slug` apply the *same* condition as its API, not just "customer exists") keeps the page and
+  its data from ever disagreeing.
+- **No contact details in branding, on purpose.** An organisation's public page carries no email or phone;
+  feedback comes through our own form. Nothing personal becomes scrapeable by adding a public front.
+
 ## [0.6.0-place] — 2026-07-25
 
 **Place maps now render in the portal** (previously area-only). This closes the standing "place-map

@@ -165,7 +165,7 @@ LOADERS.customers = async () => {
 function rowCust(c) {
   const overA = c.usedAreas > c.quotaAreas ? ' over' : '', overP = c.usedPlaces > c.quotaPlaces ? ' over' : '';
   return `<tr data-cust="${c.id}">
-    <td><strong>${esc(c.name)}</strong><div class="sub">${esc(c.type)}</div></td>
+    <td><strong>${esc(c.name)}</strong><div class="sub">${esc(c.type)}${c.publicUrl ? ' · <a href="' + esc(c.publicUrl) + '" target="_blank" rel="noopener">public page</a>' : ''}</div></td>
     <td>${c.users}</td>
     <td class="qcell${overA}"><span class="used">${c.usedAreas}</span> / <input type="number" min="0" max="99" value="${c.quotaAreas}" data-q="areas" class="qnum"></td>
     <td class="qcell${overP}"><span class="used">${c.usedPlaces}</span> / <input type="number" min="0" max="99" value="${c.quotaPlaces}" data-q="places" class="qnum"></td>
@@ -190,10 +190,11 @@ LOADERS.messages = async () => {
   const msgs = (body && body.messages) || [];
   if (!msgs.length) { box.innerHTML = '<div class="empty">No messages.</div>'; return; }
   box.innerHTML = `<table class="grid"><thead><tr>
-      <th>When</th><th>Kind</th><th>From</th><th>Message</th>
+      <th>When</th><th>Kind</th><th>From</th><th>About</th><th>Message</th>
     </tr></thead><tbody>${msgs.map((m) => `<tr>
       <td>${fmtDate(m.created_at)}</td><td>${esc(m.kind)}</td>
       <td>${esc(m.name || '')}<div class="sub">${esc(m.email || '')}</div></td>
+      <td>${m.map_slug ? '<a href="/m/' + esc(m.map_slug) + '" target="_blank" rel="noopener">' + esc(m.map_name || m.map_slug) + '</a>' : '<span class="muted">—</span>'}</td>
       <td class="wrap">${esc(m.body)}</td></tr>`).join('')}</tbody></table>`;
 };
 
@@ -250,6 +251,9 @@ const ACTION_LABEL = {
   'customer.update': 'Updated customer',
   'refresh.accept': 'Accepted monthly update',
   'refresh.decline': 'Declined monthly update',
+  'branding.update': 'Updated public details',
+  'public.list': 'Listed map publicly',
+  'public.unlist': 'Removed map from public site',
 };
 function auditDetail(a) {
   const d = a.detail || {};

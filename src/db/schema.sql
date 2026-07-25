@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS message (
   name          TEXT,
   email         TEXT,
   body          TEXT NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'new'       -- new | read | answered
+  status        TEXT NOT NULL DEFAULT 'new',      -- new | read | answered
+  map_id        INTEGER                            -- P6: set when the message came from a public map page
 );
 
 -- ---------------------------------------------------------------------------
@@ -42,7 +43,8 @@ CREATE TABLE IF NOT EXISTS customer (
   plan          TEXT NOT NULL DEFAULT 'free',    -- dormant (payments off until later)
   quota_areas   INTEGER NOT NULL DEFAULT 1,      -- how many area maps this customer may hold
   quota_places  INTEGER NOT NULL DEFAULT 3,      -- how many place maps
-  branding_json TEXT NOT NULL DEFAULT '{}'       -- logo/colours (dormant until P6)
+  branding_json TEXT NOT NULL DEFAULT '{}',      -- P6: public-facing branding (public name, website, blurb, emoji, accent)
+  slug          TEXT                              -- P6: url-safe id for the public organisation page /o/<slug>
 );
 
 CREATE TABLE IF NOT EXISTS user (
@@ -90,7 +92,8 @@ CREATE TABLE IF NOT EXISTS map (
   outputs             TEXT NOT NULL DEFAULT '{}',    -- JSON: which of the 4 outputs this map produces (P2 toggles)
   status              TEXT NOT NULL DEFAULT 'draft', -- requested|approved|building|draft|published|archived (P1: draft)
   current_version_id  INTEGER REFERENCES map_version(id),  -- latest rendered version (the working head shown in the editor)
-  published_version_id INTEGER REFERENCES map_version(id)  -- P4: the public-current pointer (the signed-off version); NULL until first publish
+  published_version_id INTEGER REFERENCES map_version(id),  -- P4: the public-current pointer (the signed-off version); NULL until first publish
+  public_listed       INTEGER NOT NULL DEFAULT 1     -- P6: show the published version on the public site (customer's choice)
 );
 
 CREATE TABLE IF NOT EXISTS map_version (
@@ -147,6 +150,15 @@ CREATE TABLE IF NOT EXISTS proposed_update (
   decision_note       TEXT,
   accepted_version_id INTEGER REFERENCES map_version(id) -- the vN.0 created on accept; NULL until accepted
 );
+
+-- ---------------------------------------------------------------------------
+-- P6 — the public front. Nothing new is stored for the marketing pages: the
+-- public site is a READ view over what the publish gate (P4) already decided.
+-- The three additive columns are customer.slug + customer.branding_json (the
+-- organisation's public identity) and map.public_listed (its choice to appear on
+-- the public site at all), plus message.map_id so "report a problem" on a public
+-- map page lands in the existing message table with its map attached.
+-- ---------------------------------------------------------------------------
 
 -- Append-only audit of governance actions (publish sign-off, plus the P3
 -- application / map-request / customer actions). Never updated or deleted.

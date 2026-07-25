@@ -19,7 +19,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (diagram)** | a tube-map-style diagram |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: early build (P0 + P1 + P2 + P3 + P4 + P5).** This repo contains the public **shopfront**
+> **Status: early build (P0 + P1 + P2 + P3 + P4 + P5 + P6).** This repo contains the public **shopfront**
 > (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a
 > **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant
 > isolation** (P2), **onboarding + governance** (P3), the **publish gate** (P4), and **monthly change
@@ -30,7 +30,9 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > summary as evidence); publishing sets the **official public version** and everything is **audited**. Each
 > month the central pipeline stages a **proposed data update** (`scripts/propose-update.mjs`); the customer
 > reviews a change summary + old-vs-new preview and **accepts** (their edits re-applied onto the fresh data
-> as a new major draft) or **declines** — see [`docs/ROADMAP.md`](docs/ROADMAP.md) and
+> as a new major draft) or **declines**. Once a version is signed off it gets a **public page** anyone can
+> visit — the sheets to view and download, the publishing organisation's branding, and a "something looks
+> wrong" form — listed in a public **gallery** (P6). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 > [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
@@ -64,9 +66,10 @@ npm run verify
 ### Set up the multi-customer demo (P2 + P3 + P4 + P5)
 
 Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
-a **pending application**, a **requested map**, a **published** map (March v1.0), a version **submitted
-for sign-off** (St Ives v1.1) and a **pending monthly update** staged for March, so the P3/P4/P5 queues
-aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
+a **pending application**, a **requested map**, **two published maps with live public pages** (March v1.0
+and the Simpson Centre place map), a version **submitted for sign-off** (St Ives v1.1), **pending monthly
+updates**, public **branding** for each organisation and a piece of public **feedback**, so the P3/P4/P5/P6
+queues and the public gallery aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
 writer at a time for now:
 
 ```bash
@@ -128,6 +131,40 @@ are supported** — area maps carry their generators per-map; place maps are ren
 engine (`engine/place/`), copied into each place map's data at import. Everything above (edit, version,
 publish, monthly refresh) works identically for a place.
 
+## The public front (P6)
+
+Everything a signed-off map produces is public, and nothing else is:
+
+| Page | What it shows |
+|---|---|
+| `/maps` | every published map (gallery) |
+| `/m/<map-slug>` | one published map: output tabs, the sheet, print JPG + SVG downloads, version + date, the publishing organisation, and a **report-a-problem** form |
+| `/o/<org-slug>` | one organisation's published maps + its branding |
+| `/legal.html` | what personal data we hold and why, the BODS/OSM licences, how the sheets may be reused *(working draft — read it before launch)* |
+| `/robots.txt`, `/sitemap.xml` | search engines; the sitemap is generated from what is actually public |
+
+Three conditions make a map public, and they are enforced **in SQL**, not at the edge: it has a
+**published version**, its customer is **active**, and the customer has left it **listed**. So drafts,
+pending versions, archived maps, suspended organisations and all customer PII are unreachable by
+construction — and because publishing never re-renders, a public page serves the exact bytes an approver
+signed off. Gallery images are screen-sized copies **derived from** the published print JPG on first
+request (cached beside it), so nothing about the render path changes.
+
+**Publish ≠ public.** Sign-off decides what is *official*; the customer's own **Public page** switch in the
+editor decides what is *shown*. Un-listing takes the page, its files and the gallery entry down at once,
+without touching the signed-off version or its pointer; re-listing restores them.
+
+Customers set their public identity at **/app/branding** — public name, one-line blurb, website, badge
+(emoji or initials) and an accent colour from a fixed list. It is server-validated by a whitelist
+(`src/branding/index.js`) in the same spirit as the safe subset, and it decorates the public *page*: the
+printed sheet is untouched. No email or phone is brandable, so a public page never exposes contact
+details — feedback comes back through our own form (and lands in the admin **Messages** tab against that
+map).
+
+```bash
+npm test          # P6 checks: the branding whitelist, the public SQL gate, slugs, both migration paths
+```
+
 ## Data hygiene (important — this is a public repo)
 
 **No map data, customer data, or secrets ever go in git.**
@@ -154,11 +191,13 @@ src/
   auth/     magic-link + server-side sessions + hand-rolled cookies (no deps)
   publish/  the publish gate: deterministic changeSummary() + the enforced sign-off checklist (pure)
   refresh/  monthly change acceptance: pure diffRouteData() over the service facts (routes/stops/desc/validity)
+  branding/ per-customer public identity — the server-enforced whitelist (pure)
+  public/   the public read model: published maps/orgs → PII-free JSON + derived web-sized previews
   audit/    logAudit() — append-only governance trail (who/what/when/which map)
   render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
   maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render/swap)
   server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + monthly updates + admin console
-public/     the shopfront + app/ (login, dashboard, two-pane editor, review console, admin console)
-scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce.mjs (byte-identical test)
+public/     the shopfront + public map pages (maps/map/org/legal) + app/ (login, dashboard, two-pane editor, public details, review console, admin console)
+scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6.mjs (public-front checks)
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 ```

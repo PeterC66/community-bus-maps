@@ -257,6 +257,57 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .site-footer .attrib { max-width: 52ch; }
 .site-footer .muted { color: var(--muted); }
 
+/* ---------- public map pages (P6) ---------- */
+.crumb { margin: 0 0 10px; font-size: .9rem; }
+
+/* an organisation's badge + credit line */
+.org-line { display: flex; align-items: center; gap: 10px; font-size: .92rem; color: var(--muted); margin-top: 10px; }
+.org-line.big { font-size: 1rem; margin: 0 0 6px; }
+.org-line h2 { margin: 0; }
+.org-badge {
+  --org-accent: var(--primary);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: none; border-radius: 50%;
+  background: color-mix(in srgb, var(--org-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--org-accent) 45%, transparent);
+  color: var(--org-accent); font-weight: 700; font-size: .82rem; line-height: 1;
+}
+.org-badge.lg { width: 46px; height: 46px; font-size: 1.15rem; }
+/* The accent palette is picked for light backgrounds; lift it in dark mode so a
+   deep green/red badge still reads against the dark surface. */
+@media (prefers-color-scheme: dark) {
+  .org-badge {
+    color: color-mix(in srgb, var(--org-accent) 40%, white);
+    border-color: color-mix(in srgb, var(--org-accent) 55%, white);
+    background: color-mix(in srgb, var(--org-accent) 30%, transparent);
+  }
+}
+
+/* gallery cards (one map, one shot) */
+.pub-card .shot { display: block; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.pub-card .shot img { width: 100%; height: auto; display: block; }
+.pub-card .shot-none { display: block; padding: 60px 0; text-align: center; color: var(--muted); }
+.pub-card .body h3 a { color: var(--text); }
+
+/* the sheet viewer */
+.sheet-box { margin: 18px 0 26px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.tab {
+  font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer;
+  padding: 8px 15px; border-radius: 999px;
+  background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+}
+.tab:hover { color: var(--text); }
+.tab.on { background: var(--primary-soft); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
+.sheet {
+  display: block; border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; box-shadow: var(--shadow); background: var(--surface-2);
+}
+.sheet img { width: 100%; height: auto; display: block; }
+.dl-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.btn-sm { padding: 8px 15px; font-size: .92rem; }
+.map-page ul { color: var(--muted); }
+
 .center { text-align: center; }
 .mt-0 { margin-top: 0; }
 .lead-cta { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }

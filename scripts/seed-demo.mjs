@@ -19,8 +19,9 @@ import {
   insertApplication, listApplications, insertMap,
   nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap, getOpenProposedForMap,
   insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion,
-  setMapStatus, recordAudit,
+  setMapStatus, recordAudit, getCustomer, setCustomerBranding, insertMessage, listMessages,
 } from '../src/db/index.js';
+import { sanitizeBranding } from '../src/branding/index.js';
 import { renderVersion, defaultOutputs, readRoutesMeta } from '../src/maps/engine.js';
 import { mapDataDir } from '../src/maps/store.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
@@ -35,16 +36,21 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 // per-map (staged from the town render dir); PLACE maps are staged with the
 // vendored place engine (engine/place/). So the demo seeds a built place map
 // (Beaconsfield Simpson Centre) alongside the two council area maps.
+// `branding` seeds each demo organisation's PUBLIC identity (P6) so the public
+// pages and gallery show real-looking credits out of the box.
 const DEMO = [
   { customer: 'St Ives Town Council', type: 'council', editor: 'clerk@st-ives-tc.example',
     name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
-    renderParent: 'St Ives/S5-render' },
+    renderParent: 'St Ives/S5-render',
+    branding: { emoji: '🏛️', accent: 'blue', blurb: 'Serving the market town of St Ives, Cambridgeshire.', website: 'https://st-ives-tc.example' } },
   { customer: 'March Town Council', type: 'council', editor: 'clerk@march-tc.example',
     name: 'March', slug: 'march', kind: 'area', subject: 'March, Cambridgeshire',
-    renderParent: 'March/S5-render' },
+    renderParent: 'March/S5-render',
+    branding: { emoji: '🌾', accent: 'green', blurb: 'The council for March, in the Cambridgeshire Fens.', website: 'https://march-tc.example' } },
   { customer: 'Beaconsfield Health Centre', type: 'other', editor: 'manager@beaconsfield-health.example',
     name: 'Simpson Centre', slug: 'simpson-centre', kind: 'place', subject: 'The Simpson Centre, Beaconsfield',
-    renderParent: 'Places/Beaconsfield Simpson Centre/S5-render' },
+    renderParent: 'Places/Beaconsfield Simpson Centre/S5-render',
+    branding: { emoji: '🏥', accent: 'teal', blurb: 'Helping patients and visitors reach us by bus.' } },
 ];
 
 function ensureUser(email, role, customerId, name) {
@@ -87,6 +93,15 @@ let stIves = null;
 const editors = {}; // slug -> editor user id
 for (const d of DEMO) {
   const customerId = ensureCustomer(d.customer, d.type);
+  // P6 — public branding. Sanitised on the way in, exactly as the API does.
+  if (d.branding) {
+    const cust = getCustomer(customerId);
+    if (!cust.branding_json || cust.branding_json === '{}') {
+      const { branding } = sanitizeBranding(d.branding);
+      setCustomerBranding(customerId, branding);
+      console.log(`· seeded public branding for ${d.customer}`);
+    }
+  }
   const editorId = ensureUser(d.editor, 'editor', customerId, `${d.customer} editor`);
   editors[d.slug] = editorId;
   if (d.slug === 'st-ives') stIves = { customerId, editorId };
@@ -131,24 +146,33 @@ if (stIves && !getMapBySlug('st-ives-waitrose')) {
 // --- P4: publish gate — a published example + a real pending sign-off ---
 function fullChecklist() { const c = {}; for (const item of CHECKLIST) c[item.id] = true; return c; }
 
-// March: publish its baseline v1.0 as the first official version (shows a
-// "Published" map + a publish audit entry out of the box).
-const march = getMapBySlug('march');
-if (march && march.current_version_id && !march.published_version_id) {
+// Publish a map's baseline v1.0 as its first official version — a real trip
+// through the P4 gate (submit → sign-off → pointer + audit), so the demo has
+// published maps and, with P6, live public pages for both map kinds.
+function publishBaseline(slug, editorEmail) {
+  const m = getMapBySlug(slug);
+  if (!m || !m.current_version_id || m.published_version_id) {
+    console.log(`· ${slug} already published (or not seeded)`);
+    return;
+  }
   const summary = { base: 'baseline', unchanged: true, routes: [], poisHidden: [], poisShown: [] };
-  const reqId = insertPublishRequest({ map_id: march.id, version_id: march.current_version_id, requested_by: editors['march'], note: 'Initial publication for launch.' });
-  setVersionState(march.current_version_id, 'pending');
-  recordAudit({ actorId: editors['march'], actorEmail: 'clerk@march-tc.example', action: 'version.submit', mapId: march.id, versionId: march.current_version_id, detail: { version: 'v1.0' } });
+  const reqId = insertPublishRequest({ map_id: m.id, version_id: m.current_version_id, requested_by: editors[slug], note: 'Initial publication for launch.' });
+  setVersionState(m.current_version_id, 'pending');
+  recordAudit({ actorId: editors[slug], actorEmail: editorEmail, action: 'version.submit', mapId: m.id, versionId: m.current_version_id, detail: { version: 'v1.0' } });
   decidePublishRequest(reqId, {
     status: 'approved', reviewedBy: approverId, decisionNote: 'Approved — baseline is accurate and legible.',
     evidence: { checklistVersion: CHECKLIST_VERSION, checklist: fullChecklist(), changeSummary: summary, decidedAt: new Date().toISOString() },
   });
-  setVersionState(march.current_version_id, 'published');
-  setPublishedVersion(march.id, march.current_version_id);
-  setMapStatus(march.id, 'published');
-  recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: march.id, versionId: march.current_version_id, detail: { version: 'v1.0', changeSummary: summary } });
-  console.log('· published March v1.0 as the first official version (demo published example)');
-} else console.log('· March already published (or not seeded)');
+  setVersionState(m.current_version_id, 'published');
+  setPublishedVersion(m.id, m.current_version_id);
+  setMapStatus(m.id, 'published');
+  recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: m.id, versionId: m.current_version_id, detail: { version: 'v1.0', changeSummary: summary } });
+  console.log(`· published ${slug} v1.0 as the first official version (public page now live)`);
+}
+
+publishBaseline('march', 'clerk@march-tc.example');
+// A PLACE map too, so /maps shows both kinds publicly (P6).
+publishBaseline('simpson-centre', 'manager@beaconsfield-health.example');
 
 // St Ives: a real customer edit (recolour a route) saved as v1.1 and submitted
 // for sign-off, so the review queue is non-empty with a genuine change.
@@ -244,6 +268,18 @@ if (simpsonForRefresh && simpsonForRefresh.current_version_id && simpsonForRefre
     console.warn('· ⚠ could not stage the demo refresh for the Simpson Centre:', e.message);
   }
 } else console.log('· demo place refresh already staged (or Simpson Centre not seeded)');
+
+// --- P6: a piece of feedback from a public map page, so the admin Messages tab
+//     shows the "About" (which map) column with something in it ---
+const marchPublic = getMapBySlug('march');
+if (marchPublic && !listMessages().some((m) => m.map_id === marchPublic.id)) {
+  insertMessage({
+    kind: 'feedback', name: 'A passenger', email: 'passenger@example.com',
+    body: 'The 33 no longer runs along Station Road on Saturdays — worth checking on the next refresh.',
+    map_id: marchPublic.id,
+  });
+  console.log('· seeded a piece of public feedback about the March map');
+} else console.log('· public feedback already seeded (or March not seeded)');
 
 console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped} skipped.`);
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');

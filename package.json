@@ -12,6 +12,8 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node scripts/test-p6.mjs",
+    "test:p6": "node scripts/test-p6.mjs",
     "verify": "npm run verify:area && npm run verify:place",
     "verify:area": "node --env-file-if-exists=.env scripts/verify-reproduce.mjs",
     "verify:place": "node --env-file-if-exists=.env scripts/verify-reproduce-place.mjs"

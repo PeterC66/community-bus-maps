@@ -278,6 +278,50 @@ function buildPublish() {
   buildPublishedDownloads();
 }
 
+// ---- public page (P6) --------------------------------------------------------
+// Whether the PUBLISHED version appears on the public site is the customer's own
+// switch, separate from the publish gate: un-listing takes the page down without
+// touching the signed-off version. `publicUrl` is only set by the server when the
+// map is genuinely reachable by the public.
+function buildPublic() {
+  const panel = $('publicPanel');
+  if (!detail.currentVersion) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const listed = !!detail.publicListed;
+  const live = !!detail.publicUrl;
+  $('publicState').innerHTML = live
+    ? '<span class="status-pill pub">Live</span>'
+    : (detail.publishedVersion ? '<span class="status-pill">Hidden</span>' : '<span class="status-pill">Not published yet</span>');
+
+  const link = live
+    ? `<p><a href="${esc(detail.publicUrl)}" target="_blank" rel="noopener">${esc(location.origin + detail.publicUrl)}</a> — showing published version ${esc(detail.publishedVersion)}.</p>`
+    : (detail.publishedVersion
+      ? '<p class="hint-line">Your published version is not on the public site at the moment.</p>'
+      : '<p class="hint-line">Nothing is public yet — a version has to be signed off first.</p>');
+
+  $('publicBody').innerHTML = `${link}
+    <label class="poi-row" style="margin-top:6px">
+      <input type="checkbox" id="listedBox" ${listed ? 'checked' : ''}>
+      <span>List this map on the public site (and in our published-maps gallery)</span>
+    </label>`;
+  $('listedBox').addEventListener('change', async (e) => {
+    const want = e.target.checked;
+    e.target.disabled = true;
+    try {
+      const res = await fetch(`/api/maps/${MAP_ID}/public`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ listed: want }),
+      });
+      const b = await res.json().catch(() => ({}));
+      if (res.ok && b.ok) {
+        detail.publicListed = b.publicListed; detail.publicUrl = b.publicUrl;
+        notice('ok', want ? 'Listed — the public page is live.' : 'Hidden — the public page has been taken down.');
+        buildPublic();
+      } else { e.target.checked = listed; notice('err', (b && b.error) || 'Could not change the public listing.'); }
+    } catch { e.target.checked = listed; notice('err', 'Network error while changing the public listing.'); }
+    finally { e.target.disabled = false; }
+  });
+}
+
 async function reloadPublish() {
   try {
     const res = await fetch(`/api/maps/${MAP_ID}`);
@@ -288,8 +332,9 @@ async function reloadPublish() {
       changeSummary: d.changeSummary, headState: d.headState, publishedVersion: d.publishedVersion,
       publishedDownloads: d.publishedDownloads, pendingRequest: d.pendingRequest, editable: d.editable,
       currentVersion: d.currentVersion, downloads: d.downloads, versions: d.versions, status: d.status,
+      publicListed: d.publicListed, publicUrl: d.publicUrl,
     });
-    applyLock(); buildPublish(); buildDownloads();
+    applyLock(); buildPublish(); buildPublic(); buildDownloads();
   } catch { /* leave as-is */ }
 }
 
@@ -484,6 +529,8 @@ function showPending() {
     me = (await r.json()).user;
     $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
     $('logoutBtn').style.display = '';
+    // Public details belong to a customer organisation, not a platform account.
+    if (!me.customer) document.querySelectorAll('a[href="/app/branding"]').forEach((a) => { a.style.display = 'none'; });
   } catch { $('stagePlaceholder').textContent = 'Could not reach the server.'; return; }
 
   try {
@@ -503,7 +550,7 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); buildUpdatePanel(); applyLock();
+    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildUpdatePanel(); applyLock();
 
     await loadSavedSvg();
     buildTabs();

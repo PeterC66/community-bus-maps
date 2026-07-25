@@ -45,7 +45,38 @@ function tableColumns(table) {
 
   // P5: proposed_update is a NEW table (schema.sql CREATE IF NOT EXISTS covers a
   // pre-P5 DB), so no ALTER is needed here — kept as a marker for the next reader.
+
+  // P6: the public front — an organisation's public identity + a per-map opt-out
+  // of being listed, and feedback that knows which map it came from.
+  const custCols = tableColumns('customer');
+  if (!custCols.includes('slug')) db.exec('ALTER TABLE customer ADD COLUMN slug TEXT');
+  if (!custCols.includes('branding_json')) db.exec("ALTER TABLE customer ADD COLUMN branding_json TEXT NOT NULL DEFAULT '{}'");
+  if (!mapCols.includes('public_listed')) db.exec('ALTER TABLE map ADD COLUMN public_listed INTEGER NOT NULL DEFAULT 1');
+  const msgCols = tableColumns('message');
+  if (!msgCols.includes('map_id')) db.exec('ALTER TABLE message ADD COLUMN map_id INTEGER');
+
+  // Every customer needs a public slug for /o/<slug>; backfill the ones created
+  // before P6 (and any created by a script that predates ensureCustomerSlug).
+  for (const c of db.prepare("SELECT id, name FROM customer WHERE slug IS NULL OR slug = ''").all()) {
+    ensureCustomerSlug(c.id, c.name);
+  }
 })();
+
+/** url-safe, unique organisation slug derived from its name (P6 public pages). */
+export function ensureCustomerSlug(id, name) {
+  const row = db.prepare('SELECT slug, name FROM customer WHERE id = ?').get(Number(id));
+  if (row && row.slug) return row.slug;
+  const base = String(name || (row && row.name) || `org-${id}`)
+    .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `org-${id}`;
+  let slug = base;
+  for (let n = 2; ; n++) {
+    const taken = db.prepare('SELECT id FROM customer WHERE slug = ? AND id <> ?').get(slug, Number(id));
+    if (!taken) break;
+    slug = `${base}-${n}`;
+  }
+  db.prepare('UPDATE customer SET slug = ? WHERE id = ?').run(slug, Number(id));
+  return slug;
+}
 
 export function insertApplication(a) {
   const info = db
@@ -68,8 +99,8 @@ export function insertApplication(a) {
 
 export function insertMessage(m) {
   const info = db
-    .prepare(`INSERT INTO message (kind, name, email, body) VALUES (?, ?, ?, ?)`)
-    .run(m.kind || 'enquiry', m.name || null, m.email || null, m.body);
+    .prepare(`INSERT INTO message (kind, name, email, body, map_id) VALUES (?, ?, ?, ?, ?)`)
+    .run(m.kind || 'enquiry', m.name || null, m.email || null, m.body, m.map_id != null ? Number(m.map_id) : null);
   return Number(info.lastInsertRowid);
 }
 
@@ -87,9 +118,15 @@ export function setApplicationReviewed(id, status, customerId = null) {
     .run(status, customerId != null ? Number(customerId) : null, Number(id));
 }
 
-// --- messages (P3 admin read-only view) ---
+// --- messages (P3 admin read-only view; P6 adds the map a message came from) ---
 export function listMessages() {
-  return db.prepare('SELECT * FROM message ORDER BY created_at DESC').all();
+  return db
+    .prepare(
+      `SELECT msg.*, m.name AS map_name, m.slug AS map_slug
+         FROM message msg LEFT JOIN map m ON m.id = msg.map_id
+        ORDER BY msg.created_at DESC`,
+    )
+    .all();
 }
 
 export function counts() {
@@ -495,7 +532,9 @@ export function insertCustomer(c) {
       c.quota_areas != null ? c.quota_areas : 1,
       c.quota_places != null ? c.quota_places : 3,
     );
-  return Number(info.lastInsertRowid);
+  const id = Number(info.lastInsertRowid);
+  ensureCustomerSlug(id, c.name); // P6: public organisation page /o/<slug>
+  return id;
 }
 export function getCustomer(id) {
   return db.prepare('SELECT * FROM customer WHERE id = ?').get(Number(id));
@@ -604,5 +643,96 @@ export function authCounts() {
   return {
     customers: db.prepare('SELECT COUNT(*) AS c FROM customer').get().c,
     users: db.prepare('SELECT COUNT(*) AS c FROM user').get().c,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The public front (P6). These are the ONLY queries the unauthenticated site
+// runs, and each one hard-codes the three conditions that make a map public:
+//   • it has a published_version_id (the P4 sign-off happened),
+//   • its customer is 'active' (a suspended organisation disappears), and
+//   • the customer has not un-listed it (map.public_listed).
+// Drafts, pending versions, requested maps and every scrap of customer PII are
+// unreachable from here by construction, not by filtering at the edge.
+// ---------------------------------------------------------------------------
+
+const PUBLIC_WHERE = `m.published_version_id IS NOT NULL
+       AND m.public_listed = 1
+       AND m.status <> 'archived'
+       AND c.status = 'active'`;
+
+const PUBLIC_COLUMNS = `m.id, m.slug, m.name, m.kind, m.subject, m.outputs,
+              c.id AS customer_id, c.name AS customer_name, c.type AS customer_type,
+              c.slug AS customer_slug, c.branding_json,
+              pv.storage_key AS pub_key, pv.created_at AS published_at,
+              pv.major AS pub_major, pv.minor AS pub_minor`;
+
+/** Every publicly-visible map (newest publication first). */
+export function listPublicMaps() {
+  return db
+    .prepare(
+      `SELECT ${PUBLIC_COLUMNS}
+         FROM map m
+         JOIN customer c ON c.id = m.customer_id
+         JOIN map_version pv ON pv.id = m.published_version_id
+        WHERE ${PUBLIC_WHERE}
+        ORDER BY pv.created_at DESC, m.name`,
+    )
+    .all();
+}
+
+/** One publicly-visible map by its slug, or undefined (never a draft-only map). */
+export function getPublicMapBySlug(slug) {
+  return db
+    .prepare(
+      `SELECT ${PUBLIC_COLUMNS}
+         FROM map m
+         JOIN customer c ON c.id = m.customer_id
+         JOIN map_version pv ON pv.id = m.published_version_id
+        WHERE ${PUBLIC_WHERE} AND m.slug = ?`,
+    )
+    .get(String(slug));
+}
+
+/** Organisations with at least one publicly-visible map. */
+export function listPublicOrgs() {
+  return db
+    .prepare(
+      `SELECT c.id, c.name, c.type, c.slug, c.branding_json,
+              COUNT(*) AS public_maps
+         FROM map m
+         JOIN customer c ON c.id = m.customer_id
+         JOIN map_version pv ON pv.id = m.published_version_id
+        WHERE ${PUBLIC_WHERE}
+        GROUP BY c.id
+        ORDER BY c.name`,
+    )
+    .all();
+}
+
+/** One organisation by its public slug (any status — the caller checks). */
+export function getCustomerBySlug(slug) {
+  return db.prepare('SELECT * FROM customer WHERE slug = ?').get(String(slug));
+}
+
+/** Store an organisation's public branding (already sanitised by src/branding). */
+export function setCustomerBranding(id, branding) {
+  db.prepare('UPDATE customer SET branding_json = ? WHERE id = ?')
+    .run(JSON.stringify(branding || {}), Number(id));
+}
+
+/** The customer's choice of whether their published map appears on the public site. */
+export function setMapPublicListed(mapId, listed) {
+  db.prepare('UPDATE map SET public_listed = ? WHERE id = ?').run(listed ? 1 : 0, Number(mapId));
+}
+
+/** Counts for the public site (and /health). */
+export function publicCounts() {
+  const one = (sql) => db.prepare(sql).get().c;
+  return {
+    publicMaps: one(`SELECT COUNT(*) AS c FROM map m JOIN customer c ON c.id = m.customer_id
+                       JOIN map_version pv ON pv.id = m.published_version_id WHERE ${PUBLIC_WHERE}`),
+    publicOrgs: one(`SELECT COUNT(DISTINCT c.id) AS c FROM map m JOIN customer c ON c.id = m.customer_id
+                       JOIN map_version pv ON pv.id = m.published_version_id WHERE ${PUBLIC_WHERE}`),
   };
 }

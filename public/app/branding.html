@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Public details — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">← My maps</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1>Public details</h1>
+      <span class="spacer"></span>
+      <a class="btn btn-ghost btn-sm" id="viewPublic" href="#" target="_blank" rel="noopener" style="display:none">View public page</a>
+    </div>
+    <p class="hint-line">How your organisation appears on the public pages of the maps you publish — your name, a one-line description, your website, a badge and a colour. These decorate the web page around the map; the printed sheet itself is unchanged.</p>
+
+    <div class="editor">
+      <div>
+        <div class="panel">
+          <header>Your public identity</header>
+          <div class="body">
+            <form id="brandForm">
+              <div class="field">
+                <label for="publicName">Name shown publicly</label>
+                <input id="publicName" name="publicName" type="text" maxlength="80" placeholder="e.g. St Ives Town Council">
+                <span class="hint" id="nameHint"></span>
+              </div>
+              <div class="field">
+                <label for="blurb">One line about your organisation <span class="hint">— optional</span></label>
+                <input id="blurb" name="blurb" type="text" maxlength="220" placeholder="e.g. Serving the town of St Ives, Cambridgeshire">
+              </div>
+              <div class="field">
+                <label for="website">Your website <span class="hint">— optional</span></label>
+                <input id="website" name="website" type="text" maxlength="200" placeholder="e.g. st-ives-tc.gov.uk">
+              </div>
+              <div class="field">
+                <label for="emoji">Badge <span class="hint">— an emoji or a couple of letters; leave blank for your initials</span></label>
+                <input id="emoji" name="emoji" type="text" maxlength="8" placeholder="🏛️">
+              </div>
+              <div class="field">
+                <label>Accent colour</label>
+                <div class="accent-row" id="accents"></div>
+              </div>
+              <div class="notice" id="msg"></div>
+              <button class="btn btn-primary btn-sm" id="saveBtn" type="submit">Save public details</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <header>Preview</header>
+          <div class="body">
+            <p class="hint-line">This is the credit line that appears on each of your published map pages.</p>
+            <div class="org-line big" id="preview"></div>
+            <p class="section-intro" id="previewBlurb"></p>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
+          <header>Your public pages</header>
+          <div class="body">
+            <div id="publicList"><p class="hint-line">Loading…</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app/branding.js"></script>
+</body>
+</html>

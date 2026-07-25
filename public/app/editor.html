@@ -14,6 +14,7 @@
     <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">← My maps</a>
+    <a class="navlink" href="/app/branding">Public details</a>
     <span class="navlink" id="whoami"></span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
   </nav></div></header>
@@ -101,6 +102,15 @@
             <p class="hint-line">A version stays a private <em>draft</em> until our team signs it off. Publishing sets the official, print-ready version people rely on.</p>
             <div id="publishBody"></div>
             <div class="downloads" id="publishedDownloads"></div>
+          </div>
+        </div>
+
+        <!-- ---------------- public page (P6) ---------------- -->
+        <div class="panel" id="publicPanel" style="margin-top:16px" hidden>
+          <header>Public page <span class="count" id="publicState"></span></header>
+          <div class="body">
+            <p class="hint-line">Once a version is published, we give it a page on our public site that anyone can view, print or download. Your organisation’s name, badge and colour come from your <a href="/app/branding">public details</a>.</p>
+            <div id="publicBody"></div>
           </div>
         </div>
       </div>

@@ -40,7 +40,7 @@ internal schematic, internal diagram, external).
 | **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | ✅ **done (2026-07-23)** |
 | **P5** | Monthly change acceptance: central refresh → `proposed_update`; change summary + old-vs-new preview; accept re-applies overrides as a new major draft version. | ✅ **done (2026-07-24)** |
 | **Place engine** | Vendor the place-map engine (`engine/place/`) so **place** maps import/edit/render/publish/refresh like area maps; base-overrides framing layer; place reproduce gate. Orthogonal to P6/P7. | ✅ **done (2026-07-25)** |
-| **P6** | Full public marketing front (extends P0's shopfront) + per-customer branding. | *(partly brought forward in P0)* |
+| **P6** | Public front: a public page per **published** map (`/m/:slug`), the published-maps gallery (`/maps`), organisation pages (`/o/:slug`), per-customer branding, map feedback, privacy/licensing page, robots + sitemap. | ✅ **done (2026-07-25)** |
 | **P7** | Expert diagram/pin editor (expert side) + ops hardening: backups, audit, licensing sign-off, monitoring, deploy. | |
 
 First demo cut = **P0 + P1 + P2**: a real organisation logs in, opens a map, recolours a route,
@@ -67,6 +67,12 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   in the portal. A place's expert framing (river-hide / frozen viewport) rides a `data/base-overrides.json`
   merged **under** the customer's safe-subset overrides. Proven byte-identical by `npm run verify:place`.
   See the `[0.6.0-place]` changelog entry and `engine/place/README.md`.
+- **`/legal.html` needs a final read before launch (P6).** The privacy notice is accurate about what the
+  code actually collects, but it is written as a working draft and says so on the page; confirm the wording
+  (and add a "last reviewed" date) before the site goes public. The **bustimes.org terms check** and the
+  OSM/ODbL attribution wording remain the launch go/no-go from the planning docs.
+- **Branding on the printed sheet** is deliberately *not* in P6 (a logo/colours inside the SVG needs a new
+  generator knob and re-opens the byte-identical gate for every map) — expert work, P7.
 - **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
 - **Email provider** for magic links (dev prints them to the server console).
 - **Staged-data retention (P5).** Accepted refreshes archive the outgoing data under `maps/<id>/archive/`,
@@ -126,6 +132,29 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   customer's overrides at render (`mergeOverrides` in `engine.js`); area maps have none, so they stay
   byte-identical. Prove it with `npm run verify:place` (`PLACE_FIXTURE_DIR`). The whole lifecycle —
   import → safe-subset edit → version → publish → monthly refresh/accept — works identically to area maps.
+- **Public front (P6):** the unauthenticated site is a **read view** over the publish gate. `/maps` (gallery),
+  `/m/<map-slug>` (one published map: sheets, downloads, version + date, the organisation's credit, a
+  feedback form), `/o/<org-slug>` (an organisation's published maps), `/legal.html`, `robots.txt` and a live
+  `sitemap.xml`. Its API is `/api/public/*` (see `src/public/index.js` for the shaping). **Three conditions
+  make a map public and they are enforced in SQL** (`listPublicMaps` / `getPublicMapBySlug` in
+  `src/db/index.js`): a `published_version_id` exists, the customer is `active`, and `map.public_listed` is
+  on. So **publish ≠ public** — the publish gate decides what is *official*, the customer's listing switch
+  (`PATCH /api/maps/:id/public`, the editor's *Public page* panel) decides what is *shown*, and un-listing
+  takes the page **and its files** down without touching the signed-off version or its pointer. Anywhere the
+  app needs to say "this is live", it **asks `getPublicMapBySlug()`** rather than re-deriving the rule.
+  Gallery images are **derived** from the published print JPG on first request and cached as
+  `<base>-web.jpg` (`webPreviewPath()`), so render output and the byte-identical gate are untouched.
+  Feedback lands in the P0 `message` table with `map_id` set (admin **Messages** → *About* column).
+- **Per-customer branding (P6):** public name, blurb, website, badge and a **fixed-list** accent colour,
+  edited at `/app/branding`, gated by `sanitizeBranding()` in `src/branding/index.js` — a whitelist in the
+  same spirit as the safe subset (drops markup, `javascript:` URLs, free-form hex and unknown keys, and
+  reports them). It decorates the public **page**; it deliberately does **not** enter the printed sheet —
+  that needs a generator knob and would re-open the render gate (expert work, P7). No email or phone is
+  brandable, so a public page never exposes contact details. `customer.slug` is auto-derived and deduped.
+  **`/legal.html` is a working draft** — it needs a final read (and a "last reviewed" date) before launch.
+- **P6 checks:** `npm test` (= `scripts/test-p6.mjs`) covers the branding whitelist, the SQL gate on a
+  synthetic DB (draft / un-listed / archived / suspended-org all unreachable), slug de-duplication, and
+  the migration on both a fresh **and** a pre-P6 database.
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is

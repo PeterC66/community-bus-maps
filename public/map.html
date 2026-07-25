@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Title/description are filled in from /api/public/maps/<slug> on load. -->
+  <title>Bus map — Community Bus Maps</title>
+  <meta name="description" content="A printable community bus map, published and kept up to date through Community Bus Maps.">
+  <meta property="og:type" content="article">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/maps">Published maps</a>
+    <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+    <a class="navlink" href="/contact.html">Contact</a>
+    <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+  </nav></div></header>
+
+  <main>
+    <section class="map-page"><div class="container">
+      <p class="crumb"><a href="/maps">Published maps</a></p>
+      <div id="head"><h2 class="mt-0" id="headline">Loading…</h2></div>
+
+      <div id="sheetBox" class="sheet-box" hidden>
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <a class="sheet" id="sheetLink" target="_blank" rel="noopener">
+          <img id="sheetImg" alt="">
+        </a>
+        <p class="form-note" id="sheetNote"></p>
+        <div class="dl-row" id="downloads"></div>
+      </div>
+
+      <div class="grid cols-2" id="asideGrid" hidden>
+        <div class="card">
+          <h3>About this map</h3>
+          <p id="aboutText"></p>
+          <div class="pill-row" id="aboutPills"></div>
+        </div>
+        <div class="card">
+          <h3>Spotted a problem?</h3>
+          <p>Bus services change, and mistakes happen. Tell us and we will pass it to the organisation that publishes this map.</p>
+          <form id="fbForm" data-endpoint="/api/public/feedback" data-success="Thank you — we’ve passed this on and will look into it.">
+            <input type="hidden" name="mapSlug" id="fbSlug" value="">
+            <div class="field hp"><label>Website<input type="text" name="website_hp" tabindex="-1" autocomplete="off"></label></div>
+            <div class="field">
+              <label for="fbBody">What looks wrong?</label>
+              <textarea id="fbBody" name="body" required maxlength="4000" placeholder="e.g. the 55 no longer serves Ramsey Road"></textarea>
+            </div>
+            <div class="field">
+              <label for="fbEmail">Your email <span class="hint">— optional, only if you would like a reply</span></label>
+              <input id="fbEmail" name="email" type="email" maxlength="200">
+            </div>
+            <div class="form-msg"></div>
+            <button class="btn btn-ghost btn-sm" type="submit">Send</button>
+          </form>
+        </div>
+      </div>
+
+      <div id="err" class="form-note" hidden></div>
+
+      <div class="lead-cta">
+        <a class="btn btn-primary" href="/apply.html">Get a map like this</a>
+        <a class="btn btn-ghost" href="/maps">See all published maps</a>
+      </div>
+    </div></section>
+  </main>
+
+  <footer class="site-footer"><div class="container"><div class="cols">
+    <div class="attrib">
+      <strong>Community Bus Maps</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
+      Maps © OpenStreetMap contributors (ODbL); bus service data via BODS (Open Government Licence). Always check live times with the operator or at bustimes.org.
+    </div>
+    <div>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/legal.html">Privacy &amp; licensing</a><br>
+      <span class="muted">Open-source (Apache-2.0) · <a href="https://github.com/PeterC66/community-bus-maps">GitHub</a></span>
+    </div>
+  </div></div></footer>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/public-map.js"></script>
+</body>
+</html>
