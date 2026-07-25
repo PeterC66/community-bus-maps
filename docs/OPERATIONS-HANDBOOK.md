@@ -135,14 +135,14 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Engine references | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the renderer + place + expert styles | ✅ |
 | Changelog | `CHANGELOG.md` | per-phase lessons | ✅ |
 | **Terms of use / customer agreement** | `public/terms.html` | the customer's side of the deal | ✅ draft (G3); governing law + review to confirm |
-| **R1** create a new area/place map | `docs/` | generating maps | ⏳ planned |
-| **R2** customer onboarding | `docs/` | accepting customers | ⏳ planned |
-| **R3** review & publish | `docs/` | approver sign-off | ⏳ planned |
+| **R1** create a new area/place map | `docs/runbook-create-map.md` | generating maps | ✅ |
+| **R2** customer onboarding | `docs/runbook-onboarding.md` | accepting customers | ✅ |
+| **R3** review & publish | `docs/runbook-review-and-publish.md` | approver sign-off | ✅ |
 | **R4** monthly update cycle | `docs/` | managing updates | ⏳ planned |
 | **R5** marketing site & messages | `docs/` | maintaining the website | ⏳ planned |
 | **R6** incident response | `docs/` | when a live map is wrong | ⏳ planned |
 | **C1** customer user guide | `docs/` + page | hand to each customer | ⏳ planned |
-| **Pol1** vetting & quota policy | `docs/` | who qualifies, default quotas | ⏳ planned |
+| **Pol1** vetting & quota policy | `docs/vetting-and-quota-policy.md` | who qualifies, default quotas | ✅ |
 | **P1–P4** register / logs / notes | `ops/` (local-only) | customers, vetting, incidents, business | ⏳ templates created (Tier 0) |
 
 ## 8. Continuity — resuming cold

@@ -1,0 +1,107 @@
+# Runbook R1 — Create a new area or place map
+
+**Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
+
+**Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned
+by the right customer and ready for editing + sign-off.
+
+Two halves, and the split is the point (see the Handbook): **making** the map (stages S1–S6 — live
+data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic,
+no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
+
+## Prerequisites
+
+- The map **skills** (they live in the separate Buses tooling): `make-bus-leaflet` (a town/area) or
+  `make-place-bus-leaflet` (a shop/school/station/point).
+- The portal repo with `npm install` done; know your `DATA_DIR`.
+- The owning **customer** already exists (created at onboarding — R2). You attach the map by name.
+- A decision: **area** or **place**, and the **subject** (town / parish / part-of-town, or the POI).
+
+## Step 1 — Make the map (central pipeline)
+
+> **Claude-assisted shortcut:** run the skill. `make-bus-leaflet` for a town/area,
+> `make-place-bus-leaflet` for a place. It runs S1 services → S2 geometry → S3 config → S4 generate →
+> S5 render → S6 verify, red-teams the routes, and produces a dated **S5-render** folder — that folder
+> is what you import.
+
+The S5-render folder contains the generators + JSON inputs + the rendered SVG/JPG:
+- **Area** dir carries `gen_internal.js` + `gen_external.js` + its `*.json`.
+- **Place** dir carries `routes.json` + `place.json` (+ inputs). Its generators are **vendored in the
+  portal** (`engine/place/`) and copied in at import — they need not be in the src.
+
+Keep the skill's verification `.docx` with the job — it's your red-team evidence.
+
+## Step 2 — Import into the portal (deterministic)
+
+**Stop the dev server first** (one SQLite writer). Then:
+
+```bash
+node scripts/import-map.mjs \
+  --src "<path to the S5-render dir>" \
+  --name "St Ives" \
+  --slug st-ives \
+  --kind area \
+  --subject "St Ives" \
+  --customer "St Ives Town Council" \
+  --customer-type council
+```
+
+Flags:
+
+| Flag | Meaning |
+|---|---|
+| `--src` (required) | the S5-render dir |
+| `--name` (required) | display name |
+| `--slug` | URL slug (defaults to a slugified name); **must be unique** |
+| `--kind area\|place` | default `area` |
+| `--subject` | what the map is of (defaults to `--name`) |
+| `--customer "Name"` | attach to that customer (created if missing). **Omit ⇒ unowned (admin-only)** — prefer the real customer |
+| `--customer-type` | one of `council · shop · business · school · function-organiser · charity-nt · other` (only used if the customer is created here) |
+
+What it does: copies the generators + JSON inputs into the git-ignored object store
+(`DATA_DIR/maps/<id>/data/`); stores any shipped `overrides.json` as **expert framing**
+(`base-overrides.json`, merged *under* customer edits — never as the customer layer); writes empty
+customer overrides `{}`; renders **v1.0 = the byte-identical baseline**; prints the new map id and its
+edit URL `/app/maps/<id>`.
+
+## Step 3 — Verify the baseline is byte-identical
+
+The whole system rests on v1.0 == the shipped leaflet. Confirm it:
+
+```bash
+FIXTURE_DIR="<the S5-render dir>" npm run verify:area      # or verify:place for a place map
+```
+
+Green = the portal reproduces the desktop bytes exactly. **If it fails, stop** — check the
+`sharp`/libvips version against the desktop pipeline before anything else (see [DEPLOY.md §7](DEPLOY.md)).
+
+## Step 4 — Choose outputs, then hand to sign-off
+
+- Sign in as admin, open `/app/maps/<id>`, set which of the four **outputs** this map offers (v1.0
+  renders internal-geographic + external by default; the two expert styles are opt-in).
+- The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer
+  edits + submits, an approver signs off.
+
+## Reconciling with an approved map request — know this
+
+Today the importer **creates a new map row**; it does **not** fill in the placeholder row that a
+customer's request created. The request lifecycle (R2 → customer requests → admin **approves**) only
+flips that placeholder to `approved`; the central build happens separately, here. So after building a
+**requested** map:
+
+1. Import it as above (a fresh row, owned by the same customer). Reusing the request's slug will error
+   (`slug exists`) — use a distinct slug.
+2. **Archive the placeholder request row** (admin console) so the dashboard + quota show one map, not
+   two. *(Quota counts every non-archived map of a kind.)*
+
+> **Known rough edge:** joining the importer to an approved request row (so the placeholder *becomes*
+> the built map) is a follow-up. Until then, treat the request as the trigger and tidy the placeholder.
+> As admin you can also build + import **proactively** without a prior request.
+
+## What-if / rollback
+
+- **Slug already exists** → pick another `--slug`, or remove the existing map first.
+- **Wrong customer** → re-import under the right `--customer` (new row) and archive the wrong one;
+  there's no in-place re-owner tool.
+- **Bad build** → pre-publish, the object store + v1.0 are disposable: delete the map row and its
+  `maps/<id>/` dir, then re-import. **Never** hand-edit a rendered file — always go through a version.
