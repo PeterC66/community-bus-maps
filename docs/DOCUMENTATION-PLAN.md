@@ -1,6 +1,6 @@
 # Documentation development plan — the operator layer
 
-**Status:** plan (no docs written yet) · **Written:** 2026-07-25 · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
+**Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
 This is the plan for building the documentation Peter needs for **his part** in the portal:
 generating new town/place maps, accepting new customers, maintaining the system and the
@@ -151,9 +151,9 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 9. ✅ **C1** [`customer-user-guide.md`](customer-user-guide.md) — sign in → request → edit (colours/POIs/outputs) → branding → submit → list → download → accept monthly updates.
 10. ✅ **R5** [`runbook-marketing-and-messages.md`](runbook-marketing-and-messages.md) — shopfront pages, adding an example, the self-generating public front (publish≠public), the branding whitelist, the two message queues.
 
-**Tier 4 — Cyclical & exceptional (depend on everything)**
-11. **R4** monthly update cycle.
-12. **R6** incident response.
+**Tier 4 — Cyclical & exceptional** ✅ *done 2026-07-25*
+11. ✅ **R4** [`runbook-update-cycle.md`](runbook-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → sign off → prune.
+12. ✅ **R6** [`runbook-incident-response.md`](runbook-incident-response.md) — severity; a wrong published map (unlist fast → re-publish fix); access / health / byte-parity / source-outage / PII; log it.
 
 Registers **P1–P4** are stubbed in Tier 0 and **populated continuously** as you operate.
 

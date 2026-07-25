@@ -138,9 +138,9 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | **R1** create a new area/place map | `docs/runbook-create-map.md` | generating maps | ✅ |
 | **R2** customer onboarding | `docs/runbook-onboarding.md` | accepting customers | ✅ |
 | **R3** review & publish | `docs/runbook-review-and-publish.md` | approver sign-off | ✅ |
-| **R4** monthly update cycle | `docs/` | managing updates | ⏳ planned |
+| **R4** monthly update cycle | `docs/runbook-update-cycle.md` | managing updates | ✅ |
 | **R5** marketing site & messages | `docs/runbook-marketing-and-messages.md` | maintaining the website | ✅ |
-| **R6** incident response | `docs/` | when a live map is wrong | ⏳ planned |
+| **R6** incident response | `docs/runbook-incident-response.md` | when a live map is wrong | ✅ |
 | **C1** customer user guide | `docs/customer-user-guide.md` | hand to each customer | ✅ |
 | **Pol1** vetting & quota policy | `docs/vetting-and-quota-policy.md` | who qualifies, default quotas | ✅ |
 | **P1–P4** register / logs / notes | `ops/` (local-only) | customers, vetting, incidents, business | ⏳ templates created (Tier 0) |
