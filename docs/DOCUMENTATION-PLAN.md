@@ -147,9 +147,9 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 7. ✅ **Pol1** [`vetting-and-quota-policy.md`](vetting-and-quota-policy.md) + **R2** [`runbook-onboarding.md`](runbook-onboarding.md) — vet → approve (customer + editor + invite) → record → their maps.
 8. ✅ **R3** [`runbook-review-and-publish.md`](runbook-review-and-publish.md) — submit → review (change summary + JPGs) → 5-item checklist → publish / send-back; the two pointers.
 
-**Tier 3 — Customer-facing (depends on the flows above being documented)**
-9. **C1** customer user guide.
-10. **R5** marketing site, public front & messages.
+**Tier 3 — Customer-facing** ✅ *done 2026-07-25*
+9. ✅ **C1** [`customer-user-guide.md`](customer-user-guide.md) — sign in → request → edit (colours/POIs/outputs) → branding → submit → list → download → accept monthly updates.
+10. ✅ **R5** [`runbook-marketing-and-messages.md`](runbook-marketing-and-messages.md) — shopfront pages, adding an example, the self-generating public front (publish≠public), the branding whitelist, the two message queues.
 
 **Tier 4 — Cyclical & exceptional (depend on everything)**
 11. **R4** monthly update cycle.
