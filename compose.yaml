@@ -1,0 +1,40 @@
+# Single-VM deployment (P7). One service, one volume, a reverse proxy in front.
+# See docs/DEPLOY.md for TLS, backups and the restore drill.
+
+services:
+  portal:
+    build: .
+    image: community-bus-maps:local
+    restart: unless-stopped
+    # Bound to loopback: TLS + the public hostname belong to the reverse proxy.
+    ports:
+      - "127.0.0.1:5180:5180"
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      # The public base URL used in robots.txt + sitemap.xml (P6).
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # Magic-link email. Unset = links are printed to the container log (dev only).
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      # Set to expose /metrics to a scraper (unset = /metrics is hidden).
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    volumes:
+      - portal-data:/data
+      # Backups written outside DATA_DIR so a backup is never inside the next one.
+      - ./backups:/backups
+
+  # Run on a timer (host cron / systemd timer) rather than continuously:
+  #   docker compose run --rm backup
+  backup:
+    profiles: ["tools"]
+    image: community-bus-maps:local
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - portal-data:/data
+      - ./backups:/backups
+    command: ["node", "scripts/backup.mjs", "--out", "/backups", "--keep", "14"]
+
+volumes:
+  portal-data:

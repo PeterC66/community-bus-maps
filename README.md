@@ -15,11 +15,11 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | Output | What it is |
 |---|---|
 | **internal (geographic)** | a street-anchored map of the buses within the area/around the place |
-| **internal (schematic)** | an octolinear, straightened version of the same |
-| **internal (diagram)** | a tube-map-style diagram |
+| **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
+| **internal (diagram)** | a tube-map-style diagram, hand-tunable via the pin editor *(expert style, opt-in per map)* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: early build (P0 + P1 + P2 + P3 + P4 + P5 + P6).** This repo contains the public **shopfront**
+> **Status: feature-complete against the plan (P0–P7).** This repo contains the public **shopfront**
 > (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a
 > **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant
 > isolation** (P2), **onboarding + governance** (P3), the **publish gate** (P4), and **monthly change
@@ -32,7 +32,10 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > reviews a change summary + old-vs-new preview and **accepts** (their edits re-applied onto the fresh data
 > as a new major draft) or **declines**. Once a version is signed off it gets a **public page** anyone can
 > visit — the sheets to view and download, the publishing organisation's branding, and a "something looks
-> wrong" form — listed in a public **gallery** (P6). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and
+> wrong" form — listed in a public **gallery** (P6). **All four outputs render** — the octolinear
+> schematic and the tube-map diagram arrived in P7, with an **admin-only pin editor** for the
+> diagram's layout — and the service is operable: readiness probe, metrics, backups, a retention
+> job, a container and a deploy runbook (P7). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and
 > [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
@@ -165,6 +168,41 @@ map).
 npm test          # P6 checks: the branding whitelist, the public SQL gate, slugs, both migration paths
 ```
 
+## The expert side (P7)
+
+Two of the four outputs are **expert styles**: the octolinear **schematic** and the tube-map
+**diagram**. Their engines are portal-owned in [`engine/expert/`](engine/expert/README.md) (a town's
+render folder never carried them), they are **opt-in per map** — the map's `routes.json` has to carry
+`internalSchematic` / `internalDiagram` — and they are **off by default**, because a schematic is an
+editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six**
+outputs (four area + two place) are proved on every release.
+
+The diagram's automatic layout can be hand-tuned by an **admin** at **`/app/maps/:id/diagram`**: drag a
+junction to pin it, drop to re-solve and see the real sheet, right-click to unpin. This is the mirror
+image of the customer safe subset — dragging changes *layout*, which customers may not do — so every
+`/api/expert/*` route is admin-only. Previews solve in a sandbox; **Save** writes the map's
+`diagram-layout.json` and renders a new version through the ordinary path, so expert work is a draft
+that still needs sign-off, and it is audited. Pins carry across a monthly refresh (they re-resolve by
+stored lat/lon if a junction's key moves).
+
+## Running it in production (P7)
+
+```bash
+curl -fsS localhost:5180/health?deep=1     # readiness: DB + object store + engine + rasteriser
+npm run backup -- --keep 14                # consistent SQLite copy + per-map data/renders
+npm run prune:staged -- --days 90 --dry-run # reclaim settled refresh data
+```
+
+`/health?deep=1` returns **503** when a dependency is unhealthy (the container `HEALTHCHECK` uses it);
+`/metrics` serves Prometheus text when `METRICS_TOKEN` is set (404 otherwise); and **admin → Ops** shows
+dependency health, per-map disk usage and what a prune would reclaim. Deployment (container, systemd,
+reverse proxy, backup schedule and a **restore drill**) is in [`docs/DEPLOY.md`](docs/DEPLOY.md); the
+licensing launch gate is [`docs/LICENSING.md`](docs/LICENSING.md).
+
+**One warning worth repeating:** the print JPG is the product, so an upgrade of `sharp`/libvips must
+re-pass `npm run verify` on the target platform before it ships — a different encoder can produce
+different bytes for the same SVG, which would break "the file we serve is the file that was approved".
+
 ## Data hygiene (important — this is a public repo)
 
 **No map data, customer data, or secrets ever go in git.**
@@ -186,18 +224,24 @@ via **BODS** (Open Government Licence). See [NOTICE](NOTICE) for full attributio
 
 ```
 engine/     the deterministic renderer (vendored reference: render.js, icons.js as a CommonJS island)
+  place/    the vendored PLACE engine (copied into each place map's data at import)
+  expert/   the portal-owned EXPERT styles: schematic + tube-map diagram pre-stages + wrappers
 src/
   db/       node:sqlite schema + helpers (customers, users, sessions, maps, versions, publish requests, proposed updates, audit, messages)
   auth/     magic-link + server-side sessions + hand-rolled cookies (no deps)
   publish/  the publish gate: deterministic changeSummary() + the enforced sign-off checklist (pure)
   refresh/  monthly change acceptance: pure diffRouteData() over the service facts (routes/stops/desc/validity)
   branding/ per-customer public identity — the server-enforced whitelist (pure)
+  expert/   the diagram pin editor's engine: sandboxed solves, pin read/write (admin-only API)
+  ops/      readiness probe, storage/activity snapshots, Prometheus metrics
   public/   the public read model: published maps/orgs → PII-free JSON + derived web-sized previews
   audit/    logAudit() — append-only governance trail (who/what/when/which map)
   render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
   maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render/swap)
   server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + monthly updates + admin console
-public/     the shopfront + public map pages (maps/map/org/legal) + app/ (login, dashboard, two-pane editor, public details, review console, admin console)
-scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6.mjs (public-front checks)
+public/     the shopfront + public map pages (maps/map/org/legal) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
+scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
+docs/       ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate)
+Dockerfile, compose.yaml   single-process container + single-volume deployment
 ```

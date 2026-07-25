@@ -11,6 +11,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let detail = null;
+let ME = null;                   // the signed-in user (gates the expert-only links)
 let staged = { colors: {}, hide: new Set() };
 let savedSig = '';
 let activeMap = null;             // artefact base name of the shown output
@@ -39,7 +40,12 @@ const isDirty = () => sig(staged) !== savedSig;
 const enabledOutputs = () => detail.outputs.filter((o) => o.available && o.enabled);
 const labelForBase = (base) => (detail.outputs.find((o) => o.base === base) || {}).label || base;
 const isLocked = () => detail && detail.editable === false; // frozen while awaiting sign-off
-const DL_LABELS = { 'internal.svg': 'Within · SVG', 'internal.jpg': 'Within · JPG (print)', 'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)' };
+const DL_LABELS = {
+  'internal.svg': 'Within · SVG', 'internal.jpg': 'Within · JPG (print)',
+  'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)',
+  'internal-schematic.svg': 'Schematic · SVG', 'internal-schematic.jpg': 'Schematic · JPG (print)',
+  'internal-diagram.svg': 'Diagram · SVG', 'internal-diagram.jpg': 'Diagram · JPG (print)',
+};
 
 // ---- state chips -------------------------------------------------------------
 function refreshState() {
@@ -66,7 +72,7 @@ function buildOutputs() {
   box.innerHTML = detail.outputs.map((o) => `
     <div class="poi-item ${o.enabled ? '' : 'off'}" data-key="${esc(o.key)}">
       <input type="checkbox" id="out_${esc(o.key)}" ${o.enabled ? 'checked' : ''} ${o.available ? '' : 'disabled'}>
-      <label for="out_${esc(o.key)}">${esc(o.label)}${o.available ? '' : ' <span class="soon">— coming with expert styles</span>'}</label>
+      <label for="out_${esc(o.key)}">${esc(o.label)}${o.available ? (o.expert ? ' <span class="soon">— expert style</span>' : '') : ' <span class="soon">— not set up for this map</span>'}</label>
     </div>`).join('');
   $('outputCount').textContent = enabledOutputs().length + ' on';
   box.querySelectorAll('input[type=checkbox]').forEach((inp) => inp.addEventListener('change', onOutputsChange));
@@ -276,6 +282,19 @@ function buildPublish() {
     $('submitPublishBtn').addEventListener('click', submitPublish);
   }
   buildPublishedDownloads();
+}
+
+// ---- expert side (P7) --------------------------------------------------------
+// Layout work is admin-only by design (it is the other half of the safe subset),
+// and only offered for a map whose data actually carries a diagram configuration.
+function buildExpertLinks() {
+  const link = $('diagramLink');
+  if (!link) return;
+  const diagram = (detail.outputs || []).find((o) => o.key === 'internal_diagram');
+  if (ME && ME.role === 'admin' && diagram && diagram.available) {
+    link.href = `/app/maps/${MAP_ID}/diagram`;
+    link.style.display = '';
+  }
 }
 
 // ---- public page (P6) --------------------------------------------------------
@@ -529,6 +548,7 @@ function showPending() {
     me = (await r.json()).user;
     $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
     $('logoutBtn').style.display = '';
+    ME = me;
     // Public details belong to a customer organisation, not a platform account.
     if (!me.customer) document.querySelectorAll('a[href="/app/branding"]').forEach((a) => { a.style.display = 'none'; });
   } catch { $('stagePlaceholder').textContent = 'Could not reach the server.'; return; }
@@ -551,6 +571,7 @@ function showPending() {
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
     buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildUpdatePanel(); applyLock();
+    buildExpertLinks();
 
     await loadSavedSvg();
     buildTabs();

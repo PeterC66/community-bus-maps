@@ -14,9 +14,11 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES } from './store.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT } from './store.js';
 
 const GEN_INTERNAL = 'gen_internal.js';
+/** Portal-owned expert-style generators (P7): the schematic + diagram pre-stages. */
+export const EXPERT_DIR = path.join(ENGINE_DIR, 'expert');
 
 /**
  * Resolve which generator an output uses for a given map data folder: the first
@@ -27,8 +29,24 @@ const GEN_INTERNAL = 'gen_internal.js';
  */
 export function resolveGen(meta, dataDir) {
   const gens = meta.gens || (meta.gen ? [meta.gen] : []);
+  // Expert styles (P7) live in the portal's engine, not in the map's data — and
+  // are only offered when the map's routes.json opts into them.
+  if (meta.engine === 'expert') {
+    if (meta.requiresConfig && !hasRoutesKey(dataDir, meta.requiresConfig)) return null;
+    for (const g of gens) {
+      const p = path.join(EXPERT_DIR, g);
+      if (existsSync(p)) return p; // absolute → generateSvg uses it as-is
+    }
+    return null;
+  }
   for (const g of gens) if (existsSync(path.join(dataDir, g))) return g;
   return null;
+}
+
+/** Does this map's routes.json carry a (truthy) opt-in key, e.g. internalDiagram? */
+export function hasRoutesKey(dataDir, key) {
+  const rj = readJson(path.join(dataDir, 'routes.json'), null);
+  return !!(rj && rj[key]);
 }
 
 function isPlainObject(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
@@ -54,10 +72,15 @@ export function readBaseOverrides(dataDir) {
   return readJson(path.join(dataDir, BASE_OVERRIDES), {}) || {};
 }
 
-/** Default output enablement: portal-supported outputs on, the rest off. */
+/**
+ * Default output enablement: the two geographic outputs on; the **expert styles
+ * off** (P7). They render fine, but a schematic or diagram is an editorial choice
+ * (and the diagram usually wants pin-tuning first), so a map opts in deliberately
+ * rather than every save quietly producing four sheets.
+ */
 export function defaultOutputs() {
   const o = {};
-  for (const [key, meta] of Object.entries(OUTPUTS)) o[key] = !!meta.portal;
+  for (const [key, meta] of Object.entries(OUTPUTS)) o[key] = !!meta.portal && !meta.expert;
   return o;
 }
 
@@ -72,10 +95,13 @@ export function effectiveOutputs(config, dataDir) {
   const out = [];
   for (const [key, meta] of Object.entries(OUTPUTS)) {
     if (!meta.portal) continue;
-    if (cfg[key] === false) continue; // undefined => on
+    // Geographic outputs: undefined => on (a map imported before output toggles
+    // existed still renders both). Expert styles: opt-in only, so a map imported
+    // before P7 doesn't silently start producing two more sheets.
+    if (meta.expert ? cfg[key] !== true : cfg[key] === false) continue;
     const gen = resolveGen(meta, dataDir);
-    if (!gen) continue; // no candidate generator present for this map
-    out.push({ key, base: meta.base, label: meta.label, gen });
+    if (!gen) continue; // no candidate generator present/configured for this map
+    out.push({ key, base: meta.base, label: meta.label, gen, expert: !!meta.expert });
   }
   return out;
 }
@@ -86,8 +112,9 @@ export function outputsForClient(config, id) {
   const cfg = config && typeof config === 'object' ? config : {};
   return Object.entries(OUTPUTS).map(([key, meta]) => ({
     key, base: meta.base, label: meta.label, portal: !!meta.portal,
+    expert: !!meta.expert,
     available: !!meta.portal && !!resolveGen(meta, dataDir),
-    enabled: meta.portal ? cfg[key] !== false : false,
+    enabled: meta.portal ? (meta.expert ? cfg[key] === true : cfg[key] !== false) : false,
   }));
 }
 
@@ -254,6 +281,27 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
 }
 
 /**
+ * Copy the expert's hand-tuning from a map's LIVE data into a staged payload that
+ * doesn't carry its own (P7). A monthly payload is produced centrally from fresh
+ * source data and normally knows nothing about `diagram-layout.json`, so this must
+ * run BEFORE anything renders from the staged folder — otherwise the refreshed
+ * version (and the old-vs-new preview) would silently lose the pins even though
+ * the file is carried forward afterwards.
+ *
+ * Returns the filenames carried. Safe to call repeatedly.
+ */
+export function carryExpertTuning(id, stagedDir) {
+  const live = mapDataDir(id);
+  const carried = [];
+  for (const f of [DIAGRAM_LAYOUT]) {
+    const from = path.join(live, f);
+    const to = path.join(stagedDir, f);
+    if (existsSync(from) && !existsSync(to)) { cpSync(from, to); carried.push(f); }
+  }
+  return carried;
+}
+
+/**
  * Accept a staged monthly refresh (P5): move the outgoing live data into the
  * archive (never deleted) and swap the staged proposed data into the live data
  * location. The map's data_dir path is unchanged (only its contents), and the
@@ -271,8 +319,20 @@ export function swapInProposedData(id, pid) {
   const archived = path.join(archiveRoot(id), `proposed-${pid}-prev`);
   if (existsSync(live)) renameSync(live, archived);   // outgoing data → archive
   renameSync(staged, live);                            // staged data → live
+  // Expert hand-tuning must survive a data refresh (P7): the diagram's pins are
+  // the expert's own work, not part of the monthly payload, and the diagram engine
+  // re-resolves a pin by its stored lat/lon if a node key moved. Carry the layout
+  // forward when the fresh payload doesn't bring one of its own.
+  const carried = [];
+  for (const f of [DIAGRAM_LAYOUT]) {
+    const from = path.join(archived, f);
+    if (existsSync(from) && !existsSync(path.join(live, f))) {
+      cpSync(from, path.join(live, f));
+      carried.push(f);
+    }
+  }
   invalidatePoiCache(id);                              // drawn-POI universe may have changed
-  return { archived };
+  return { archived, carried };
 }
 
 export { OUTPUT_FILES };

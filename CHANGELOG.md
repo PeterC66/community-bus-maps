@@ -2,6 +2,134 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.8.0-P7] — 2026-07-25
+
+Phase **P7** — **expert styles + ops hardening.** Two halves, and they are the last two
+pieces of the original plan: the **other two outputs** (the octolinear schematic and the
+tube-map diagram) now render in the portal with the same byte-identical guarantee as the
+geographic pair, with the **diagram pin editor re-homed** as an admin-only tool; and the
+service becomes operable — readiness, metrics, backups, a retention job, a container +
+deploy runbook, and the licensing sign-off gate.
+
+### Added — expert styles (the third and fourth outputs)
+- **`engine/expert/`** — the schematic + diagram engines, vendored (see its README). Unlike the
+  area generators (which travel per-map) and the place engine (copied *into* each place map),
+  these are **portal-owned**: a town's render folder never carried them and they are identical
+  for every map. `OUTPUTS` marks them `engine: 'expert'`, so `resolveGen()` returns an absolute
+  path out of that folder and `generateSvg()` accepts it.
+- **Two thin wrappers** (`gen_internal_schematic.js`, `gen_internal_diagram.js`) around the
+  verbatim pre-stages. Both pre-stages are *geometry* stages: they rewrite the map's geometry
+  into a workspace and then run **the map's own `gen_internal.js`** there, so badges, labels,
+  the Services panel and POI icons are reused rather than reimplemented. The wrappers name the
+  artefact, fail loudly when the map has no config, and — the one that would have bitten
+  silently — **delete `LEAFLET_DIR` for the child** (the portal always sets it; the pre-stage
+  runs its child with `cwd` = the workspace, and `gen_internal` prefers `LEAFLET_DIR`, so an
+  inherited value reproduces the ordinary geographic map instead of the style).
+- **Opt-in availability** — an expert output is offered only when the map's `routes.json`
+  carries the pre-stage's config key (`internalSchematic` / `internalDiagram`), via a new
+  `requiresConfig` + `hasRoutesKey()`. A map without it shows the output as *unavailable*
+  rather than failing at render time, and the server refuses to enable it.
+- **Off by default** (`defaultOutputs()`, `effectiveOutputs()`): a schematic or diagram is an
+  editorial choice, so a map opts in deliberately — and a map imported before P7 does not
+  suddenly start producing two more sheets on every save.
+- **The byte-identical gate covers them** — `scripts/verify-reproduce.mjs` picks both styles up
+  when the fixture opts in. St Ives v6.6: schematic **253,112 B SVG / 1,054,471 B JPG**, diagram
+  **252,096 B / 1,077,051 B**, both byte-identical on the first run, so all **six** outputs
+  (4 area + 2 place) are now gated.
+
+### Added — the expert pin editor
+- **`/app/maps/:id/diagram`** (`public/app/diagram.{html,js}`, adapted from the skill's
+  `assets/diagram_edit.js`) + **`src/expert/index.js`** and admin-only `/api/expert/maps/:id/diagram`
+  (state / `preview` / `save`). Drag a junction to **pin** it, drop to re-solve and see the real
+  sheet, right-click to unpin. This is deliberately the mirror of the customer safe subset —
+  dragging changes *layout*, which is exactly what customers may not do, so every route is
+  `requireAdmin`.
+- **Previews never touch the live map**: solving runs in a per-map sandbox (rebuilt when the live
+  data changes). **Save** writes `diagram-layout.json` into the live data and then goes through
+  the ordinary versioned render — so the tuning arrives as a *draft* that still needs the P4
+  sign-off, is audited (`diagram.save`), and switches the diagram output on if it was off.
+  Editing is refused while a publish request is pending, and a failed render restores the
+  previous layout.
+- **Pins survive a monthly refresh** — `carryExpertTuning()` copies the layout onto the staged
+  payload **before** the refreshed version renders (and `swapInProposedData()` carries it forward
+  as a backstop), so the P5 old-vs-new preview and the accepted `vN.0` both show the tuned
+  layout. The engine re-resolves a pin by its stored lat/lon when a node key moves.
+- **Pins are whitelisted** (`sanitizePins`) like every other stored instruction: finite,
+  bounded page-mm coordinates on plausible keys, capped in number, everything else dropped.
+
+### Added — ops hardening
+- **`src/ops/index.js`** — a **readiness** probe that exercises what actually breaks (SQLite
+  answers, `DATA_DIR` is writable, the vendored engine files are present, sharp can encode) plus
+  storage/activity snapshots. `/health?deep=1` runs it and returns **503** when degraded (the
+  container `HEALTHCHECK` and any load balancer should use it); `/health` alone stays a cheap ping.
+- **`/metrics`** — Prometheus text (readiness per dependency, store bytes, reclaimable bytes,
+  versions, pending queues, sessions), gated by `METRICS_TOKEN` or an admin session and **404**
+  otherwise, so an unauthenticated scrape can't map the estate.
+- **Admin → Ops tab** (`/api/admin/ops`) — dependency health, per-map disk usage (data / renders /
+  staged / archived), what a prune would reclaim, and the activity counts.
+- **`scripts/backup.mjs`** (`npm run backup`) — SQLite via **`VACUUM INTO`** (a consistent copy of
+  a live, WAL-mode database; `cp` can capture a torn file plus a stale `-wal`), plus each map's
+  `data/`, `overrides.json` and `renders/`, with a manifest and `--keep` retention. Deliberately
+  skips `proposed/` and `archive/` — the bulk, and re-stageable.
+- **`scripts/prune-staged.mjs`** (`npm run prune:staged`) — closes the P5 retention follow-up:
+  removes staged payloads of **settled** refreshes and the data an accepted refresh replaced, older
+  than `--days`, with `--dry-run`. Never touches a pending update, live data, or any rendered version.
+- **`Dockerfile` + `compose.yaml` + `docs/DEPLOY.md`** — single process, single volume, reverse proxy
+  in front; systemd unit, smoke test, backup schedule, **restore drill**, housekeeping, and the
+  upgrade sequence (`npm test` → `npm run verify` → deploy).
+- **`docs/LICENSING.md`** — the launch go/no-go: every source and its obligation, where the credits
+  actually appear (on the *sheet*, which survives being detached from the site), the open
+  **bustimes.org terms** question with three ways to close it, and a sign-off table.
+- **`scripts/test-p7.mjs`** (`npm test` now runs P6 + P7) — the availability/enablement rules, the
+  pin round-trip, that `server.js` still sanitises pins, and the ops probes on an empty store.
+
+### Changed
+- `generateSvg()` accepts an absolute generator path; `svgNameFor()` matches on the basename.
+- Editor: an admin sees a **Diagram layout** link on maps that have a diagram; the outputs panel
+  now says *“— expert style”* / *“— not set up for this map”* instead of “coming with expert
+  styles”; downloads label the four new artefacts.
+- Public pages label the new outputs for readers (“Simplified street map”, “Network diagram”).
+- Version → `0.8.0-P7`.
+
+### Verified
+- **All six byte-identical gates PASS** (`npm run verify`): area internal/external, both expert
+  styles, and the place pair. `npm test` green (P6 + P7).
+- End-to-end on an isolated scratch server against a copy of the real demo store: the expert
+  endpoint solved St Ives' diagram (25 junctions, ~1 s), a pin moved its junction to where it was
+  dragged, a **hostile pin payload** was reduced to nothing usable, save was **409'd while a
+  publish request was pending** and succeeded after withdrawal (v1.2, diagram output auto-enabled,
+  audited), the pins persisted and reloaded, a **customer** save then rendered all four sheets with
+  their recolour reaching the schematic and diagram, and a **monthly refresh** staged *without* a
+  layout still produced a pinned `v3.0` (and a pinned old-vs-new preview). A drag → save through
+  the real UI produced `v3.1` with 8 artefacts. Isolation: an editor gets **403** on all three
+  expert routes, `/metrics` **404**, `/api/admin/ops` **403**; a place map without the config gets
+  a clear **400**. Ops: readiness all-ok, the Ops tab reported 49.8 MB with 11.2 MB reclaimable, a
+  backup ran **while the server was up** (38.7 MB, manifest written), and the prune freed 10.1 MB
+  while leaving the pending update, live data and every render intact. Zero console errors.
+
+### Notes / lessons
+- **`LEAFLET_DIR` is inherited, and that is a trap.** A pre-stage that re-runs the main generator
+  in a workspace only works if the child resolves *its own* folder. The portal is stricter than the
+  desktop pipeline (it always sets `LEAFLET_DIR`), so vendoring the pre-stage verbatim required a
+  wrapper that unsets it — otherwise both new outputs would have rendered as perfect copies of the
+  geographic map, which no test that only checks "an SVG appeared" would catch.
+- **Opt-in beats capability.** "Can the portal render it?" and "should this map have it?" are
+  different questions. Keying availability on the map's own config, and enablement on an explicit
+  `true`, means a pre-P7 map's save behaviour is unchanged and a customer can't switch on a sheet
+  the data can't produce.
+- **Carry expert tuning onto the staged data, not just onto the live folder.** The refreshed version
+  renders *from* the staged payload before the swap (P5's render-before-swap), so a file copied only
+  at swap time arrives one render too late — the symptom was a refreshed diagram that had quietly
+  lost its pins.
+- **Two editors, one gate.** The expert tool writes through the same version/publish path as the
+  customer editor rather than around it. Layout work is therefore reviewable, revertible and audited
+  — and "who may change what" stays a role check, not a separate pipeline.
+- **`VACUUM INTO`, not `cp`.** The only safe way to back up a live WAL database in one step, and it
+  is worth saying out loud in the runbook because `cp portal.sqlite` looks like it works.
+- **Keep the honest asymmetry in what is kept.** Backups exclude staged/archived data (re-stageable,
+  superseded) while the prune removes it — but neither ever touches a rendered version, because the
+  published bytes are the promise the whole system makes.
+
 ## [0.7.0-P6] — 2026-07-25
 
 Phase **P6** — **the public front.** P0 shipped a shopfront that *described* the service; P6 makes the

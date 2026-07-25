@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diagram pin editor — Community Bus Maps</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">My maps</a>
+    <a class="navlink" id="backLink" href="/app">← back to the map</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1 id="mapName">Diagram pin editor</h1>
+      <span class="tag expert">Expert</span>
+      <span class="crumb" id="mapCrumb"></span>
+      <span class="spacer"></span>
+      <span class="status-chip"><span class="dot clean" id="stateDot"></span><span id="stateText">loading…</span></span>
+    </div>
+    <p class="hint-line">Drag a junction to <strong>pin</strong> it; the diagram re-solves so you see the real sheet, not a wireframe. Right-click a red handle to unpin it. Nothing reaches the map until you save — and a save creates a new draft version that still needs sign-off. Pins are stored by position <em>and</em> location, so they survive a monthly data refresh.</p>
+
+    <div class="pin-bar">
+      <button class="btn btn-primary btn-sm" id="saveBtn" type="button" disabled>Save layout &amp; render</button>
+      <button class="btn btn-ghost btn-sm" id="clearBtn" type="button">Clear all pins</button>
+      <label class="check-inline"><input type="checkbox" id="showHandles" checked> show handles</label>
+      <input class="field" id="saveNote" type="text" maxlength="200" placeholder="Optional note — what did you tune?" aria-label="Save note">
+      <span class="grow"></span>
+      <span class="pin-count" id="pinCount">0 pins</span>
+    </div>
+
+    <div class="notice" id="notice"></div>
+
+    <div class="pin-wrap">
+      <div class="pin-board" id="board">
+        <div id="svgbox"></div>
+        <svg id="ovl" viewBox="0 0 297 210" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <header>Engine notes</header>
+      <div class="body"><div id="notes" class="hint-line">—</div></div>
+    </div>
+  </main>
+
+  <script src="/app/diagram.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# engine/expert/ — the vendored EXPERT-STYLE engines (P7)
+
+The third and fourth outputs of a map — the **octolinear schematic** and the **tube-map
+diagram** — are produced here. Unlike the area generators (which travel with each map's
+data) and the place engine (which is copied *into* each place map's data), these are
+**portal-owned**: a town's render folder never carried them, they are identical for every
+map, and they are the expert side of the product. `src/maps/store.js` marks their outputs
+`engine: 'expert'`, so `resolveGen()` returns an absolute path out of this folder.
+
+| file | source | role |
+|---|---|---|
+| `schematize_internal.js` | `make-bus-leaflet/assets/schematize_internal.js` (verbatim) | geometry **pre-stage**: rewrites the map's geometry as octolinear pseudo lat/lon into a `schematic/` workspace, then runs the map's own `gen_internal.js` there |
+| `diagram_internal.js` | `make-bus-leaflet/assets/diagram_internal.js` (verbatim) | the same idea, topology-only: collapses corridors to straight runs into a `diagram/` workspace, honours the expert's `diagram-layout.json` pins, writes `diagram/solved-nodes.json` |
+| `gen_internal_schematic.js` | new (portal) | thin wrapper so the pre-stage behaves like a normal portal generator |
+| `gen_internal_diagram.js` | new (portal) | ditto for the diagram |
+
+## Why the wrappers exist
+
+Three small things, all of which would otherwise bite:
+
+1. **Artefact naming.** `src/render/renderMap.js` maps a generator to the SVG it writes;
+   the wrappers are named for `internal-schematic.svg` / `internal-diagram.svg`.
+2. **A loud failure.** Both pre-stages are opt-in (`routes.json` → `internalSchematic` /
+   `internalDiagram`) and exit 0 with "nothing to do" when the key is absent, which would
+   leave the portal copying a file that was never written. The wrappers exit non-zero
+   instead — though in practice `resolveGen()` reports the output as *unavailable* for such
+   a map, so it is never attempted.
+3. **`LEAFLET_DIR` must not reach the child.** The portal always sets `LEAFLET_DIR` to the
+   map's data folder. A pre-stage spawns `gen_internal.js` with `cwd` = the **workspace**
+   and inherits the environment — and `gen_internal` prefers `LEAFLET_DIR` over `cwd`, so an
+   inherited value sends that render back to the parent folder and silently reproduces the
+   ordinary geographic map. The wrappers delete it for the child and pass everything else
+   (`SKILL_ASSETS` for icons, `OVERRIDES_FILE` for the customer's recolours/POI hides)
+   straight through — which is why a customer's safe-subset edits show up on these sheets too.
+
+## The pin editor
+
+`diagram-layout.json` in a map's data folder holds the expert's hand-placed junction pins.
+It is written by the portal's pin editor (`/app/maps/:id/diagram`, **admin-only**;
+`src/expert/index.js` + `public/app/diagram.js`, adapted from the skill's
+`assets/diagram_edit.js`), read by `diagram_internal.js` on every later render, and
+**carried forward** when a monthly refresh swaps in fresh data (`carryExpertTuning()` in
+`src/maps/engine.js`) — the engine re-resolves a pin by its stored lat/lon if a node key
+moved. Previews solve in a per-map sandbox; only Save touches the live map, and it then goes
+through the ordinary versioned render, so the result is a draft that still needs sign-off.
+
+## Provenance & the gate
+
+Byte-for-byte copies of the skill assets as of the vendor date. `scripts/verify-reproduce.mjs`
+picks both styles up automatically when the fixture's `routes.json` opts in, and requires the
+regenerated SVG **and** the re-rendered print JPG to be byte-identical to the shipped ones
+(proved on St Ives v6.6: schematic 253,112 B / 1,054,471 B, diagram 252,096 B / 1,077,051 B).
+Re-vendor — re-copy and re-run the gate — if the skill engines change.

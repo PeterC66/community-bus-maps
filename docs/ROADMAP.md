@@ -41,7 +41,7 @@ internal schematic, internal diagram, external).
 | **P5** | Monthly change acceptance: central refresh → `proposed_update`; change summary + old-vs-new preview; accept re-applies overrides as a new major draft version. | ✅ **done (2026-07-24)** |
 | **Place engine** | Vendor the place-map engine (`engine/place/`) so **place** maps import/edit/render/publish/refresh like area maps; base-overrides framing layer; place reproduce gate. Orthogonal to P6/P7. | ✅ **done (2026-07-25)** |
 | **P6** | Public front: a public page per **published** map (`/m/:slug`), the published-maps gallery (`/maps`), organisation pages (`/o/:slug`), per-customer branding, map feedback, privacy/licensing page, robots + sitemap. | ✅ **done (2026-07-25)** |
-| **P7** | Expert diagram/pin editor (expert side) + ops hardening: backups, audit, licensing sign-off, monitoring, deploy. | |
+| **P7** | Expert styles (schematic + tube-map diagram, byte-identical) + the admin-only **diagram pin editor**; ops hardening: readiness, metrics, backups, staged-data retention, container + deploy runbook, licensing sign-off. | ✅ **done (2026-07-25)** |
 
 First demo cut = **P0 + P1 + P2**: a real organisation logs in, opens a map, recolours a route,
 re-renders, and downloads a print-ready sheet — end to end, no AI.
@@ -54,11 +54,11 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 | Customer self-serves (deterministic) | Stays expert-only |
 |---|---|
 | **Recolour routes** (from the palette) — *shipped in P1* | Drag/move labels & stops |
-| **Toggle POI icons** on/off — *shipped in P1* | Diagram pin editing, straightening, rotation |
+| **Toggle POI icons** on/off — *shipped in P1* | Diagram pin editing *(shipped in P7 as the admin-only editor)*, straightening, rotation |
 | Preview, re-render, download (SVG + print JPG) — *shipped in P1* | Fisheye lenses, route curation, `skipRoutes` |
 | Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
 | Accept/decline the monthly change — *shipped in P5* | New-map onboarding / bootstrapping a subject |
-| Choose which of the 4 outputs a map produces — *P2 (typed maps + output toggles); P1 renders internal + external* | Anything touching upstream (S1/S2) data |
+| Choose which of the 4 outputs a map produces — *P2 toggles; **all four render as of P7** (the two expert styles are opt-in per map)* | Anything touching upstream (S1/S2) data |
 
 ## Known follow-ups (not blocking a phase)
 
@@ -71,14 +71,18 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   code actually collects, but it is written as a working draft and says so on the page; confirm the wording
   (and add a "last reviewed" date) before the site goes public. The **bustimes.org terms check** and the
   OSM/ODbL attribution wording remain the launch go/no-go from the planning docs.
-- **Branding on the printed sheet** is deliberately *not* in P6 (a logo/colours inside the SVG needs a new
-  generator knob and re-opens the byte-identical gate for every map) — expert work, P7.
+- **Branding on the printed sheet — still deferred, deliberately.** P7 did *not* add it. A logo or an
+  organisation's colours *inside* the SVG needs a new generator knob, and the area generators travel
+  **per map**, so the knob would only exist in newly imported maps unless every map's payload is
+  re-vendored — and it re-opens the byte-identical gate for all six outputs. It is a self-contained
+  piece of engine work with its own gate, best done on its own rather than folded into a phase.
+  Branding therefore decorates the public *page* (P6) only.
 - **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
 - **Email provider** for magic links (dev prints them to the server console).
-- **Staged-data retention (P5).** Accepted refreshes archive the outgoing data under `maps/<id>/archive/`,
-  and declined/superseded proposed updates keep their staged payload under `maps/<id>/proposed/<pid>/` —
-  both retained deliberately (reversible + auditable), but nothing prunes them. A retention/cleanup job is
-  a future ops task.
+- **Staged-data retention.** ✅ **Done (P7)** — `npm run prune:staged` (`scripts/prune-staged.mjs`)
+  removes the staged payloads of *settled* refreshes and the data an accepted refresh replaced, older
+  than `--days`, with a `--dry-run`. Pending updates, live data and every rendered version are never
+  touched; the admin **Ops** tab shows how much it would free. Run it from cron alongside `npm run backup`.
 
 ## Key facts for continuation
 
@@ -155,6 +159,32 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 - **P6 checks:** `npm test` (= `scripts/test-p6.mjs`) covers the branding whitelist, the SQL gate on a
   synthetic DB (draft / un-listed / archived / suspended-org all unreachable), slug de-duplication, and
   the migration on both a fresh **and** a pre-P6 database.
+- **Expert styles (P7):** the **octolinear schematic** and **tube-map diagram** are the third and
+  fourth outputs and now render in the portal, byte-identically. Their engines are **portal-owned**
+  in `engine/expert/` (not per-map, unlike the area and place generators) — see that folder's README
+  for why each wrapper exists, especially the **`LEAFLET_DIR` trap**: the pre-stages re-run the map's
+  own `gen_internal.js` inside a workspace, so an inherited `LEAFLET_DIR` would silently reproduce
+  the geographic map. Availability is **opt-in per map** (`routes.json` → `internalSchematic` /
+  `internalDiagram`, via `requiresConfig`), and both are **off by default** so a pre-P7 map's saves
+  are unchanged. `npm run verify:area` gates them automatically when the fixture opts in.
+- **Diagram pin editor (P7):** **`/app/maps/:id/diagram`**, **admin-only** (`/api/expert/*` +
+  `requireAdmin`) — the deliberate mirror of the customer safe subset, because dragging changes
+  layout. Drag a junction to pin it, drop to re-solve, right-click to unpin. Previews solve in a
+  per-map sandbox; **Save** writes `data/diagram-layout.json` and renders a new version through the
+  ordinary path, so tuning is a draft that still needs P4 sign-off (and is audited as
+  `diagram.save`). Pins are carried onto a monthly refresh's staged payload **before** it renders
+  (`carryExpertTuning()`) — copying them only at swap time is one render too late.
+- **Ops (P7):** `/health?deep=1` is a real **readiness** probe (DB + store write + engine files +
+  sharp) returning 503 when degraded; `/metrics` is Prometheus text gated by `METRICS_TOKEN` (or an
+  admin session) and 404 otherwise; **admin → Ops** shows dependency health, per-map disk usage and
+  what a prune would reclaim. `npm run backup` uses SQLite `VACUUM INTO` (safe on a live WAL DB —
+  `cp` is not) and keeps `--keep` generations; `npm run prune:staged` removes settled staged/archived
+  refresh data (never a pending update, never a render). Deploy runbook + restore drill:
+  `docs/DEPLOY.md`; container: `Dockerfile` / `compose.yaml`. **Any `sharp` upgrade must re-pass
+  `npm run verify` before deployment** — different libvips builds can encode different bytes.
+- **Licensing gate (P7):** `docs/LICENSING.md` — sources, obligations, where the credits appear
+  (on the sheet itself, which survives being detached from the site), the open **bustimes.org terms**
+  question, and a sign-off table to fill in before launch.
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is

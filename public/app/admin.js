@@ -23,7 +23,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['applications', 'requests', 'customers', 'messages', 'refreshes', 'audit'];
+const SECTIONS = ['applications', 'requests', 'customers', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -281,6 +281,45 @@ LOADERS.audit = async () => {
       <td>${a.mapName ? esc(a.mapName) : '<span class="muted">—</span>'}</td>
       <td class="wrap">${auditDetail(a) || '<span class="muted">—</span>'}</td>
     </tr>`).join('')}</tbody></table>`;
+};
+
+// ---- ops (P7) ---------------------------------------------------------------
+const mb = (b) => `${(Number(b || 0) / 1048576).toFixed(1)} MB`;
+LOADERS.ops = async () => {
+  const { body } = await jget('/api/admin/ops');
+  const box = $('ops');
+  if (!body || !body.ok) { box.innerHTML = '<div class="empty">Could not read the ops snapshot.</div>'; return; }
+  const o = body.ops;
+  const r = o.readiness, s = o.storage, a = o.activity, p = o.process;
+  const badge = $('badge-ops');
+  if (badge) { badge.textContent = r.ok ? '' : '!'; badge.className = 'count-badge' + (r.ok ? '' : ' warn'); }
+
+  const checks = Object.entries(r.checks).map(([name, c]) =>
+    `<span class="status-pill ${c.ok ? 'pub' : 'req'}">${esc(name)}${c.ok ? ' ok' : ' — ' + esc(c.error || (c.missing || []).join(', '))}</span>`).join(' ');
+
+  const rows = s.maps.map((m) => `<tr>
+      <td><strong>${esc(m.name)}</strong><div class="sub">#${m.id} · ${esc(m.kind)} · ${m.versions} version(s)</div></td>
+      <td>${mb(m.bytes.data)}</td><td>${mb(m.bytes.renders)}</td>
+      <td>${mb(m.bytes.staged)}</td><td>${mb(m.bytes.archived)}</td>
+      <td><strong>${mb(m.bytes.total)}</strong></td>
+    </tr>`).join('');
+
+  const reclaimable = (s.totals.stagedBytes || 0) + (s.totals.archivedBytes || 0);
+  box.innerHTML = `
+    <div class="ops-grid">
+      <div class="card"><h3>Health</h3><div class="pill-row">${checks}</div>
+        <p class="sub">${esc(p.version)} · node ${esc(p.node)} · ${esc(p.platform)} · up ${Math.floor(p.uptimeSeconds / 60)} min · RSS ${mb(p.rssBytes)}</p></div>
+      <div class="card"><h3>Store</h3>
+        <p>${s.totals.maps} map(s), ${s.totals.versions} rendered version(s), <strong>${mb(s.totals.bytes)}</strong> on disk.</p>
+        <p class="sub">Reclaimable by <code>npm run prune:staged</code>: <strong>${mb(reclaimable)}</strong> (staged ${mb(s.totals.stagedBytes)} + archived ${mb(s.totals.archivedBytes)}).</p>
+        <p class="sub">${esc(s.dataDir)}</p></div>
+      <div class="card"><h3>Activity</h3>
+        <p>${a.publishedMaps} published · ${a.pendingPublishRequests} awaiting sign-off · ${a.pendingProposedUpdates} update(s) pending · ${a.sessions} active session(s)</p>
+        <p class="sub">last version ${esc(fmtDate(a.lastVersionAt) || '—')} · last publish ${esc(fmtDate(a.lastPublishAt) || '—')} · ${a.auditEvents} audit event(s)</p></div>
+    </div>
+    <div class="table-wrap" style="margin-top:14px"><table class="grid"><thead><tr>
+      <th>Map</th><th>Data</th><th>Renders</th><th>Staged</th><th>Archived</th><th>Total</th>
+    </tr></thead><tbody>${rows || '<tr><td colspan="6">No maps with an object store yet.</td></tr>'}</tbody></table></div>`;
 };
 
 // ---- init -------------------------------------------------------------------

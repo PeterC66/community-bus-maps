@@ -87,6 +87,21 @@ const targets = [
   ['gen_external.js', 'external.svg', 'external.jpg'],
 ];
 
+// P7 expert styles. They are portal-owned (engine/expert/, passed as an absolute
+// path) and opt-in per map, so they are only checked when this fixture's
+// routes.json asks for them — and then they must be byte-identical too, since
+// they re-run the map's own gen_internal.js on schematised geometry.
+const routesJson = (() => {
+  try { return JSON.parse(readFileSync(path.join(FIXTURE, 'routes.json'), 'utf8')); } catch { return {}; }
+})();
+const EXPERT = path.join(ENGINE_DIR, 'expert');
+if (routesJson.internalSchematic) {
+  targets.push([path.join(EXPERT, 'gen_internal_schematic.js'), 'internal-schematic.svg', 'internal-schematic.jpg']);
+}
+if (routesJson.internalDiagram) {
+  targets.push([path.join(EXPERT, 'gen_internal_diagram.js'), 'internal-diagram.svg', 'internal-diagram.jpg']);
+}
+
 let headlineOK = true;
 let ran = 0;
 for (const [gen, svg, jpg] of targets) {
@@ -100,7 +115,7 @@ for (const [gen, svg, jpg] of targets) {
   }
   if (!r) continue;
   ran++;
-  console.log(`— ${gen}`);
+  console.log(`— ${path.basename(gen)}`);
   console.log(
     `   SVG  shipped ${n(r.svgShipped)} B  vs  regenerated ${n(r.svgRepro)} B  ->  ` +
       (r.svgIdentical ? 'BYTE-IDENTICAL ✓' : 'DIFFERS ✗'),

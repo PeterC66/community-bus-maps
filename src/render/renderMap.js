@@ -22,12 +22,17 @@ const SVG_OUT = {
   'gen_external.js': 'external.svg',
   'gen_internal_place.js': 'internal.svg',
   'gen_external_places.js': 'external.svg',
+  // P7 expert styles — geometry pre-stages that re-run gen_internal in a
+  // workspace and copy the result out under their own artefact name.
+  'gen_internal_schematic.js': 'internal-schematic.svg',
+  'gen_internal_diagram.js': 'internal-diagram.svg',
 };
 
 function svgNameFor(generator) {
+  const name = path.basename(generator); // may be an absolute engine path (P7)
   return (
-    SVG_OUT[generator] ||
-    generator.replace(/^gen_/, '').replace(/\.js$/, '') + '.svg'
+    SVG_OUT[name] ||
+    name.replace(/^gen_/, '').replace(/\.js$/, '') + '.svg'
   );
 }
 
@@ -43,7 +48,9 @@ export function generateSvg({
   editorKeys = false,
 } = {}) {
   if (!dataDir) throw new Error('generateSvg: dataDir is required');
-  const genPath = path.join(dataDir, generator);
+  // Generators normally travel WITH the map (dataDir); the portal-owned expert
+  // styles (P7) are passed as an absolute path out of engine/expert instead.
+  const genPath = path.isAbsolute(generator) ? generator : path.join(dataDir, generator);
   const env = { ...process.env, LEAFLET_DIR: dataDir, SKILL_ASSETS: iconsDir };
   // Only pass OVERRIDES_FILE when explicitly given; otherwise the generator
   // falls back to <dataDir>/overrides.json (absent ⇒ byte-identical baseline).

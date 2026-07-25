@@ -35,9 +35,14 @@ import {
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, swapInProposedData,
+  carryExpertTuning,
 } from './maps/engine.js';
 import { sanitizeOverrides } from './maps/safeSubset.js';
 import { versionDir, mapDataDir, proposedDataDir, OUTPUTS, OUTPUT_FILES } from './maps/store.js';
+import {
+  diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes,
+} from './expert/index.js';
+import { readiness, metricsText, opsSnapshot } from './ops/index.js';
 import {
   requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie,
 } from './auth/index.js';
@@ -48,7 +53,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.7.0-P6';
+const VERSION = '0.8.0-P7';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
@@ -72,7 +77,7 @@ await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
 app.addHook('preHandler', async (req) => {
   req.user = null;
   const u = req.url;
-  if (u.startsWith('/api/') || u.startsWith('/app') || u.startsWith('/auth/')) req.user = resolveUser(req);
+  if (u.startsWith('/api/') || u.startsWith('/app') || u.startsWith('/auth/') || u.startsWith('/metrics')) req.user = resolveUser(req);
 });
 
 // --- tiny in-memory per-IP rate limit for public POSTs ---
@@ -86,10 +91,34 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
   return rec.n > max;
 }
 
-app.get('/health', async () => ({
-  status: 'ok', service: 'community-bus-maps', version: VERSION,
-  time: new Date().toISOString(), ...counts(), ...authCounts(), ...publicCounts(),
-}));
+// Liveness by default (cheap, safe to hammer). `?deep=1` runs the P7 readiness
+// probe — DB, object store, engine files, rasteriser — and returns 503 if any
+// dependency is unhealthy, which is what a load balancer or uptime check wants.
+app.get('/health', async (req, reply) => {
+  const base = {
+    status: 'ok', service: 'community-bus-maps', version: VERSION,
+    time: new Date().toISOString(), ...counts(), ...authCounts(), ...publicCounts(),
+  };
+  if (!req.query || !('deep' in req.query)) return base;
+  const r = await readiness();
+  if (!r.ok) reply.code(503);
+  return { ...base, status: r.ok ? 'ok' : 'degraded', checks: r.checks };
+});
+
+// Prometheus metrics. Off unless METRICS_TOKEN is set (an unauthenticated metrics
+// endpoint leaks operational detail); an admin session is also accepted so the
+// numbers can be eyeballed from a browser.
+app.get('/metrics', async (req, reply) => {
+  const token = process.env.METRICS_TOKEN;
+  const bearer = String((req.headers.authorization || '')).replace(/^Bearer\s+/i, '');
+  const viaToken = token && (bearer === token || (req.query && req.query.token === token));
+  const viaAdmin = req.user && req.user.role === 'admin';
+  if (!viaToken && !viaAdmin) {
+    return reply.code(404).type('text/plain').send('not found\n'); // don't advertise it
+  }
+  reply.type('text/plain; version=0.0.4');
+  return metricsText(VERSION);
+});
 
 // ===========================================================================
 // Public shopfront (P0)
@@ -709,10 +738,14 @@ app.patch('/api/maps/:id/outputs', async (req, reply) => {
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
   const incoming = (req.body || {}).outputs || {};
+  const available = new Set(outputsForClient(parseOutputs(map.outputs), map.id).filter((o) => o.available).map((o) => o.key));
   const clean = {};
   for (const [key, meta] of Object.entries(OUTPUTS)) {
-    if (!meta.portal) continue; // schematic/diagram not selectable yet
-    clean[key] = typeof incoming[key] === 'boolean' ? incoming[key] : true;
+    if (!meta.portal) continue;
+    // Expert styles (P7) default OFF and can only be switched on for a map that
+    // actually carries the config they need — the server decides, not the UI.
+    const wanted = typeof incoming[key] === 'boolean' ? incoming[key] : !meta.expert;
+    clean[key] = wanted && (available.has(key) || !meta.expert);
   }
   if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
   setMapOutputs(map.id, clean);
@@ -776,6 +809,9 @@ app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
   const saved = readOverrides(id);
   try {
     const result = await withMapLock(id, async () => {
+      // The staged payload comes from central data and carries no expert tuning;
+      // lay the map's own pins on it so the "after" side is what accepting gives.
+      carryExpertTuning(id, stagedDir);
       const palette = readRoutesMetaFromDir(stagedDir).palette;
       const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
       const after = sanitizeOverrides(saved, { palette, poiKeys }); // re-apply onto proposed data
@@ -821,6 +857,10 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
 
   try {
     const applied = await withMapLock(id, async () => {
+      // Expert hand-tuning first: the new version is rendered FROM the staged data,
+      // so the pins must be in there before we render, not just after the swap.
+      const carried = carryExpertTuning(id, stagedDir);
+      if (carried.length) req.log.info({ mapId: id, carried }, 'carried expert tuning into the refreshed data');
       // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
       const palette = readRoutesMetaFromDir(stagedDir).palette;
       const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
@@ -866,6 +906,147 @@ app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
   logAudit(req, 'refresh.decline', { mapId: id, detail: { proposedId: pu.id, note } });
   return { ok: true };
 });
+
+// ===========================================================================
+// Expert side (P7) — the tube-map DIAGRAM pin editor.
+//
+// This is the deliberate other half of the safe subset: dragging junctions changes
+// LAYOUT, which is exactly what customers may not do, so every route here is
+// ADMIN-only (`requireAdmin`) — the expert is us. Previews solve in a per-map
+// sandbox and never touch the live map; saving writes the map's
+// `diagram-layout.json` and then goes through the ordinary versioned render, so
+// the result is a draft that still needs an approver's sign-off (P4).
+// ===========================================================================
+
+app.get('/app/maps/:id/diagram', async (req, reply) => {
+  if (!req.user) return reply.redirect('/app/login.html');
+  if (req.user.role !== 'admin') return reply.redirect(`/app/maps/${Number(req.params.id)}`);
+  return reply.sendFile('app/diagram.html');
+});
+
+// Load a map for expert work: admin-only, must have data + the diagram configured.
+function loadDiagramMap(req, reply) {
+  if (!requireAdmin(req, reply)) return null;
+  const m = getMap(Number(req.params.id));
+  if (!m) { reply.code(404).send({ ok: false, error: 'No such map.' }); return null; }
+  if (!m.data_dir || !m.current_version_id) {
+    reply.code(400).send({ ok: false, error: 'This map has no built data yet.' }); return null;
+  }
+  if (!diagramAvailable(m.id)) {
+    reply.code(400).send({
+      ok: false,
+      error: 'This map has no "internalDiagram" configuration, so it has no diagram to tune. That is set up centrally when the map is built.',
+    });
+    return null;
+  }
+  return m;
+}
+
+app.get('/api/expert/maps/:id/diagram', async (req, reply) => {
+  const map = loadDiagramMap(req, reply); if (!map) return;
+  try {
+    const pins = readPins(mapDataDir(map.id));
+    const r = await withMapLock(map.id, () => previewDiagram(map.id, pins));
+    return {
+      ok: true,
+      map: { id: map.id, name: map.name, kind: map.kind, subject: map.subject, currentVersion: map.cur_key, customer: map.customer_name || null },
+      diagramEnabled: outputsForClient(parseOutputs(map.outputs), map.id).some((o) => o.key === 'internal_diagram' && o.enabled),
+      editable: !getOpenRequestForMap(map.id),
+      pins, svg: r.svg, nodes: r.nodes, notes: pinNotes(r.log),
+    };
+  } catch (e) {
+    req.log.error(e);
+    return reply.code(500).send({ ok: false, error: 'Could not solve the diagram: ' + e.message });
+  }
+});
+
+app.post('/api/expert/maps/:id/diagram/preview', async (req, reply) => {
+  const map = loadDiagramMap(req, reply); if (!map) return;
+  const pins = sanitizePins((req.body || {}).pins);
+  try {
+    const r = await withMapLock(map.id, () => previewDiagram(map.id, pins));
+    return { ok: true, svg: r.svg, nodes: r.nodes, notes: pinNotes(r.log) };
+  } catch (e) {
+    req.log.error(e);
+    return reply.code(500).send({ ok: false, error: 'Could not solve the diagram: ' + e.message });
+  }
+});
+
+// Save the pins into the live map and render a new version with them. The diagram
+// output is switched on if it was off — otherwise the tuning would exist in the
+// data but appear on no sheet.
+app.post('/api/expert/maps/:id/diagram/save', async (req, reply) => {
+  const map = loadDiagramMap(req, reply); if (!map) return;
+  const id = map.id;
+  if (getOpenRequestForMap(id)) {
+    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication sign-off. Withdraw the request before changing the diagram.' });
+  }
+  const pins = sanitizePins((req.body || {}).pins);
+  const note = str((req.body || {}).note, 500);
+
+  let outputs = parseOutputs(map.outputs);
+  let enabledDiagram = false;
+  if (outputs.internal_diagram !== true) {
+    outputs = { ...outputs, internal_diagram: true };
+    setMapOutputs(id, outputs);
+    enabledDiagram = true;
+  }
+
+  const saved = readOverrides(id);
+  const { major, minor } = nextVersion(id);
+  const storageKey = `v${major}.${minor}`;
+  const dataDir = mapDataDir(id);
+  const before = readPins(dataDir);
+  try {
+    const r = await withMapLock(id, async () => {
+      if (Object.keys(pins).length) writePins(dataDir, pins);
+      else clearPins(dataDir);
+      return renderVersion(id, saved, storageKey, outputs);
+    });
+    dropSandbox(id); // the live layout moved on; next preview starts from it
+    const n = Object.keys(pins).length;
+    const versionId = insertVersion({
+      map_id: id, major, minor,
+      note: note || `Diagram layout — ${n} pin${n === 1 ? '' : 's'} (expert)`,
+      overrides: saved, storage_key: storageKey,
+    });
+    setCurrentVersion(id, versionId);
+    req.log.info({ mapId: id, version: storageKey, pins: n, by: req.user.email }, 'diagram layout saved');
+    logAudit(req, 'diagram.save', { mapId: id, versionId, detail: { version: storageKey, pins: n, pinsBefore: Object.keys(before).length, enabledDiagramOutput: enabledDiagram, note } });
+    return { ok: true, version: storageKey, pins: n, enabledDiagramOutput: enabledDiagram, files: r.files, downloads: downloadsForVersion(id, storageKey) };
+  } catch (e) {
+    // Put the previous layout back — a failed render must not leave the live map
+    // carrying pins that were never rendered.
+    try { if (Object.keys(before).length) writePins(dataDir, before); else clearPins(dataDir); } catch { /* ignore */ }
+    req.log.error(e);
+    return reply.code(500).send({ ok: false, error: 'Render failed, so the diagram layout was left as it was: ' + e.message });
+  }
+});
+
+/**
+ * Pins arrive from a browser: keep only `{ x, y, ll }` on plausible node keys,
+ * with finite page-mm coordinates inside an A4 landscape sheet. The layout file is
+ * read by the engine on every later render, so it gets the same "rebuild it from a
+ * whitelist" treatment as the customer safe subset.
+ */
+function sanitizePins(input) {
+  const src = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const out = {};
+  const num = (v, max) => (typeof v === 'number' && Number.isFinite(v) && v >= -max && v <= max ? Math.round(v * 100) / 100 : null);
+  for (const [key, p] of Object.entries(src).slice(0, 500)) {
+    if (typeof key !== 'string' || !key || key.length > 200) continue;
+    if (!p || typeof p !== 'object') continue;
+    const x = num(p.x, 1000), y = num(p.y, 1000);
+    if (x == null || y == null) continue;
+    const pin = { x, y };
+    if (Array.isArray(p.ll) && p.ll.length === 2) {
+      const lat = num(p.ll[0], 90), lon = num(p.ll[1], 180);
+      if (lat != null && lon != null) pin.ll = [p.ll[0], p.ll[1]];
+    }
+    out[key] = pin;
+  }
+  return out;
+}
 
 // ===========================================================================
 // Review & publish gate (P4) — approvers/admins sign off a submitted version.
@@ -1102,6 +1283,13 @@ app.get('/api/admin/proposed-updates', async (req, reply) => {
     customer: pu.customer_name || null,
   }));
   return { ok: true, updates };
+});
+
+// Operational snapshot (P7): readiness, disk usage per map, and the counts an
+// operator watches. Same numbers as /metrics, shaped for the admin console.
+app.get('/api/admin/ops', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  return { ok: true, ops: await opsSnapshot(VERSION) };
 });
 
 // Append-only governance audit trail (publish sign-offs + P3 actions).

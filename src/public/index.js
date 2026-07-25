@@ -53,8 +53,18 @@ export const orgPageUrl = (slug) => `/o/${slug}`;
 // area"); a reader of a PLACE map's page needs different words. Public pages use
 // these; the editor keeps OUTPUTS' own labels.
 const PUBLIC_LABELS = {
-  area:  { internal_geographic: 'Buses within the area', external: 'Buses to nearby towns' },
-  place: { internal_geographic: 'Buses serving this place', external: 'Where those buses go' },
+  area: {
+    internal_geographic: 'Buses within the area',
+    external: 'Buses to nearby towns',
+    internal_schematic: 'Simplified street map',
+    internal_diagram: 'Network diagram',
+  },
+  place: {
+    internal_geographic: 'Buses serving this place',
+    external: 'Where those buses go',
+    internal_schematic: 'Simplified street map',
+    internal_diagram: 'Network diagram',
+  },
 };
 export function publicLabel(key, kind) {
   return (PUBLIC_LABELS[kind === 'place' ? 'place' : 'area'] || {})[key] || '';
@@ -66,7 +76,9 @@ export function publicOutputs(row) {
   const out = [];
   for (const [key, meta] of Object.entries(OUTPUTS)) {
     if (!meta.portal) continue;
-    if (enabled[key] === false) continue; // undefined => on (pre-toggle maps)
+    // Same enablement rule as the engine: geographic outputs default on (maps
+    // imported before toggles existed), expert styles are opt-in (P7).
+    if (meta.expert ? enabled[key] !== true : enabled[key] === false) continue;
     const svg = path.join(dir, `${meta.base}.svg`);
     const jpg = path.join(dir, `${meta.base}.jpg`);
     if (!existsSync(svg) && !existsSync(jpg)) continue;

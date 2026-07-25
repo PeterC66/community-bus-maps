@@ -33,6 +33,7 @@
       <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
       <button class="tab" data-tab="refreshes" role="tab">Refreshes <span class="count-badge" id="badge-refreshes"></span></button>
       <button class="tab" data-tab="audit" role="tab">Audit</button>
+      <button class="tab" data-tab="ops" role="tab">Ops <span class="count-badge" id="badge-ops"></span></button>
     </div>
 
     <div class="notice" id="banner"></div>
@@ -64,6 +65,10 @@
     <section class="admin-section" id="sec-audit" hidden>
       <p class="hint-line">Append-only record of governance actions — publication sign-offs, application and map-request decisions, and quota changes. Newest first.</p>
       <div class="table-wrap"><div id="audit">Loading…</div></div>
+    </section>
+    <section class="admin-section" id="sec-ops" hidden>
+      <p class="hint-line">Live operational snapshot: dependency health, disk usage per map, and what a prune could reclaim. The same numbers are on <code>/health?deep=1</code> and <code>/metrics</code>. Backups and pruning are scripts — <code>npm run backup</code> and <code>npm run prune:staged</code> (see <code>docs/DEPLOY.md</code>).</p>
+      <div id="ops">Loading…</div>
     </section>
   </main>
 

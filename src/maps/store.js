@@ -29,6 +29,14 @@ export function overridesPath(id) {
 // safe-subset overrides at render time. Area maps have none (absent ⇒ empty ⇒
 // byte-identical baseline). See src/maps/engine.js and engine/place/README.md.
 export const BASE_OVERRIDES = 'base-overrides.json';
+// P7 — the expert's hand-placed junction pins for the tube-map diagram, written by
+// the pin editor into the map's data folder and read by the diagram engine on every
+// render. Expert work, not a customer edit and not part of a monthly payload, so it
+// is carried forward when fresh data is swapped in (see swapInProposedData).
+export const DIAGRAM_LAYOUT = 'diagram-layout.json';
+export function diagramLayoutPath(id) {
+  return path.join(mapDataDir(id), DIAGRAM_LAYOUT);
+}
 export function baseOverridesPath(id) {
   return path.join(mapDataDir(id), BASE_OVERRIDES);
 }
@@ -89,11 +97,17 @@ export function ensureProposedDirs(id, pid) {
 // carries gen_internal.js / gen_external.js; a PLACE map carries the wrapper
 // gen_internal_place.js (+ gen_internal.js) / gen_external_places.js. See
 // resolveGen() in engine.js.
+// The two EXPERT styles (P7) are portal-owned rather than per-map: a town's render
+// folder never carried them, and they are geometry pre-stages that re-run the
+// map's OWN gen_internal.js in a workspace. So they resolve from `engine/expert/`
+// (`engine: 'expert'`) and are only available when the map's routes.json opts in
+// with the config key the pre-stage requires (`requiresConfig`) — a map without it
+// shows the output as unavailable instead of failing at render time.
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', portal: true },
   external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', portal: true },
-  internal_schematic:  { gens: ['schematize_internal.js'], base: 'internal-schematic', label: 'Octolinear schematic', portal: false },
-  internal_diagram:    { gens: ['diagram_internal.js'],    base: 'internal-diagram',   label: 'Tube-map diagram', portal: false },
+  internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Octolinear schematic', portal: true },
+  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true },
 };
 
 // Files a rendered version can hold, with content types (derived from OUTPUTS).

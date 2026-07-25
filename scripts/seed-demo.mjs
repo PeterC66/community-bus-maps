@@ -287,4 +287,12 @@ console.log(`    admin    : ${ADMIN_EMAIL}`);
 console.log(`    approver : ${APPROVER_EMAIL}   (reviews + publishes at /app/review)`);
 for (const d of DEMO) console.log(`    editor   : ${d.editor}   (${d.customer})`);
 console.log('  The sign-in link is printed to the SERVER console.');
+// P7: the expert styles are opt-in per map, so point at them rather than switching
+// them on behind the demo user's back.
+const stForHint = getMapBySlug('st-ives');
+if (stForHint) {
+  console.log(`\n  Expert side (admin only): the schematic + diagram outputs are OFF by default.`);
+  console.log(`    · switch them on in the editor's Outputs panel (St Ives carries both configs), and`);
+  console.log(`    · hand-tune the diagram's junctions at /app/maps/${stForHint.id}/diagram`);
+}
 process.exit(0);
