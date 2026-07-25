@@ -1,6 +1,6 @@
 # Runbook R6 — Incident response
 
-**Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
+**Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** What to do when something goes wrong — above all a **published map that's wrong in the
 wild**, because people act on it. Record every incident in the private
@@ -19,15 +19,33 @@ The published bytes are the promise, so act on **visibility**, not the file.
 1. **Take it down fast.** As admin, **unlist** the map (the public listing toggle) → it leaves `/maps`
    and `/m/<slug>` immediately, deleting nothing. For a whole-customer problem, **suspend the
    customer** — that pulls *all* their maps (the public front requires an *active* customer).
-2. **Fix.** Push a **corrected version** through sign-off (**R3**); or, if an earlier published version
-   was correct, re-publish that known-good version through the gate.
+2. **Fix.** If an earlier published version was correct, **revert to it** (below — one click). If none
+   was, push a **corrected version** through sign-off (**R3**).
 3. **Re-list** once the correct version is published.
 4. **Record** it in the incident log and tell the publishing organisation.
 
-> **Rough edge:** there's no one-click "revert to the previous published version" — you re-publish
-> through the gate (`setMapPublished` exists in the DB layer but has no admin button). **Unlisting is
-> the fast mitigation; re-publishing is the fix.** Never hand-edit a served file — always go through a
-> version.
+> **Unlisting is the fast mitigation; a correct sheet being served is the fix.** Never hand-edit a
+> served file — always go through a version.
+
+### Revert to the previous published version
+
+As **approver or admin**: **`/app/review` → "Published maps"** → pick the map → its **publication
+history** (every version ever signed off, newest first, each with its approver, note and print files)
+→ **Revert to this**. A **reason is required**; it goes in the audit trail (`version.revert`) — paste
+the same line into the incident log.
+
+What it does and does not do:
+
+- It moves only the **public-current pointer**. Nothing is re-rendered, and the customer's working
+  version is untouched — they can carry on preparing the correction.
+- The only versions on offer are ones that **already passed the publish gate** and whose rendered
+  files are still on disk. A revert can never serve bytes nobody signed off. (If the files have been
+  pruned, it says so and you must publish a correction instead.)
+- The version you reverted **away from** stays in the history, so you can roll forward again once it
+  is fixed, or revert again.
+- Reverting does **not** re-list an unlisted map. If you unlisted it in step 1, re-list it in step 3.
+- If a version is awaiting sign-off, decide that request first — the revert refuses while one is open,
+  so an approver is never reviewing against a pointer that moves under them.
 
 ## Sign-in / access failure
 

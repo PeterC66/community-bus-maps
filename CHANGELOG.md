@@ -2,6 +2,70 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.8.1] — 2026-07-25
+
+Closes the **two code rough edges** the P7 docs recorded as known-but-unfixed. Both were seams
+where an operator had to work around the software by hand: a customer's approved map request and
+the map the pipeline built were two different rows, and taking a wrong published map back to a
+known-good version meant a full re-run through the gate. Neither adds a new concept — both make
+an existing lifecycle finish.
+
+### Added — the importer fulfils an approved request in place
+- **`import-map.mjs --request <mapId>`** builds an approved request **into that row**: the
+  placeholder *becomes* the built map. Owner, kind, name, slug and subject come from the request
+  (each still overridable), the row moves `approved` → `draft`, and the fulfilment is audited as
+  `maprequest.fulfil`. One row, **quota counted once**, nothing to archive afterwards.
+- It refuses, before touching anything, an un-approved request (approval stays the gate), a map
+  already built (new data is the monthly refresh, not an import), a `--kind` that differs from what
+  was requested (quota is per kind), and a `--customer` that would **re-own** someone else's map.
+  A plain import whose slug collides with a queued request now prints the `--request <id>` to use
+  instead of letting a duplicate row be created.
+- **`--list-requests`** prints the build queue. The admin console shows the same queue —
+  **Map requests → "Approved — awaiting a build"** — each row carrying its exact build command
+  (with a Copy button) and an **Archive** action for a request that will never be built (which
+  frees the quota slot; previously only a still-`requested` row could be archived).
+- New: `listAwaitingBuild()`, `updateMapIdentity()` (a whitelist — owner/kind/status are not
+  touchable through it), and `adminSummary().awaitingBuild`, so the tab badge counts **both**
+  halves of the lifecycle: decide it, then build it.
+
+### Added — one-click revert to the previous published version
+- **`/app/review` → "Published maps"** lists every map with a published version; opening one shows
+  its **publication history** — each version ever signed off, newest first, with its approver,
+  their note and its print files — and **Revert to this**.
+- `POST /api/review/maps/:id/revert` (approver/admin, **reason required**, audited as
+  `version.revert`) moves only the **public-current pointer**. Nothing is re-rendered and the
+  customer's working head is untouched, so a correction can carry on being prepared.
+- The candidates are **only** versions with an approved `publish_request` whose rendered files are
+  still on disk, so a revert can never serve bytes that did not pass the gate; a pruned version says
+  so and sends you to publish a correction. The version reverted *away from* stays in the history
+  (roll forward, or revert again). A revert refuses while a publish request is open, so an approver
+  is never reviewing against a pointer moving under them.
+- Target selection is `chooseRevertTarget()` in `src/publish/` — pure, so the rules are unit-tested
+  away from HTTP. New queries: `listPublishedHistory()`, `listPublishedMaps()`.
+
+### Added — tests
+- **`scripts/test-lifecycle.mjs`** (`npm run test:lifecycle`, and in `npm test`): 50 checks over both
+  seams — the build queue, in-place adoption, every importer refusal (driven through the real CLI
+  against a throwaway `DATA_DIR`), the identity whitelist, publication history (including that a
+  *rejected* submission never enters it), every `chooseRevertTarget()` rule, and the pointer move
+  leaving the editor's head alone.
+
+### Verified
+- **End-to-end on a copy of the demo store**: an approved area request was fulfilled by
+  `--request 4` → the same row became a **draft** with 4 rendered files, owner and request note
+  intact, out of the build queue, quota **unchanged at 2** (it was already counted), audited.
+- **A published map reverted through the UI**: pointer `v1.1` → `v1.0`, editor's head still `v1.1`,
+  `/api/public/maps/st-ives` immediately served `v1.0`, `v1.1` offered as the roll-forward target,
+  reason recorded in the audit trail. Empty reason and a map with nothing to revert to were refused.
+
+### Docs
+- **R1** (create a map) replaces its "known rough edge" with the `--request` flow + refusal table;
+  **R6** (incident response) replaces its rough-edge note with the revert procedure and what it does
+  *not* do (it does not re-list an unlisted map); **R2** and the documentation plan follow suit.
+
+### Changed
+- Version → `0.8.1`.
+
 ## [0.8.0-P7] — 2026-07-25
 
 Phase **P7** — **expert styles + ops hardening.** Two halves, and they are the last two

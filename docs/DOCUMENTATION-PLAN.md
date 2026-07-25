@@ -143,7 +143,7 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. *Yours:* confirm governing law + a review before launch; propagate the footer Terms link to the other shopfront pages.
 
 **Tier 2 — Core operator runbooks** ✅ *done 2026-07-25*
-6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to sign-off. Flags the importer↔map-request seam (importer creates a new row; tidy the placeholder).
+6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to sign-off. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
 7. ✅ **Pol1** [`vetting-and-quota-policy.md`](vetting-and-quota-policy.md) + **R2** [`runbook-onboarding.md`](runbook-onboarding.md) — vet → approve (customer + editor + invite) → record → their maps.
 8. ✅ **R3** [`runbook-review-and-publish.md`](runbook-review-and-publish.md) — submit → review (change summary + JPGs) → 5-item checklist → publish / send-back; the two pointers.
 

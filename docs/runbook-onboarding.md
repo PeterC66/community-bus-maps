@@ -1,6 +1,6 @@
 # Runbook R2 — Customer onboarding
 
-**Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
+**Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn a public application into an **active customer with an editor who can sign in** —
 through the admin console, applying the vetting policy (**Pol1**). This closes the **first approval
@@ -53,9 +53,9 @@ Approving, in one action:
 ## Step 5 — Their maps
 
 - A customer **requests** a map (area/place) from their dashboard within quota → it lands in
-  **`/app/admin` → Map requests**. **Approve** it (queues it for the central build) → then **build +
-  import** it (**R1**), remembering to tidy the placeholder row (R1 → "Reconciling with an approved
-  map request").
+  **`/app/admin` → Map requests**. **Approve** it → it moves to **"Approved — awaiting a build"** in the
+  same tab, with the command that builds it → **build + import** it (**R1**), which fulfils that request
+  row **in place** (one map, quota counted once).
 - Or you build proactively (R1) and attach it to them by name.
 
 ## What-if

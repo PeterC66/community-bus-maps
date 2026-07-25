@@ -35,8 +35,11 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > wrong" form — listed in a public **gallery** (P6). **All four outputs render** — the octolinear
 > schematic and the tube-map diagram arrived in P7, with an **admin-only pin editor** for the
 > diagram's layout — and the service is operable: readiness probe, metrics, backups, a retention
-> job, a container and a deploy runbook (P7). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and
-> [`CHANGELOG.md`](CHANGELOG.md).
+> job, a container and a deploy runbook (P7). Both **lifecycle seams** are now closed (0.8.1): an
+> approved map request is **built into its own row** by `import-map.mjs --request <id>` (so quota counts
+> it once and no placeholder is left behind), and an approver can **revert a published map** to an
+> earlier signed-off version in one click, with a recorded reason. See
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
 

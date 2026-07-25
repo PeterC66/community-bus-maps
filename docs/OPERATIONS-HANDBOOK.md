@@ -1,7 +1,7 @@
 # Operations Handbook — Community Bus Maps portal
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
-**Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7` (commit `6bf1b8b`).
+**Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
 This is the spine: the shared vocabulary, who does what, the operating rhythm, a map of where
 everything lives, and the **single index** of every document. It links to the detailed runbooks
@@ -106,10 +106,10 @@ Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** 
 **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session).
 
 **Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one
-map → v1.0 baseline) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly
+map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly
 refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) ·
 `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` /
-`test-p7.mjs` (`npm test`).
+`test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
 **Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`.
 Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`,
@@ -166,11 +166,13 @@ If someone (or a future session) has to pick this up:
 
 ```bash
 npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) and /app
-npm test                 # P6 + P7 tests
+npm test                 # P6 + P7 + lifecycle-seam tests
 npm run verify           # byte-identical gate (needs FIXTURE_DIR + PLACE_FIXTURE_DIR)
 npm run backup -- --out /backups --keep 14      # server may stay up (VACUUM INTO)
 npm run prune:staged -- --days 90 --dry-run     # then without --dry-run
 # server STOPPED for these (one writer):
 node scripts/import-map.mjs --src "<S5-render dir>" --name "…" --slug … --kind area|place --customer "…"
+node scripts/import-map.mjs --list-requests      # approved requests awaiting a build
+node scripts/import-map.mjs --request <id> --src "<S5-render dir>"   # build one IN PLACE
 node scripts/propose-update.mjs …               # stage a monthly refresh
 ```

@@ -224,6 +224,40 @@ export function listMapsByStatus(statuses) {
 }
 
 /**
+ * Approved map requests that have not been built yet — the central pipeline's
+ * build queue. `import-map.mjs --request <id>` fulfils one of these IN PLACE, so
+ * the placeholder row BECOMES the built map (no duplicate row, quota counted once).
+ */
+export function listAwaitingBuild() {
+  return db
+    .prepare(
+      `SELECT m.*, c.name AS customer_name, u.email AS requested_by_email
+         FROM map m
+         LEFT JOIN customer c ON c.id = m.customer_id
+         LEFT JOIN user u ON u.id = m.requested_by
+        WHERE m.status = 'approved' AND m.current_version_id IS NULL
+        ORDER BY m.created_at ASC`,
+    )
+    .all();
+}
+
+/**
+ * Whitelisted identity update, used by the importer when it fulfils an approved
+ * request and the built map needs a different slug/name/subject from the asked-for
+ * one. Nothing else about the row (owner, kind, quota) is touchable here.
+ */
+export function updateMapIdentity(id, f) {
+  const sets = [], args = [];
+  if (f.slug) { sets.push('slug = ?'); args.push(String(f.slug)); }
+  if (f.name) { sets.push('name = ?'); args.push(String(f.name)); }
+  if (f.subject !== undefined) { sets.push('subject = ?'); args.push(f.subject == null ? null : String(f.subject)); }
+  if (!sets.length) return false;
+  args.push(Number(id));
+  db.prepare(`UPDATE map SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+  return true;
+}
+
+/**
  * How many maps of each kind a customer currently holds against quota.
  * Archived maps (rejected/withdrawn requests) do NOT count.
  * @returns {{ area:number, place:number }}
@@ -408,6 +442,51 @@ export function listPublishRequestsForMap(mapId) {
     .all(Number(mapId));
 }
 
+/**
+ * Every version of a map that has EVER been published, newest publication first.
+ * Publishing only ever happens through an approved publish_request, so that table
+ * is the record of publication history — a version reverted away from keeps its
+ * row here, which is exactly what "roll back to a known-good version" needs.
+ * @returns rows of { version_id, storage_key, major, minor, published_at, approver, decision_note, is_current }
+ */
+export function listPublishedHistory(mapId) {
+  return db
+    .prepare(
+      // One row per version: MAX(pr.id) picks its LATEST publication, and SQLite's
+      // bare-column rule makes the other pr.* columns come from that same row.
+      `SELECT v.id AS version_id, v.storage_key, v.major, v.minor, v.review_state,
+              MAX(pr.id) AS request_id, pr.reviewed_at AS published_at, pr.decision_note,
+              au.email AS approver_email,
+              CASE WHEN m.published_version_id = v.id THEN 1 ELSE 0 END AS is_current
+         FROM publish_request pr
+         JOIN map_version v ON v.id = pr.version_id
+         JOIN map m ON m.id = pr.map_id
+         LEFT JOIN user au ON au.id = pr.reviewed_by
+        WHERE pr.map_id = ? AND pr.status = 'approved'
+        GROUP BY v.id
+        ORDER BY request_id DESC`,
+    )
+    .all(Number(mapId));
+}
+
+/** Maps that currently have a published version (the rollback picker's list). */
+export function listPublishedMaps() {
+  return db
+    .prepare(
+      `SELECT m.id, m.name, m.slug, m.kind, m.subject, m.public_listed, m.customer_id,
+              c.name AS customer_name, c.status AS customer_status,
+              pv.storage_key AS pub_key, pv.id AS pub_version_id,
+              (SELECT COUNT(DISTINCT pr.version_id) FROM publish_request pr
+                WHERE pr.map_id = m.id AND pr.status = 'approved') AS published_versions
+         FROM map m
+         JOIN map_version pv ON pv.id = m.published_version_id
+         LEFT JOIN customer c ON c.id = m.customer_id
+        WHERE m.status <> 'archived'
+        ORDER BY c.name, m.name`,
+    )
+    .all();
+}
+
 export function recordAudit({ actorId, actorEmail, action, mapId, versionId, detail }) {
   db.prepare(
     'INSERT INTO audit_log (actor_id, actor_email, action, map_id, version_id, detail_json) VALUES (?, ?, ?, ?, ?, ?)',
@@ -577,6 +656,8 @@ export function adminSummary() {
   return {
     pendingApplications: one("SELECT COUNT(*) AS c FROM application WHERE status = 'pending'"),
     pendingMapRequests: one("SELECT COUNT(*) AS c FROM map WHERE status = 'requested'"),
+    // Approved requests the central pipeline still has to build + import.
+    awaitingBuild: one("SELECT COUNT(*) AS c FROM map WHERE status = 'approved' AND current_version_id IS NULL"),
     pendingPublishRequests: one("SELECT COUNT(*) AS c FROM publish_request WHERE status = 'pending'"),
     pendingProposedUpdates: one("SELECT COUNT(*) AS c FROM proposed_update WHERE status = 'pending'"),
     customers: one('SELECT COUNT(*) AS c FROM customer'),

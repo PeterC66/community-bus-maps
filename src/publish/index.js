@@ -40,6 +40,34 @@ export function validateChecklist(answers) {
   return { ok: missing.length === 0, missing, checklist };
 }
 
+/**
+ * Pick which version a rollback should serve, and refuse the cases that must not
+ * happen. Pure so the rules are testable away from HTTP: the ONLY versions on
+ * offer are ones this map already published (an approved publish_request) whose
+ * rendered files are still on disk — a revert can never serve bytes that did not
+ * pass the gate.
+ *
+ * @param {Array} history  rows from publishedHistoryFor(): { versionId, version, isCurrent, files[], revertable }
+ * @param {number|null} wantedId  the version the approver picked; null = "the one published before this"
+ * @returns {{ target: object } | { code: number, error: string }}
+ */
+export function chooseRevertTarget(history, wantedId = null) {
+  const rows = Array.isArray(history) ? history : [];
+  const target = wantedId != null
+    ? rows.find((h) => h.versionId === Number(wantedId))
+    : rows.find((h) => h.revertable);           // history is newest-first ⇒ the previous one
+  if (!target) {
+    return wantedId != null
+      ? { code: 400, error: 'That version is not one this map previously published — only signed-off versions can be reverted to.' }
+      : { code: 400, error: 'There is no earlier published version to revert to. Publish a corrected version through the gate instead.' };
+  }
+  if (target.isCurrent) return { code: 409, error: `${target.version} is already the published version.` };
+  if (!target.files || !target.files.length) {
+    return { code: 409, error: `The rendered files for ${target.version} are no longer on disk, so it cannot be served. Publish a corrected version through the gate.` };
+  }
+  return { target };
+}
+
 // --- overrides readers (mirror the safe subset shape) ---
 function colorsOf(ov) {
   return ov && ov.routeColors && typeof ov.routeColors === 'object' ? ov.routeColors : {};

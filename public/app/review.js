@@ -23,6 +23,7 @@ function banner(kind, html) {
 
 let queue = [];
 let current = null; // the open review detail
+let currentPublished = null; // the map whose publication history is open (rollback view)
 
 // ---- queue ------------------------------------------------------------------
 async function loadQueue(keepId) {
@@ -32,7 +33,8 @@ async function loadQueue(keepId) {
   const box = $('queue');
   if (!queue.length) {
     box.innerHTML = '<div class="empty">Nothing awaiting sign-off. 🎉</div>';
-    if (!keepId) $('detail').innerHTML = '<div class="empty">Nothing to review right now.</div>';
+    // Don't clobber a rollback view the approver is working in.
+    if (!keepId && !currentPublished) $('detail').innerHTML = '<div class="empty">Nothing to review right now. Pick a published map to see its history.</div>';
     return;
   }
   box.innerHTML = queue.map((r) => `
@@ -78,8 +80,10 @@ async function openReview(id) {
   const { status, body } = await jget('/api/review/' + id);
   if (status !== 200 || !body.ok) { box.innerHTML = `<div class="empty">${esc((body && body.error) || 'Could not load this submission.')}</div>`; return; }
   current = body.request;
+  currentPublished = null;
   const r = body.request, sum = body.changeSummary, checklist = body.checklist;
   $('queue').querySelectorAll('.queue-item').forEach((b) => b.classList.toggle('active', Number(b.dataset.id) === id));
+  $('published').querySelectorAll('.queue-item').forEach((b) => b.classList.remove('active'));
 
   const decided = r.status !== 'pending';
   box.innerHTML = `
@@ -146,7 +150,8 @@ function wireDecision(id, version) {
     const { status, body } = await jsend(`/api/review/${id}/approve`, 'POST', { checklist, note: $('decisionNote').value });
     if (status === 200 && body.ok) {
       banner('ok-sticky', `✓ Published <strong>${esc(version)}</strong>. It is now the official public version.`);
-      current = null; await loadQueue(); $('detail').innerHTML = '<div class="empty">Published. Pick the next submission to review.</div>';
+      current = null; await loadQueue(); await loadPublished();
+      $('detail').innerHTML = '<div class="empty">Published. Pick the next submission to review.</div>';
     } else {
       const m = $('reviewMsg'); m.className = 'notice err show'; m.textContent = (body && body.error) || 'Publish failed.';
       approve.disabled = false; approve.textContent = `Publish version ${version}`;
@@ -167,8 +172,104 @@ function wireDecision(id, version) {
   });
 }
 
+// ---- rollback (incident response) -------------------------------------------
+// Reverting moves the PUBLIC pointer back to a version an approver already signed
+// off; it never publishes anything new and never touches the editor's head. The
+// server re-checks both (signed-off + files on disk) before it moves anything.
+
+async function loadPublished(keepId) {
+  const { body } = await jget('/api/review/published');
+  const maps = (body && body.maps) || [];
+  const box = $('published');
+  if (!maps.length) { box.innerHTML = '<div class="empty">No maps are published yet.</div>'; return; }
+  box.innerHTML = maps.map((m) => `
+    <button class="queue-item ${m.id === keepId ? 'active' : ''}" data-map="${m.id}" type="button">
+      <div class="qi-title">${esc(m.name)} <span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span></div>
+      <div class="qi-sub">${esc(m.customer ? m.customer.name : '—')} · published ${esc(m.publishedVersion)}</div>
+      <div class="qi-meta">${m.canRevert ? `${m.publishedVersions} signed-off versions` : 'first published version'}${m.publicListed ? '' : ' · un-listed'}${m.customerSuspended ? ' · customer suspended' : ''}</div>
+    </button>`).join('');
+  box.querySelectorAll('.queue-item').forEach((b) => b.addEventListener('click', () => openPublished(Number(b.dataset.map))));
+}
+
+async function openPublished(mapId) {
+  const box = $('detail');
+  box.innerHTML = '<div class="empty">Loading publication history…</div>';
+  const { status, body } = await jget(`/api/review/maps/${mapId}/published-history`);
+  if (status !== 200 || !body.ok) { box.innerHTML = `<div class="empty">${esc((body && body.error) || 'Could not load this map.')}</div>`; return; }
+  current = null;
+  currentPublished = mapId;
+  $('queue').querySelectorAll('.queue-item').forEach((b) => b.classList.remove('active'));
+  $('published').querySelectorAll('.queue-item').forEach((b) => b.classList.toggle('active', Number(b.dataset.map) === mapId));
+
+  const m = body.map, history = body.history;
+  const rows = history.map((h) => {
+    const badge = h.isCurrent ? '<span class="status-pill pub">published now</span>'
+      : h.files.length ? '<span class="status-pill">earlier version</span>'
+      : '<span class="status-pill rej">files missing</span>';
+    const jpgs = h.files.filter((f) => f.file.endsWith('.jpg'))
+      .map((f) => `<a href="${f.url}" target="_blank" rel="noopener">${esc(f.file)}</a>`).join(' · ');
+    return `<tr>
+      <td><strong>${esc(h.version)}</strong> ${badge}</td>
+      <td>${fmtDate(h.publishedAt)}<div class="qi-meta">${esc(h.approver || '—')}</div></td>
+      <td class="wrap">${esc(h.decisionNote || '') || '<span class="muted">—</span>'}<div class="qi-meta">${jpgs || ''}</div></td>
+      <td class="actions">${h.revertable
+        ? `<button class="btn btn-ghost btn-xs" data-revert="${h.versionId}" data-ver="${esc(h.version)}" type="button">Revert to this</button>`
+        : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const target = history.find((h) => h.revertable);
+  box.innerHTML = `
+    <div class="rd-head">
+      <h2>${esc(m.name)} <span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span></h2>
+      <div class="rd-meta">${esc(m.customer ? m.customer.name : '—')} · published <strong>${esc(m.publishedVersion || '—')}</strong> · editor's latest ${esc(m.currentVersion || '—')}</div>
+      <div class="rd-meta">${m.publicUrl ? `Public page: <a href="${esc(m.publicUrl)}" target="_blank" rel="noopener">${esc(m.publicUrl)}</a>` : 'Not on the public site right now.'}</div>
+    </div>
+
+    <div class="rd-section">
+      <h3>Publication history</h3>
+      <p class="hint-line">Reverting changes only what the public is served. It does not undo the customer's edits, and only versions that already passed sign-off are offered.</p>
+      <div class="table-wrap"><table class="grid"><thead><tr>
+        <th>Version</th><th>Signed off</th><th>Approver's note</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    </div>
+
+    <div class="rd-section">
+      <h3>Revert${target ? ` to ${esc(target.version)}` : ''}</h3>
+      ${target ? `
+      <label class="hint-line" for="revertReason" style="display:block">Reason <span class="hint">— required; recorded in the audit trail for the incident log</span></label>
+      <textarea class="field" id="revertReason" maxlength="2000" placeholder="e.g. Route 55 shown with the wrong terminus in v1.4 — restoring v1.3 while a correction is prepared."></textarea>
+      <div class="notice" id="revertMsg"></div>
+      <p class="hint-line">Remember: un-listing takes a wrong map off the public site fastest. Reverting is the fix that puts a correct sheet back.</p>`
+      : '<p class="hint-line">This map has only ever published one version, so there is nothing to roll back to. Publish a corrected version through the gate instead.</p>'}
+    </div>`;
+
+  box.querySelectorAll('button[data-revert]').forEach((b) =>
+    b.addEventListener('click', () => doRevert(mapId, Number(b.dataset.revert), b.dataset.ver)));
+}
+
+async function doRevert(mapId, versionId, version) {
+  const field = $('revertReason');
+  const reason = field ? field.value.trim() : '';
+  const msg = $('revertMsg');
+  if (!reason) {
+    if (msg) { msg.className = 'notice err show'; msg.textContent = 'Please record why you are reverting.'; }
+    if (field) field.focus();
+    return;
+  }
+  if (!confirm(`Serve ${version} to the public again? The current published version stops being served immediately.`)) return;
+  const { status, body } = await jsend(`/api/review/maps/${mapId}/revert`, 'POST', { versionId, reason });
+  if (status === 200 && body.ok) {
+    banner('ok-sticky', `✓ Reverted to <strong>${esc(body.publishedVersion)}</strong>${body.revertedFrom ? ` (was ${esc(body.revertedFrom)})` : ''}. ${body.publicListed ? 'It is live on the public page now.' : 'The map is still un-listed, so nothing is public until you re-list it.'}`);
+    await loadPublished(mapId);
+    await openPublished(mapId);
+  } else if (msg) {
+    msg.className = 'notice err show'; msg.textContent = (body && body.error) || 'Revert failed.';
+  }
+}
+
 // ---- init -------------------------------------------------------------------
-$('refreshBtn').addEventListener('click', () => loadQueue());
+$('refreshBtn').addEventListener('click', () => { loadQueue(); loadPublished(); });
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
 (async () => {
   const { status, body } = await jget('/api/me');
@@ -179,4 +280,5 @@ $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/lo
   if (me.role === 'admin') $('adminLink').style.display = '';
   $('logoutBtn').style.display = '';
   await loadQueue();
+  await loadPublished();
 })();

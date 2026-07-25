@@ -7,6 +7,10 @@
 //   P5: monthly change acceptance (proposed updates, old-vs-new, accept/decline).
 //   P6: public front — published maps get public pages (/maps, /m/:slug, /o/:slug),
 //       per-customer branding, map feedback, sitemap.
+//   P7: the two expert styles + ops (readiness, metrics, backup/prune).
+//   0.8.1: the two lifecycle seams — an approved map request is BUILT IN PLACE by
+//       the importer (admin console shows the build queue), and an approver can
+//       revert the published pointer to an earlier signed-off version.
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
@@ -16,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 import {
   insertApplication, insertMessage, counts, authCounts,
   listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions,
-  setMapOutputs, setMapStatus, listMapsByStatus, quotaUsage, getCustomer, purgeExpiredSessions,
+  setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions,
+  listPublishedHistory, listPublishedMaps,
   listApplications, getApplication, setApplicationReviewed, listMessages,
   insertCustomer, insertUser, getUserByEmail,
   listCustomersAdmin, updateCustomerAdmin, adminSummary,
@@ -46,14 +51,14 @@ import { readiness, metricsText, opsSnapshot } from './ops/index.js';
 import {
   requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie,
 } from './auth/index.js';
-import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary } from './publish/index.js';
+import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
 import { logAudit } from './audit/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.8.0-P7';
+const VERSION = '0.8.1';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
@@ -1140,6 +1145,124 @@ app.post('/api/review/:id/reject', async (req, reply) => {
   return { ok: true };
 });
 
+// ---------------------------------------------------------------------------
+// Rollback (incident response). When a published version turns out to be wrong,
+// the fast mitigation is un-listing it, but the FIX is serving a known-good
+// version again. These two routes make that one click for an approver instead of
+// a re-run through the whole gate:
+//
+//   GET  /api/review/published                → maps with a published version
+//   GET  /api/review/maps/:id/published-history → the versions ever published
+//   POST /api/review/maps/:id/revert           → move the pointer back to one
+//
+// It is deliberately NOT a general "publish anything" button: the only versions
+// on offer are ones an approver already signed off (they have an approved
+// publish_request), and whose rendered files are still on disk. So reverting can
+// never serve bytes that never passed the gate. A reason is required and the whole
+// thing is audited.
+// ---------------------------------------------------------------------------
+
+app.get('/api/review/published', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const maps = listPublishedMaps().map((m) => ({
+    id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject,
+    customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
+    customerSuspended: m.customer_status === 'suspended',
+    publishedVersion: m.pub_key, publishedVersions: m.published_versions,
+    // A revert needs somewhere to go back TO — flag the maps where one is possible.
+    canRevert: m.published_versions > 1,
+    publicListed: !!m.public_listed,
+    publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
+  }));
+  return { ok: true, maps };
+});
+
+/** Publication history for one map: which versions were published, when, by whom. */
+function publishedHistoryFor(map) {
+  return listPublishedHistory(map.id).map((h) => {
+    const files = downloadsForVersion(map.id, h.storage_key);
+    return {
+      versionId: h.version_id, version: h.storage_key,
+      publishedAt: h.published_at, approver: h.approver_email || null,
+      decisionNote: h.decision_note || '',
+      isCurrent: !!h.is_current,
+      files,
+      // No rendered files (pruned/lost) ⇒ nothing to serve ⇒ not revertable.
+      revertable: !h.is_current && files.length > 0,
+    };
+  });
+}
+
+app.get('/api/review/maps/:id/published-history', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const m = getMap(Number(req.params.id));
+  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+  const history = publishedHistoryFor(m);
+  return {
+    ok: true,
+    map: {
+      id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject,
+      customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
+      publishedVersion: m.pub_key || null, currentVersion: m.cur_key || null,
+      publicListed: !!m.public_listed,
+      publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
+    },
+    history,
+  };
+});
+
+app.post('/api/review/maps/:id/revert', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const m = getMap(Number(req.params.id));
+  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+  if (!m.published_version_id) {
+    return reply.code(409).send({ ok: false, error: 'This map has no published version, so there is nothing to revert.' });
+  }
+  const b = req.body || {};
+  const reason = str(b.reason, 2000);
+  if (!reason) {
+    return reply.code(400).send({ ok: false, error: 'Please record why you are reverting — it goes in the audit trail and the incident log.', fields: ['reason'] });
+  }
+  // An open publish request would leave an approver reviewing a version while the
+  // pointer moves under them; make the order explicit rather than racing it.
+  const open = getOpenRequestForMap(m.id);
+  if (open) {
+    return reply.code(409).send({ ok: false, error: 'A version of this map is awaiting sign-off. Decide that request first, then revert.' });
+  }
+
+  // Which version to serve again (default: the one published before this). The
+  // rules live in src/publish so they are unit-tested away from HTTP.
+  const chosen = chooseRevertTarget(publishedHistoryFor(m), b.versionId != null ? Number(b.versionId) : null);
+  if (chosen.error) return reply.code(chosen.code).send({ ok: false, error: chosen.error });
+  const target = chosen.target;
+
+  const from = getVersionById(m.published_version_id);
+  // Move the public-current pointer back. The editor's working head is untouched:
+  // reverting is about what the public is served, not about undoing their edits.
+  setVersionState(m.published_version_id, 'superseded');
+  setVersionState(target.versionId, 'published');
+  setPublishedVersion(m.id, target.versionId);
+  setMapStatus(m.id, 'published');
+
+  req.log.warn({ mapId: m.id, from: from ? from.storage_key : null, to: target.version, by: user.email }, 'published version reverted');
+  logAudit(req, 'version.revert', {
+    mapId: m.id, versionId: target.versionId,
+    detail: {
+      from: from ? from.storage_key : null, to: target.version,
+      reason, publishedAt: target.publishedAt, approver: target.approver,
+      stillListed: !!m.public_listed,
+    },
+  });
+  return {
+    ok: true,
+    publishedVersion: target.version,
+    revertedFrom: from ? from.storage_key : null,
+    downloads: downloadsForVersion(m.id, target.version),
+    publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
+    publicListed: !!m.public_listed,
+  };
+});
+
 // ===========================================================================
 // Admin console (P3) — application review, map-request lifecycle, customers.
 // Every route is admin-only (403 for signed-in non-admins, 401 for anon).
@@ -1207,14 +1330,27 @@ app.post('/api/admin/applications/:id/reject', async (req, reply) => {
 
 // Map-request queue + lifecycle. Approving accepts the request (the central
 // pipeline builds the data later); rejecting archives it and frees the quota slot.
+//
+// `awaitingBuild` is the other half of that lifecycle: approved requests the
+// pipeline has yet to build. The importer fulfils one IN PLACE
+// (`import-map.mjs --request <id>`), so the placeholder row becomes the built map
+// — no duplicate row to archive, and quota counts the map once. Each row carries
+// the exact command, so the admin console is the single place the build starts.
 app.get('/api/admin/map-requests', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
-  const rows = listMapsByStatus(['requested']).map((m) => ({
-    id: m.id, name: m.name, kind: m.kind, subject: m.subject, requestNote: m.request_note,
+  const shape = (m) => ({
+    id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject, requestNote: m.request_note,
     customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
-    requestedBy: m.requested_by_email || null, createdAt: m.created_at,
-  }));
-  return { ok: true, requests: rows };
+    requestedBy: m.requested_by_email || null, createdAt: m.created_at, status: m.status,
+  });
+  return {
+    ok: true,
+    requests: listMapsByStatus(['requested']).map(shape),
+    awaitingBuild: listAwaitingBuild().map((m) => ({
+      ...shape(m),
+      importCommand: `node scripts/import-map.mjs --request ${m.id} --src "<S5-render dir>"`,
+    })),
+  };
 });
 
 app.post('/api/admin/maps/:id/approve', async (req, reply) => {
@@ -1228,14 +1364,26 @@ app.post('/api/admin/maps/:id/approve', async (req, reply) => {
   return { ok: true, status: 'approved' };
 });
 
+// Archive a request. Valid for a request still pending AND for one already
+// approved but never built (plans change) — either way the quota slot is freed.
+// Once a map has been built it has renders and possibly a public page, so it
+// leaves this lifecycle: archiving it is not a request decision.
 app.post('/api/admin/maps/:id/reject', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   const m = getMap(Number(req.params.id));
   if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
-  if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
+  const unbuiltApproved = m.status === 'approved' && !m.current_version_id;
+  if (m.status !== 'requested' && !unbuiltApproved) {
+    return reply.code(409).send({
+      ok: false,
+      error: m.current_version_id
+        ? `"${m.name}" has already been built (${m.cur_key}) — it is no longer a request.`
+        : `This map is "${m.status}", not a pending or awaiting-build request.`,
+    });
+  }
   setMapStatus(m.id, 'archived');
-  req.log.info({ mapId: m.id }, 'map request rejected (archived)');
-  logAudit(req, 'maprequest.reject', { mapId: m.id, detail: { name: m.name, kind: m.kind } });
+  req.log.info({ mapId: m.id, from: m.status }, 'map request archived');
+  logAudit(req, 'maprequest.reject', { mapId: m.id, detail: { name: m.name, kind: m.kind, from: m.status } });
   return { ok: true, status: 'archived' };
 });
 

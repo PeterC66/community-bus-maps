@@ -39,7 +39,8 @@ async function loadSummary() {
   const s = body.summary;
   const set = (id, n, warn) => { const el = $(id); el.textContent = n || ''; el.classList.toggle('warn', !!warn && n > 0); };
   set('badge-applications', s.pendingApplications, true);
-  set('badge-requests', s.pendingMapRequests, true);
+  // Both halves of the request lifecycle need an admin: decide it, then build it.
+  set('badge-requests', (s.pendingMapRequests || 0) + (s.awaitingBuild || 0), true);
   set('badge-customers', s.customers, false);
   set('badge-messages', s.newMessages, false);
   set('badge-refreshes', s.pendingProposedUpdates, true);
@@ -120,13 +121,39 @@ LOADERS.requests = async () => {
   const { body } = await jget('/api/admin/map-requests');
   const box = $('requests');
   const reqs = (body && body.requests) || [];
-  if (!reqs.length) { box.innerHTML = '<div class="empty">No pending map requests.</div>'; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>Map</th><th>Customer</th><th>Requested by</th><th>Notes</th><th>When</th><th></th>
-    </tr></thead><tbody>${reqs.map(rowReq).join('')}</tbody></table>`;
-  box.querySelectorAll('button[data-appr]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.appr, 'approve', b.dataset.name)));
-  box.querySelectorAll('button[data-rej]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.rej, 'reject', b.dataset.name)));
+  if (!reqs.length) box.innerHTML = '<div class="empty">No pending map requests.</div>';
+  else {
+    box.innerHTML = `<table class="grid"><thead><tr>
+        <th>Map</th><th>Customer</th><th>Requested by</th><th>Notes</th><th>When</th><th></th>
+      </tr></thead><tbody>${reqs.map(rowReq).join('')}</tbody></table>`;
+    box.querySelectorAll('button[data-appr]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.appr, 'approve', b.dataset.name)));
+    box.querySelectorAll('button[data-rej]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.rej, 'reject', b.dataset.name)));
+  }
+  renderAwaitingBuild((body && body.awaitingBuild) || []);
 };
+
+// Approved requests the central pipeline still has to build. Each row carries the
+// exact importer command that fulfils THAT request row in place.
+function renderAwaitingBuild(rows) {
+  const box = $('awaitingBuild');
+  if (!rows.length) { box.innerHTML = '<div class="empty">Nothing waiting to be built.</div>'; return; }
+  box.innerHTML = `<table class="grid"><thead><tr>
+      <th>Map</th><th>Customer</th><th>Approved for</th><th>Build command</th><th></th>
+    </tr></thead><tbody>${rows.map((m) => `<tr>
+      <td><strong>${esc(m.name)}</strong> <span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span>
+        <div class="sub">#${m.id} · ${esc(m.slug)}${m.subject ? ' · ' + esc(m.subject) : ''}</div></td>
+      <td>${esc(m.customer ? m.customer.name : '—')}<div class="sub">${esc(m.requestedBy || '')}</div></td>
+      <td>${fmtDate(m.createdAt)}<div class="sub wrap">${esc(m.requestNote || '')}</div></td>
+      <td class="wrap"><code class="cmd" data-cmd="${esc(m.importCommand)}">${esc(m.importCommand)}</code></td>
+      <td class="actions">
+        <button class="btn btn-ghost btn-xs" data-copy="${m.id}" data-cmd="${esc(m.importCommand)}">Copy</button>
+        <button class="btn btn-ghost btn-xs" data-rej="${m.id}" data-name="${esc(m.name)}">Archive</button>
+      </td></tr>`).join('')}</tbody></table>`;
+  box.querySelectorAll('button[data-copy]').forEach((b) => b.addEventListener('click', () => {
+    navigator.clipboard.writeText(b.dataset.cmd).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 2000); });
+  }));
+  box.querySelectorAll('button[data-rej]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.rej, 'reject', b.dataset.name)));
+}
 function rowReq(m) {
   const kind = `<span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span>`;
   return `<tr>
@@ -241,6 +268,7 @@ LOADERS.refreshes = async () => {
 const ACTION_LABEL = {
   'version.submit': 'Submitted for publication',
   'version.publish': 'Published version',
+  'version.revert': 'Reverted published version',
   'version.reject': 'Sent version back',
   'version.withdraw': 'Withdrew publish request',
   'version.save': 'Saved version',
@@ -248,6 +276,7 @@ const ACTION_LABEL = {
   'application.reject': 'Rejected application',
   'maprequest.approve': 'Approved map request',
   'maprequest.reject': 'Rejected map request',
+  'maprequest.fulfil': 'Built an approved request',
   'customer.update': 'Updated customer',
   'refresh.accept': 'Accepted monthly update',
   'refresh.decline': 'Declined monthly update',
@@ -257,9 +286,11 @@ const ACTION_LABEL = {
 };
 function auditDetail(a) {
   const d = a.detail || {};
+  if (a.action === 'version.revert') return esc([`${d.from || '?'} → ${d.to || '?'}`, d.reason && '“' + d.reason + '”'].filter(Boolean).join(' · '));
   if (a.action.startsWith('version.')) return esc([d.version, d.note && '“' + d.note + '”'].filter(Boolean).join(' · '));
   if (a.action.startsWith('application.')) return esc([d.org, d.email].filter(Boolean).join(' · '));
-  if (a.action.startsWith('maprequest.')) return esc([d.name, d.kind].filter(Boolean).join(' · '));
+  if (a.action === 'maprequest.fulfil') return esc([d.name, d.kind, d.version, d.slug].filter(Boolean).join(' · '));
+  if (a.action.startsWith('maprequest.')) return esc([d.name, d.kind, d.from && 'was ' + d.from].filter(Boolean).join(' · '));
   if (a.action === 'customer.update') return esc([d.name, `areas ${d.quotaAreas}`, `places ${d.quotaPlaces}`, d.status].filter((x) => x != null).join(' · '));
   if (a.action.startsWith('refresh.')) {
     const drops = d.droppedOverrides && d.droppedOverrides.length ? `${d.droppedOverrides.length} override(s) dropped` : '';

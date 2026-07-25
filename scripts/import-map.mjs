@@ -11,13 +11,26 @@
 //
 // --src must contain gen_internal.js / gen_external.js and their *.json inputs
 // (e.g. a ".../St Ives/S5-render/v6.6_..." folder in the separate Buses repo).
+//
+// FULFILLING AN APPROVED REQUEST (the importer↔map-request seam). A customer's
+// request creates a placeholder `map` row that an admin approves; this importer
+// can BUILD THAT ROW rather than a second one:
+//
+//   node scripts/import-map.mjs --list-requests          # the build queue
+//   node scripts/import-map.mjs --request 7 --src "<S5-render dir>"
+//
+// In --request mode the row's owner, kind, name, slug and subject come from the
+// approved request (each overridable with the usual flag), the row moves
+// 'approved' → 'draft', and the fulfilment is written to the audit log. There is
+// no placeholder left to archive and quota counts the map once.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   getMapBySlug, insertMap, setMapDataDir, insertVersion, setCurrentVersion,
-  getCustomerByName, insertCustomer,
+  getCustomerByName, insertCustomer, getMap, getCustomer, setMapStatus, setMapOutputs,
+  listAwaitingBuild, updateMapIdentity, listVersions, recordAudit,
 } from '../src/db/index.js';
 import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
@@ -28,23 +41,78 @@ function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
 }
+const has = (name) => process.argv.includes(`--${name}`);
 const slugify = (s) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
+// `--list-requests` just prints the build queue and exits (no --src needed).
+const queue = listAwaitingBuild();
+if (has('list-requests')) {
+  if (!queue.length) console.log('No approved map requests are awaiting a build.');
+  else {
+    console.log(`Approved map requests awaiting a build (${queue.length}):\n`);
+    for (const q of queue) {
+      console.log(`  #${q.id}  ${q.name}  [${q.kind}]  slug: ${q.slug}`);
+      console.log(`        for: ${q.customer_name || '(unowned)'}   requested by ${q.requested_by_email || '—'} on ${q.created_at}`);
+      if (q.subject) console.log(`        subject: ${q.subject}`);
+      if (q.request_note) console.log(`        note: ${q.request_note}`);
+      console.log(`        build it:  node scripts/import-map.mjs --request ${q.id} --src "<S5-render dir>"\n`);
+    }
+  }
+  process.exit(0);
+}
+
 const src = arg('src');
-const name = arg('name');
+const requestArg = arg('request');
+const requestId = requestArg != null ? Number(requestArg) : null;
+if (requestArg != null && !Number.isInteger(requestId)) {
+  console.error(`✗ --request must be a map id (an integer), got "${requestArg}". Try --list-requests.`);
+  process.exit(2);
+}
+
+// Fulfilling a request: the row supplies the defaults, so --name is optional.
+// Fresh import: --name is how the row gets its identity, so it is required.
+let request = null;
+if (requestId != null) {
+  request = getMap(requestId);
+  if (!request) { console.error(`✗ no map #${requestId}. Try --list-requests.`); process.exit(1); }
+  if (request.status !== 'approved') {
+    console.error(`✗ map #${requestId} ("${request.name}") is "${request.status}", not an approved request.`);
+    console.error(request.status === 'requested'
+      ? '  Approve it in the admin console first (/app/admin → Map requests) — approval is the gate.'
+      : '  Only an approved, not-yet-built request can be fulfilled. Import as a fresh map instead (omit --request).');
+    process.exit(1);
+  }
+  if (request.current_version_id || listVersions(requestId).length) {
+    console.error(`✗ map #${requestId} has already been built (version ${request.cur_key || '?'}).`);
+    console.error('  To ship new DATA for a built map use scripts/propose-update.mjs (the monthly refresh), not the importer.');
+    process.exit(1);
+  }
+}
+
+const name = arg('name', request ? request.name : undefined);
 if (!src || !name) {
-  console.error('Usage: node scripts/import-map.mjs --src "<run dir>" --name "<Display Name>" [--slug ..] [--kind area|place] [--subject ..]');
+  console.error('Usage: node scripts/import-map.mjs --src "<run dir>" --name "<Display Name>" [--slug ..] [--kind area|place] [--subject ..] [--customer "Org"]');
+  console.error('   or: node scripts/import-map.mjs --request <mapId> --src "<run dir>"   (build an approved request)');
+  console.error('   or: node scripts/import-map.mjs --list-requests');
   process.exit(2);
 }
 const SRC = path.resolve(src);
-const slug = slugify(arg('slug', name));
-const kind = arg('kind', 'area');
-const subject = arg('subject', name);
+const slug = slugify(arg('slug', request && !has('slug') ? request.slug : name));
+const kind = arg('kind', request ? request.kind : 'area');
+const subject = arg('subject', request ? request.subject || request.name : name);
 const customerName = arg('customer');
 const customerType = arg('customer-type', 'other');
 
 if (!existsSync(SRC)) { console.error(`✗ --src not found: ${SRC}`); process.exit(1); }
+
+// A request is for a specific KIND of map (it was counted against that quota) —
+// building the other kind into it would silently mis-bill the customer.
+if (request && kind !== request.kind) {
+  console.error(`✗ map #${requestId} was requested as a "${request.kind}" map but --kind is "${kind}".`);
+  console.error('  Reject the request and ask for the right kind rather than repurposing the row (quota is per kind).');
+  process.exit(1);
+}
 
 // AREA maps carry their generators per-map (they travel in the src render dir).
 // PLACE maps DON'T — the make-place-bus-leaflet skill keeps one engine, not per
@@ -80,14 +148,32 @@ if (isPlace) {
   }
   for (const g of AREA_GENS) if (!existsSync(path.join(SRC, g))) console.warn(`· note: ${g} not present — that output will be skipped`);
 }
-if (getMapBySlug(slug)) {
+const slugOwner = getMapBySlug(slug);
+if (slugOwner && slugOwner.id !== (request ? request.id : null)) {
   console.error(`✗ a map with slug "${slug}" already exists — pick another --slug or remove it from the DB.`);
+  // The most likely cause: someone is importing a map a customer already asked
+  // for. Point at the row instead of letting them build a duplicate.
+  const pending = queue.find((q) => q.id === slugOwner.id);
+  if (pending) {
+    console.error(`\n  That slug belongs to APPROVED REQUEST #${slugOwner.id} ("${slugOwner.name}", awaiting a build).`);
+    console.error(`  Build it in place instead of creating a second row:\n`);
+    console.error(`      node scripts/import-map.mjs --request ${slugOwner.id} --src "${src}"\n`);
+  }
   process.exit(1);
 }
 
-// Resolve (or create) the owning customer.
-let customerId = null;
-if (customerName) {
+// Resolve the owning customer. Fulfilling a request keeps the requester's
+// organisation — an importer typo must never re-home someone else's map.
+let customerId = request ? request.customer_id : null;
+if (request) {
+  const owner = customerId != null ? getCustomer(customerId) : null;
+  if (customerName && (!owner || owner.name !== customerName)) {
+    console.error(`✗ map #${request.id} belongs to "${owner ? owner.name : '(unowned)'}" but --customer says "${customerName}".`);
+    console.error('  Drop --customer to build it for its own organisation (re-owning a map is not an import job).');
+    process.exit(1);
+  }
+  console.log(`· fulfilling approved request #${request.id} for ${owner ? `"${owner.name}" (#${owner.id})` : '(unowned)'}`);
+} else if (customerName) {
   const existing = getCustomerByName(customerName);
   if (existing) {
     customerId = existing.id;
@@ -99,10 +185,21 @@ if (customerName) {
   }
 } else {
   console.warn('· note: no --customer given → map is unowned (only an admin can see it). Pass --customer "Name".');
+  if (queue.length) {
+    console.warn(`· note: ${queue.length} approved request(s) are awaiting a build — see --list-requests before importing a fresh row.`);
+  }
 }
 
-// 1) DB row + object-store folders
-const id = insertMap({ customer_id: customerId, slug, name, kind, subject, data_dir: '', outputs: defaultOutputs(), status: 'draft' });
+// 1) DB row + object-store folders. Fulfilling a request ADOPTS its row (so the
+//    placeholder becomes the built map) rather than inserting a second one.
+let id;
+if (request) {
+  id = request.id;
+  updateMapIdentity(id, { slug, name, subject });
+  setMapOutputs(id, defaultOutputs());
+} else {
+  id = insertMap({ customer_id: customerId, slug, name, kind, subject, data_dir: '', outputs: defaultOutputs(), status: 'draft' });
+}
 const dirs = ensureMapDirs(id);
 setMapDataDir(id, dirs.data);
 
@@ -138,6 +235,23 @@ console.log('· rendering baseline v1.0 (this runs both generators + rasterises)
 const r = await renderVersion(id, {}, storageKey, defaultOutputs());
 const versionId = insertVersion({ map_id: id, major: 1, minor: 0, note: 'Imported baseline', overrides: {}, storage_key: storageKey });
 setCurrentVersion(id, versionId);
+
+// A fulfilled request leaves 'approved' and becomes an ordinary DRAFT map: the
+// customer can edit it and it reaches the public only through the publish gate.
+// The fulfilment is a governance event, so it goes in the audit log.
+if (request) {
+  setMapStatus(id, 'draft');
+  recordAudit({
+    actorEmail: 'cli:import-map', action: 'maprequest.fulfil', mapId: id, versionId,
+    detail: {
+      name, kind, slug, version: storageKey, customerId,
+      requestedAt: request.created_at, requestNote: request.request_note || null,
+      renamed: slug !== request.slug || name !== request.name ? { fromSlug: request.slug, fromName: request.name } : undefined,
+      src: SRC,
+    },
+  });
+  console.log(`· request #${id} fulfilled → status "draft" (audit: maprequest.fulfil)`);
+}
 
 console.log(`\n✓ imported "${name}" as map #${id} (slug: ${slug}, kind: ${kind})`);
 for (const [f, sz] of Object.entries(r.files)) console.log(`    ${f}  ${Number(sz).toLocaleString('en-GB')} B`);

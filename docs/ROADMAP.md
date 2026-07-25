@@ -77,6 +77,16 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   re-vendored — and it re-opens the byte-identical gate for all six outputs. It is a self-contained
   piece of engine work with its own gate, best done on its own rather than folded into a phase.
   Branding therefore decorates the public *page* (P6) only.
+- **Importer ↔ map-request seam.** ✅ **Done (0.8.1, 2026-07-25).** `import-map.mjs --request <id>`
+  builds an **approved request into its own row** — the placeholder *becomes* the built map, so quota is
+  counted once and there is no placeholder to archive. `--list-requests` (and the admin console's
+  "Approved — awaiting a build" table, with the command per row) is the build queue; the fulfilment is
+  audited as `maprequest.fulfil`. Approval remains the gate: an un-approved request cannot be built.
+- **Revert to the previous published version.** ✅ **Done (0.8.1, 2026-07-25).** `/app/review` →
+  "Published maps" → publication history → **Revert to this** (approver/admin, reason required, audited
+  as `version.revert`). It moves only the public-current pointer, offers **only** versions that already
+  passed the gate and still have their rendered files, and leaves the editor's head alone. Un-listing
+  remains the faster mitigation; this is the fix. See R6.
 - **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
 - **Email provider** for magic links (dev prints them to the server console).
 - **Staged-data retention.** ✅ **Done (P7)** — `npm run prune:staged` (`scripts/prune-staged.mjs`)

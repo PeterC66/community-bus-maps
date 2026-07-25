@@ -1,6 +1,6 @@
 # Runbook R1 — Create a new area or place map
 
-**Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
+**Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned
 by the right customer and ready for editing + sign-off.
@@ -82,26 +82,53 @@ Green = the portal reproduces the desktop bytes exactly. **If it fails, stop** �
 - The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer
   edits + submits, an approver signs off.
 
-## Reconciling with an approved map request — know this
+## Building a map a customer asked for (fulfil the request in place)
 
-Today the importer **creates a new map row**; it does **not** fill in the placeholder row that a
-customer's request created. The request lifecycle (R2 → customer requests → admin **approves**) only
-flips that placeholder to `approved`; the central build happens separately, here. So after building a
-**requested** map:
+When the map exists because a customer **requested** it (R2 → customer requests → admin **approves**),
+build it into **that row**. The approved request *becomes* the built map: one row, quota counted once,
+no placeholder to tidy.
 
-1. Import it as above (a fresh row, owned by the same customer). Reusing the request's slug will error
-   (`slug exists`) — use a distinct slug.
-2. **Archive the placeholder request row** (admin console) so the dashboard + quota show one map, not
-   two. *(Quota counts every non-archived map of a kind.)*
+The admin console lists what is waiting: **`/app/admin` → Map requests → "Approved — awaiting a
+build"**, with the exact command per row (there's a **Copy** button). The same queue from the shell:
 
-> **Known rough edge:** joining the importer to an approved request row (so the placeholder *becomes*
-> the built map) is a follow-up. Until then, treat the request as the trigger and tidy the placeholder.
-> As admin you can also build + import **proactively** without a prior request.
+```bash
+node scripts/import-map.mjs --list-requests
+```
+
+Then make the map (Step 1) and fulfil the request with its id:
+
+```bash
+node scripts/import-map.mjs --request 7 --src "<path to the S5-render dir>"
+```
+
+In `--request` mode the row supplies the defaults, so only `--src` is required. **Owner, kind, name,
+slug and subject come from the request**; `--name`, `--slug` and `--subject` still override (useful to
+correct "Seam Village" to "Seam Village, Cambs" at build time). Everything else is as Step 2, and the
+map lands as an ordinary **draft** — the publish gate (R3) is unchanged.
+
+It refuses, before touching anything, if:
+
+| Refusal | Why / what to do |
+|---|---|
+| the request is still `requested` | **approval is the gate** — approve it in the admin console first |
+| the map has already been built | new *data* for a built map is the monthly refresh (`propose-update.mjs`), not an import |
+| `--kind` differs from the request | quota is per kind; reject the request and ask for the right kind rather than repurposing the row |
+| `--customer` names a different organisation | re-owning someone's map is not an import job — drop the flag |
+| the slug belongs to another map | pick another `--slug`; if the slug is a queued request's, it tells you the `--request <id>` to use instead |
+
+Fulfilment is written to the audit log as `maprequest.fulfil` (who/when/which version/from which src).
+
+**Plans changed?** An approved request that will never be built can be **archived** from the same
+admin table, which frees the customer's quota slot. As admin you can also build + import
+**proactively**, with no prior request — that's the plain Step 2 form.
 
 ## What-if / rollback
 
-- **Slug already exists** → pick another `--slug`, or remove the existing map first.
+- **Slug already exists** → pick another `--slug`, or remove the existing map first. If the slug
+  belongs to an approved request, build *that* row: `--request <id>`.
 - **Wrong customer** → re-import under the right `--customer` (new row) and archive the wrong one;
   there's no in-place re-owner tool.
 - **Bad build** → pre-publish, the object store + v1.0 are disposable: delete the map row and its
   `maps/<id>/` dir, then re-import. **Never** hand-edit a rendered file — always go through a version.
+  A **fulfilled request** is a normal map by then, so re-doing it means deleting that row too: the
+  request itself is gone (it *is* the map), so re-import as a fresh map with `--customer`.
