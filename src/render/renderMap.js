@@ -14,10 +14,14 @@ import sharp from 'sharp';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ENGINE_DIR = path.resolve(HERE, '../../engine');
 
-// Each generator writes one fixed-name SVG into its data folder.
+// Each generator writes one fixed-name SVG into its data folder. The place
+// generators write the SAME base names (internal.svg / external.svg) as the area
+// ones, so a place map's render folder is shaped identically to an area map's.
 const SVG_OUT = {
   'gen_internal.js': 'internal.svg',
   'gen_external.js': 'external.svg',
+  'gen_internal_place.js': 'internal.svg',
+  'gen_external_places.js': 'external.svg',
 };
 
 function svgNameFor(generator) {

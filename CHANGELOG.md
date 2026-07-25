@@ -2,6 +2,76 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [0.6.0-place] — 2026-07-25
+
+**Place maps now render in the portal** (previously area-only). This closes the standing "place-map
+engine not vendored" follow-up: **place** maps (`make-place-bus-leaflet`) can now be imported, edited
+with the safe subset, versioned, published and monthly-refreshed exactly like **area** maps — the same
+deterministic, byte-identical guarantees. It is orthogonal to the P6/P7 roadmap (marketing / expert
+editor), so it is tagged `place` rather than a phase number.
+
+Why it was needed: area maps carry their generators *per-map* (staged from the town render dir), but the
+place skill keeps one engine in the skill and never copies it into a place's render folder — so a staged
+place payload has the `*.json` inputs but no generators, and the importer/refresh refused it.
+
+### Added
+- **Vendored place engine** (`engine/place/`) — the one place in the repo where generators *are* vendored,
+  because place render dirs carry none. Three files, copied into each place map's `data/` at import:
+  `gen_internal.js` (the **same** town generator area maps use — road-following via `internalRoads` +
+  `roads_geo.json`/`routes_paths.json`, all baked into the payload → no network), `gen_external_places.js`
+  (the aggregated-destination external radial; already honours top-level `routeColors`), and a new thin
+  wrapper **`gen_internal_place.js`** that runs `gen_internal.js` then supplies the two things it can't
+  express for a place — the **title** ("Buses serving <place>") and the **version stamp** (strips the
+  place convention's leading `v` so `version:"v1.0"` renders `Map v1.0`, not `vv1.0`). No network, no
+  `overrides.json` mutation. See `engine/place/README.md`.
+- **Base-overrides layer** (`src/maps/store.js` `base-overrides.json` / `src/maps/engine.js`
+  `readBaseOverrides` + `mergeOverrides`) — a place's *expert framing* (river-hide, a frozen viewport)
+  ships as a small `overrides.json`; that is **not** a customer edit, so the importer stores it as the
+  map's `data/base-overrides.json` and the render path merges it **under** the customer's safe-subset
+  overrides (customer wins). Area maps have no base ⇒ the merge is a proven no-op (St Ives/March stay
+  byte-identical).
+- **`scripts/verify-reproduce-place.mjs`** + `npm run verify:place` (and `verify` now runs area **and**
+  place) — proves the vendored place engine reproduces a skill-rendered place leaflet **byte-for-byte**
+  (SVG identical, JPG pixel-identical), including the merged base framing. Point `PLACE_FIXTURE_DIR` at a
+  place fixture (self-consistent payload + reference renders). Verified on **Beaconsfield Simpson Centre**
+  (road-following + river-hide framing): internal 60,014 B / external 10,068 B, both byte-identical.
+- **A built place map in the demo** (`scripts/seed-demo.mjs`) — Beaconsfield Simpson Centre, owned by a
+  new demo org, with a **place monthly-refresh** staged alongside March's, so the accept flow is demoable
+  for a place too.
+
+### Changed
+- **Generator resolution by candidate list** (`src/maps/store.js` `OUTPUTS[*].gens`,
+  `src/maps/engine.js` `resolveGen`) — an output now lists generator candidates and uses the first
+  **present** in a map's data folder. So one `internal`/`external` output serves both kinds: an area map
+  resolves `gen_internal.js`/`gen_external.js`, a place map resolves `gen_internal_place.js`/
+  `gen_external_places.js`. The UI/toggle model is unchanged (still four outputs).
+- **`scripts/import-map.mjs`** — `--kind place` no longer fails fast. It validates a place payload
+  (`routes.json` + `place.json`), vendors the place engine into `data/`, and splits any framing into
+  `base-overrides.json` (accepts either `overrides.json` from a fresh skill payload or a pre-split
+  `base-overrides.json`).
+- **`scripts/propose-update.mjs`** — accepts place maps (detected by the map's `kind`): stages the
+  vendored place engine + framing, same as the importer. The P5 accept/decline/preview server routes
+  needed **no** changes — they were already data-driven (they read palette/POIs from the staged dir and
+  `renderVersion` reads `base-overrides.json` from it), so re-applying a customer's overrides onto a
+  refreshed place, preserving its framing, and keeping the published pointer put all work unchanged.
+- **`src/refresh/index.js`** — the stop-count diff falls back to `routes_intown_atco.json` (a place's
+  drawn/walkshed stops, same flat-array shape) when `routes_atco.json` is absent, so per-route stop
+  changes show for places too. (A place's `routes_full_atco.json` is intentionally not used — its values
+  are `{directions,canonical,all}` objects, not flat arrays.)
+
+### Notes / lessons
+- **Worked-example place payloads had drifted** — some shipped SVGs were rendered from an earlier
+  `routes.json` and the config was hand-edited afterwards (Waitrose: a since-removed `mapNotes`, a longer
+  `placeTitle`, a nudged rail label). So the gate proves **portal-engine ≡ skill-engine on the same
+  payload** (rendering a fresh, self-consistent reference), which is what P0 always did — not
+  "byte-identical to a possibly-stale historical file".
+- **Expert framing must reach the generator via `OVERRIDES_FILE`, not `data/overrides.json`.** The portal
+  always passes `OVERRIDES_FILE`, and `gen_internal` then ignores `data/overrides.json` — so the place
+  skill's build-time trick of writing river-hide into `data/overrides.json` would be silently dropped.
+  Hence the base-overrides layer, merged into the temp overrides file the portal writes.
+- **The internal "Map vX.X" stamp is the DATA version** (from `routes.json`), not the portal edit-version
+  — identical behaviour to area maps (a v1.1 recolour still stamps the data version). Not a bug.
+
 ## [0.5.0-P5] — 2026-07-24
 
 Phase **P5** — **monthly change acceptance.** *The recurring product.* The central pipeline (run

@@ -35,10 +35,11 @@ internal schematic, internal diagram, external).
 |---|---|---|
 | **P0** | Public repo + Apache-2.0 + hygiene; render wrapper proven **byte-identical**; public shopfront (marketing, examples, apply, FAQ, contact) + `/api/apply` + `/api/contact`. | ✅ **done (2026-07-23)** |
 | **P1** | Re-home the editor behind the app as the **safe-subset** editor (recolour routes, toggle POIs) → save → version → render → download; object store; importer seeds a baseline. | ✅ **done (2026-07-23)** |
-| **P2** | Multi-customer + magic-link auth + roles + tenant isolation; per-map output toggles; demo seed of existing towns as customers. *(Area maps only — the place engine is a follow-up; approver-role powers land in P4.)* | ✅ **done (2026-07-23)** |
+| **P2** | Multi-customer + magic-link auth + roles + tenant isolation; per-map output toggles; demo seed of existing towns as customers. *(Area maps at the time; the place engine landed later in 0.6.0. Approver-role powers land in P4.)* | ✅ **done (2026-07-23)** |
 | **P3** | Public **Apply** → application → admin approve → customer + invite; per-map request lifecycle + quota (1 area + a few places); dormant `plan` fields (payments off); admin console. | ✅ **done (2026-07-23)** |
 | **P4** | Publish gate: draft/published states, approver sign-off, red-team evidence, public-current pointer, audit. | ✅ **done (2026-07-23)** |
 | **P5** | Monthly change acceptance: central refresh → `proposed_update`; change summary + old-vs-new preview; accept re-applies overrides as a new major draft version. | ✅ **done (2026-07-24)** |
+| **Place engine** | Vendor the place-map engine (`engine/place/`) so **place** maps import/edit/render/publish/refresh like area maps; base-overrides framing layer; place reproduce gate. Orthogonal to P6/P7. | ✅ **done (2026-07-25)** |
 | **P6** | Full public marketing front (extends P0's shopfront) + per-customer branding. | *(partly brought forward in P0)* |
 | **P7** | Expert diagram/pin editor (expert side) + ops hardening: backups, audit, licensing sign-off, monitoring, deploy. | |
 
@@ -61,10 +62,11 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 
 ## Known follow-ups (not blocking a phase)
 
-- **Place maps.** Only **area** maps render in the portal: their generators travel per-map and are
-  vendored. Place maps (`make-place-bus-leaflet`) use a *different* engine kept in the skill, not per-map,
-  so their render dirs carry no generators. Vendoring that engine into the object store (its own "P1 for
-  places") is the follow-up; until then the importer refuses place maps and the demo is area-only.
+- **Place maps.** ✅ **Done (0.6.0-place, 2026-07-25).** The place engine is vendored in `engine/place/`
+  and copied into each place map's `data/` at import, so **both** kinds render, edit, publish and refresh
+  in the portal. A place's expert framing (river-hide / frozen viewport) rides a `data/base-overrides.json`
+  merged **under** the customer's safe-subset overrides. Proven byte-identical by `npm run verify:place`.
+  See the `[0.6.0-place]` changelog entry and `engine/place/README.md`.
 - **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
 - **Email provider** for magic links (dev prints them to the server console).
 - **Staged-data retention (P5).** Accepted refreshes archive the outgoing data under `maps/<id>/archive/`,
@@ -75,12 +77,14 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 ## Key facts for continuation
 
 - **Run:** `npm run dev` → `http://127.0.0.1:5180` (shopfront) and `/app` (sign-in → editor). **Prove the
-  renderer:** set `FIXTURE_DIR` to a staged town render folder from the Buses repo, then `npm run verify`.
-- **Demo (P2/P3/P4):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
-  + two councils each with an editor + their maps, plus a pending application, a requested map,
-  **March published v1.0**, a **St Ives v1.1 submitted for sign-off**, and a **pending monthly update
-  staged for March** (P5). Sign in with a seeded email;
-  the one-time link is printed to the **server console**. **Stop the dev server first** (one SQLite writer).
+  renderer:** set `FIXTURE_DIR` (a staged town render folder) and `PLACE_FIXTURE_DIR` (a place fixture)
+  from the Buses repo, then `npm run verify` — it runs **both** the area and place byte-identical gates.
+- **Demo (P2–P5):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
+  + two councils (each an area map) + a health centre (**Beaconsfield Simpson Centre**, a **place** map),
+  each with an editor, plus a pending application, a requested map, **March published v1.0**, a **St Ives
+  v1.1 submitted for sign-off**, and **monthly updates staged for March (area) and the Simpson Centre
+  (place)**. Sign in with a seeded email; the one-time link is printed to the **server console**. **Stop
+  the dev server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
   admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
 - **Admin console (P3):** `/app/admin` (admin-only) reviews applications (approve → customer + editor +
@@ -113,6 +117,15 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   `published_version_id` **does not move**, so the refreshed version still goes through the P4 gate before
   it is public. Accept is blocked (409) while a publish request is pending. Admins see the queue read-only
   at **Refreshes** (`/api/admin/proposed-updates`).
+- **Place maps (0.6.0):** the place engine is **vendored** in `engine/place/` (`gen_internal.js`,
+  `gen_external_places.js`, and the `gen_internal_place.js` title/version wrapper) and copied into each
+  place map's `data/` at import — the one exception to "generators travel per-map" (place render dirs
+  carry no generators). Outputs resolve their generator by candidate list (`OUTPUTS[*].gens` +
+  `resolveGen`), so one `internal`/`external` output serves **both** kinds. A place's expert framing
+  (river-hide / frozen viewport) lives in `data/base-overrides.json` and is merged **under** the
+  customer's overrides at render (`mergeOverrides` in `engine.js`); area maps have none, so they stay
+  byte-identical. Prove it with `npm run verify:place` (`PLACE_FIXTURE_DIR`). The whole lifecycle —
+  import → safe-subset edit → version → publish → monthly refresh/accept — works identically to area maps.
 - **Testing the API in this environment:** drive it through the **in-app browser**, not Bash `curl` —
   network calls to `localhost` from the shell are denied here. Use `javascript_tool` `fetch('/api/…')`
   from the page origin (the session cookie rides along) and read a magic-link from `preview_logs`. This is

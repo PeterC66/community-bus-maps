@@ -14,9 +14,45 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES } from './store.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES } from './store.js';
 
 const GEN_INTERNAL = 'gen_internal.js';
+
+/**
+ * Resolve which generator an output uses for a given map data folder: the first
+ * of the output's `gens` candidates that is actually present. This is how one
+ * output ("internal"/"external") serves both an AREA map (gen_internal.js /
+ * gen_external.js) and a PLACE map (gen_internal_place.js / gen_external_places.js).
+ * Returns null if none is present (output not renderable for this map).
+ */
+export function resolveGen(meta, dataDir) {
+  const gens = meta.gens || (meta.gen ? [meta.gen] : []);
+  for (const g of gens) if (existsSync(path.join(dataDir, g))) return g;
+  return null;
+}
+
+function isPlainObject(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+
+/**
+ * Deep-merge two overrides objects; `over` (the customer safe-subset layer) wins
+ * on conflict. Used to lay a customer's recolours/POI-hides ON TOP of a map's
+ * expert framing (base-overrides). Area maps have empty base ⇒ this is a no-op.
+ */
+export function mergeOverrides(base, over) {
+  const b = isPlainObject(base) ? base : {};
+  const o = isPlainObject(over) ? over : {};
+  const out = {};
+  for (const k of new Set([...Object.keys(b), ...Object.keys(o)])) {
+    if (isPlainObject(b[k]) && isPlainObject(o[k])) out[k] = mergeOverrides(b[k], o[k]);
+    else out[k] = k in o ? o[k] : b[k];
+  }
+  return out;
+}
+
+/** The expert framing baked into a map's payload (data/base-overrides.json), or {}. */
+export function readBaseOverrides(dataDir) {
+  return readJson(path.join(dataDir, BASE_OVERRIDES), {}) || {};
+}
 
 /** Default output enablement: portal-supported outputs on, the rest off. */
 export function defaultOutputs() {
@@ -37,8 +73,9 @@ export function effectiveOutputs(config, dataDir) {
   for (const [key, meta] of Object.entries(OUTPUTS)) {
     if (!meta.portal) continue;
     if (cfg[key] === false) continue; // undefined => on
-    if (!existsSync(path.join(dataDir, meta.gen))) continue;
-    out.push({ key, ...meta });
+    const gen = resolveGen(meta, dataDir);
+    if (!gen) continue; // no candidate generator present for this map
+    out.push({ key, base: meta.base, label: meta.label, gen });
   }
   return out;
 }
@@ -49,7 +86,7 @@ export function outputsForClient(config, id) {
   const cfg = config && typeof config === 'object' ? config : {};
   return Object.entries(OUTPUTS).map(([key, meta]) => ({
     key, base: meta.base, label: meta.label, portal: !!meta.portal,
-    available: !!meta.portal && existsSync(path.join(dataDir, meta.gen)),
+    available: !!meta.portal && !!resolveGen(meta, dataDir),
     enabled: meta.portal ? cfg[key] !== false : false,
   }));
 }
@@ -90,9 +127,11 @@ const poiCache = new Map();
  */
 export function enumeratePoisFromDir(dataDir) {
   if (!existsSync(path.join(dataDir, GEN_INTERNAL))) return [];
-  // Baseline (no overrides) so every POI is present; keys captured via EDITOR_KEYS.
+  // Framing-only overrides (base, no customer hides) so EVERY POI is present and the
+  // framing matches the real render; keys captured via EDITOR_KEYS. Area maps have no
+  // base ⇒ this writes {} exactly as before.
   const empty = path.join(os.tmpdir(), `cbm-enum-${process.pid}-${Date.now()}.json`);
-  writeFileSync(empty, '{}');
+  writeFileSync(empty, JSON.stringify(readBaseOverrides(dataDir)));
   let svg = '';
   try {
     const { svgPath } = generateSvg({
@@ -149,7 +188,7 @@ export function readOverrides(id) {
  */
 export function previewFrom(dataDir, overrides, outputsConfig) {
   const tmp = path.join(os.tmpdir(), `cbm-preview-${process.pid}-${Date.now()}.json`);
-  writeFileSync(tmp, JSON.stringify(overrides || {}));
+  writeFileSync(tmp, JSON.stringify(mergeOverrides(readBaseOverrides(dataDir), overrides || {})));
   const result = {};
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
@@ -183,9 +222,10 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
   mkdirSync(outDir, { recursive: true });
 
   // Render from a TEMP overrides file: if a generator or rasterise fails, the
-  // canonical overrides.json and the last-good version are left untouched.
+  // canonical overrides.json and the last-good version are left untouched. The
+  // customer overrides are merged OVER the map's base framing (empty for area maps).
   const tmp = path.join(os.tmpdir(), `cbm-save-${process.pid}-${Date.now()}.json`);
-  writeFileSync(tmp, JSON.stringify(overrides || {}));
+  writeFileSync(tmp, JSON.stringify(mergeOverrides(readBaseOverrides(dataDir), overrides || {})));
 
   const files = {};
   const log = [];

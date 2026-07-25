@@ -24,6 +24,14 @@ export function mapDataDir(id) {
 export function overridesPath(id) {
   return path.join(mapDir(id), 'overrides.json');
 }
+// Expert framing baked into a map's payload (river-hide, frozen viewport). It is
+// NOT a customer edit: it lives inside data/ and is merged UNDER the customer's
+// safe-subset overrides at render time. Area maps have none (absent ⇒ empty ⇒
+// byte-identical baseline). See src/maps/engine.js and engine/place/README.md.
+export const BASE_OVERRIDES = 'base-overrides.json';
+export function baseOverridesPath(id) {
+  return path.join(mapDataDir(id), BASE_OVERRIDES);
+}
 export function rendersDir(id) {
   return path.join(mapDir(id), 'renders');
 }
@@ -75,11 +83,17 @@ export function ensureProposedDirs(id, pid) {
 // modelled so the toggle UI + data model are complete, but their generators are
 // re-homed later (expert styles, P7), so they render as `portal:false` for now.
 // `base` is the artefact basename in a render folder (<base>.svg / <base>.jpg).
+//
+// `gens` is a candidate list, tried in order: the first generator PRESENT in a
+// map's data folder wins. This is how one output serves both kinds — an AREA map
+// carries gen_internal.js / gen_external.js; a PLACE map carries the wrapper
+// gen_internal_place.js (+ gen_internal.js) / gen_external_places.js. See
+// resolveGen() in engine.js.
 export const OUTPUTS = {
-  internal_geographic: { gen: 'gen_internal.js',       base: 'internal',           label: 'Within the area', portal: true },
-  external:            { gen: 'gen_external.js',        base: 'external',           label: 'To nearby towns', portal: true },
-  internal_schematic:  { gen: 'schematize_internal.js', base: 'internal-schematic', label: 'Octolinear schematic', portal: false },
-  internal_diagram:    { gen: 'diagram_internal.js',    base: 'internal-diagram',   label: 'Tube-map diagram', portal: false },
+  internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', portal: true },
+  external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', portal: true },
+  internal_schematic:  { gens: ['schematize_internal.js'], base: 'internal-schematic', label: 'Octolinear schematic', portal: false },
+  internal_diagram:    { gens: ['diagram_internal.js'],    base: 'internal-diagram',   label: 'Tube-map diagram', portal: false },
 };
 
 // Files a rendered version can hold, with content types (derived from OUTPUTS).

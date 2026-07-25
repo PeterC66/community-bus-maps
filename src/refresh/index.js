@@ -27,9 +27,16 @@ function readJson(p, fallback) {
  * @returns {{ routes: object, atco: object }}
  */
 export function readMapData(dataDir) {
+  // Per-route stop lists, keyed by display route with flat-array values. Area maps
+  // write routes_atco.json; place maps write routes_intown_atco.json (the drawn /
+  // walkshed stops) in that same shape — try both so stop-count diffs work for
+  // either kind. (A place's routes_full_atco.json is NOT used here: its values are
+  // {directions,canonical,all} objects, not flat stop arrays.)
+  const atco = readJson(path.join(dataDir, 'routes_atco.json'), null)
+    || readJson(path.join(dataDir, 'routes_intown_atco.json'), null) || {};
   return {
     routes: readJson(path.join(dataDir, 'routes.json'), {}) || {},
-    atco: readJson(path.join(dataDir, 'routes_atco.json'), {}) || {},
+    atco,
   };
 }
 

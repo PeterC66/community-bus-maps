@@ -1,0 +1,129 @@
+// Acceptance test for the VENDORED PLACE ENGINE: prove the portal reproduces a
+// skill-rendered place leaflet byte-for-byte.
+//
+// Given PLACE_FIXTURE_DIR = a self-consistent place fixture (the *.json payload,
+// an optional base-overrides.json of expert framing, and the reference
+// internal/external SVG+JPG rendered by the make-place-bus-leaflet skill from that
+// same payload), this:
+//   1. copies it to a scratch dir (never touching the originals),
+//   2. copies in the vendored place engine (engine/place/) exactly as the importer
+//      would, and renders the baseline (customer overrides {} => the framing only),
+//   3. checks each regenerated SVG is BYTE-IDENTICAL to the reference (headline),
+//   4. rasterises + compares the JPG (render parity — informational).
+//
+// Skips cleanly (exit 0) when PLACE_FIXTURE_DIR is unset or missing, so a fresh
+// clone without the data repo still passes.
+
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
+import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
+
+const FIXTURE = process.env.PLACE_FIXTURE_DIR;
+const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
+const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
+const n = (x) => Number(x).toLocaleString('en-GB');
+
+if (!FIXTURE || !existsSync(FIXTURE)) {
+  console.log('· verify-reproduce-place: PLACE_FIXTURE_DIR not set or missing — skipping.');
+  console.log('  Point it at a place fixture folder to run it (see .env.example).');
+  process.exit(0);
+}
+
+async function pixelCompare(aBuf, bBuf) {
+  const [a, b] = await Promise.all([
+    sharp(aBuf).raw().toBuffer({ resolveWithObject: true }),
+    sharp(bBuf).raw().toBuffer({ resolveWithObject: true }),
+  ]);
+  const dims = `${a.info.width}x${a.info.height}`;
+  if (a.info.width !== b.info.width || a.info.height !== b.info.height) {
+    return { dims, sameDims: false, identical: false, maxDiff: 255, meanDiff: 255 };
+  }
+  let maxDiff = 0, sum = 0;
+  const A = a.data, B = b.data;
+  for (let i = 0; i < A.length; i++) { const d = Math.abs(A[i] - B[i]); if (d > maxDiff) maxDiff = d; sum += d; }
+  return { dims, sameDims: true, identical: maxDiff === 0, maxDiff, meanDiff: sum / A.length };
+}
+
+async function checkOne(scratch, refDir, generator, svgName, jpgName, overridesFile) {
+  const refSvgPath = path.join(refDir, svgName);
+  if (!existsSync(refSvgPath)) return null;
+  const r = { generator, svgName, jpgName };
+
+  const refSvg = readFileSync(refSvgPath);
+  const { svgPath } = generateSvg({ dataDir: scratch, generator, iconsDir: ENGINE_DIR, overridesFile });
+  const reproSvg = readFileSync(svgPath);
+  r.svgRef = refSvg.length;
+  r.svgRepro = reproSvg.length;
+  r.svgIdentical = refSvg.equals(reproSvg);
+
+  const refJpgPath = path.join(refDir, jpgName);
+  if (existsSync(refJpgPath)) {
+    const outJpg = path.join(scratch, 're_' + jpgName);
+    await rasterise(refSvg, outJpg);
+    r.pix = await pixelCompare(readFileSync(refJpgPath), readFileSync(outJpg));
+  }
+  return r;
+}
+
+const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-place-'));
+cpSync(FIXTURE, scratch, { recursive: true });
+// Vendor the place engine into the payload, exactly as scripts/import-map.mjs does.
+for (const g of PLACE_GENS) cpSync(path.join(PLACE_ENGINE_DIR, g), path.join(scratch, g));
+writeFileSync(path.join(scratch, 'package.json'), '{ "type": "commonjs" }\n');
+
+// Baseline overrides = the expert framing (base-overrides.json) with an empty
+// customer layer merged on top — which is just the framing itself. Passing it as
+// OVERRIDES_FILE reproduces exactly what renderVersion(id, {}) does for v1.0.
+const baseOvPath = path.join(scratch, 'base-overrides.json');
+const base = existsSync(baseOvPath) ? JSON.parse(readFileSync(baseOvPath, 'utf8')) : {};
+const ovTmp = path.join(scratch, '_baseline-overrides.json');
+writeFileSync(ovTmp, JSON.stringify(base));
+
+console.log('Byte-identical reproduce test — PLACE engine');
+console.log('  fixture :', FIXTURE);
+console.log('  icons   :', ENGINE_DIR);
+console.log('  framing :', Object.keys(base).length ? 'base-overrides.json present (merged)' : 'none');
+console.log('');
+
+const targets = [
+  ['gen_internal_place.js', 'internal.svg', 'internal.jpg'],
+  ['gen_external_places.js', 'external.svg', 'external.jpg'],
+];
+
+let headlineOK = true;
+let ran = 0;
+for (const [gen, svg, jpg] of targets) {
+  let r;
+  try {
+    r = await checkOne(scratch, FIXTURE, gen, svg, jpg, ovTmp);
+  } catch (e) {
+    console.log(`— ${gen}\n   ERROR: ${e.message}\n`);
+    headlineOK = false;
+    continue;
+  }
+  if (!r) continue;
+  ran++;
+  console.log(`— ${gen}`);
+  console.log(`   SVG  reference ${n(r.svgRef)} B  vs  regenerated ${n(r.svgRepro)} B  ->  ${r.svgIdentical ? 'BYTE-IDENTICAL ✓' : 'DIFFERS ✗'}`);
+  if (!r.svgIdentical) headlineOK = false;
+  if (r.pix) {
+    const verdict = r.pix.identical
+      ? 'pixel-identical ✓'
+      : r.pix.sameDims ? `same size, max pixel Δ ${r.pix.maxDiff}, mean Δ ${r.pix.meanDiff.toFixed(3)}` : 'DIFFERENT DIMENSIONS ✗';
+    console.log(`   JPG  [${r.pix.dims}]  ->  ${verdict}`);
+  }
+  console.log('');
+}
+
+if (ran === 0) console.log('No matching generators/SVGs found in the fixture — nothing to check.');
+console.log(
+  headlineOK && ran > 0
+    ? 'RESULT: PASS — the vendored place engine reproduces the skill-rendered leaflet byte-for-byte.'
+    : 'RESULT: see above.',
+);
+
+rmSync(scratch, { recursive: true, force: true });
+process.exit(headlineOK && ran > 0 ? 0 : 1);

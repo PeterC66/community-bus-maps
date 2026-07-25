@@ -99,10 +99,12 @@ As the **admin**, open **/app/admin** to review **applications** (approve → cr
 *Ramsey Town Council* application prints an invite link to the console — sign in with it to see the new
 customer's empty dashboard.
 
-To import a single map yourself (attaching it to a customer, created if new):
+To import a single map yourself (attaching it to a customer, created if new) — `--kind area` for a town,
+`--kind place` for a single point (a place `--src` is a `Places/<Place>/S5-render/...` folder):
 
 ```bash
 node scripts/import-map.mjs --src "/path/to/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "March Town Council" --customer-type council
+node scripts/import-map.mjs --src "/path/to/Places/Beaconsfield Simpson Centre/S5-render/v1.0_..." --name "Simpson Centre" --slug simpson-centre --kind place --customer "Beaconsfield Health Centre"
 ```
 
 To offer a customer a **monthly data refresh** (P5): regenerate that town's data centrally, then stage it
@@ -121,8 +123,10 @@ Three boundaries are **enforced on the server**, not just hidden in the UI: the 
 **safe subset** (recolour + POI toggle; layout/geometry/diagram-pins stay expert-only); every map is
 **tenant-isolated** — a customer can never list, open, preview, download or re-configure another
 customer's map; and the **publish gate** — a version can only become the official public one via an
-approver's completed sign-off checklist, and editors can never publish their own maps. Only **area** maps
-are supported so far; place maps use a separate engine (a follow-up).
+approver's completed sign-off checklist, and editors can never publish their own maps. **Both map kinds
+are supported** — area maps carry their generators per-map; place maps are rendered by the vendored place
+engine (`engine/place/`), copied into each place map's data at import. Everything above (edit, version,
+publish, monthly refresh) works identically for a place.
 
 ## Data hygiene (important — this is a public repo)
 

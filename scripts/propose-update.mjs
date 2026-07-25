@@ -16,11 +16,12 @@
 
 import { cpSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   getMap, getMapBySlug, getOpenProposedForMap, supersedePendingProposed,
   insertProposedUpdate, setProposedDataDir, setProposedSummary,
 } from '../src/db/index.js';
-import { ensureProposedDirs, mapDataDir } from '../src/maps/store.js';
+import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
 
 function arg(name, def = undefined) {
@@ -46,11 +47,20 @@ if (!map.current_version_id || !map.data_dir) {
 const SRC = path.resolve(src);
 if (!existsSync(SRC)) { console.error(`✗ --src not found: ${SRC}`); process.exit(1); }
 
-// Only the AREA engine is vendored; a src without the portal generators is a
-// place map (different engine, not re-homed yet) — refuse rather than stage junk.
-const PORTAL_GENS = ['gen_internal.js', 'gen_external.js'];
-if (!PORTAL_GENS.some((g) => existsSync(path.join(SRC, g)))) {
-  console.error(`✗ --src carries none of the portal generators (${PORTAL_GENS.join(', ')}). Looks like a place map — not supported yet.`);
+// Validate the fresh payload for the map's kind. Area maps carry their generators
+// in src; place maps are staged with the vendored place engine (engine/place/), so
+// the src only needs its inputs (routes.json + place.json).
+const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
+const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
+const AREA_GENS = ['gen_internal.js', 'gen_external.js'];
+const isPlace = map.kind === 'place';
+if (isPlace) {
+  if (!existsSync(path.join(SRC, 'routes.json')) || !existsSync(path.join(SRC, 'place.json'))) {
+    console.error('✗ --src is not a place payload (needs routes.json + place.json).');
+    process.exit(3);
+  }
+} else if (!AREA_GENS.some((g) => existsSync(path.join(SRC, g)))) {
+  console.error(`✗ --src carries none of the area generators (${AREA_GENS.join(', ')}).`);
   process.exit(3);
 }
 
@@ -72,14 +82,23 @@ const note = arg('note', `Data refresh staged ${new Date().toISOString().slice(0
 const pid = insertProposedUpdate({ map_id: map.id, source_note: note });
 const stagedData = ensureProposedDirs(map.id, pid);
 
-// 2) Stage the payload: generators + every *.json input (the generator rebuilds
-//    the SVG/JPG outputs, so we don't copy those or the raw timetable HTML).
+// 2) Stage the payload: the *.json inputs, plus the generators. Area maps carry
+//    their generators in src; place maps get the vendored engine (engine/place/).
+//    A shipped overrides.json is EXPERT framing → staged as base-overrides.json.
 let copied = 0;
 for (const f of readdirSync(SRC)) {
+  if (f === 'overrides.json' || f === BASE_OVERRIDES) continue; // framing handled below / never stage stale
   const keep = /^gen_.*\.js$/.test(f) || (f.endsWith('.json') && !f.endsWith('.bak'));
   if (!keep) continue;
   cpSync(path.join(SRC, f), path.join(stagedData, f));
   copied++;
+}
+if (isPlace) {
+  for (const g of PLACE_GENS) { cpSync(path.join(PLACE_ENGINE_DIR, g), path.join(stagedData, g)); copied++; }
+  // Expert framing: overrides.json (fresh skill payload) or base-overrides.json
+  // (a live-derived payload) — stage whichever is present.
+  const framing = [path.join(SRC, 'overrides.json'), path.join(SRC, BASE_OVERRIDES)].find(existsSync);
+  if (framing) cpSync(framing, path.join(stagedData, BASE_OVERRIDES));
 }
 console.log(`· staged ${copied} payload files → ${stagedData}`);
 

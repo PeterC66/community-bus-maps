@@ -31,10 +31,10 @@ const PROPOSE = path.join(HERE, 'propose-update.mjs');
 const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 
-// AREA maps only for now: the portal vendors the area engine (generators travel
-// per-map). PLACE maps (make-place-bus-leaflet) use a separate engine kept in the
-// skill, not vendored in the portal yet — so e.g. Beaconsfield Simpson Centre is
-// intentionally left out until that engine is re-homed (a follow-up).
+// Both map kinds now render in the portal: AREA maps carry their generators
+// per-map (staged from the town render dir); PLACE maps are staged with the
+// vendored place engine (engine/place/). So the demo seeds a built place map
+// (Beaconsfield Simpson Centre) alongside the two council area maps.
 const DEMO = [
   { customer: 'St Ives Town Council', type: 'council', editor: 'clerk@st-ives-tc.example',
     name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
@@ -42,6 +42,9 @@ const DEMO = [
   { customer: 'March Town Council', type: 'council', editor: 'clerk@march-tc.example',
     name: 'March', slug: 'march', kind: 'area', subject: 'March, Cambridgeshire',
     renderParent: 'March/S5-render' },
+  { customer: 'Beaconsfield Health Centre', type: 'other', editor: 'manager@beaconsfield-health.example',
+    name: 'Simpson Centre', slug: 'simpson-centre', kind: 'place', subject: 'The Simpson Centre, Beaconsfield',
+    renderParent: 'Places/Beaconsfield Simpson Centre/S5-render' },
 ];
 
 function ensureUser(email, role, customerId, name) {
@@ -196,12 +199,15 @@ function makeDemoRefreshSrc(srcDataDir) {
     rj.internalDesc[descKey] = d;
   }
   writeFileSync(rjPath, JSON.stringify(rj, null, 2));
-  // routes_atco.json: drop one stop from the busiest route (a visible stop change).
-  const atcoPath = path.join(tmp, 'routes_atco.json');
-  if (existsSync(atcoPath)) {
+  // Drop one stop from the busiest route (a visible stop change). Area maps use
+  // routes_atco.json; place maps use routes_intown_atco.json (same flat-array shape).
+  const atcoPath = [path.join(tmp, 'routes_atco.json'), path.join(tmp, 'routes_intown_atco.json')].find(existsSync);
+  if (atcoPath) {
     const atco = JSON.parse(readFileSync(atcoPath, 'utf8'));
-    const k = Object.keys(atco).sort((a, b) => (atco[b] || []).length - (atco[a] || []).length)[0];
-    if (k && Array.isArray(atco[k]) && atco[k].length >= 4) {
+    const k = Object.keys(atco)
+      .filter((r) => Array.isArray(atco[r]))
+      .sort((a, b) => atco[b].length - atco[a].length)[0];
+    if (k && atco[k].length >= 4) {
       atco[k] = atco[k].slice(0, -1);
       writeFileSync(atcoPath, JSON.stringify(atco, null, 2));
     }
@@ -221,6 +227,23 @@ if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.dat
     console.warn('· ⚠ could not stage the demo refresh for March:', e.message);
   }
 } else console.log('· demo refresh already staged for March (or March not seeded)');
+
+// P5 for a PLACE map: stage the same kind of demo refresh for the Simpson Centre,
+// so the accept flow (re-applying overrides + preserving the base framing) is
+// demoable for a place too. makeDemoRefreshSrc derives the "fresh" payload from the
+// live data (which for a place carries the vendored engine + base-overrides.json).
+const simpsonForRefresh = getMapBySlug('simpson-centre');
+if (simpsonForRefresh && simpsonForRefresh.current_version_id && simpsonForRefresh.data_dir && !getOpenProposedForMap(simpsonForRefresh.id)) {
+  try {
+    const src = makeDemoRefreshSrc(mapDataDir(simpsonForRefresh.id));
+    execFileSync(process.execPath, [
+      PROPOSE, '--map', 'simpson-centre', '--src', src, '--note', 'Demo: August 2026 timetable refresh (place)',
+    ], { stdio: 'inherit' });
+    console.log('· staged a demo monthly update for the Simpson Centre (place — its editor can accept/decline it)');
+  } catch (e) {
+    console.warn('· ⚠ could not stage the demo refresh for the Simpson Centre:', e.message);
+  }
+} else console.log('· demo place refresh already staged (or Simpson Centre not seeded)');
 
 console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped} skipped.`);
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');

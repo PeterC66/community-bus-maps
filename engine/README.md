@@ -18,3 +18,7 @@ A generator is env/flag driven:
 `src/render/renderMap.js` wraps this: it runs the generator, then rasterises with the same `sharp`
 parameters as `render.js`, so the portal's output is identical to the desktop pipeline's. The
 `npm run verify` script proves that byte-for-byte against an already-shipped leaflet.
+
+**Exception — `place/`.** Place maps are the one case where generators *are* vendored (in
+[`place/`](place/README.md)), because the place skill never copies them into a place's render
+folder. The importer copies those into each place map's `data/`, so the per-map model still holds.
