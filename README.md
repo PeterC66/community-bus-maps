@@ -69,6 +69,13 @@ Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate B
 npm run verify
 ```
 
+Note that `verify` **exits 0 with "skipping" when `FIXTURE_DIR` is unset** — a green run in a fresh
+clone proves nothing about the renderer. Set it (and `PLACE_FIXTURE_DIR`) first.
+
+**Before you change any code, read [`docs/DEVELOPING.md`](docs/DEVELOPING.md)** — the determinism
+contract, the three approval gates, the vendored-engine hand-off, the generator env contract, and
+which gates to run.
+
 ### Set up the multi-customer demo (P2 + P3 + P4 + P5)
 
 Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
@@ -245,6 +252,6 @@ src/
 public/     the shopfront + public map pages (maps/map/org/legal) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
 scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
-docs/       ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate)
+docs/       DEVELOPING.md (read before changing code) · ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate) · OPERATIONS-HANDBOOK.md + runbook-*.md (running the service)
 Dockerfile, compose.yaml   single-process container + single-volume deployment
 ```

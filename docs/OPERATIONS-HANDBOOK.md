@@ -128,6 +128,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
 | README | `README.md` | dev overview + quick start | ✅ (current, P0–P7) |
 | Roadmap & architecture | `docs/ROADMAP.md` | phases, safe subset, continuation | ✅ |
+| **Developing (change the code)** | `docs/DEVELOPING.md` | determinism contract, the 3 approval gates, vendored-engine hand-off, generator env contract, which gates to run | ✅ added 2026-07-25 |
 | Deploy & run | `docs/DEPLOY.md` | deploy, env, **backup/restore**, upgrade gate | ✅ **maintenance reference** |
 | Licensing & attribution | `docs/LICENSING.md` | attribution + **sign-off** + bustimes.org question | ✅ doc; ◑ web attribution verified + bustimes.org researched 2026-07-25; **paper checks + decision pending (G1)** |
 | Privacy & attribution (public) | `public/legal.html` | customer-facing privacy notice | ✅ reviewed + dated 2026-07-25 (G2); controller identity to add |

@@ -2,6 +2,23 @@
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [Unreleased]
+
+### Added — `docs/DEVELOPING.md`, the developer counterpart to the operator docs
+- The documentation set covered how to **run** the service but not how to **change** it. New
+  `docs/DEVELOPING.md` states the two things a change must not break — **determinism** (no network,
+  no clock, no randomness, absent-config ⇒ byte-identical) and the **three approval gates** (org
+  approval, map request + quota, publish sign-off) — plus the generator env contract
+  (`LEAFLET_DIR` / `SKILL_ASSETS` / `OVERRIDES_FILE` / `EDITOR_KEYS`), the **`LEAFLET_DIR` trap**
+  that makes an expert style silently render as the plain geographic map, a where-things-live index,
+  and the gates to run.
+- Documents the **vendored-engine hand-off** explicitly: `engine/`, `engine/place/` and
+  `engine/expert/` hold byte-for-byte copies of an upstream authoring toolchain, with **no automated
+  drift check** — so a change there is unfinished until it is re-copied and every gate re-run.
+- Records that **`npm run verify` exits 0 with "skipping" when `FIXTURE_DIR` is unset**, so a green
+  run in a fresh clone proves nothing about the renderer. Also noted in `README.md`.
+- Linked from `README.md` (quick start + layout) and the Operations Handbook's document map.
+
 ## [0.8.1] — 2026-07-25
 
 Closes the **two code rough edges** the P7 docs recorded as known-but-unfixed. Both were seams
