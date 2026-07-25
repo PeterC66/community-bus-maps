@@ -56,6 +56,39 @@ but it has never been confirmed against the site's terms. Before launch, either:
 Until one of those is recorded, treat "any UK town, automated" as **out of scope** — the
 present scale (a few towns, monthly, expert-run) is what the assessment covers.
 
+### Findings (2026-07-25)
+
+A read of bustimes.org's own `/data` page records:
+
+- Its timetable/route data is drawn from **NPTG, NaPTAN, NOC, TNDS, BODS and TfL** and is
+  **"licensed under the Open Government Licence v3.0"** — i.e. the facts we cross-check are the same
+  open data we already use directly, not a proprietary dataset.
+- It publishes an **API** for structured access — programmatic reuse is an intended path.
+- The page states **no explicit restriction** on reusing or cross-referencing what it shows.
+
+This *supports* the assessment that our use (central, human-in-the-loop, a handful of pages per town
+per month, to sanity-check a route already built from BODS) is proportionate and low-risk. It does
+**not** by itself formally close the question — there is no published terms-of-use granting or
+denying HTML-page reuse — so the go/no-go is still a judgement for the operator to **record**. Pick
+one and sign §5:
+
+- **Accept at current scale** — record this finding as sufficient for the few-towns, monthly,
+  expert-run use, and keep automated any-UK-town use out of scope.
+- **Ask** — send the courtesy enquiry below to `bustimes.org/contact` and record the reply.
+- **Drop** — cross-check against operator timetables + the BODS feed alone.
+
+**Draft enquiry (the "Ask" option):**
+
+> Subject: Cross-checking a route against your site — community bus maps
+>
+> Hello — I run a small non-commercial project that makes printable bus maps for local
+> organisations (community-bus-maps, Apache-2.0). The maps are built from BODS and OpenStreetMap;
+> during map-making I sometimes open a few of your pages by hand to sanity-check a route against an
+> operator's timetable — a handful of pages per town, about once a month, always reviewed by a
+> person, never bulk or automated. I credit OSM and BODS on every sheet. Is that use welcome, and is
+> there anything you'd like me to do or avoid? Happy to add a bustimes.org credit if that helps.
+> Thank you for the site. — [name]
+
 ## 4. Other launch-gate items
 
 - **Privacy notice** — `/legal.html` is written but marked a working draft; confirm the
@@ -71,13 +104,24 @@ present scale (a few towns, monthly, expert-run) is what the assessment covers.
 
 ## 5. Sign-off
 
-| Item | Position | Who | Date |
-|---|---|---|---|
-| OSM (ODbL) attribution present on sheet + web | ☐ confirmed | | |
-| BODS (OGL) attribution present | ☐ confirmed | | |
-| Printed-sheet credit legibility (all four outputs) | ☐ checked on paper | | |
-| bustimes.org terms | ☐ resolved (see §3) | | |
-| Privacy notice reviewed + dated | ☐ confirmed | | |
+Progress recorded 2026-07-25. The **web-attribution** rows were verified by Claude: the OSM + BODS
+credit string is present in the footer of **every** public page (all 9 templates — shopfront,
+`/maps`, `/m/`, `/o/`, `legal`, `faq`, `examples`, `apply`, `contact`). The **printed-sheet** checks
+and the **final launch go/no-go** remain the operator's — a screen credit is not a paper credit, and
+this is a legal gate, not a code test.
 
-Nothing here is legal advice; it is the operator's checklist. Record the outcome in this
-file (it is versioned) so the decision and its date survive.
+| Item | Status | Verified by | Date |
+|---|---|---|---|
+| OSM (ODbL) credit — on **web** | ✅ present on all public pages | Claude | 2026-07-25 |
+| BODS (OGL) credit — on **web** | ✅ present on all public pages | Claude | 2026-07-25 |
+| OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
+| Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
+| bustimes.org terms | ◑ researched (§3 findings); **decision to record** (operator) | | |
+| Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
+
+**To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic,
+diagram, external) from a signed-off map and confirm the OSM + BODS + "check live times" line is
+present and legible on paper. Then tick the two sheet rows with your initials + date.
+
+Nothing here is legal advice; it is the operator's checklist. Record the outcome in this file (it is
+versioned) so the decision and its date survive.
