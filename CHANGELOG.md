@@ -4,6 +4,18 @@ Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates a
 
 ## [Unreleased]
 
+### Added — `docs/DUMMIES_GUIDE.md`, a plain-commands front door
+- New `docs/DUMMIES_GUIDE.md` for someone who knows cmd/PowerShell, FTP and GitHub but not git
+  or Node: the four git commands actually needed day to day, starting the local dev server,
+  seeding demo data, and a cheat sheet — with pointers into the deeper docs rather than
+  repeating them.
+- Records that the current 20i hosting package is standard shared hosting (FTP + phpMyAdmin)
+  and, per 20i's own docs, **cannot run Node.js** — that needs their separate "Node.js
+  Optimised Cloud Server" product. Documents Render.com's free tier as a no-cost demo path
+  instead, including its two real limits (15-minute spin-down, non-persistent disk on the free
+  instance type).
+- Linked from `README.md` (above quick start, and in the layout doc index).
+
 ### Added — `docs/DEVELOPING.md`, the developer counterpart to the operator docs
 - The documentation set covered how to **run** the service but not how to **change** it. New
   `docs/DEVELOPING.md` states the two things a change must not break — **determinism** (no network,
