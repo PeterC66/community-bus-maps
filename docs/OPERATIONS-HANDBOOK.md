@@ -126,7 +126,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 |---|---|---|---|
 | **This handbook** | `docs/OPERATIONS-HANDBOOK.md` | the operator spine | ✅ |
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
-| README | `README.md` | dev overview + quick start | ✅ *(status line lags at P4 → P7: fix)* |
+| README | `README.md` | dev overview + quick start | ✅ (current, P0–P7) |
 | Roadmap & architecture | `docs/ROADMAP.md` | phases, safe subset, continuation | ✅ |
 | Deploy & run | `docs/DEPLOY.md` | deploy, env, **backup/restore**, upgrade gate | ✅ **maintenance reference** |
 | Licensing & attribution | `docs/LICENSING.md` | attribution + **sign-off** + bustimes.org question | ✅ doc; ◑ web attribution verified + bustimes.org researched 2026-07-25; **paper checks + decision pending (G1)** |

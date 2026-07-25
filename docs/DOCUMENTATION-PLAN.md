@@ -41,8 +41,8 @@ below already exist.
 
 | Existing doc | Covers | Verdict for this plan |
 |---|---|---|
-| `README.md` | dev overview, quick start, demo, layout | Keep. **Housekeeping:** status line still says P0–P4 → bump to P7 |
-| `docs/ROADMAP.md` | architecture, phases, safe subset, continuation notes | Keep. Possibly bump phase table to show P5–P7 ✅ |
+| `README.md` | dev overview, quick start, demo, layout | Keep — current (says P0–P7) |
+| `docs/ROADMAP.md` | architecture, phases, safe subset, continuation notes | Keep — current (phase table shows P5–P7 ✅) |
 | `docs/DEPLOY.md` | deploy, env, health, **backup + restore drill**, prune, upgrade/verify gate | **Strong — this is the maintenance reference.** No separate maintenance runbook needed; the Handbook's rhythm section points here |
 | `docs/LICENSING.md` | attribution matrix (OSM/BODS/bustimes), where credits appear, **sign-off table**, the **bustimes.org open question** | **This is the licensing doc.** Not "write" but **act**: fill the sign-off + resolve bustimes.org (→ G1) |
 | `public/legal.html` | privacy notice + attribution + map reuse (customer-facing) | **This is the privacy notice.** Working draft → **review + date** (→ G2) |
@@ -56,10 +56,10 @@ job" runbooks for the four roles — plus a **customer-facing user guide**, one 
 (a customer agreement / terms of use, distinct from the privacy+attribution already written), and
 the **private registers** that record real customers and incidents.
 
-**Housekeeping also surfaced (track, not blocking):** `README.md` (and possibly `ROADMAP.md`) lag
-the code at P4; the project memory file `project_bus_portal_planning.md` is stale at P4 vs the
-current P7 index. P5–P7 landed today in other sessions, so treat this repo as **actively worked**
-— these may already be in hand elsewhere.
+**Housekeeping (verified 2026-07-25):** `README.md` and `docs/ROADMAP.md` were already brought up to
+P7 by the P5–P7 sessions — current, nothing to bump. The project **memory file**
+`project_bus_portal_planning.md` still lags at P4 vs the P7 index; the repo docs are authoritative.
+P5–P7 landed in other sessions, so treat this repo as **actively worked**.
 
 ---
 

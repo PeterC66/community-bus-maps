@@ -20,9 +20,9 @@ Plain HTML, edited directly, sharing one header/footer and `/css/styles.css`:
 | `legal.html` | privacy & attribution (G2) |
 | `terms.html` | the customer agreement (G3) |
 
-> **Shared-footer follow-up:** the footer link list is duplicated per page. The **Terms** link was
-> added to `legal.html` and `terms.html` only; propagate it to the other footers
-> (`index`, `apply`, `contact`, `faq`, `examples`, `maps`, `map`, `org` templates) when convenient.
+> **Shared footers are duplicated per page** (static HTML, no shared include), so a new footer link
+> must be added to every page by hand. The **Terms** link is now in all of them (added across the
+> shopfront 2026-07-25) — follow the same pattern for any future footer link.
 
 ### Adding a gallery example
 
