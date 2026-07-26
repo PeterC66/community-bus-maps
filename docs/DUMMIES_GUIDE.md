@@ -190,6 +190,27 @@ Your current 20i package **cannot run this app** (see the note at the top). The 
 give someone else a link to click, at no cost, is a free Node-friendly host. **Render.com** is a
 reasonable default — no separate server to manage, deploys straight from your GitHub repo.
 
+**Already have a Render account for something else? Use it — don't create a second one.**
+Each Render *service* is fully isolated: its own URL, environment variables, logs and disk, so
+this project can't see or interfere with your other one. Two things are genuinely **shared
+across your whole account** ("workspace"), worth knowing before you add a second free service to
+it:
+
+- **750 free instance-hours per month, shared by every free service in the workspace.** A single
+  service running flat-out is ~720 hours in a 30-day month, so two free services both seeing
+  real traffic *could* jointly bump the cap — and Render then pauses **all** your free services
+  until next month, not just the one that used the most. For an occasional demo (spins down
+  after 15 minutes idle, see below) this is very unlikely to bite; it'd only matter if your other
+  project's free service already runs close to continuously.
+- **A 25-service cap on the free "Hobby" plan**, counted across everything in the account — only
+  relevant if you're already close to that from other work.
+
+Neither is a reason to avoid reusing the account for a low-traffic demo like this one — just
+give the new service a clearly different name from your other project so they're easy to tell
+apart in the dashboard. (The only case for a genuinely separate Render account is wanting this
+kept administratively distinct from the other project — different owner, different billing —
+not a technical requirement.)
+
 **One-time setup:**
 
 1. Make sure your latest work is pushed — same folder, same as always:
@@ -198,11 +219,13 @@ reasonable default — no separate server to manage, deploys straight from your 
    git push
    ```
 2. Everything from here on happens in your **web browser** at render.com, not in PowerShell —
-   there's no folder to be "in" for these steps. Create a free account and connect your GitHub
-   account to it (this is the one step that involves creating an account — do that part
-   yourself in the browser).
+   there's no folder to be "in" for these steps. Sign in to your existing account (or create one
+   if you don't have one yet — that's the only step that involves creating an account, do it
+   yourself in the browser) and make sure it's connected to your GitHub account.
 3. **New → Web Service** → pick the `PeterC66/community-bus-maps` repo.
 4. Settings:
+   - **Name:** something distinct from your other project (e.g. `community-bus-maps-demo`) —
+     this becomes part of its `onrender.com` URL and how you tell the two apart in the dashboard.
    - **Build command:** `npm ci`
    - **Start command:** `npm start`
    - **Instance type:** Free
