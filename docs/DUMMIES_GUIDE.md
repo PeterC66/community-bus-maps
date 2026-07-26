@@ -10,7 +10,32 @@ the existing docs to read for the deeper version.
 **One-time fact worth knowing:** your 20i package is standard shared hosting (FTP +
 phpMyAdmin). 20i confirms Node.js apps only run on their separate *"Node.js Optimised Cloud
 Server"* product — ordinary shared hosting can't run this app at all. So "demonstrate it live"
-and "your 20i webspace" are two different things for this project (see Part F).
+and "your 20i webspace" are two different things for this project (see Part 6).
+
+---
+
+## Which folder do I need to be in?
+
+**Short answer: one folder, almost the whole time —**
+
+```
+C:\Claude\community-bus-maps
+```
+
+Open PowerShell, `cd` into it once, and every `git`, `npm` and `node` command in Parts 1–5
+below is run from there (or a subfolder under it — git and npm both find the project root
+automatically, so being one level down, e.g. in `src\`, is fine too). You don't switch folders
+to go from "editing code" to "running git" to "starting the server" — it's the same window,
+same place, the whole time.
+
+Two things that break that rule, both called out where they happen:
+
+- **Opening a brand-new PowerShell window** — it starts you somewhere else (usually your home
+  folder), so the very first command in that window needs to be `cd C:\Claude\community-bus-maps`
+  again. Every code block below starts with that `cd` line so it works even pasted into a fresh
+  window — if you're already there, `cd` to the folder you're in is harmless.
+- **Part 6's Render.com steps** — after the first `git push`, everything else happens in your
+  **web browser** on render.com, not in a PowerShell folder at all.
 
 ---
 
@@ -32,10 +57,12 @@ clean (no uncommitted changes). You don't need to "install" or "clone" anything 
 
 ## 1. The bare minimum git you actually need
 
-You know GitHub (the website) already. Git is the *command-line tool* that talks to it. Four
-commands cover almost everything you'll do yourself:
+You know GitHub (the website) already. Git is the *command-line tool* that talks to it. All of
+it runs **from `C:\Claude\community-bus-maps`** (see "Which folder do I need to be in?" above).
+Four commands cover almost everything you'll do yourself:
 
 ```powershell
+cd C:\Claude\community-bus-maps
 git status              # "what's changed since the last commit?" — run this often, it's always safe
 git add <file>           # "stage" a changed file, ready to commit (or: git add -A for everything)
 git commit -m "message"  # save a snapshot of the staged files, with a short note about why
@@ -43,9 +70,10 @@ git push                 # send your commits up to GitHub
 ```
 
 And one more for pulling down changes made elsewhere (e.g. by Claude in a different session,
-or by you on another PC):
+or by you on another PC) — same folder:
 
 ```powershell
+cd C:\Claude\community-bus-maps
 git pull                 # fetch and merge the latest from GitHub into your local copy
 ```
 
@@ -68,7 +96,7 @@ sounds destructive (`reset`, `checkout`, `clean`, `push --force`) — those can 
 ## 2. Start a local server on your laptop
 
 This runs the portal *only on your own PC*, reachable at a `127.0.0.1` address that nothing
-outside your laptop can see.
+outside your laptop can see. Same folder as always.
 
 ```powershell
 cd C:\Claude\community-bus-maps
@@ -91,9 +119,12 @@ shopfront actually shows once it's up.
 A fresh `npm run dev` shows an empty shopfront — no customers, no maps. To get something worth
 looking at (sample councils, maps, pending approvals, a public gallery), seed the demo data.
 **Stop the server first** (Ctrl+C) — the seed script and the server both write to the same
-database file, and only one thing can write at a time:
+database file, and only one thing can write at a time. This can be the *same* PowerShell window
+you just ran `npm run dev` in (Ctrl+C stops it and gives you the prompt back — no need to `cd`
+again), or a fresh one if you'd rather keep the server's window untouched:
 
 ```powershell
+cd C:\Claude\community-bus-maps
 $env:BUSES_DIR = "C:\u3a St Ives\Using AI\Buses"
 node scripts/seed-demo.mjs
 npm run dev
@@ -108,9 +139,10 @@ server**, not emailed. Scroll that window to find it. The seeded people to sign 
 each one can do, are listed in [`README.md`](../README.md#set-up-the-multi-customer-demo-p2--p3--p4--p5)
 — worth reading once.
 
-To reset back to empty, delete the database file and start again:
+To reset back to empty, delete the database file and start again (server stopped, same folder):
 
 ```powershell
+cd C:\Claude\community-bus-maps
 Remove-Item .\data\portal.sqlite* -ErrorAction SilentlyContinue
 node scripts/seed-demo.mjs
 ```
@@ -118,6 +150,8 @@ node scripts/seed-demo.mjs
 ---
 
 ## 4. Everyday development loop
+
+All of this is one PowerShell window, `cd C:\Claude\community-bus-maps`, staying put:
 
 1. `git pull` (pick up anything changed elsewhere).
 2. `npm run dev` (leave it running — it auto-reloads on save).
@@ -134,8 +168,15 @@ tell you what it ran — you can always ask it to show `git status`/`git diff` b
 
 ## 5. Testing checklist before you call something "done"
 
-- `npm test` — the quick checks (public front, lifecycle, etc.)
-- `npm run verify` — **only meaningful if `FIXTURE_DIR`/`PLACE_FIXTURE_DIR` are set in `.env`**
+Same folder again:
+
+```powershell
+cd C:\Claude\community-bus-maps
+npm test       # the quick checks (public front, lifecycle, etc.)
+npm run verify # only meaningful once FIXTURE_DIR/PLACE_FIXTURE_DIR are set in .env — see below
+```
+
+- `npm run verify` **only means something if `FIXTURE_DIR`/`PLACE_FIXTURE_DIR` are set in `.env`**
   to real fixture folders; otherwise it silently reports "skipping" and proves nothing. See
   `.env.example` for what those paths should point at.
 - A quick look in the browser at the page you changed — the automated tests don't check what
@@ -151,9 +192,15 @@ reasonable default — no separate server to manage, deploys straight from your 
 
 **One-time setup:**
 
-1. Make sure your latest work is pushed: `git push` (from §1).
-2. Create a free account at render.com and connect your GitHub account to it (this is the one
-   step that involves creating an account — do that part yourself in the browser).
+1. Make sure your latest work is pushed — same folder, same as always:
+   ```powershell
+   cd C:\Claude\community-bus-maps
+   git push
+   ```
+2. Everything from here on happens in your **web browser** at render.com, not in PowerShell —
+   there's no folder to be "in" for these steps. Create a free account and connect your GitHub
+   account to it (this is the one step that involves creating an account — do that part
+   yourself in the browser).
 3. **New → Web Service** → pick the `PeterC66/community-bus-maps` repo.
 4. Settings:
    - **Build command:** `npm ci`
@@ -206,6 +253,9 @@ Optimised Cloud Server product instead of using Render.
 ---
 
 ## Cheat sheet
+
+Everything here is one folder (`cd` there once, stay put — re-run the `cd` if you open a fresh
+PowerShell window):
 
 ```powershell
 # Start working
