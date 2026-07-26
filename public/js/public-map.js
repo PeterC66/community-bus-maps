@@ -42,7 +42,9 @@
 
   const headline = map.kind === 'place' ? `Buses serving ${map.name}` : `Buses within ${map.name}`;
   document.title = `${headline} — Community Bus Maps`;
-  const desc = `A printable bus map published by ${map.org.name}${map.subject ? ' for ' + map.subject : ''}, kept up to date as services change.`;
+  const desc = map.org.isDemo
+    ? `A sample printable bus map${map.subject ? ' for ' + map.subject : ''}, made to demonstrate Community Bus Maps.`
+    : `A printable bus map published by ${map.org.name}${map.subject ? ' for ' + map.subject : ''}, kept up to date as services change.`;
   const md = document.querySelector('meta[name="description"]');
   if (md) md.setAttribute('content', desc);
   const og = document.querySelector('meta[property="og:title"]');
@@ -52,7 +54,9 @@
   }
 
   $('head').innerHTML = `
-    <h2 class="mt-0">${esc(headline)} <span class="badge ${map.kind === 'place' ? 'place' : ''}">${map.kind === 'place' ? 'Place' : 'Area'}</span></h2>
+    <h2 class="mt-0">${esc(headline)} <span class="badge ${map.kind === 'place' ? 'place' : ''}">${map.kind === 'place' ? 'Place' : 'Area'}</span>${
+      map.org.isDemo ? ' <span class="badge sample">Sample</span>' : ''}</h2>
+    ${map.org.isDemo ? '<p class="sample-note"><strong>This is a sample map.</strong> The organisation named below is invented and no one publishes this map — it exists to demonstrate the system. Do not use it to catch a bus. <a href="/faq.html#pilot">Why?</a></p>' : ''}
     <div class="org-line big">
       <span class="org-badge" style="--org-accent:${esc(map.org.accentHex)}">${esc(map.org.badge)}</span>
       <span>Published by ${map.org.url ? `<a href="${esc(map.org.url)}">${esc(map.org.name)}</a>` : esc(map.org.name)}${
@@ -61,13 +65,17 @@
     ${map.org.blurb ? `<p class="section-intro">${esc(map.org.blurb)}</p>` : ''}`;
 
   $('fbSlug').value = map.slug;
-  $('aboutText').textContent = map.subject
+  const about = map.subject
     ? `This ${map.kind === 'place' ? 'place' : 'area'} map covers ${map.subject}. It is drawn from official open bus data and checked by a person before each publication.`
     : 'This map is drawn from official open bus data and checked by a person before each publication.';
+  $('aboutText').textContent = map.org.isDemo
+    ? `${about} It is a sample, kept as a demonstration rather than as live travel information.`
+    : about;
   $('aboutPills').innerHTML = [
     `<span class="pill">Version ${esc(map.version)}</span>`,
     `<span class="pill">Published ${esc(when(map.publishedAt))}</span>`,
     '<span class="pill">Free to print &amp; share</span>',
+    ...(map.org.isDemo ? ['<span class="pill">Sample — not live</span>'] : []),
   ].join('');
   $('asideGrid').hidden = false;
 

@@ -6,10 +6,11 @@
 // engine/render.js exactly so the portal's output matches the desktop pipeline.
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { stampPilot } from './pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ENGINE_DIR = path.resolve(HERE, '../../engine');
@@ -46,6 +47,11 @@ export function generateSvg({
   iconsDir = ENGINE_DIR,
   overridesFile,
   editorKeys = false,
+  // PILOT: pass false to get the generator's own bytes back untouched. Only the
+  // byte-identical reproduce test (scripts/verify-reproduce*.mjs) does — it is
+  // comparing generator output against a shipped fixture, so a stamp on top
+  // would fail a gate that is about determinism, not about presentation.
+  stamp = true,
 } = {}) {
   if (!dataDir) throw new Error('generateSvg: dataDir is required');
   // Generators normally travel WITH the map (dataDir); the portal-owned expert
@@ -72,7 +78,16 @@ export function generateSvg({
     );
   }
   const svgName = svgNameFor(generator);
-  return { svgPath: path.join(dataDir, svgName), svgName, log: (res.stdout || '').trim() };
+  const svgPath = path.join(dataDir, svgName);
+
+  // PILOT: stamp the finished sheet. Applied here, AFTER the generator has run
+  // and written its file, so (a) the generator itself stays byte-identical and
+  // the P0 reproduce gate is unaffected, and (b) every consumer of the sheet —
+  // the rasteriser below, the published .svg download, the editor preview —
+  // sees the same stamped artefact. Delete this block to remove.
+  if (stamp) writeFileSync(svgPath, stampPilot(readFileSync(svgPath, 'utf8')));
+
+  return { svgPath, svgName, log: (res.stdout || '').trim() };
 }
 
 /**

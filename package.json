@@ -1,8 +1,8 @@
 {
   "name": "community-bus-maps",
-  "version": "0.8.1",
+  "version": "0.9.0-pilot",
   "private": true,
-  "description": "Self-serve portal for community bus maps — public shopfront plus a deterministic map renderer. Apache-2.0.",
+  "description": "PILOT — self-serve portal for community bus maps: public shopfront plus a deterministic map renderer. No customers yet; see docs/PILOT.md. Apache-2.0.",
   "type": "module",
   "license": "Apache-2.0",
   "author": "Peter Cooper",

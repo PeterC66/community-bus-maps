@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS customer (
   quota_areas   INTEGER NOT NULL DEFAULT 1,      -- how many area maps this customer may hold
   quota_places  INTEGER NOT NULL DEFAULT 3,      -- how many place maps
   branding_json TEXT NOT NULL DEFAULT '{}',      -- P6: public-facing branding (public name, website, blurb, emoji, accent)
-  slug          TEXT                              -- P6: url-safe id for the public organisation page /o/<slug>
+  slug          TEXT,                             -- P6: url-safe id for the public organisation page /o/<slug>
+  is_demo       INTEGER NOT NULL DEFAULT 0        -- seeded demo organisation, not a real customer (labelled everywhere)
 );
 
 CREATE TABLE IF NOT EXISTS user (

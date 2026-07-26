@@ -19,13 +19,16 @@
 
   document.title = `${org.name} — bus maps — Community Bus Maps`;
   const md = document.querySelector('meta[name="description"]');
-  if (md) md.setAttribute('content', `Bus maps published by ${org.name} through Community Bus Maps.`);
+  if (md) md.setAttribute('content', org.isDemo
+    ? `Sample bus maps for ${org.name}, an invented organisation used to demonstrate Community Bus Maps.`
+    : `Bus maps published by ${org.name} through Community Bus Maps.`);
 
   $('head').innerHTML = `
     <div class="org-line big">
       <span class="org-badge lg" style="--org-accent:${esc(org.accentHex)}">${esc(org.badge)}</span>
-      <h2 class="mt-0">${esc(org.name)}</h2>
+      <h2 class="mt-0">${esc(org.name)}${org.isDemo ? ' <span class="badge sample">Sample</span>' : ''}</h2>
     </div>
+    ${org.isDemo ? '<p class="sample-note"><strong>This organisation is invented.</strong> It was created to demonstrate the system — the real body of this name has no connection with it, and the maps below are ours, not theirs. <a href="/faq.html#pilot">Why?</a></p>' : ''}
     ${org.blurb ? `<p class="section-intro">${esc(org.blurb)}</p>` : ''}
     ${org.website ? `<p class="form-note"><a href="${esc(org.website)}" rel="nofollow noopener">${esc(org.website)}</a></p>` : ''}`;
 

@@ -12,6 +12,12 @@ rather than repeating them; several are still to be written (marked *planned* be
 
 ## 1. What the service is
 
+> **It is a pilot.** The system is feature-complete and works end to end, but it has no customers —
+> every organisation in the database is seeded demo data and every published map is one of ours.
+> Everything below describes how the service is *built to run*, not a track record. While pilot mode
+> is on, every page and every rendered sheet says so. See [`PILOT.md`](PILOT.md) for what it claims
+> and how to switch it off; §5's operating rhythm is the **intended** rhythm, not an established one.
+
 A self-serve portal that lets **approved organisations** (councils first, then shops, schools,
 event organisers, the National Trust…) generate and maintain **printable bus maps**. Two map kinds
 — **area** and **place** — from one deterministic engine, each able to produce four outputs.
@@ -125,6 +131,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Doc | Home | What it's for | Status |
 |---|---|---|---|
 | **This handbook** | `docs/OPERATIONS-HANDBOOK.md` | the operator spine | ✅ |
+| **Pilot mode** | `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | ✅ added 2026-07-26 |
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
 | README | `README.md` | dev overview + quick start | ✅ (current, P0–P7) |
 | Roadmap & architecture | `docs/ROADMAP.md` | phases, safe subset, continuation | ✅ |

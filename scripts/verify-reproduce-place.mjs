@@ -53,7 +53,10 @@ async function checkOne(scratch, refDir, generator, svgName, jpgName, overridesF
   const r = { generator, svgName, jpgName };
 
   const refSvg = readFileSync(refSvgPath);
-  const { svgPath } = generateSvg({ dataDir: scratch, generator, iconsDir: ENGINE_DIR, overridesFile });
+  // PILOT: stamp: false — this gate compares the GENERATOR's bytes against a shipped
+  // fixture, so the pilot stamp (which is applied after generation) must not be
+  // added here. See src/render/pilotStamp.js.
+  const { svgPath } = generateSvg({ dataDir: scratch, generator, iconsDir: ENGINE_DIR, overridesFile, stamp: false });
   const reproSvg = readFileSync(svgPath);
   r.svgRef = refSvg.length;
   r.svgRepro = reproSvg.length;

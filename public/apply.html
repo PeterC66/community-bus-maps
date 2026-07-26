@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Apply — Community Bus Maps</title>
-  <meta name="description" content="Apply to become a Community Bus Maps customer. Tell us about your organisation and the area or places you'd like a bus map for.">
+  <title>Register your interest — Community Bus Maps</title>
+  <meta name="description" content="Register your interest in the Community Bus Maps pilot. Tell us about your organisation and the area or places you'd like a bus map for.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/site-banner.js" defer></script>
 </head>
 <body>
   <header class="site-header"><div class="container"><nav class="nav">
@@ -21,10 +23,10 @@
 
   <main>
     <section><div class="container">
-      <h2 class="mt-0">Apply to become a customer</h2>
-      <p class="section-intro">Tell us a little about your organisation and what you’d like. We review every application and will get back to you. There’s no charge at the moment, and to start with each customer can have <strong>one area and a few places</strong>.</p>
+      <h2 class="mt-0">Register your interest</h2>
+      <p class="section-intro">Tell us a little about your organisation and what you’d like. <strong>This is a pilot</strong> — we have no organisations signed up yet, and you would be helping us find out whether it works in practice. We read everything and we’ll reply when we can. There’s no charge, and to start with each organisation would have <strong>one area and a few places</strong>. <a href="/faq.html#pilot">What the pilot means</a>.</p>
 
-      <form class="form-wrap" data-endpoint="/api/apply" data-success="Thank you — your application has been received. We’ll review it and be in touch by email.">
+      <form class="form-wrap" data-endpoint="/api/apply" data-success="Thank you — we’ve got this. We’ll read it and be in touch by email when we can.">
         <!-- honeypot: hidden from people, catches bots -->
         <div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="website_hp" tabindex="-1" autocomplete="off"></label></div>
 

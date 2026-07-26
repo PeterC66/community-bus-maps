@@ -267,7 +267,7 @@ function buildPublish() {
 
   if (pending) {
     body.innerHTML = `<div class="publish-note-box">
-        <p><strong>Version ${esc(pending.versionKey || head)}</strong> has been submitted for our team's sign-off.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
+        <p><strong>Version ${esc(pending.versionKey || head)}</strong> has been submitted for an approver's sign-off.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
         <p class="hint-line">Editing is paused while we review. Withdraw the request if you need to make more changes.</p>
         <button class="btn btn-ghost btn-sm" id="withdrawBtn" type="button">Withdraw request</button>
       </div>`;
@@ -365,7 +365,7 @@ async function submitPublish() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
     });
     const b = await res.json().catch(() => ({}));
-    if (res.ok && b.ok) { notice('ok', 'Submitted for publication — our team will review it and sign it off.'); await reloadPublish(); }
+    if (res.ok && b.ok) { notice('ok', 'Submitted for publication — an approver will review it and sign it off.'); await reloadPublish(); }
     else { notice('err', (b && b.error) || 'Could not submit for publication.'); btn.disabled = false; btn.textContent = `Submit ${esc(detail.currentVersion)} for publication`; }
   } catch { notice('err', 'Network error while submitting.'); btn.disabled = false; }
 }
@@ -525,15 +525,15 @@ window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefau
 function showPending() {
   const phrase = {
     requested: 'awaiting review',
-    approved: 'approved and queued for our team to build',
-    building: 'being prepared by our team',
+    approved: 'approved and queued for the operator to build',
+    building: 'being prepared by the operator',
   }[detail.status] || detail.status;
   $('stateDot').className = 'dot';
   $('stateText').textContent = 'Not built yet';
   document.querySelector('.editor').innerHTML =
     `<div class="panel" style="grid-column:1/-1"><div class="body">
       <p>This ${detail.kind === 'place' ? 'place' : 'area'} map is <strong>${esc(phrase)}</strong>.</p>
-      <p class="hint-line">Once our team has built the base map you'll be able to recolour routes, show or hide points of interest, and download print-ready sheets right here. We'll let you know by email.</p>
+      <p class="hint-line">Once the base map has been built you'll be able to recolour routes, show or hide points of interest, and download print-ready sheets right here. We'll let you know by email.</p>
       <a class="btn btn-ghost btn-sm" href="/app">← Back to my maps</a>
     </div></div>`;
 }

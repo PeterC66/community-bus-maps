@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FAQ — Community Bus Maps</title>
-  <meta name="description" content="Frequently asked questions about Community Bus Maps: who can apply, cost, editing, data sources and accuracy.">
+  <meta name="description" content="Frequently asked questions about the Community Bus Maps pilot: what the pilot means, who can apply, cost, editing, data sources and accuracy.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/site-banner.js" defer></script>
 </head>
 <body>
   <header class="site-header"><div class="container"><nav class="nav">
@@ -25,25 +27,38 @@
       <p class="section-intro">Can’t see your question? <a href="/contact.html">Ask us</a> — we’re happy to help.</p>
 
       <div class="faq form-wrap" style="max-width:760px">
-        <details open>
+        <!-- PILOT: this entry is the banner's link target. Delete with docs/PILOT.md. -->
+        <details open id="pilot">
+          <summary>What does “pilot” mean here?</summary>
+          <p>It means the system is built and working end to end, but it has never been used in anger. Specifically, and plainly:</p>
+          <ul>
+            <li><strong>We have no customers.</strong> No organisation has signed up. Every map on this site was produced by us, to build and test the system.</li>
+            <li><strong>The example maps are ours.</strong> They are real output — nothing is mocked up — but no council or business publishes them, and they are not maintained as live travel information. Anything shown as <em>Sample</em> is one of these.</li>
+            <li><strong>There is no service level.</strong> No uptime promise, no response times, no guarantee the monthly refresh happens on time. It is run by one person alongside other work.</li>
+            <li><strong>Things may change or stop.</strong> We may alter how it works, pause it, or withdraw it. We would give reasonable notice and you would keep the sheets you had already downloaded.</li>
+          </ul>
+          <p>What is <em>not</em> provisional: the maps themselves are built from official open data, cross-checked, and signed off by a person before publication. The pilot label is about the <em>service around them</em>, not about the care taken over them.</p>
+          <p>When we have organisations using it and a track record to point at, this notice and the banner at the top of every page come off.</p>
+        </details>
+        <details>
           <summary>What is Community Bus Maps?</summary>
-          <p>A service that produces clear, printable bus maps for a place — a whole town or parish (an <em>area</em> map), or a single point such as a shop, school or centre (a <em>place</em> map) — and helps you keep them current as services change.</p>
+          <p>A system that produces clear, printable bus maps for a place — a whole town or parish (an <em>area</em> map), or a single point such as a shop, school or centre (a <em>place</em> map) — and is designed to help you keep them current as services change. It is currently a <a href="#pilot">pilot</a>.</p>
         </details>
         <details>
           <summary>Who can apply?</summary>
-          <p>Any organisation whose community uses the bus: councils, shops, businesses, schools, event organisers, charities, attractions and more. Every application is reviewed and approved before an account is set up.</p>
+          <p>Any organisation whose community uses the bus: councils, shops, businesses, schools, event organisers, charities, attractions and more. Every application is reviewed and approved before an account is set up. During the pilot we are looking for a small number of organisations willing to try it and tell us what is wrong with it.</p>
         </details>
         <details>
           <summary>How much does it cost?</summary>
-          <p>Nothing at the moment. We may introduce charges in future, but always with notice — you would never be billed by surprise.</p>
+          <p>Nothing. It is free during the pilot. We may introduce charges in future, but always with notice — you would never be billed by surprise.</p>
         </details>
         <details>
           <summary>How many maps can I have?</summary>
-          <p>To start with, each customer can have <strong>one area and a few places</strong>. Each map is approved individually. We expect to raise these limits over time.</p>
+          <p>To start with, each organisation can have <strong>one area and a few places</strong>. Each map is approved individually. We would expect to raise these limits once the pilot has run its course.</p>
         </details>
         <details>
           <summary>What can I change myself?</summary>
-          <p>You can choose which outputs you want, recolour and relabel routes, turn landmarks on or off, and accept the monthly updates — then download print-ready files. The more delicate layout work (straightening lines, nudging labels) we do for you, so the result always looks right.</p>
+          <p>You can choose which outputs you want, recolour and relabel routes, turn landmarks on or off, and accept the monthly updates — then download print-ready files. The more delicate layout work (straightening lines, nudging labels) we do for you, so the result reads properly in print.</p>
         </details>
         <details>
           <summary>What are the four outputs?</summary>
@@ -51,7 +66,7 @@
         </details>
         <details>
           <summary>How up to date are the maps?</summary>
-          <p>We refresh from official data every month. When something changes on your routes, you’ll see “a change to review”, preview it, and accept it — your colours and labels carry over automatically.</p>
+          <p>The intention is a refresh from official data every month, and that is how the system is built to work — though during the pilot the cadence is not guaranteed. When something changes on your routes, you’ll see “a change to review”, preview it, and accept it — your colours and labels carry over automatically.</p>
         </details>
         <details>
           <summary>Where does the data come from?</summary>
@@ -59,7 +74,7 @@
         </details>
         <details>
           <summary>Does our map get a public web page?</summary>
-          <p>Yes. Once a version is signed off, we give it a page on our public site — the sheets to view or download, your organisation’s name, badge, colour and website, and a form so readers can tell you if something looks wrong. It also appears in our <a href="/maps">published maps</a> gallery. You control your public details, and you can take a map off the public site with one tick without affecting your own copies.</p>
+          <p>Yes. Once a version is signed off, it gets a page on our public site — the sheets to view or download, your organisation’s name, badge, colour and website, and a form so readers can tell you if something looks wrong. It also appears in our <a href="/maps">published maps</a> gallery. You control your public details, and you can take a map off the public site with one tick without affecting your own copies.</p>
         </details>
         <details>
           <summary>Can I print them?</summary>
@@ -67,7 +82,7 @@
         </details>
         <details>
           <summary>Do you guarantee they’re correct?</summary>
-          <p>A person reviews and signs off every map before it can be printed, and we build only from official open data. But timetables change; these maps are a guide, so please encourage readers to confirm live times before travelling.</p>
+          <p>No. A person reviews and signs off every map before it can be printed, and we build only from official open data — but timetables change, and this is a <a href="#pilot">pilot</a> with no warranty behind it. These maps are a guide: please encourage readers to confirm live times before travelling.</p>
         </details>
         <details>
           <summary>What do you do with my details?</summary>
@@ -76,7 +91,7 @@
       </div>
 
       <div class="lead-cta">
-        <a class="btn btn-primary" href="/apply.html">Apply to become a customer</a>
+        <a class="btn btn-primary" href="/apply.html">Register your interest</a>
         <a class="btn btn-ghost" href="/contact.html">Contact us</a>
       </div>
     </div></section>

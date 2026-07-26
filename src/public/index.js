@@ -110,6 +110,7 @@ export function publicMap(row) {
     url: mapPageUrl(row.slug),
     org: brandingForPublic({
       name: row.customer_name, slug: row.customer_slug, branding_json: row.branding_json,
+      is_demo: row.is_demo,
     }),
     outputs: publicOutputs(row),
   };

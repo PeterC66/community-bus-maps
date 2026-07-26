@@ -53,7 +53,10 @@ async function checkOne(scratch, shippedDir, generator, svgName, jpgName) {
 
   // (1) SVG determinism
   const shippedSvg = readFileSync(shippedSvgPath);
-  const { svgPath } = generateSvg({ dataDir: scratch, generator, iconsDir: ICONS });
+  // PILOT: stamp: false — this gate compares the GENERATOR's bytes against a shipped
+  // fixture, so the pilot stamp (which is applied after generation) must not be
+  // added here. See src/render/pilotStamp.js.
+  const { svgPath } = generateSvg({ dataDir: scratch, generator, iconsDir: ICONS, stamp: false });
   const reproSvg = readFileSync(svgPath);
   r.svgShipped = shippedSvg.length;
   r.svgRepro = reproSvg.length;

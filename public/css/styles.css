@@ -311,3 +311,57 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .center { text-align: center; }
 .mt-0 { margin-top: 0; }
 .lead-cta { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* Seeded demo organisation, not a real customer. NOT part of the pilot chrome —
+   demo data stays demo data after the pilot ends. */
+.badge.sample {
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+  color: var(--err);
+  border: 1px solid color-mix(in srgb, var(--err) 45%, transparent);
+}
+.sample-note {
+  margin: 12px 0 0;
+  padding: 10px 13px;
+  border-radius: 10px;
+  font-size: .92rem;
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--err) 32%, transparent);
+}
+
+/* ---------- PILOT: pilot banner ----------
+   Injected into every page by /js/site-banner.js. Delete this block and the
+   route that serves that script to remove the pilot framing (docs/PILOT.md).
+   Loaded by the app pages too — they link /css/styles.css before /app/app.css. */
+.pilot-banner {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
+  font-size: .88rem;
+  line-height: 1.45;
+  padding: 9px 0;
+}
+.pilot-banner-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pilot-badge {
+  flex: none;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+}
+.pilot-text { flex: 1 1 320px; min-width: 0; }
+.pilot-link { flex: none; font-weight: 600; white-space: nowrap; text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .pilot-more { display: none; } /* the link goes to the same words */
+}
+
+@media print { .pilot-banner { display: none; } }

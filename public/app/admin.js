@@ -172,7 +172,7 @@ async function mapAction(id, action, name) {
   const { body } = await jsend(`/api/admin/maps/${id}/${action}`, 'POST');
   if (body.ok) {
     banner(action === 'approve' ? 'ok' : 'warn', action === 'approve'
-      ? `Approved "${esc(name)}" — it's now queued for our team to build.`
+      ? `Approved "${esc(name)}" — it's now queued for the operator to build.`
       : `Request for "${esc(name)}" archived.`);
     LOADERS.requests(); loadSummary();
   } else banner('err', body.error || 'Action failed.');

@@ -1,5 +1,9 @@
 // Public gallery of published maps (/maps). Reads /api/public/maps — which only
 // ever returns published, listed maps of active organisations.
+//
+// Maps belonging to a SEEDED DEMO organisation are labelled "Sample" so a
+// visitor can never mistake our own test data for an organisation's published
+// work (org.isDemo comes from customer.is_demo — see src/branding/index.js).
 (async () => {
   const grid = document.getElementById('grid');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -17,11 +21,11 @@
         ? `<img src="${esc(shot)}" loading="lazy" alt="${esc(m.name)} bus map">`
         : '<span class="shot-none">Map</span>'}</a>
       <div class="body">
-        <h3><span class="badge ${m.kind === 'place' ? 'place' : ''}">${kind}</span> <a href="${esc(m.url)}">${esc(m.name)}</a></h3>
+        <h3>${m.org.isDemo ? '<span class="badge sample">Sample</span> ' : ''}<span class="badge ${m.kind === 'place' ? 'place' : ''}">${kind}</span> <a href="${esc(m.url)}">${esc(m.name)}</a></h3>
         <p>${esc(m.subject || '')}</p>
         <div class="org-line">
           <span class="org-badge" style="--org-accent:${esc(m.org.accentHex)}">${esc(m.org.badge)}</span>
-          <span>Published by ${m.org.url ? `<a href="${esc(m.org.url)}">${esc(m.org.name)}</a>` : esc(m.org.name)}</span>
+          <span>Published by ${m.org.url ? `<a href="${esc(m.org.url)}">${esc(m.org.name)}</a>` : esc(m.org.name)}${m.org.isDemo ? ' <span class="muted">— a sample organisation, not a real customer</span>' : ''}</span>
         </div>
         <div class="outputs">${esc(m.version)} · updated ${esc(when(m.publishedAt))} · ${m.outputs.length} sheet${m.outputs.length === 1 ? '' : 's'}</div>
       </div>
@@ -33,7 +37,7 @@
     const maps = (body && body.maps) || [];
     if (!maps.length) {
       grid.className = '';
-      grid.innerHTML = `<p class="form-note">No maps are published yet. Our <a href="/examples.html">examples</a> show what they look like — and if you would like one for your own area or doorstep, <a href="/apply.html">apply to join</a>.</p>`;
+      grid.innerHTML = `<p class="form-note">No maps are published yet. Our <a href="/examples.html">examples</a> show what they look like — and if you would like one for your own area or doorstep, <a href="/apply.html">register your interest</a>.</p>`;
       return;
     }
     grid.innerHTML = maps.map(card).join('');

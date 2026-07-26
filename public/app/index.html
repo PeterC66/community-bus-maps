@@ -8,6 +8,8 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/app/app.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/site-banner.js" defer></script>
 </head>
 <body>
   <header class="site-header"><div class="container"><nav class="nav">
@@ -27,7 +29,7 @@
       <span class="spacer"></span>
       <button class="btn btn-primary btn-sm" id="requestBtn" type="button" style="display:none">Request a map</button>
     </div>
-    <p class="hint-line" id="dashIntro">Open a map to recolour its routes, show or hide points of interest, then save a new version and download print-ready sheets. Layout and geometry stay with our team.</p>
+    <p class="hint-line" id="dashIntro">Open a map to recolour its routes, show or hide points of interest, then save a new version and download print-ready sheets. Layout and geometry stay with the operator.</p>
     <div class="quota-bar" id="quotaBar" style="display:none"></div>
 
     <div id="maps" class="map-list" aria-live="polite">

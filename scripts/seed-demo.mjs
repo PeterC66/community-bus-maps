@@ -15,7 +15,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
-  getUserByEmail, insertUser, getCustomerByName, insertCustomer, getMapBySlug,
+  getUserByEmail, insertUser, getCustomerByName, insertCustomer, setCustomerDemo, getMapBySlug,
   insertApplication, listApplications, insertMap,
   nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap, getOpenProposedForMap,
   insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion,
@@ -37,20 +37,26 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 // vendored place engine (engine/place/). So the demo seeds a built place map
 // (Beaconsfield Simpson Centre) alongside the two council area maps.
 // `branding` seeds each demo organisation's PUBLIC identity (P6) so the public
-// pages and gallery show real-looking credits out of the box.
+// pages and gallery show credits in the right SHAPE out of the box.
+//
+// These organisations are INVENTED. They are named after real councils and a
+// real health centre, none of which have any connection to this system, so
+// every one of them is flagged is_demo (→ a "Sample" label on every public
+// surface) and carries an explicit disclaimer in its blurb. Do not remove
+// either without removing the seeded org.
 const DEMO = [
   { customer: 'St Ives Town Council', type: 'council', editor: 'clerk@st-ives-tc.example',
     name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
     renderParent: 'St Ives/S5-render',
-    branding: { emoji: '🏛️', accent: 'blue', blurb: 'Serving the market town of St Ives, Cambridgeshire.', website: 'https://st-ives-tc.example' } },
+    branding: { emoji: '🏛️', accent: 'blue', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://st-ives-tc.example' } },
   { customer: 'March Town Council', type: 'council', editor: 'clerk@march-tc.example',
     name: 'March', slug: 'march', kind: 'area', subject: 'March, Cambridgeshire',
     renderParent: 'March/S5-render',
-    branding: { emoji: '🌾', accent: 'green', blurb: 'The council for March, in the Cambridgeshire Fens.', website: 'https://march-tc.example' } },
+    branding: { emoji: '🌾', accent: 'green', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://march-tc.example' } },
   { customer: 'Beaconsfield Health Centre', type: 'other', editor: 'manager@beaconsfield-health.example',
     name: 'Simpson Centre', slug: 'simpson-centre', kind: 'place', subject: 'The Simpson Centre, Beaconsfield',
     renderParent: 'Places/Beaconsfield Simpson Centre/S5-render',
-    branding: { emoji: '🏥', accent: 'teal', blurb: 'Helping patients and visitors reach us by bus.' } },
+    branding: { emoji: '🏥', accent: 'teal', blurb: 'Sample organisation — invented for testing, not a real customer.' } },
 ];
 
 function ensureUser(email, role, customerId, name) {
@@ -63,8 +69,10 @@ function ensureUser(email, role, customerId, name) {
 
 function ensureCustomer(name, type) {
   const existing = getCustomerByName(name);
-  if (existing) return existing.id;
-  const id = insertCustomer({ name, type });
+  // is_demo: everything this script creates is fictional (see DEMO above). Set
+  // it on re-runs too, so instances seeded before the flag existed get labelled.
+  if (existing) { setCustomerDemo(existing.id, true); return existing.id; }
+  const id = insertCustomer({ name, type, is_demo: true });
   console.log(`· created customer: ${name} (#${id}, ${type})`);
   return id;
 }
@@ -128,7 +136,7 @@ if (!listApplications().some((a) => a.email === DEMO_APP_EMAIL)) {
     org_name: 'Ramsey Town Council', org_type: 'council',
     contact_name: 'Jo Clark', email: DEMO_APP_EMAIL, website: 'https://ramsey-tc.example',
     wants: 'An area map of Ramsey, plus a place map for the Great Whyte shops.',
-    message: 'We hand these out at the library and the GP surgery.',
+    message: 'Demo application — invented, not a real enquiry. We hand these out at the library and the GP surgery.',
   });
   console.log(`· seeded a pending application: Ramsey Town Council (${DEMO_APP_EMAIL})`);
 } else console.log('· pending demo application already present');
@@ -156,18 +164,18 @@ function publishBaseline(slug, editorEmail) {
     return;
   }
   const summary = { base: 'baseline', unchanged: true, routes: [], poisHidden: [], poisShown: [] };
-  const reqId = insertPublishRequest({ map_id: m.id, version_id: m.current_version_id, requested_by: editors[slug], note: 'Initial publication for launch.' });
+  const reqId = insertPublishRequest({ map_id: m.id, version_id: m.current_version_id, requested_by: editors[slug], note: 'Demo: initial publication of the sample baseline.' });
   setVersionState(m.current_version_id, 'pending');
   recordAudit({ actorId: editors[slug], actorEmail: editorEmail, action: 'version.submit', mapId: m.id, versionId: m.current_version_id, detail: { version: 'v1.0' } });
   decidePublishRequest(reqId, {
-    status: 'approved', reviewedBy: approverId, decisionNote: 'Approved — baseline is accurate and legible.',
+    status: 'approved', reviewedBy: approverId, decisionNote: 'Demo: approved — baseline is accurate and legible.',
     evidence: { checklistVersion: CHECKLIST_VERSION, checklist: fullChecklist(), changeSummary: summary, decidedAt: new Date().toISOString() },
   });
   setVersionState(m.current_version_id, 'published');
   setPublishedVersion(m.id, m.current_version_id);
   setMapStatus(m.id, 'published');
   recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: m.id, versionId: m.current_version_id, detail: { version: 'v1.0', changeSummary: summary } });
-  console.log(`· published ${slug} v1.0 as the first official version (public page now live)`);
+  console.log(`· published ${slug} v1.0 as its first official version (SAMPLE org — public page now live)`);
 }
 
 publishBaseline('march', 'clerk@march-tc.example');
@@ -192,7 +200,7 @@ if (stFresh) {
     await renderVersion(stMap.id, overrides, key, defaultOutputs());
     const vid = insertVersion({ map_id: stMap.id, major, minor, note: `Recoloured route ${routeId} (demo)`, overrides, storage_key: key });
     setCurrentVersion(stMap.id, vid);
-    insertPublishRequest({ map_id: stMap.id, version_id: vid, requested_by: editors['st-ives'], note: `Please publish the new route ${routeId} colour for the summer timetable.` });
+    insertPublishRequest({ map_id: stMap.id, version_id: vid, requested_by: editors['st-ives'], note: `Demo: please publish the new route ${routeId} colour for the summer timetable.` });
     setVersionState(vid, 'pending');
     recordAudit({ actorId: editors['st-ives'], actorEmail: 'clerk@st-ives-tc.example', action: 'version.submit', mapId: stMap.id, versionId: vid, detail: { version: key } });
     console.log(`· St Ives ${key} submitted for publication (demo pending review)`);
@@ -274,8 +282,8 @@ if (simpsonForRefresh && simpsonForRefresh.current_version_id && simpsonForRefre
 const marchPublic = getMapBySlug('march');
 if (marchPublic && !listMessages().some((m) => m.map_id === marchPublic.id)) {
   insertMessage({
-    kind: 'feedback', name: 'A passenger', email: 'passenger@example.com',
-    body: 'The 33 no longer runs along Station Road on Saturdays — worth checking on the next refresh.',
+    kind: 'feedback', name: 'A passenger (demo)', email: 'passenger@example.com',
+    body: 'Demo feedback, not a real report. The 33 no longer runs along Station Road on Saturdays — worth checking on the next refresh.',
     map_id: marchPublic.id,
   });
   console.log('· seeded a piece of public feedback about the March map');

@@ -128,7 +128,7 @@ export function parseBranding(json) {
 /**
  * The branding a public page renders for an organisation: the stored fields with
  * every gap filled, so templates never have to decide on a fallback.
- * @param {{ name?:string, slug?:string, branding_json?:string }} customer
+ * @param {{ name?:string, slug?:string, branding_json?:string, is_demo?:number }} customer
  */
 export function brandingForPublic(customer) {
   const c = customer || {};
@@ -138,6 +138,9 @@ export function brandingForPublic(customer) {
   return {
     name,
     slug: c.slug || null,
+    // Seeded demo organisation rather than a real customer. Travels with the
+    // branding so every public surface can label it without a second lookup.
+    isDemo: !!c.is_demo,
     website: b.website || '',
     blurb: b.blurb || '',
     badge: b.emoji || initialsFor(name),

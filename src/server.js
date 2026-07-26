@@ -53,12 +53,13 @@ import {
 } from './auth/index.js';
 import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
 import { logAudit } from './audit/index.js';
+import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.8.1';
+const VERSION = '0.9.0-pilot';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
@@ -278,11 +279,70 @@ app.post('/api/public/feedback', async (req, reply) => {
   return { ok: true, id };
 });
 
+// PILOT: the whole banner mechanism — delete this block, and the one <script>
+// tag in each public/**/*.html, to remove it. See docs/PILOT.md.
+//
+// There is no template engine here (every page is a hand-written static file
+// with a copy-pasted header), so the banner is injected client-side from ONE
+// generated script instead of being pasted into seventeen files. When the pilot
+// ends the script serves nothing, so PILOT_MODE=0 alone is a complete off
+// switch; the leftover <script> tags then cost one empty request each.
+const SITE_BANNER_JS = !PILOT.on ? '/* pilot mode off */\n' : `(function () {
+  var d = document;
+  function mount() {
+    if (d.getElementById('pilotBanner')) return;
+    var b = d.createElement('div');
+    b.id = 'pilotBanner';
+    b.className = 'pilot-banner';
+    b.setAttribute('role', 'note');
+    b.innerHTML = '<div class="container pilot-banner-inner">'
+      + '<span class="pilot-badge">${jsStr(PILOT.word)}</span>'
+      + '<span class="pilot-text">${jsStr(PILOT.short)}.'
+      // The full explanation is the point of the banner on a desktop, but it
+      // eats a phone screen — small viewports get the headline and the link,
+      // which lands on the same words at /faq.html#pilot.
+      + ' <span class="pilot-more">${jsStr(PILOT.long)}</span></span>'
+      + '<a class="pilot-link" href="${jsStr(PILOT.href)}">What this means</a>'
+      + '</div>';
+    d.body.insertBefore(b, d.body.firstChild);
+  }
+  // The public map/org pages rewrite document.title after their fetch resolves,
+  // which is long after this script runs — so watch <title> and re-apply the
+  // prefix whenever it changes. Setting it here re-triggers the observer, but
+  // the prefix check makes that converge immediately.
+  var TAG = '[${jsStr(PILOT.word)}] ';
+  function markTitle() {
+    if (d.title.indexOf(TAG) !== 0) d.title = TAG + d.title;
+  }
+  function watchTitle() {
+    if (!window.MutationObserver) return;
+    new MutationObserver(markTitle).observe(d.head, { childList: true, subtree: true, characterData: true });
+  }
+  function go() { mount(); markTitle(); watchTitle(); }
+  if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', go);
+  else go();
+})();
+`;
+
+// Single-quoted JS string literal contents (the banner script builds HTML).
+function jsStr(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
+}
+
+app.get('/js/site-banner.js', async (req, reply) => {
+  reply.type('application/javascript; charset=utf-8');
+  reply.header('Cache-Control', 'no-cache'); // the switch must take effect on reload
+  return SITE_BANNER_JS;
+});
+
 // Search engines: only public pages, and only maps that are actually published.
 app.get('/robots.txt', async (req, reply) => {
   reply.type('text/plain');
   return [
     'User-agent: *',
+    // PILOT: a pilot with no customers has no business being indexed. The
+    // sitemap stays below so the line is a one-line revert.
+    ...(PILOT.on ? ['Disallow: /'] : []),
     'Disallow: /app',
     'Disallow: /api/',
     'Disallow: /auth/',
@@ -318,13 +378,14 @@ function xmlEscape(s) {
 function notFoundPage(what) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Not found — Community Bus Maps</title><link rel="stylesheet" href="/css/styles.css"></head>
+<title>Not found — Community Bus Maps</title><link rel="stylesheet" href="/css/styles.css">
+<script src="/js/site-banner.js" defer></script></head>
 <body><header class="site-header"><div class="container"><nav class="nav">
 <a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a><span class="spacer"></span>
 <a class="navlink" href="/maps">Published maps</a></nav></div></header>
 <main><section><div class="container">
 <h2 class="mt-0">We can’t find that ${what}</h2>
-<p class="section-intro">It may never have been published, or it may have been taken down. Every map we publish is listed on our published-maps page.</p>
+<p class="section-intro">It may never have been published, or it may have been taken down. Every map published through the portal is listed on the published-maps page.</p>
 <div class="lead-cta"><a class="btn btn-primary" href="/maps">Browse published maps</a>
 <a class="btn btn-ghost" href="/contact.html">Ask us about it</a></div>
 </div></section></main></body></html>`;

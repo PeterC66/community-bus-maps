@@ -19,7 +19,13 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (diagram)** | a tube-map-style diagram, hand-tunable via the pin editor *(expert style, opt-in per map)* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
-> **Status: feature-complete against the plan (P0–P7).** This repo contains the public **shopfront**
+> **Status: PILOT — feature-complete against the plan (P0–P7), but not a live service.**
+> There are **no customers**: no organisation has signed up, and every map on the public site is one
+> we made ourselves to build and test the system. Every page carries a pilot banner and every rendered
+> sheet a pilot band; seeded demo organisations are labelled **Sample**. One env var (`PILOT_MODE=0`)
+> switches all of that off — see [`docs/PILOT.md`](docs/PILOT.md).
+>
+> Feature-wise: This repo contains the public **shopfront**
 > (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a
 > **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant
 > isolation** (P2), **onboarding + governance** (P3), the **publish gate** (P4), and **monthly change

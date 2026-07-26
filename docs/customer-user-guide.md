@@ -5,6 +5,12 @@ each new customer.*
 
 **Last reviewed:** 2026-07-25 · **Applies to:** the portal at `0.8.0-P7`
 
+> **This is a pilot.** The system works end to end, but you would be among the first organisations
+> to use it — there is no track record behind it yet, no service level, and no charge. Things may
+> change, and we may pause or withdraw parts of it (with reasonable notice; you keep any sheets you
+> have already downloaded). In exchange we want to hear what does not work. Everything below
+> describes how the system is built to work.
+
 Welcome. Once your organisation is approved you can generate, tweak and keep up to date **printable
 bus maps** for the places you care about. Here's how.
 
@@ -16,8 +22,8 @@ computer. If a link expires, just request another.
 
 ## Your dashboard
 
-After signing in you see **your maps** and your **quota** (how many area and place maps your plan
-includes). You only ever see your own organisation's maps.
+After signing in you see **your maps** and your **quota** (how many area and place maps you may hold —
+one area and a few places during the pilot). You only ever see your own organisation's maps.
 
 - **Area map** — a whole town, parish, or part of a town.
 - **Place map** — centred on one point: a shop, school, station, venue or town centre.
@@ -73,7 +79,8 @@ printed map is a guide, not today's departures.
 
 ## Monthly updates
 
-Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. You
+Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. The
+intention is monthly; during the pilot the cadence is not guaranteed. You
 get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the
 new data as a new version (which then goes for the usual sign-off), or **Decline** to keep what you
 have. You stay in control of what gets published.
@@ -81,5 +88,5 @@ have. You stay in control of what gets published.
 ## If something looks wrong
 
 On any published map's public page there's a **"report a problem"** link — tell us and we'll look into
-it. For anything else, use the **contact** form. Thank you for helping keep local bus information clear
+it — though the pilot is run by one person alongside other work, so we can't promise how quickly. For anything else, use the **contact** form. Thank you for helping keep local bus information clear
 and correct.

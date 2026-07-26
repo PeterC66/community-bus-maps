@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Title/description are filled in from /api/public/maps/<slug> on load. -->
   <title>Bus map — Community Bus Maps</title>
-  <meta name="description" content="A printable community bus map, published and kept up to date through Community Bus Maps.">
+  <meta name="description" content="A printable community bus map, produced through Community Bus Maps — a pilot system.">
   <meta property="og:type" content="article">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/site-banner.js" defer></script>
 </head>
 <body>
   <header class="site-header"><div class="container"><nav class="nav">
@@ -43,8 +45,8 @@
         </div>
         <div class="card">
           <h3>Spotted a problem?</h3>
-          <p>Bus services change, and mistakes happen. Tell us and we will pass it to the organisation that publishes this map.</p>
-          <form id="fbForm" data-endpoint="/api/public/feedback" data-success="Thank you — we’ve passed this on and will look into it.">
+          <p>Bus services change, and mistakes happen. Tell us and we’ll pass it to whoever publishes this map. We’re a small pilot, so we can’t promise how quickly.</p>
+          <form id="fbForm" data-endpoint="/api/public/feedback" data-success="Thank you — we’ve got this and we’ll look into it.">
             <input type="hidden" name="mapSlug" id="fbSlug" value="">
             <div class="field hp"><label>Website<input type="text" name="website_hp" tabindex="-1" autocomplete="off"></label></div>
             <div class="field">
@@ -64,7 +66,7 @@
       <div id="err" class="form-note" hidden></div>
 
       <div class="lead-cta">
-        <a class="btn btn-primary" href="/apply.html">Get a map like this</a>
+        <a class="btn btn-primary" href="/apply.html">Register your interest</a>
         <a class="btn btn-ghost" href="/maps">See all published maps</a>
       </div>
     </div></section>

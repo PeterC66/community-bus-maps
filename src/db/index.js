@@ -55,6 +55,13 @@ function tableColumns(table) {
   const msgCols = tableColumns('message');
   if (!msgCols.includes('map_id')) db.exec('ALTER TABLE message ADD COLUMN map_id INTEGER');
 
+  // Demo organisations (scripts/seed-demo.mjs) are indistinguishable from real
+  // ones once they have branding and a published map, which is exactly how a
+  // seeded instance ends up showing invented councils as customers. Flag them in
+  // the data so every surface can say so. NOT pilot-gated: demo data stays demo
+  // data after the pilot ends.
+  if (!custCols.includes('is_demo')) db.exec('ALTER TABLE customer ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0');
+
   // Every customer needs a public slug for /o/<slug>; backfill the ones created
   // before P6 (and any created by a script that predates ensureCustomerSlug).
   for (const c of db.prepare("SELECT id, name FROM customer WHERE slug IS NULL OR slug = ''").all()) {
@@ -603,13 +610,14 @@ export function listPendingProposedUpdates() {
 export function insertCustomer(c) {
   const info = db
     .prepare(
-      `INSERT INTO customer (name, type, status, plan, quota_areas, quota_places)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO customer (name, type, status, plan, quota_areas, quota_places, is_demo)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       c.name, c.type || 'other', c.status || 'active', c.plan || 'free',
       c.quota_areas != null ? c.quota_areas : 1,
       c.quota_places != null ? c.quota_places : 3,
+      c.is_demo ? 1 : 0,
     );
   const id = Number(info.lastInsertRowid);
   ensureCustomerSlug(id, c.name); // P6: public organisation page /o/<slug>
@@ -617,6 +625,10 @@ export function insertCustomer(c) {
 }
 export function getCustomer(id) {
   return db.prepare('SELECT * FROM customer WHERE id = ?').get(Number(id));
+}
+/** Flag (or unflag) a customer as seeded demo data rather than a real one. */
+export function setCustomerDemo(id, isDemo) {
+  db.prepare('UPDATE customer SET is_demo = ? WHERE id = ?').run(isDemo ? 1 : 0, Number(id));
 }
 export function getCustomerByName(name) {
   return db.prepare('SELECT * FROM customer WHERE name = ?').get(name);
@@ -744,7 +756,7 @@ const PUBLIC_WHERE = `m.published_version_id IS NOT NULL
 
 const PUBLIC_COLUMNS = `m.id, m.slug, m.name, m.kind, m.subject, m.outputs,
               c.id AS customer_id, c.name AS customer_name, c.type AS customer_type,
-              c.slug AS customer_slug, c.branding_json,
+              c.slug AS customer_slug, c.branding_json, c.is_demo,
               pv.storage_key AS pub_key, pv.created_at AS published_at,
               pv.major AS pub_major, pv.minor AS pub_minor`;
 
@@ -779,7 +791,7 @@ export function getPublicMapBySlug(slug) {
 export function listPublicOrgs() {
   return db
     .prepare(
-      `SELECT c.id, c.name, c.type, c.slug, c.branding_json,
+      `SELECT c.id, c.name, c.type, c.slug, c.branding_json, c.is_demo,
               COUNT(*) AS public_maps
          FROM map m
          JOIN customer c ON c.id = m.customer_id

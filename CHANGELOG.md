@@ -4,6 +4,37 @@ Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates a
 
 ## [Unreleased]
 
+### Added — pilot mode: say plainly that this is not a live service
+- The portal read as an established service with customers. It has none: every organisation in
+  the database is seeded demo data and every map on the public site is one of ours. Anyone
+  looking at it — a prospective customer, a colleague — would have concluded otherwise.
+- **One switch.** New `src/config.js` exports `PILOT`, read from `PILOT_MODE` and **on unless
+  explicitly `0`**, so forgetting the env var fails towards the honest state. `PILOT_MODE=0`
+  removes the banner, the title prefix, the sheet band and the robots block in one go.
+- **Web chrome.** There is no template engine (17 hand-written HTML files with a copy-pasted
+  header), so the banner is injected by one server-generated `/js/site-banner.js` — one
+  `<script>` tag per page, one place for the copy. It also prefixes the tab title, via a
+  `MutationObserver` so the public map/org pages can't overwrite it after their fetch.
+- **Every rendered sheet** gets a red band across the top (`src/render/pilotStamp.js`). It
+  RESERVES space rather than overlaying: the sheets have no reliable whitespace, so the artwork
+  is shrunk ~4% and slid down. Applied in `renderMap.js` *after* the generator runs, which
+  covers all four outputs and every map's vendored generator copies from one function — and
+  leaves the byte-identical gate untouched (the two `verify-reproduce` scripts pass
+  `stamp: false`, since they test determinism, not presentation).
+- `scripts/restamp-renders.mjs` adds or strips the band on sheets already in the object store,
+  including published ones. The transform is lossless (stamp → strip is byte-identical) and
+  idempotent.
+- **Sample labelling, NOT pilot-gated.** New `customer.is_demo` flags the organisations
+  `seed-demo.mjs` invents — set on create and backfilled on re-run — surfaced as a red
+  **Sample** badge plus an "this organisation is invented" note on `/maps`, `/m/`, `/o/` and the
+  home strip. Demo data stays demo data after the pilot ends.
+- **Truthful copy, also not gated.** "Maps our customers have published", "those are live, kept
+  up to date", "we will get back to you", "our team", "always looks right" were false and are
+  rewritten to be true in either state. New `#pilot` FAQ entry is the banner's link target.
+- `docs/PILOT.md` is the removal checklist; `grep -rn "PILOT:"` finds every gated block.
+- Gates: `npm test` (P6/P7/lifecycle) and `npm run verify` (area + place) both green, before and
+  after; verified end to end on a scratch data store including the `PILOT_MODE=0` revert.
+
 ### Added — `docs/DUMMIES_GUIDE.md`, a plain-commands front door
 - New `docs/DUMMIES_GUIDE.md` for someone who knows cmd/PowerShell, FTP and GitHub but not git
   or Node: the four git commands actually needed day to day, starting the local dev server,
