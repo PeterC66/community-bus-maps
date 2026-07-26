@@ -131,6 +131,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Doc | Home | What it's for | Status |
 |---|---|---|---|
 | **This handbook** | `docs/OPERATIONS-HANDBOOK.md` | the operator spine | ✅ |
+| **Repo orientation for a new session** | `CLAUDE.md` | pilot status + the non-negotiables, loaded automatically by Claude Code | ✅ added 2026-07-26 |
 | **Pilot mode** | `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | ✅ added 2026-07-26 |
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
 | README | `README.md` | dev overview + quick start | ✅ (current, P0–P7) |

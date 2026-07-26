@@ -51,3 +51,7 @@ picks both styles up automatically when the fixture's `routes.json` opts in, and
 regenerated SVG **and** the re-rendered print JPG to be byte-identical to the shipped ones
 (proved on St Ives v6.6: schematic 253,112 B / 1,054,471 B, diagram 252,096 B / 1,077,051 B).
 Re-vendor — re-copy and re-run the gate — if the skill engines change.
+
+> **Pilot.** The schematic and diagram sheets carry a `PILOT — SAMPLE MAP` band, added to the
+> finished SVG outside the engine (`src/render/pilotStamp.js`). Nothing here knows about it and the
+> gated outputs stay byte-identical — see [`../../docs/PILOT.md`](../../docs/PILOT.md).

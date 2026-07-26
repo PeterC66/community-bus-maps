@@ -6,6 +6,15 @@
 mechanics. This is the **third approval gate** (publish), and the one that matters most: people rely
 on the result.
 
+> **Pilot.** Every sheet you publish carries a red **PILOT — SAMPLE MAP** band across the top while
+> `PILOT_MODE` is on. That is correct for our own demo maps. **The wording is wrong for a real
+> customer's map** ("Not published by any organisation") — before signing off the first genuine
+> customer map, decide whether the pilot ends, or the band's wording changes for real maps. Both are
+> one edit in `src/config.js`; see [`PILOT.md`](PILOT.md).
+>
+> Note also that a version renders its band at render time, so a version rendered before the pilot
+> landed publishes **unstamped**. `node scripts/restamp-renders.mjs` (dry run first) tells you.
+
 ## The rule — separation of duties
 
 The **editor** who makes a change **submits** it; a platform **approver** (or admin) **publishes** it.

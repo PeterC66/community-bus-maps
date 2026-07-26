@@ -19,6 +19,12 @@ A generator is env/flag driven:
 parameters as `render.js`, so the portal's output is identical to the desktop pipeline's. The
 `npm run verify` script proves that byte-for-byte against an already-shipped leaflet.
 
+**One thing is added outside the engine.** While the system is a pilot, `renderMap.js` stamps a
+`PILOT — SAMPLE MAP` band onto the finished SVG *after* the generator has run
+(`src/render/pilotStamp.js`). Nothing in `engine/` knows about it, and the verify scripts opt out with
+`stamp: false`, so the determinism guarantee above is exactly as stated. See
+[`../docs/PILOT.md`](../docs/PILOT.md).
+
 **Exception — `place/`.** Place maps are the one case where generators *are* vendored (in
 [`place/`](place/README.md)), because the place skill never copies them into a place's render
 folder. The importer copies those into each place map's `data/`, so the per-map model still holds.

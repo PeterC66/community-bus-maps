@@ -5,6 +5,11 @@ other people's data, published to the public, and printed by third parties, so t
 obligations have to be written down and **signed off before the public site is
 announced** — not discovered afterwards.
 
+> **Pilot.** The scope this assessment covers is deliberately small — a few towns, monthly,
+> expert-run, no customers, not indexed by search engines (`robots.txt` `Disallow: /` while
+> `PILOT_MODE` is on). **Ending the pilot widens the scope**, so the sign-off below should be revisited
+> at the same time, not inherited. See [`PILOT.md`](PILOT.md).
+
 `NOTICE` carries the short attribution statement; this file is the working detail and
 the sign-off record.
 

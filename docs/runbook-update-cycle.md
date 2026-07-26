@@ -1,5 +1,9 @@
 # Runbook R4 — Monthly update cycle
 
+> **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer
+> guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site
+> promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
+
 **Serves:** managing updates · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
 **Purpose.** Keep published maps current as bus services change — the central refresh → **proposed

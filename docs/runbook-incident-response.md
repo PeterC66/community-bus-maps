@@ -6,6 +6,12 @@
 wild**, because people act on it. Record every incident in the private
 [incident log](../../community-bus-maps-ops/incident-log.md) (P3).
 
+> **Pilot.** There are **no real published maps** — everything public is our own demo data, labelled
+> **Sample**, behind a pilot banner and a `robots.txt` `Disallow: /`. So "a member of the public acted
+> on a wrong map" is currently a *hypothetical*, and the severities below are calibrated for the world
+> after the pilot ends. Keep the procedures; scale the urgency to reality. The first genuine customer
+> map is the point at which this runbook becomes live — see [`PILOT.md`](PILOT.md).
+
 ## Severity
 
 - **High** — wrong public transit info people may act on, or a data/privacy breach. **Act now.**

@@ -9,6 +9,10 @@ Two halves, and the split is the point (see the Handbook): **making** the map (s
 data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic,
 no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
 
+> **Pilot.** Step 3's byte-identical check compares the **generator's** output, which the pilot band
+> does not touch — but the map's rendered sheets *will* carry the band. That is correct for our own
+> demo maps; for a real customer's map, see the note in [R3](runbook-review-and-publish.md).
+
 ## Prerequisites
 
 - The map **skills** (they live in the separate Buses tooling): `make-bus-leaflet` (a town/area) or

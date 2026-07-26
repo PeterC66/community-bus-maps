@@ -5,6 +5,12 @@ up. The full planning documents live in the companion **Buses** working repo
 (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`,
 `portal-options_2026-07-14.md`).
 
+> **Status: PILOT.** Every phase below is done, which makes this table read like a shipped service.
+> It isn't one: there are **no customers**, and every published map is one of ours. Every page and
+> every rendered sheet says so while `PILOT_MODE` is on. **Ending the pilot is the next milestone**,
+> and it is an operator decision (first real customer + a track record), not a build phase — the
+> checklist is [`PILOT.md`](PILOT.md).
+
 ## What this is
 
 A self-serve portal that lets **approved organisations** (town/parish councils first, then shops,

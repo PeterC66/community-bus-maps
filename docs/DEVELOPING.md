@@ -8,6 +8,13 @@ deterministic render, and the approval gates.
 `README.md` covers architecture and quick start — read that first. Start here when you are about to
 edit code.
 
+> **The system is a PILOT.** It is feature-complete but has **no customers** — every organisation in
+> the database is seeded demo data and every published map is one of ours. Every page carries a
+> banner and every rendered sheet a band saying so, gated on one env var. Two consequences for you:
+> the render path has a post-generation step you need to know about (see *The gates you must run*),
+> and **you must not write copy that claims customers, uptime or response times**. Read
+> [`PILOT.md`](PILOT.md) before touching the render path, the public copy or the seed script.
+
 ---
 
 ## The two things you must not break
@@ -27,6 +34,12 @@ Concretely, in any engine or render code:
 - **Absent config ⇒ previous behaviour.** Every new feature is opt-in via a config key and must be
   byte-identical when the key is missing. This is what lets a new capability ship without
   re-validating every existing map.
+
+The pilot band is the worked example of doing this *without* touching the engine: it is applied to
+the finished SVG in `src/render/renderMap.js` **after** the generator has run, so the generator's own
+bytes are unchanged and the determinism gate still tests determinism. If you need to add something
+to every sheet, copy that pattern rather than editing generators — they are vendored per-map (below),
+so editing `engine/` would not change a single existing map anyway.
 
 ### 2. The three approval gates
 
@@ -102,6 +115,19 @@ without the separate data repo should still pass `npm test` — but it means **a
 checkout proves nothing about the renderer.** Set both in `.env` (git-ignored; see `.env.example`)
 and confirm the output says PASS with byte counts, not "skipping", before you trust a render change.
 
+### The pilot band and the reproduce gates
+
+`generateSvg()` stamps the finished SVG (`src/render/pilotStamp.js`) unless you pass `stamp: false`.
+The two `verify-reproduce*` scripts pass it, because they compare the **generator's** output against
+a shipped fixture — they test determinism, not presentation.
+
+**If `verify` suddenly reports the SVG DIFFERS by a few hundred bytes, check that first.** The fix is
+never to disable the stamp globally: if a verify script has lost its `stamp: false`, restore it; if it
+still differs with the stamp off, the generator genuinely changed and the section below applies.
+
+Sheets already in the object store keep whatever band they were rendered with —
+`node scripts/restamp-renders.mjs` (add `--apply`) brings them into line, in either direction.
+
 ### When a gate legitimately fails
 
 If output changed *on purpose*, the shipped fixture is now stale. Re-render the fixture from the new
@@ -125,6 +151,8 @@ it pass** — the gate is the product's core claim.
 | Per-customer branding | `src/branding/` — a server-enforced whitelist. It decorates the **page**, not the printed sheet |
 | The diagram pin editor | `src/expert/` + `public/app/diagram.js` (admin-only) |
 | Ops: health, metrics, backup | `src/ops/`, `scripts/backup.mjs`, `scripts/prune-staged.mjs` |
+| **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/server.js` — see [`PILOT.md`](PILOT.md) |
+| Whether a demo org is labelled "Sample" | `customer.is_demo` → `src/branding/index.js` → `src/public/` → `public/js/public-*.js` |
 | Importing a finished map | `scripts/import-map.mjs` (`--request <id>` builds an approved request in place) |
 
 ## House rules
@@ -138,6 +166,10 @@ it pass** — the gate is the product's core claim.
   not security.
 - **Attribution is not optional.** Maps derive from OpenStreetMap (ODbL) and BODS (OGL). See
   `NOTICE`. Don't ship an output path that drops the credit.
+- **Don't claim what isn't true.** While the pilot is on there are no customers, no SLA and no
+  guaranteed refresh cadence. Copy that says otherwise has been removed once already; don't
+  reintroduce it. If you add a public page, give it the `/js/site-banner.js` `<script>` tag — that is
+  what puts the pilot banner on it.
 - **Update `CHANGELOG.md`** with the version and what changed — including re-vendoring.
 
 ## Known rough edge

@@ -25,6 +25,8 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > sheet a pilot band; seeded demo organisations are labelled **Sample**. One env var (`PILOT_MODE=0`)
 > switches all of that off — see [`docs/PILOT.md`](docs/PILOT.md).
 >
+> `CLAUDE.md` is the short orientation a new session (or developer) should read first.
+>
 > Feature-wise: This repo contains the public **shopfront**
 > (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a
 > **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant

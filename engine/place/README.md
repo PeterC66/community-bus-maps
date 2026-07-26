@@ -25,3 +25,7 @@ behaves exactly like an area map (empty base ⇒ byte-identical baseline).
 **Provenance.** These are byte-for-byte copies of the skill assets as of the vendor date; the
 `scripts/verify-reproduce-place.mjs` gate proves the vendored engine reproduces a skill-rendered
 place leaflet byte-for-byte. Re-vendor (re-copy + re-run the gate) if the skill engine changes.
+
+> **Pilot.** Rendered place sheets carry a `PILOT — SAMPLE MAP` band, added to the finished SVG
+> outside the engine (`src/render/pilotStamp.js`). Nothing here knows about it and the reproduce gate
+> is unaffected — see [`../../docs/PILOT.md`](../../docs/PILOT.md).

@@ -49,6 +49,8 @@ below already exist.
 | `public/faq.html` | public FAQ | Keep; maintained via the marketing runbook (R5) |
 | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the deterministic renderer + place + expert styles | Keep; developer reference |
 | `CHANGELOG.md` | per-phase lessons learned | Keep; the build record |
+| `CLAUDE.md` | repo orientation auto-loaded by Claude Code: pilot status, determinism + the three gates, the vendored-engine trap | Added 2026-07-26 |
+| `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | Added 2026-07-26, after this plan was written. Retire it when the pilot ends |
 
 **Headline finding:** the **technical and reference documentation is largely complete**. What is
 missing is the **operator's process layer** — the step-by-step "how I actually do this recurring

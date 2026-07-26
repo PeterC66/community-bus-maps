@@ -7,6 +7,11 @@ show it to someone else without touching your 20i webspace.
 It deliberately repeats nothing that's explained well elsewhere — each section says which of
 the existing docs to read for the deeper version.
 
+**Before you show it to anyone:** the system is a **pilot** — it has no customers, and every map on
+it is one of ours. Every page carries a banner saying so and every map sheet a red band. That is
+deliberate, and it is one env var (`PILOT_MODE=0`) to switch off when the time comes. See
+[`PILOT.md`](PILOT.md).
+
 **One-time fact worth knowing:** your 20i package is standard shared hosting (FTP +
 phpMyAdmin). 20i confirms Node.js apps only run on their separate *"Node.js Optimised Cloud
 Server"* product — ordinary shared hosting can't run this app at all. So "demonstrate it live"

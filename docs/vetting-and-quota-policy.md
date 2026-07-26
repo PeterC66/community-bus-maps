@@ -6,6 +6,10 @@
 decisions are consistent and defensible. This is the generic rulebook; the **actual decisions** (real
 organisations) go in the private [vetting decisions log](../../community-bus-maps-ops/vetting-decisions-log.md) (`ops/`).
 
+> **Pilot.** No application has ever been approved. During the pilot, prefer a **small number** of
+> organisations that will actually tell you what is wrong, and be explicit with them about what they
+> are joining (R2, [`PILOT.md`](PILOT.md)). The criteria below are the standing rulebook regardless.
+
 ## Who qualifies
 
 Approve an organisation that has a **legitimate connection to the area or place** it wants a map for,

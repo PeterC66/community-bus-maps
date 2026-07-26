@@ -6,6 +6,14 @@
 two halves: **static shopfront pages** you edit by hand, and a **live public front** that generates
 itself from published maps.
 
+> **Pilot — the standing constraint on this runbook.** The site must not claim customers, uptime,
+> response times or a guaranteed refresh cadence, because none exist yet. Wording that did ("maps
+> **our customers** have published", "those are **live**, kept up to date", "we **will** get back to
+> you", "**our team**", "always looks right") was removed once — don't let it back in. Seeded demo
+> organisations must keep their **Sample** labelling. Any new page needs the
+> `<script src="/js/site-banner.js" defer>` tag or it will silently be the one page with no pilot
+> banner. See [`PILOT.md`](PILOT.md), and `faq.html#pilot` for the agreed wording.
+
 ## The static shopfront (`public/*.html`)
 
 Plain HTML, edited directly, sharing one header/footer and `/css/styles.css`:

@@ -6,6 +6,12 @@
 through the admin console, applying the vetting policy (**Pol1**). This closes the **first approval
 gate** (organisation).
 
+> **Pilot.** There are no customers yet, so the next person you onboard is the **first**. Say so
+> explicitly when you welcome them (Step 4): the system is a pilot, there is no service level, the
+> monthly cadence is an intention not a promise, their maps will carry a pilot band until the pilot
+> ends, and what you want in return is to hear what does not work. The public copy already says all
+> of this — don't let the welcome email be the one place that oversells. See [`PILOT.md`](PILOT.md).
+
 ## Where applications come from
 
 The public **Apply** form (`/apply.html` → `POST /api/apply`) writes an `application` row: org name +
@@ -47,8 +53,8 @@ Approving, in one action:
 
 - Add the customer to the private [customer register](../../community-bus-maps-ops/customer-register.md)
   (`ops/`): org, contact, type, quota, status, onboarded date.
-- Send a welcome pointing them at the **customer user guide** (C1, planned) and telling them you'll
-  build their first map. They can also **Request a map** themselves from their dashboard, within quota.
+- Send a welcome pointing them at the **customer user guide** (which opens with the pilot caveat) and
+  telling them you'll build their first map. Set expectations honestly — see the pilot note above. They can also **Request a map** themselves from their dashboard, within quota.
 
 ## Step 5 — Their maps
 
