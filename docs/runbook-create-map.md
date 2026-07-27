@@ -1,5 +1,8 @@
 # Runbook R1 — Create a new area or place map
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=e1afbcec -->
+**v1.0** · updated 27 July 2026
+
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned

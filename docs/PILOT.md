@@ -1,5 +1,8 @@
 # Pilot mode — what it claims, and how to switch it off
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=8adef294 -->
+**v1.0** · updated 27 July 2026
+
 **For:** the operator. **Status:** pilot mode is **ON**.
 
 Community Bus Maps was built as if it were a running service. It isn't. There are

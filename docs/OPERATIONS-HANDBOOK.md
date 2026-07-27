@@ -1,5 +1,8 @@
 # Operations Handbook — Community Bus Maps portal
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=f50f7d51 -->
+**v1.0** · updated 27 July 2026
+
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
 **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 

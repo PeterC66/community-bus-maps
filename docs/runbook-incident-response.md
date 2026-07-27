@@ -1,5 +1,8 @@
 # Runbook R6 — Incident response
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=4dea7a58 -->
+**v1.0** · updated 27 July 2026
+
 **Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** What to do when something goes wrong — above all a **published map that's wrong in the

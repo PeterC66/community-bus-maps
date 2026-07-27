@@ -1,5 +1,8 @@
 # Changelog
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=cf7bae5e -->
+**v1.0** · updated 27 July 2026
+
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]

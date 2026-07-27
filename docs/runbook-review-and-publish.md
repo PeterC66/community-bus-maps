@@ -1,5 +1,8 @@
 # Runbook R3 — Review & publish (approver sign-off)
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=179f9485 -->
+**v1.0** · updated 27 July 2026
+
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
 **Purpose.** How a version becomes the **official public map** — the judgement layer over the P4

@@ -1,5 +1,8 @@
 # Runbook R5 — Marketing site, public front & messages
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=e63f10d2 -->
+**v1.0** · updated 27 July 2026
+
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
 **Purpose.** Keep the public site correct and current, and work the two message queues. The site has
