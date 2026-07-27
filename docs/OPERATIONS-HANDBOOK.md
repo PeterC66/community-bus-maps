@@ -1,5 +1,8 @@
 # Operations Handbook — Community Bus Maps portal
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=f50f7d51 -->
+**v1.0** · updated 27 July 2026
+
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
 **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -114,6 +117,8 @@ Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** 
 **Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one
 map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly
 refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) ·
+`fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already
+stored — a one-off catch-up; renders made now are fixed as they are produced) ·
 `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` /
 `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
@@ -184,4 +189,5 @@ node scripts/import-map.mjs --src "<S5-render dir>" --name "…" --slug … --ki
 node scripts/import-map.mjs --list-requests      # approved requests awaiting a build
 node scripts/import-map.mjs --request <id> --src "<S5-render dir>"   # build one IN PLACE
 node scripts/propose-update.mjs …               # stage a monthly refresh
+node scripts/fix-badge-contrast.mjs             # dry run; --apply to repair stored sheets
 ```

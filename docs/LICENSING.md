@@ -1,5 +1,8 @@
 # Licensing & attribution sign-off (launch gate)
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=9e948b44 -->
+**v1.0** · updated 27 July 2026
+
 This is the launch go/no-go the planning documents named: the maps are built from
 other people's data, published to the public, and printed by third parties, so the
 obligations have to be written down and **signed off before the public site is

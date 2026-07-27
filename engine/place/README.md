@@ -1,5 +1,8 @@
 # engine/place/ — the vendored PLACE map engine
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=fbeab5d9 -->
+**v1.0** · updated 27 July 2026
+
 Area maps carry their generators *with each map's data* (see `../README.md`). **Place maps do
 not** — the `make-place-bus-leaflet` skill keeps one engine in the skill and never copies it into
 a place's render folder, so a staged place payload has the `*.json` inputs but no generators. To

@@ -1,5 +1,8 @@
 # Developing the portal — how to change it safely
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=dea44374 -->
+**v1.0** · updated 27 July 2026
+
 This is the **developer** counterpart to the operator documentation. The
 [Operations Handbook](OPERATIONS-HANDBOOK.md) and the runbooks tell you how to *run* the service;
 this tells you how to *change* it without breaking the two things the product rests on: the
@@ -40,6 +43,11 @@ the finished SVG in `src/render/renderMap.js` **after** the generator has run, s
 bytes are unchanged and the determinism gate still tests determinism. If you need to add something
 to every sheet, copy that pattern rather than editing generators — they are vendored per-map (below),
 so editing `engine/` would not change a single existing map anyway.
+`src/render/badgeContrast.js` is the second one (a route number must stay readable on a recoloured
+badge), and it shows the other half of the discipline: a post-generation fix must be a **no-op on a
+sheet that does not have the fault**, so an untouched map is still byte-for-byte what the generator
+produced. Both have a companion `scripts/*.mjs` that applies them to sheets already in the object
+store, because a fix at render time reaches nothing that was rendered before it landed.
 
 ### 2. The three approval gates
 
@@ -115,9 +123,10 @@ without the separate data repo should still pass `npm test` — but it means **a
 checkout proves nothing about the renderer.** Set both in `.env` (git-ignored; see `.env.example`)
 and confirm the output says PASS with byte counts, not "skipping", before you trust a render change.
 
-### The pilot band and the reproduce gates
+### The post-generation sheet fixes and the reproduce gates
 
-`generateSvg()` stamps the finished SVG (`src/render/pilotStamp.js`) unless you pass `stamp: false`.
+`generateSvg()` post-processes the finished SVG unless you pass `stamp: false` — badge contrast
+(`src/render/badgeContrast.js`) then the pilot band (`src/render/pilotStamp.js`).
 The two `verify-reproduce*` scripts pass it, because they compare the **generator's** output against
 a shipped fixture — they test determinism, not presentation.
 
@@ -149,7 +158,8 @@ it pass** — the gate is the product's core claim.
 | Auth / sessions | `src/auth/` (magic link, server-side sessions, hand-rolled cookies, no deps) |
 | Public pages and listings | `src/public/` — a **read model** over the publish gate, PII-free by construction |
 | Per-customer branding | `src/branding/` — a server-enforced whitelist. It decorates the **page**, not the printed sheet |
-| The diagram pin editor | `src/expert/` + `public/app/diagram.js` (admin-only) |
+| The diagram pin editor | `src/expert/` + `public/app/diagram.js` (admin-only). Handles are drawn in the **sheet's** frame, not the solver's — `measureHandleFrame()` recovers the difference by fitting the tagged stop ticks; don't re-derive the generators' transforms by hand |
+| Badge legibility after a recolour | `src/render/badgeContrast.js` (+ the mirrored rule in `public/app/editor.js`), `scripts/fix-badge-contrast.mjs` |
 | Ops: health, metrics, backup | `src/ops/`, `scripts/backup.mjs`, `scripts/prune-staged.mjs` |
 | **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/server.js` — see [`PILOT.md`](PILOT.md) |
 | Whether a demo org is labelled "Sample" | `customer.is_demo` → `src/branding/index.js` → `src/public/` → `public/js/public-*.js` |

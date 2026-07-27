@@ -1,5 +1,8 @@
 # Pilot mode — what it claims, and how to switch it off
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=8adef294 -->
+**v1.0** · updated 27 July 2026
+
 **For:** the operator. **Status:** pilot mode is **ON**.
 
 Community Bus Maps was built as if it were a running service. It isn't. There are
@@ -65,7 +68,9 @@ Then, in this order:
 3. **Delete the code.** `grep -rn "PILOT:" --include=* . | grep -v node_modules`
    finds every gated block. Whole files: `src/config.js`,
    `src/render/pilotStamp.js`, `scripts/restamp-renders.mjs`. Everything else is
-   a marked block or a one-line `<script>` tag.
+   a marked block or a one-line `<script>` tag. **Not** `src/render/badgeContrast.js`
+   or `scripts/fix-badge-contrast.mjs` — they sit next to the band in
+   `renderMap.js` but are a correctness fix, and must survive the pilot.
 4. **Revisit the copy.** See below — most of it should *stay*.
 
 Leaving the `<script>` tags in place after `PILOT_MODE=0` is harmless: the route

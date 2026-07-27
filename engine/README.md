@@ -1,5 +1,8 @@
 # engine/ — the deterministic renderer (vendored reference)
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=134ffd56 -->
+**v1.0** · updated 27 July 2026
+
 These are the generic, publishable pieces of the map engine:
 
 - **`render.js`** — rasterises an SVG (declaring `width="3508" height="2480"`) to a print-ready A4

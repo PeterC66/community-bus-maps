@@ -1,5 +1,8 @@
 # Runbook R4 — Monthly update cycle
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=a173bfca -->
+**v1.0** · updated 27 July 2026
+
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer
 > guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site
 > promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).

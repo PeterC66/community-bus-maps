@@ -1,5 +1,8 @@
 # Runbook R2 — Customer onboarding
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=a41ccf1c -->
+**v1.0** · updated 27 July 2026
+
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn a public application into an **active customer with an editor who can sign in** —

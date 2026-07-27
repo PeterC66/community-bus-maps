@@ -1,5 +1,8 @@
 # Documentation development plan — the operator layer
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=ec6a0413 -->
+**v1.0** · updated 27 July 2026
+
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
 This is the plan for building the documentation Peter needs for **his part** in the portal:

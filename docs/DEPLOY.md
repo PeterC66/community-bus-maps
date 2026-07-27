@@ -1,5 +1,8 @@
 # Deploying and running the portal (P7)
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=d34ebef5 -->
+**v1.0** · updated 27 July 2026
+
 Small service, deliberately: **one Node process, one SQLite file, one data volume.**
 No database server, no queue, no build step. Scale by giving the VM more disk, not by
 adding components — the plan says single-VM until something actually binds.

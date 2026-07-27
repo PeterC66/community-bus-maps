@@ -1,5 +1,8 @@
 # Community Bus Maps — portal
 
+<!-- docstamp v1.0 | 2026-07-27 | sha=0eaf0d4f -->
+**v1.0** · updated 27 July 2026
+
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Public repo, Apache-2.0. Node + Fastify + `node:sqlite`, no template engine, no framework.
 

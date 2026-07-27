@@ -93,28 +93,169 @@ export function dropSandbox(id) {
   sandboxes.delete(id);
 }
 
+// ---------------------------------------------------------------------------
+// Handle frame: where a solved junction actually lands on the finished sheet.
+//
+// A pin lives in the diagram solver's own page-mm frame. The sheet the expert is
+// looking at does NOT use that frame: the solver writes a workspace (positions
+// carried as synthetic lat/lons), gen_internal re-projects it and fits it to the
+// map viewport, and the pilot band then shrinks the whole document again. Drawing
+// a handle at the solved x/y therefore puts it somewhere near, but not on, its
+// junction — which is exactly the "I can't tell which handle does what" problem.
+//
+// Rather than re-deriving any of those transforms (they belong to the generators,
+// and would rot), we MEASURE the composite. Both frames contain the same stops:
+// the workspace's atco2ll.json holds each stop's synthetic lat/lon, and the sheet
+// — rendered with EDITOR_KEYS so its stop ticks are tagged — holds where that
+// stop was drawn. Every step between the two is affine, so a least-squares fit
+// over those pairs recovers the composite exactly, and one more fit turns it into
+// mm → sheet. The editor gets that matrix and uses it (and its inverse) for
+// handles and drags.
+// ---------------------------------------------------------------------------
+
+/** Solve `A·p = b` for a small square system (Gaussian elimination); null if singular. */
+function solveLinear(A, b) {
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let piv = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+    if (Math.abs(M[piv][c]) < 1e-12) return null;
+    [M[c], M[piv]] = [M[piv], M[c]];
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue;
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  return M.map((row, i) => row[n] / row[i]);
+}
+
 /**
- * Solve the diagram in `dir` with the given pins and return the SVG plus the
- * solved junction positions the editor drags (page-mm in the pre-solve frame).
+ * Least-squares 2D affine mapping src[i] → dst[i], as { a,b,c,d,e,f } where
+ * X = a·x + b·y + c and Y = d·x + e·y + f. Null if under-determined/degenerate.
+ */
+export function fitAffine(src, dst) {
+  if (src.length < 3) return null;
+  const N = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  const rx = [0, 0, 0], ry = [0, 0, 0];
+  for (let i = 0; i < src.length; i++) {
+    const u = [src[i][0], src[i][1], 1];
+    for (let p = 0; p < 3; p++) {
+      for (let q = 0; q < 3; q++) N[p][q] += u[p] * u[q];
+      rx[p] += u[p] * dst[i][0];
+      ry[p] += u[p] * dst[i][1];
+    }
+  }
+  const X = solveLinear(N.map((r) => [...r]), rx);
+  const Y = solveLinear(N.map((r) => [...r]), ry);
+  if (!X || !Y || [...X, ...Y].some((v) => !Number.isFinite(v))) return null;
+  return { a: X[0], b: X[1], c: X[2], d: Y[0], e: Y[1], f: Y[2] };
+}
+
+const applyAffine = (m, [x, y]) => [m.a * x + m.b * y + m.c, m.d * x + m.e * y + m.f];
+
+/**
+ * Affine fit that ignores reference points which disagree with the majority.
+ *
+ * The stop ticks we measure against are drawn ON the route line the stop was
+ * map-matched to, a little off the stop's own coordinates, and a few are matched
+ * badly. Plain least squares lets those few drag the whole frame, so fit once,
+ * keep the points that agree, and fit again on those.
+ */
+function fitAffineRobust(src, dst, keep = 0.7) {
+  const first = fitAffine(src, dst);
+  if (!first || src.length < 8) return first;
+  const idx = src
+    .map((s, i) => ({ i, r: Math.hypot(...applyAffine(first, s).map((v, k) => v - dst[i][k])) }))
+    .sort((a, b) => a.r - b.r)
+    .slice(0, Math.max(6, Math.round(src.length * keep)))
+    .map((e) => e.i);
+  return fitAffine(idx.map((i) => src[i]), idx.map((i) => dst[i])) || first;
+}
+
+/** Stop ticks in a sheet rendered with EDITOR_KEYS: ATCO → [x, y] in sheet units. */
+function taggedStops(svg) {
+  const re = /<g data-kind="stop" data-key="([^"]*)"><circle\s+cx="(-?[\d.]+)"\s+cy="(-?[\d.]+)"/g;
+  const out = new Map();
+  let m;
+  while ((m = re.exec(svg))) {
+    // Route-offset ticks are keyed "<route>:<ATCO>" and sit beside the stop, not
+    // on it — only the plain per-stop tick is a trustworthy reference point.
+    if (m[1].includes(':')) continue;
+    if (!out.has(m[1])) out.set(m[1], [Number(m[2]), Number(m[3])]);
+  }
+  return out;
+}
+
+/** The pilot band's document transform, as an affine (identity when not stamped). */
+function pilotTransform(svg) {
+  const m = /<g id="pilot-content" transform="translate\((-?[\d.]+),(-?[\d.]+)\) scale\((-?[\d.]+)\)"/.exec(svg);
+  if (!m) return { a: 1, b: 0, c: 0, d: 0, e: 1, f: 0 };
+  const s = Number(m[3]);
+  return { a: s, b: 0, c: Number(m[1]), d: 0, e: s, f: Number(m[2]) };
+}
+
+/**
+ * The affine taking a solved junction's page-mm to its position on the sheet.
+ * Null when it cannot be measured (no tagged stops, too few junctions, or a
+ * non-affine warp) — the editor then falls back to the raw solver coordinates.
+ */
+function measureHandleFrame(dir, svg, nodes) {
+  let atco2ll;
+  try { atco2ll = JSON.parse(readFileSync(path.join(dir, WORKDIR, 'atco2ll.json'), 'utf8')); }
+  catch { return null; }
+  const drawn = taggedStops(svg);
+  // Synthetic lat/lon → sheet. The workspace carries positions as [lat, lon]; the
+  // generator's planar projection is (lon, −lat), so feed it in that orientation.
+  const src = [], dst = [];
+  for (const [atco, ll] of Object.entries(atco2ll)) {
+    const p = drawn.get(atco);
+    if (!p || !Array.isArray(ll)) continue;
+    src.push([ll[1], -ll[0]]);
+    dst.push(p);
+  }
+  const llToSheet = fitAffineRobust(src, dst);
+  if (!llToSheet) return null;
+
+  // …then mm → sheet, via the junctions (which know both their mm and their
+  // synthetic lat/lon), with the pilot band's document transform composed on.
+  const pilot = pilotTransform(svg);
+  const mm = [], sheet = [];
+  for (const n of Object.values(nodes)) {
+    if (!n || !Array.isArray(n.wll)) continue;
+    mm.push([n.x, n.y]);
+    sheet.push(applyAffine(pilot, applyAffine(llToSheet, [n.wll[1], -n.wll[0]])));
+  }
+  return fitAffine(mm, sheet);
+}
+
+/**
+ * Solve the diagram in `dir` with the given pins and return the SVG, the solved
+ * junction positions the editor drags (page-mm in the pre-solve frame), and the
+ * affine that maps those onto the sheet the editor draws handles over.
  *
  * @param {string} dir        a sandbox (preview) or the live data dir (save)
  * @param {object|null} pins  pins to apply; null = leave the folder's layout as-is
  * @param {object} overrides  the customer's safe-subset overrides (merged with the
  *                            map's base framing here, exactly as a real render does)
- * @returns {{ svg:string, nodes:object, log:string }}
+ * @returns {{ svg:string, nodes:object, frame:object|null, log:string }}
  */
 export function solveDiagram(dir, pins, overrides) {
   if (pins != null) writePins(dir, pins);
   const tmp = path.join(os.tmpdir(), `cbm-diagram-ov-${process.pid}-${Date.now()}.json`);
   writeFileSync(tmp, JSON.stringify(mergeOverrides(readBaseOverrides(dir), overrides || {})));
   try {
-    const { log } = generateSvg({ dataDir: dir, generator: DIAGRAM_GEN, iconsDir: ENGINE_DIR, overridesFile: tmp });
+    // editorKeys tags the stop ticks so the handle frame can be measured. It only
+    // adds <g> wrappers, and this SVG is a preview — a save re-renders through the
+    // ordinary versioned path, which never sets it.
+    const { log } = generateSvg({
+      dataDir: dir, generator: DIAGRAM_GEN, iconsDir: ENGINE_DIR, overridesFile: tmp, editorKeys: true,
+    });
     const nodesPath = path.join(dir, WORKDIR, 'solved-nodes.json');
-    return {
-      svg: readFileSync(path.join(dir, DIAGRAM_SVG), 'utf8'),
-      nodes: existsSync(nodesPath) ? JSON.parse(readFileSync(nodesPath, 'utf8')) : {},
-      log: log || '',
-    };
+    const svg = readFileSync(path.join(dir, DIAGRAM_SVG), 'utf8');
+    const nodes = existsSync(nodesPath) ? JSON.parse(readFileSync(nodesPath, 'utf8')) : {};
+    return { svg, nodes, frame: measureHandleFrame(dir, svg, nodes), log: log || '' };
   } finally {
     try { unlinkSync(tmp); } catch { /* ignore */ }
   }

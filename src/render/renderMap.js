@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { fixBadgeContrast } from './badgeContrast.js';
 import { stampPilot } from './pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -47,10 +48,11 @@ export function generateSvg({
   iconsDir = ENGINE_DIR,
   overridesFile,
   editorKeys = false,
-  // PILOT: pass false to get the generator's own bytes back untouched. Only the
-  // byte-identical reproduce test (scripts/verify-reproduce*.mjs) does — it is
-  // comparing generator output against a shipped fixture, so a stamp on top
-  // would fail a gate that is about determinism, not about presentation.
+  // Pass false to get the generator's own bytes back untouched, with none of the
+  // post-generation sheet fixes below. Only the byte-identical reproduce test
+  // (scripts/verify-reproduce*.mjs) does — it is comparing generator output
+  // against a shipped fixture, so anything laid on top would fail a gate that is
+  // about determinism, not about presentation.
   stamp = true,
 } = {}) {
   if (!dataDir) throw new Error('generateSvg: dataDir is required');
@@ -80,12 +82,19 @@ export function generateSvg({
   const svgName = svgNameFor(generator);
   const svgPath = path.join(dataDir, svgName);
 
-  // PILOT: stamp the finished sheet. Applied here, AFTER the generator has run
-  // and written its file, so (a) the generator itself stays byte-identical and
-  // the P0 reproduce gate is unaffected, and (b) every consumer of the sheet —
-  // the rasteriser below, the published .svg download, the editor preview —
-  // sees the same stamped artefact. Delete this block to remove.
-  if (stamp) writeFileSync(svgPath, stampPilot(readFileSync(svgPath, 'utf8')));
+  // Post-generation sheet fixes, applied here — AFTER the generator has run and
+  // written its file — so (a) the generator itself stays byte-identical and the
+  // P0 reproduce gate is unaffected, and (b) every consumer of the sheet (the
+  // rasteriser below, the published .svg download, the editor preview) sees the
+  // same artefact.
+  //   1. badge contrast — a route number must stay readable on a recoloured
+  //      badge; a no-op when the imported palette is used (badgeContrast.js).
+  //   2. PILOT: the sample-map band. Delete this line to remove.
+  if (stamp) {
+    let out = fixBadgeContrast(readFileSync(svgPath, 'utf8'));
+    out = stampPilot(out);
+    writeFileSync(svgPath, out);
+  }
 
   return { svgPath, svgName, log: (res.stdout || '').trim() };
 }
