@@ -18,6 +18,32 @@ let activeMap = null;             // artefact base name of the shown output
 const savedSvg = {};             // saved-version SVGs by base
 let previewSvg = null;           // last preview SVGs by base (null → show saved)
 
+// ---- badge legibility --------------------------------------------------------
+// Mirrors src/render/badgeContrast.js so the swatch list shows the same ink the
+// printed sheet will use. A route's `textOn` comes from the imported data and
+// does not follow a recolour, so a route recoloured dark keeps dark text and its
+// number disappears — here and on the map. Keep the two rules in step.
+function luminance(hex) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  return [0, 2, 4].map((i) => {
+    const v = parseInt(h.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  }).reduce((s, c, i) => s + [0.2126, 0.7152, 0.0722][i] * c, 0);
+}
+function contrast(a, b) {
+  const la = luminance(a), lb = luminance(b);
+  if (la === null || lb === null) return null;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+function inkFor(bg, want) {
+  const r = contrast(bg, want);
+  if (r === null || r >= 2) return want;             // see MIN_RATIO in badgeContrast.js
+  return (contrast(bg, '#ffffff') || 0) >= (contrast(bg, '#111111') || 0) ? '#ffffff' : '#111111';
+}
+const routeInk = (r) => inkFor(staged.colors[r.id] || r.defaultColor, r.textOn);
+
 // ---- overrides <-> staged ----------------------------------------------------
 function stagedFromOverrides(ov) {
   const colors = { ...(ov.routeColors || {}) };
@@ -89,9 +115,10 @@ async function onOutputsChange() {
     const body = await res.json();
     if (res.ok && body.ok) {
       detail.outputs = body.outputs;
+      renderPending = true;
       buildOutputs();
       buildTabs();
-      notice('warn', 'Outputs updated — Save to render the enabled sheets.');
+      notice('warn', 'Outputs updated — showing a preview. Save to add the enabled sheets to the print-ready files.');
       runPreview();
     } else {
       notice('err', (body && body.error) || 'Could not update outputs.');
@@ -107,7 +134,7 @@ function buildRoutes() {
     const sub = r.desc ? esc(Array.isArray(r.desc) ? r.desc.join(' · ') : r.desc) : '';
     return `<div class="route-row" data-route="${esc(r.id)}">
       <input class="route-swatch" type="color" value="${esc((staged.colors[r.id] || r.defaultColor).toLowerCase())}" data-route="${esc(r.id)}" aria-label="Colour for route ${esc(r.id)}">
-      <span class="route-badge" style="background:${esc(staged.colors[r.id] || r.defaultColor)};color:${esc(r.textOn)}">${esc(r.id)}</span>
+      <span class="route-badge" style="background:${esc(staged.colors[r.id] || r.defaultColor)};color:${esc(routeInk(r))}">${esc(r.id)}</span>
       <span class="route-desc"><span class="r-title">${sub || ('Route ' + esc(r.id))}</span></span>
       <button class="link-btn r-reset" data-route="${esc(r.id)}" ${staged.colors[r.id] ? '' : 'disabled'}>reset</button>
     </div>`;
@@ -130,7 +157,9 @@ function syncRouteRow(r) {
   const row = $('routes').querySelector(`.route-row[data-route="${CSS.escape(r)}"]`);
   if (!row) return;
   const def = detail.routes.find((x) => x.id === r);
-  row.querySelector('.route-badge').style.background = staged.colors[r] || def.defaultColor;
+  const badge = row.querySelector('.route-badge');
+  badge.style.background = staged.colors[r] || def.defaultColor;
+  badge.style.color = routeInk(def);
   row.querySelector('.r-reset').disabled = !staged.colors[r];
 }
 
@@ -180,11 +209,12 @@ function buildTabs() {
 }
 
 // ---- preview (single-flight, debounced) --------------------------------------
-let debounce = null, inFlight = false, queued = false;
+let debounce = null, inFlight = false, queued = false, renderPending = false;
+const isRendering = () => inFlight || renderPending;
 function onEdit() { refreshState(); clearTimeout(debounce); debounce = setTimeout(runPreview, 350); }
 async function runPreview() {
   if (inFlight) { queued = true; return; }
-  inFlight = true; queued = false;
+  inFlight = true; queued = false; renderPending = false;
   $('stage').classList.add('busy'); setPvState('busy', 'Rendering…');
   try {
     const res = await fetch(`/api/maps/${MAP_ID}/preview`, {
@@ -209,7 +239,15 @@ function showStage() {
   const svg = currentSvg(), stage = $('stage'), overlay = stage.querySelector('.overlay');
   stage.innerHTML = '';
   if (svg) stage.insertAdjacentHTML('afterbegin', svg);
-  else stage.insertAdjacentHTML('afterbegin', `<div class="placeholder">${activeMap ? 'Save to render “' + esc(labelForBase(activeMap)) + '”.' : 'No outputs enabled.'}</div>`);
+  else {
+    // No sheet yet: either one is on its way (a newly enabled output has no file
+    // in the saved version, so we render it rather than asking for a save first)
+    // or there is genuinely nothing to show.
+    const msg = !activeMap ? 'No outputs enabled.'
+      : (isRendering() ? 'Rendering “' + esc(labelForBase(activeMap)) + '”…'
+        : 'Save to render “' + esc(labelForBase(activeMap)) + '”.');
+    stage.insertAdjacentHTML('afterbegin', `<div class="placeholder">${msg}</div>`);
+  }
   stage.appendChild(overlay);
 }
 
@@ -574,8 +612,14 @@ function showPending() {
     buildExpertLinks();
 
     await loadSavedSvg();
+    // An output switched on since the last save has no file in the saved version.
+    // Render it now: "Save to render" as the first thing a customer sees reads as
+    // a fault, and the sheet costs nothing to preview from the saved settings.
+    const missing = enabledOutputs().some((o) => !savedSvg[o.base]);
+    renderPending = missing;
     buildTabs();
-    setPvState('clean', 'Showing saved version');
+    setPvState(missing ? 'busy' : 'clean', missing ? 'Rendering…' : 'Showing saved version');
+    if (missing) runPreview();
 
     // Surface a one-shot message left by a preceding accept/decline reload.
     try {

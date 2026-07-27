@@ -93,6 +93,48 @@ const serverSrc = await import('node:fs').then((fs) => fs.readFileSync(new URL('
 check('server.js still sanitises pins before they are stored', /function sanitizePins\(/.test(serverSrc));
 check('the pin sanitiser bounds the coordinates', /num\(p\.x, 1000\)/.test(serverSrc));
 
+// --- 3b. badge legibility after a recolour ----------------------------------
+// A route's label ink comes from the imported data and does not follow a
+// recolour, so a dark recolour used to hide the route number inside its badge.
+console.log('\nbadge contrast');
+const { fixBadgeContrast, inkFor, contrastRatio } = await import('../src/render/badgeContrast.js');
+
+eq('legible ink is left alone', inkFor('#66CCEE', '#111'), '#111');
+// A shipped palette is design work, not a defect: white on this orange is 2.87:1
+// on three towns' maps and must survive untouched.
+eq('a designer\'s low-but-readable choice is respected', inkFor('#EE7733', '#fff'), '#fff');
+eq('dark badge flips to white', inkFor('#000000', '#111'), '#ffffff');
+eq('pale badge flips to near-black', inkFor('#ffffff', '#fff'), '#111111');
+eq('an unparseable colour is never touched', inkFor('url(#grad)', '#111'), '#111');
+check('contrast is symmetric', contrastRatio('#000', '#fff') === contrastRatio('#fff', '#000'));
+
+const badge = (bg, ink) =>
+  `<circle cx="12.5" cy="7.25" r="4.6" fill="${bg}" stroke="#fff" stroke-width="0.7"/>\n`
+  + `<text x="12.5" y="7.25" font-family="Arial" font-weight="bold" font-size="4.60" fill="${ink}"`
+  + ' text-anchor="middle" dominant-baseline="central">9</text>';
+
+check('an unreadable badge is repaired', fixBadgeContrast(badge('#000000', '#111')).includes('fill="#ffffff" text-anchor'));
+eq('a readable badge is byte-identical', fixBadgeContrast(badge('#66CCEE', '#111')), badge('#66CCEE', '#111'));
+// The rule is anchored on the shared centre, so ordinary drawing is untouched.
+const notABadge = '<circle cx="1" cy="2" r="3" fill="#000000"/>\n<text x="9" y="9" fill="#111">x</text>';
+eq('a circle that is not a badge is left alone', fixBadgeContrast(notABadge), notABadge);
+
+// --- 3c. the diagram pin editor's handle frame ------------------------------
+// Handles are drawn over the finished sheet, whose frame is not the solver's.
+console.log('\nhandle frame');
+const { fitAffine } = await import('../src/expert/index.js');
+const truth = { a: 1.9, b: 0, c: -83, d: 0, e: 1.9, f: -121 };
+const pts = [[0, 0], [10, 0], [0, 10], [10, 10], [3, 7], [8, 2]];
+const mapped = pts.map(([x, y]) => [truth.a * x + truth.b * y + truth.c, truth.d * x + truth.e * y + truth.f]);
+const got = fitAffine(pts, mapped);
+check('a scale-and-offset frame is recovered exactly',
+  got && ['a', 'b', 'c', 'd', 'e', 'f'].every((k) => Math.abs(got[k] - truth[k]) < 1e-6), JSON.stringify(got));
+check('too few points give no frame (the editor then uses raw coordinates)', fitAffine(pts.slice(0, 2), mapped.slice(0, 2)) === null);
+check('collinear points give no frame', fitAffine([[0, 0], [1, 1], [2, 2]], [[0, 0], [1, 1], [2, 2]]) === null);
+
+const engineSrc = await import('node:fs').then((fs) => fs.readFileSync(new URL('../engine/expert/diagram_internal.js', import.meta.url), 'utf8'));
+check('the solver exports each junction\'s workspace lat/lon for the frame fit', /wll: INV\(n\.mm\)/.test(engineSrc));
+
 // --- 4. ops helpers on an empty store ---------------------------------------
 console.log('\nops');
 const ops = await import('../src/ops/index.js');

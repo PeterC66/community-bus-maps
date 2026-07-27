@@ -13,6 +13,25 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const S = 6.5;              // board scale (px per mm) — A4 landscape at ~1930px
 let nodes = {}, pins = {}, dirty = false, editable = true, busy = false;
 
+// A pin is stored in the solver's own page-mm frame, which is NOT the frame the
+// finished sheet is drawn in (the generator re-fits the workspace, and the pilot
+// band shrinks the document again). The server measures the composite and sends
+// it as `frame`; without it we fall back to the raw solver coordinates, which is
+// what the handles used to do — near the right junction, but not on it.
+let frame = null;
+const IDENT = { a: 1, b: 0, c: 0, d: 0, e: 1, f: 0 };
+const toSheet = ([x, y]) => {
+  const m = frame || IDENT;
+  return [m.a * x + m.b * y + m.c, m.d * x + m.e * y + m.f];
+};
+const toMm = ([x, y]) => {
+  const m = frame || IDENT;
+  const det = m.a * m.e - m.b * m.d;
+  if (!det) return [x, y];
+  const u = x - m.c, v = y - m.f;
+  return [(u * m.e - v * m.b) / det, (v * m.a - u * m.d) / det];
+};
+
 const board = $('board'), box = $('svgbox'), ovl = $('ovl');
 board.style.width = (297 * S) + 'px';
 board.style.height = (210 * S) + 'px';
@@ -54,8 +73,9 @@ function drawHandles() {
   if (!$('showHandles').checked) return;
   for (const k of Object.keys(nodes)) {
     const n = nodes[k];
+    const [hx, hy] = toSheet([n.x, n.y]);
     const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y); c.setAttribute('r', 1.6);
+    c.setAttribute('cx', hx); c.setAttribute('cy', hy); c.setAttribute('r', 1.6);
     c.setAttribute('class', 'jn' + (pins[k] ? ' pinned' : ''));
     c.dataset.k = k;
     if (editable) {
@@ -90,7 +110,8 @@ function endDrag() {
   drag.el.removeEventListener('pointermove', moveDrag);
   if (drag.pos) {
     const n = nodes[drag.k] || {};
-    pins[drag.k] = { x: +drag.pos[0].toFixed(2), y: +drag.pos[1].toFixed(2), ll: n.ll };
+    const [mx, my] = toMm(drag.pos); // handles move in sheet units; pins are stored in solver mm
+    pins[drag.k] = { x: +mx.toFixed(2), y: +my.toFixed(2), ll: n.ll };
     dirty = true;
     solve();
   }
@@ -111,7 +132,7 @@ async function solve() {
     });
     const b = await res.json().catch(() => ({}));
     if (!res.ok || !b.ok) { notice('err', (b && b.error) || 'The solve failed.'); state('', 'solve failed'); return; }
-    nodes = b.nodes; setSvg(b.svg); drawHandles(); showNotes(b.notes);
+    nodes = b.nodes; frame = b.frame || null; setSvg(b.svg); drawHandles(); showNotes(b.notes);
     notice('', '');
     state(dirty ? 'dirty' : 'clean', dirty ? 'unsaved pins' : 'saved');
   } catch {
@@ -176,7 +197,7 @@ $('logoutBtn').addEventListener('click', async () => {
     document.title = `Diagram — ${b.map.name} — Community Bus Maps`;
     $('mapName').textContent = `${b.map.name} — diagram layout`;
     $('mapCrumb').textContent = [b.map.customer, b.map.subject, b.map.currentVersion && ('current ' + b.map.currentVersion)].filter(Boolean).join(' · ');
-    pins = b.pins || {}; nodes = b.nodes || {}; editable = b.editable !== false;
+    pins = b.pins || {}; nodes = b.nodes || {}; frame = b.frame || null; editable = b.editable !== false;
     setSvg(b.svg); drawHandles(); showNotes(b.notes);
     if (!editable) {
       notice('warn', 'This map is awaiting publication sign-off, so the layout is read-only. Withdraw the request on the map page to tune it.');

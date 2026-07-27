@@ -65,7 +65,9 @@ Then, in this order:
 3. **Delete the code.** `grep -rn "PILOT:" --include=* . | grep -v node_modules`
    finds every gated block. Whole files: `src/config.js`,
    `src/render/pilotStamp.js`, `scripts/restamp-renders.mjs`. Everything else is
-   a marked block or a one-line `<script>` tag.
+   a marked block or a one-line `<script>` tag. **Not** `src/render/badgeContrast.js`
+   or `scripts/fix-badge-contrast.mjs` — they sit next to the band in
+   `renderMap.js` but are a correctness fix, and must survive the pilot.
 4. **Revisit the copy.** See below — most of it should *stay*.
 
 Leaving the `<script>` tags in place after `PILOT_MODE=0` is harmless: the route

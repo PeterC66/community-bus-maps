@@ -4,6 +4,33 @@ Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates a
 
 ## [Unreleased]
 
+### Fixed — three faults found driving the editor for real
+- **A newly enabled sheet said "Save to render" instead of rendering.** Switching on an expert
+  style put it in the tab strip, but the saved version has no file for a sheet that did not exist
+  when it was rendered, and the editor only previewed on an edit — so the first thing you saw was
+  a dead panel that a toggle off-and-on cleared. The editor now previews the missing sheets on
+  load (and says "Rendering…" while it does), which is the same render it would have done anyway.
+- **A recoloured route could hide its own number.** A route's label ink comes from `textOn` in
+  the imported data and does not follow a recolour: St Ives route 9 changed to black kept `#111`
+  text and the 9 disappeared, in the editor's swatch list and on every sheet. New
+  `src/render/badgeContrast.js` re-inks a badge whose number has vanished, applied to the
+  finished SVG in `renderMap.js` — the same trick as the pilot band, and for the same reason
+  (generators are vendored per map, so `engine/` cannot reach a map that already exists). It is
+  **not** pilot-gated. The threshold is deliberately 2:1, well under WCAG's 3:1 for large text:
+  several shipped route colours sit just under 3:1 (white on `#EE7733`, on three towns' maps),
+  and quietly restyling somebody's palette is not this function's job. `scripts/fix-badge-contrast.mjs`
+  repairs sheets already in the object store, published ones included.
+- **The diagram pin editor's handles were nowhere near their junctions.** Handles were drawn at
+  the solver's page-mm, but the sheet under them is in a different frame — `gen_internal` re-fits
+  the solver's workspace, and the pilot band shrinks the document again (the two differ by ~2×
+  plus an offset, so you could not tell which handle was which). Rather than re-deriving
+  transforms that belong to the generators, `src/expert/index.js` now **measures** the composite:
+  the sheet is solved with `EDITOR_KEYS` so its stop ticks are tagged, and a robust least-squares
+  fit against the workspace's own coordinates recovers the affine, which the editor uses for
+  handles and inverts for drags. Median handle error on St Ives: 5.4 mm → 1.4 mm (handle radius
+  is 1.6 mm). `diagram_internal.js` gained one field (`wll` per junction) to make the fit
+  possible; `solved-nodes.json` is not part of any rendered output and both gates stay green.
+
 ### Added — pilot mode: say plainly that this is not a live service
 - The portal read as an established service with customers. It has none: every organisation in
   the database is seeded demo data and every map on the public site is one of ours. Anyone

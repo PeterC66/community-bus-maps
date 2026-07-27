@@ -1018,7 +1018,7 @@ app.get('/api/expert/maps/:id/diagram', async (req, reply) => {
       map: { id: map.id, name: map.name, kind: map.kind, subject: map.subject, currentVersion: map.cur_key, customer: map.customer_name || null },
       diagramEnabled: outputsForClient(parseOutputs(map.outputs), map.id).some((o) => o.key === 'internal_diagram' && o.enabled),
       editable: !getOpenRequestForMap(map.id),
-      pins, svg: r.svg, nodes: r.nodes, notes: pinNotes(r.log),
+      pins, svg: r.svg, nodes: r.nodes, frame: r.frame, notes: pinNotes(r.log),
     };
   } catch (e) {
     req.log.error(e);
@@ -1031,7 +1031,7 @@ app.post('/api/expert/maps/:id/diagram/preview', async (req, reply) => {
   const pins = sanitizePins((req.body || {}).pins);
   try {
     const r = await withMapLock(map.id, () => previewDiagram(map.id, pins));
-    return { ok: true, svg: r.svg, nodes: r.nodes, notes: pinNotes(r.log) };
+    return { ok: true, svg: r.svg, nodes: r.nodes, frame: r.frame, notes: pinNotes(r.log) };
   } catch (e) {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Could not solve the diagram: ' + e.message });
