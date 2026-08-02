@@ -14,6 +14,12 @@
 //   internalDesc{}    {route:[title,subtitle]} for the Services panel
 //   poi{}             POI filter/tidy rules (industrialKeep, excludeName, tidy,
 //                     canon, include e.g. ["allotments"])
+//   internalCorridors bundle co-running services into ONE line with a badge
+//                     stack (rung 1 of the complexity ladder) — see the block
+//                     where it is parsed, below
+//   coreBox           replace the congested centre with a labelled box that
+//                     routes are cut at (rung 2)
+//   corridorPalette   colour by corridor rather than by route (rung 3)
 // (plus anchor/anchorLabel/internalZoom/features/internalBundle/internalTermini
 //  already documented below).
 //
@@ -217,6 +223,119 @@ const ZOOM = Object.assign({ corePct: 1.0, comp: 1.0 }, RJ.internalZoom || {});
 const order = RJ.routeOrder || Object.keys(C);
 // Services-panel list order. Default = draw order.
 const panelOrder = RJ.panelOrder || order;
+// ====== internalCorridors — RUNG 1 of the complexity ladder (P2, 2026-07-28) ==
+// routes.json "internalCorridors": { "<lead>": ["1","1A","1B"] }
+//                              or   { "<lead>": {routes:["1","1A","1B"]} }
+// Draw a family of CO-RUNNING services as ONE line carrying a STACK of badges
+// instead of one coloured line each. The internal twin of external[].routes.
+// Why: the colour-blind-safe palettes hold ~12 usable hues; past that the
+// palette repeats and colour stops identifying a route (High Wycombe v1.0 drew
+// 31 lines in 12 colours). See references/complexity-triage.md.
+//
+// HOW IT WORKS — and why the bundle cannot state something false:
+// every member KEEPS ITS OWN GEOMETRY. Bundling changes only two things:
+//   (a) COLOUR — every member takes the lead's colour (and text colour);
+//   (b) LANE — members count as ONE lane in the corridor offset maths, so where
+//       they co-run they land on the same centreline and overdraw into a single
+//       visible line, and where they DIVERGE they simply separate again, because
+//       nothing merged their coordinates.
+// So "the bundle must split back where the routes diverge" is satisfied BY
+// CONSTRUCTION rather than by a rule someone has to remember. What a divergence
+// does cost is identity — both branches are now the same colour — so the badge
+// logic below stacks the badges of the members actually co-running AT that point
+// and lets a member badge its own divergent branch alone. `corridors_report.json`
+// records the shared fraction per member so S6 can flag a weak family.
+//
+// Absent => every derived value is a no-op identity and output is byte-identical.
+// The config KEY is always the lead: it keys the colour, the overrides and the
+// badge-stack order, regardless of how the member list happens to be written.
+// Shared by internalCorridors (rung 1) and corridorPalette (rung 3).
+function parseFamilies(raw){
+  if(!raw || raw===true) return null;
+  const fam={}, lead={};
+  for(const k of Object.keys(raw)){
+    const v=raw[k];
+    const members=Array.isArray(v)?v:((v&&v.routes)||[]);
+    const list=[k].concat(members.filter(r=>r!==k));
+    if(list.length<2) continue;
+    fam[k]=list; for(const m of list) lead[m]=k;
+  }
+  return Object.keys(fam).length?{fam,lead}:null;
+}
+// Colour aliasing. Only routes ALREADY in the palette are touched, so
+// Object.keys(C) — and therefore the default `order` computed above — cannot
+// change. Applied after routeColors, so recolouring the lead moves the family.
+function aliasColours(g){ if(!g) return;
+  for(const l of Object.keys(g.fam)) for(const m of g.fam[l]){
+    if(m===l) continue;
+    if(m in C) C[m] = C[l];
+    if(TXT && (m in TXT)) TXT[m] = TXT[l];
+  }
+}
+const CORR = parseFamilies(RJ.internalCorridors);
+// lane identity: a family draws as ONE lane keyed by its lead. Identity map when
+// internalCorridors is absent, which is what keeps every existing town unchanged.
+const laneKey = CORR ? (r=>CORR.lead[r]||r) : (r=>r);
+aliasColours(CORR);
+// ====== corridorPalette — RUNG 3 of the complexity ladder (P3, 2026-07-28) ===
+// routes.json "corridorPalette": { "<lead>": ["31","41"] }  (same shape as
+// internalCorridors; also accepted: { "<lead>": {routes:[...]} })
+//
+// Colour by CORRIDOR rather than by route. The members keep their own line and
+// their own lane — only the colour is shared — so this is the remedy for routes
+// that follow the same corridor but do NOT co-run closely enough to bundle
+// (High Wycombe's 31 and 41 overlap 0.40/0.46: one corridor, two real lines).
+//
+// THIS RETIRES A LOCKED DESIGN DECISION and is bounded: "one colour per route,
+// consistent across both maps and across updates" no longer holds for the towns
+// that use it. Approved 2026-07-28 for towns drawing more than 12 lines only. It
+// is never a default and never inferred — the groups are declared, so a data
+// refresh cannot silently reshuffle the town's colours.
+//
+// Because colour no longer identifies a route here, IDENTITY MUST COME FROM THE
+// BADGES, so the badge pass below guarantees every colour-grouped line at least
+// one badge rather than letting collision detection drop it silently.
+const CPAL = parseFamilies(RJ.corridorPalette);
+aliasColours(CPAL);
+// A route whose colour is shared with another DRAWN LINE (rung 3, or a rung-1
+// family that has diverged). Used to guarantee a badge.
+const colourShared = r => !!(CPAL && CPAL.lead[r]);
+
+// ====== coreBox — RUNG 2 of the complexity ladder (P3, 2026-07-28) ===========
+// routes.json "coreBox": { "radius": 600, "label": "town centre" }
+//   optional: "sublabel", "at":[x,y], "w", "h", "fill", "stroke", "textSize"
+//
+// Replace the congested town centre with a plain labelled box that routes run TO
+// and stop at, instead of drawing the knot. This is the single most decisive
+// move on a commercial operator's own big-town map (Carousel's High Wycombe
+// sheet deletes its 1.21 km² core outright), and it is the only remedy that
+// attacks a TRUNK-CORRIDOR congestion (D5 > 3 km) — a fisheye lens cannot.
+//
+// `radius` is in METRES from `anchor`, matching how complexity_score.js models
+// rung 2, so the predicted score and the drawn sheet mean the same thing. The
+// page-space rectangle is derived by projecting a real geographic circle of that
+// radius and taking its bounding box — exact under any fisheye or lens, with no
+// assumption about local scale. Everything inside the rectangle is suppressed or
+// covered: route lines are CUT at the boundary (so each ends flush against the
+// box rather than being hidden under it), and stop ticks, POIs, road labels, the
+// anchor label and route badges inside it are dropped.
+const CBOX = RJ.coreBox ? (RJ.coreBox===true?{}:RJ.coreBox) : null;
+
+// ====== stopThinning — RUNG 2b of the complexity ladder (P3, 2026-07-28) =====
+// routes.json "stopThinning": true  or  { minLines:2, termini:true,
+//                                         keep:["ATCO",…], drop:["ATCO",…] }
+//
+// Draw only the stops that earn their place: interchanges (served by `minLines`
+// or more DRAWN LINES) plus every line's two end stops. Label load is
+// independent of route count — a town can clear R, K5 and D5 and still be
+// unreadable because 300 stop ticks and their names fight for the same square
+// centimetre — so without this the ladder cannot finish (High Wycombe stays RED
+// on S alone however well rungs 0-2 do). The rule is deliberately the SAME one
+// complexity_score.js models for rung 2b, so the prediction and the sheet agree.
+//
+// Counted per LANE, not per route: a stop served only by a bundled 1/1A/1B is
+// served by one drawn line, not three.
+const THIN = RJ.stopThinning ? (RJ.stopThinning===true?{}:RJ.stopThinning) : null;
 // Internal Services-panel descriptions {route:[title,subtitle]}.
 const INTDESC = RJ.internalDesc || {};
 // Orientation route for road-name labels: the town circular if named, else the
@@ -423,6 +542,17 @@ const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
 const gk=(kind,key,inner)=> EDK ? `<g data-kind="${kind}" data-key="${esc(key)}">${inner}</g>` : inner;
 function badge(x,y,r,rad=4.6){out(`<circle cx="${x}" cy="${y}" r="${rad}" fill="${C[r]||'#888'}" stroke="#fff" stroke-width="0.7"/>`);
   out(`<text x="${x}" y="${y}" font-family="Arial" font-weight="bold" font-size="${(rad).toFixed(2)}" fill="${TXT[r]||'#fff'}" text-anchor="middle" dominant-baseline="central">${esc(blab(r))}</text>`);}
+// A bundled corridor's badge is a vertical STACK of its members' badges (the
+// convention every operator's own big-town map uses: one line, many identities).
+// A one-element list reduces to exactly badge() at the same centre, so an
+// unbundled town is byte-identical. Returns the stack's half-height in mm so the
+// caller can reserve the right box.
+function badgeStack(x,y,list,rad){
+  if(list.length===1){ badge(x,y,list[0],rad); return rad; }
+  const pitch=rad*2+0.5, y0=y-(list.length-1)/2*pitch;
+  list.forEach((r,i)=>badge(x, y0+i*pitch, r, rad));
+  return (list.length-1)/2*pitch + rad;
+}
 function cross(x,y,col){const a=1.0,b=2.6;out(`<rect x="${x-a/2}" y="${y-b/2}" width="${a}" height="${b}" fill="${col}"/><rect x="${x-b/2}" y="${y-a/2}" width="${b}" height="${a}" fill="${col}"/>`);}
 
 // ---- linear features: paths + labels (honour overrides.features[key]) ----
@@ -471,6 +601,14 @@ function drawFeatureLabel(f){
   x+=(ov.move&&ov.move.dx)||0; y+=(ov.move&&ov.move.dy)||0;               // follow the feature nudge
   if(lov.pos){ x=lov.pos.x; y=lov.pos.y; } else if(lov.offset){ x+=lov.offset.dx; y+=lov.offset.dy; }
   const text=lov.text!=null?lov.text:f.label;
+  // coreBox: a feature label is placed by hand (labelPos) and has no collision
+  // logic of its own, so one sited on the town centre would print INSIDE the
+  // box. Drop it and say so — the fix is to move labelPos, not to hide the river.
+  if(inCore([x,y])){
+    console.error('coreBox: feature label "'+text+'" sits inside the town-centre box and was not '
+      +'drawn — move its labelPos (routes.json features[] / overrides internal.features).');
+    return;
+  }
   const italic=f.labelItalic!==false, size=f.labelSize||4, anchor=lov.anchor||null;
   out(`<text x="${x}" y="${y}" font-family="Arial" ${italic?'font-style="italic" ':''}font-size="${size}"${anchor?` text-anchor="${anchor}"`:''} fill="${f.labelColor||'#7fb0d8'}">${esc(text)}</text>`);
 }
@@ -505,6 +643,7 @@ function poiMark(p){
   let [x,y]=XY(p.ll);
   if(o.pos){ x=o.pos.x; y=o.pos.y; } else if(o.move){ x+=o.move.dx; y+=o.move.dy; }
   if(IR && (x<MX0+1||x>MX1-1||y<MY0+1||y>MY1-1) && !o.pos && !o.move) return; // off-frame under roads model
+  if(inCore([x,y])) return;                     // coreBox: the centre is deliberately blank
   out(gk('poi',k,icon(p.cat,x,y,2.1)));
   const auto = ['shop','leisure','school','park','community','allotments'].includes(p.cat) && p.name && p.name!=='Park';
   const showName = o.force===true || (auto && o.force!==false);
@@ -526,7 +665,107 @@ for(const f of FEATURES) drawFeature(f);
 // ============================================================================
 let rseq={};                      // classic model's filtered sequences (old termini block)
 let TRIM=null, SKEL=null;         // internalRoads artefacts used later (arrows/badges/labels)
+let CORUN=null;                   // MEMR: r -> {segIdx:[routes physically co-running there]}
 const inFrame=p=>p[0]>=MX0&&p[0]<=MX1&&p[1]>=MY0&&p[1]<=MY1;
+
+// ---- coreBox geometry (rung 2). Null unless routes.json coreBox is set. ------
+// Project a real geographic circle of `radius` metres around the anchor and take
+// its page-space bounding box. Doing it this way, rather than converting metres
+// to mm through a scale factor, is exact under the focus fisheye and any extra
+// lenses[] — which is the whole difficulty, since those deliberately make the
+// centre's scale different from everywhere else.
+const CORE = (function(){
+  if(!CBOX) return null;
+  const all = atco2ll[ANCHOR];
+  if(!all){ console.error('coreBox: anchor '+ANCHOR+' has no coordinate — box not drawn'); return null; }
+  const R = (CBOX.radius!=null?CBOX.radius:600)/1000;           // km
+  const latKm = 110.574, lonKm = 111.320*Math.cos(all[0]*Math.PI/180);
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(let i=0;i<72;i++){ const a=i/72*2*Math.PI;
+    const p=XY([all[0]+R*Math.cos(a)/latKm, all[1]+R*Math.sin(a)/lonKm]);
+    if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
+  if(CBOX.w!=null){ const cx=(x0+x1)/2; x0=cx-CBOX.w/2; x1=cx+CBOX.w/2; }
+  if(CBOX.h!=null){ const cy=(y0+y1)/2; y0=cy-CBOX.h/2; y1=cy+CBOX.h/2; }
+  if(CBOX.at){ const w=x1-x0, h=y1-y0;                          // re-centre by hand
+    x0=CBOX.at[0]-w/2; x1=CBOX.at[0]+w/2; y0=CBOX.at[1]-h/2; y1=CBOX.at[1]+h/2; }
+  return { x0,y0,x1,y1, label:(CBOX.label!=null?CBOX.label:'town centre'), sublabel:CBOX.sublabel||null };
+})();
+const inCore = p => !!CORE && p[0]>=CORE.x0 && p[0]<=CORE.x1 && p[1]>=CORE.y0 && p[1]<=CORE.y1;
+// ---- stopThinning: the set of stops that keep their tick (null => all) -------
+const THINKEEP = (function(){
+  if(!THIN) return null;
+  const minLines = THIN.minLines!=null?THIN.minLines:2;
+  const keep = new Set(THIN.keep||[]);
+  const lanes = {};
+  for(const r of order){ const chain=routes[r]; if(!chain||!chain.length) continue;
+    if(THIN.termini!==false){ keep.add(chain[0]); keep.add(chain[chain.length-1]); }
+    const lane=laneKey(r);
+    for(const a of new Set(chain)) (lanes[a]=lanes[a]||new Set()).add(lane); }
+  for(const a of Object.keys(lanes)) if(lanes[a].size>=minLines) keep.add(a);
+  keep.add(ANCHOR);                                    // the interchange always stays
+  for(const a of (THIN.drop||[])) keep.delete(a);
+  return keep;
+})();
+const keepStop = a => !THINKEEP || THINKEEP.has(a);
+// Where does the segment out->inn cross the box boundary? Axis-aligned, so test
+// the four planes and keep the first crossing that actually lands on an edge.
+function coreEdge(outP,innP){
+  const cand=[];
+  if(innP[0]!==outP[0]){ cand.push((CORE.x0-outP[0])/(innP[0]-outP[0])); cand.push((CORE.x1-outP[0])/(innP[0]-outP[0])); }
+  if(innP[1]!==outP[1]){ cand.push((CORE.y0-outP[1])/(innP[1]-outP[1])); cand.push((CORE.y1-outP[1])/(innP[1]-outP[1])); }
+  let best=1, e=1e-6;
+  for(const t of cand){ if(!(t>=0&&t<=1)) continue;
+    const p=[outP[0]+(innP[0]-outP[0])*t, outP[1]+(innP[1]-outP[1])*t];
+    if(p[0]>=CORE.x0-e&&p[0]<=CORE.x1+e&&p[1]>=CORE.y0-e&&p[1]<=CORE.y1+e && t<best) best=t; }
+  return [outP[0]+(innP[0]-outP[0])*best, outP[1]+(innP[1]-outP[1])*best];
+}
+// Split a polyline into the runs OUTSIDE the box, each ending exactly on the
+// boundary. A route that crosses the centre and comes out the other side yields
+// two runs — which is the point: it visibly runs TO the box from both sides.
+//
+// A run shorter than `coreBox.minRun` mm is DROPPED. Town-centre one-way loops
+// make a route's matched path poke a few millimetres back out of the box and in
+// again, and that orphan stub — a line fragment attached to nothing, with the
+// route's terminus badge stack planted on it — reads as a real branch (High
+// Wycombe v2.0 draft: 102/103/104/105 each left a 5 mm stub west of the box
+// carrying a six-badge stack). Only reachable when coreBox is set.
+const MINRUN = CBOX ? (CBOX.minRun!=null?CBOX.minRun:2.5) : 0;
+const runLen = rn => { let L=0; for(let i=1;i<rn.length;i++) L+=Math.hypot(rn[i][0]-rn[i-1][0], rn[i][1]-rn[i-1][1]); return L; };
+function clipOutCore(pts){
+  if(!CORE) return [pts];
+  const runs=[]; let cur=[];
+  for(let i=0;i<pts.length;i++){
+    if(!inCore(pts[i])){
+      if(!cur.length && i>0) cur.push(coreEdge(pts[i], pts[i-1]));   // leaving the box
+      cur.push(pts[i]);
+    } else if(cur.length){
+      cur.push(coreEdge(cur[cur.length-1], pts[i]));                 // entering the box
+      runs.push(cur); cur=[];
+    }
+  }
+  if(cur.length) runs.push(cur);
+  return runs.filter(rn=>rn.length>=2 && runLen(rn)>=MINRUN);
+}
+// r -> the endpoints of the runs actually DRAWN, so a terminus badge is never
+// planted on a stub that clipOutCore threw away. Null without a coreBox.
+const CORERUNS = CORE ? {} : null;
+// Map an index in TRIM[r].pts back to the SOURCE polyline segment index, so the
+// badge logic can ask CORUN who co-runs at that point. pts = sh.slice(s0,e+1)
+// with the frame-cut points spliced on, so the shift is s0 minus the leading cut.
+const segIdxOf=(tr,i)=>{ if(!tr||!tr.sh) return i;
+  const j=(tr.draw?tr.draw.s0:0) + i - (tr.startCut?1:0);
+  return Math.max(0, Math.min(tr.sh.length-2, j)); };
+// The internalCorridors members actually co-running with r at that segment, in
+// family order. Without the key this is always [r] — one badge, as before.
+const famAt=(r,si)=>{ if(!CORR || !CORR.lead[r]) return [r];
+  const fam=CORR.fam[CORR.lead[r]] || [r];
+  const here=(CORUN && CORUN[r] && CORUN[r][si]) || [r];
+  return fam.filter(m=>m===r || here.includes(m)); };
+// Which route draws the badge for a bundled group: the first family member
+// present. Every other member returns null there and stays silent, so the shared
+// line carries ONE stack — but a member alone on a divergent branch is its own
+// group leader and still badges its branch.
+const badgeGroup=(r,si)=>{ const g=famAt(r,si); return g[0]===r ? g : null; };
 if(IR){
   // -- project matched polylines to page space
   const RPP={};                                  // r -> {P:[[x,y]..], E:[token|null]}
@@ -561,14 +800,25 @@ if(IR){
       SEG.push({r,i,ax:a[0],ay:a[1],ux:dx/L,uy:dy/L,L,mx:(a[0]+b[0])/2,my:(a[1]+b[1])/2}); } }
   const pSeg=(px,py,s)=>{ let t=(px-s.ax)*s.ux+(py-s.ay)*s.uy; if(t<0)t=0; else if(t>s.L)t=s.L;
     const cx=s.ax+s.ux*t, cy=s.ay+s.uy*t; return Math.hypot(px-cx,py-cy); };
-  const MEM={};
+  // MEMR = ROUTE-level membership (who physically co-runs here).
+  // MEM  = LANE-level membership (MEMR with each internalCorridors family
+  //        collapsed to its lead) — this is what sizes the casing and picks the
+  //        lane offsets, so a bundled family occupies ONE lane. Without
+  //        internalCorridors laneList() is the identity and MEM === MEMR.
+  const laneList = CORR
+    ? (a=>[...new Set(a.map(laneKey))].sort((x,y)=>orderIdx[x]-orderIdx[y]))
+    : (a=>a);
+  const MEM={}, MEMR={};
   for(const s of SEG){ const set=new Set([s.r]);
     for(const u of SEG){ if(u.r===s.r)continue;
       if(Math.abs(s.ux*u.ux+s.uy*u.uy)<CA)continue;             // not near-parallel
       if(pSeg(s.mx,s.my,u)>CD)continue;                         // s mid far from u
       if(pSeg(u.mx,u.my,s)>CD)continue;                         // u mid far from s
       set.add(u.r); }
-    (MEM[s.r]=MEM[s.r]||{})[s.i]=[...set].sort((x,y)=>orderIdx[x]-orderIdx[y]); }
+    const here=[...set].sort((x,y)=>orderIdx[x]-orderIdx[y]);
+    (MEMR[s.r]=MEMR[s.r]||{})[s.i]=here;
+    (MEM[s.r]=MEM[s.r]||{})[s.i]=laneList(here); }
+  CORUN=MEMR;                    // published for the badge logic further below
   const segByRoute={};                             // r -> its own segments (for reference dir)
   for(const s of SEG){ (segByRoute[s.r]=segByRoute[s.r]||[]).push(s); }
   // reference direction for a lane-bundle at a point: the local heading of the
@@ -600,7 +850,10 @@ if(IR){
     const v=[];
     for(let i=0;i<Pp.length-1;i++){ let sx=0,sy=0;
       const arr=(MEM[r]&&MEM[r][i])||null;                      // geometric lane-bundle here
-      if(arr && arr.length>1){ const so=(arr.indexOf(r)-(arr.length-1)/2)*IR.gap;
+      // laneKey(r), not r: a bundled family shares ONE lane, so its members all
+      // take the same offset and overdraw into a single visible line here. Where
+      // they diverge this segment simply has no sibling and they separate again.
+      if(arr && arr.length>1){ const so=(arr.indexOf(laneKey(r))-(arr.length-1)/2)*IR.gap;
         const ox=Pp[i+1][0]-Pp[i][0], oy=Pp[i+1][1]-Pp[i][1];  // own heading (fallback)
         // normal from the bundle's reference route (arr[0]) local heading, so ALL
         // lanes share one smoothly-varying normal here -> no side-swaps on curves,
@@ -666,8 +919,14 @@ if(IR){
     let tt=L2?((M[0]-a[0])*dx+(M[1]-a[1])*dy)/L2:0; tt=tt<0?0:tt>1?1:tt;
     const cx=a[0]+dx*tt, cy=a[1]+dy*tt; return Math.hypot(M[0]-cx,M[1]-cy); };
   // does route s's DRAWN (trimmed, in-frame) centreline pass within CD of M?
-  const drawnCovers=(s,M)=>{ const o2=RPP[s], tr=TRIM[s]; if(!o2||!tr||!tr.draw)return false;
+  const drawnCovers1=(s,M)=>{ const o2=RPP[s], tr=TRIM[s]; if(!o2||!tr||!tr.draw)return false;
     const P=o2.P, dr=tr.draw; for(let j=dr.s0;j<dr.e && j<P.length-1;j++){ if(segDist(M,P[j],P[j+1])<=CD)return true; } return false; };
+  // MEM now holds LANE keys, so ask "is ANY member of this lane drawn here?" —
+  // a family whose lead has been trimmed away but whose sibling still runs must
+  // keep its casing. Identity when internalCorridors is absent.
+  const drawnCovers = CORR
+    ? ((s,M)=>((CORR.fam[s]||[s]).some(m=>drawnCovers1(m,M))))
+    : drawnCovers1;
   SKEL=[];                                       // [{c,p,q,name}] for road labels
   const eSeen=new Set();
   let _wmax=0;
@@ -683,7 +942,7 @@ if(IR){
       // showing only its outer lane would either overrun a centreline-anchored
       // casing or leave bare grey on the empty side. When every bundle route is
       // drawn, mid=0 and span=(nb-1)*gap, i.e. the old always-full casing exactly.
-      const bundle=(MEM[r]&&MEM[r][i])?MEM[r][i]:eRoutes[c], nb=bundle.length;
+      const bundle=(MEM[r]&&MEM[r][i])?MEM[r][i]:laneList(eRoutes[c]), nb=bundle.length;
       const M=[(Pp[i][0]+Pp[i+1][0])/2,(Pp[i][1]+Pp[i+1][1])/2];
       let loO=Infinity,hiO=-Infinity;
       for(let k2=0;k2<nb;k2++){ if(!drawnCovers(bundle[k2],M))continue;
@@ -725,7 +984,11 @@ if(IR){
   }
   // -- route lines
   for(const r of order){ const tr=TRIM[r]; if(!tr||tr.pts.length<2)continue;
-    const d=tr.pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
+    // coreBox: draw the runs OUTSIDE the box as subpaths of one path element, so
+    // each end stops flush on the boundary. No box => one run, byte-identical.
+    const runs=clipOutCore(tr.pts); if(!runs.length)continue;
+    if(CORERUNS) CORERUNS[r]=[].concat(...runs.map(rn=>[rn[0],rn[rn.length-1]]));
+    const d=runs.map(rn=>rn.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ')).join(' ');
     out(gk('route',r,`<path d="${d}" fill="none" stroke="${C[r]}" stroke-width="${IR.stroke}" stroke-linecap="round" stroke-linejoin="round"/>`)); }
   // -- stop ticks ON the route lines (one per physical stop, first route wins;
   //    stops[ATCO].pos override moves the tick)
@@ -740,7 +1003,7 @@ if(IR){
   for(const r of order){ const tr=TRIM[r]; if(!tr||!tr.sh)continue;
     for(const a in tr.st){ if(tickSeen.has(a))continue; const o=tr.st[a]; if(o.i>=tr.sh.length-1)continue;
       let p=baseOv[a] || [tr.sh[o.i][0]+(tr.sh[o.i+1][0]-tr.sh[o.i][0])*o.t, tr.sh[o.i][1]+(tr.sh[o.i+1][1]-tr.sh[o.i][1])*o.t];
-      if(!inFrame(p))continue; tickSeen.add(a);
+      if(!inFrame(p))continue; if(inCore(p))continue; if(!keepStop(a))continue; tickSeen.add(a);
       if(IDKEEP && !IDKEEP.has(a) && !IDPOI.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<=IDPD)) continue;
       out(gk('stop',a,`<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="0.8" fill="#fff" stroke="#555" stroke-width="0.4"/>`)); } }
 } else {
@@ -754,37 +1017,59 @@ for(const r of order){ if(!routes[r])continue;
 const segRoutes={};                                             // "a|b" -> [routes sharing the segment]
 if(BUNDLE){ for(const r of order){ const sq=rseq[r]||[];
   for(let i=0;i<sq.length-1;i++){ const a=sq[i],b=sq[i+1], key=a<b?a+'|'+b:b+'|'+a;
-    (segRoutes[key]=segRoutes[key]||[]).push(r); } } }
+    const lst=(segRoutes[key]=segRoutes[key]||[]);
+    // internalCorridors: one lane per family (deduped). Without it, keep the
+    // original unconditional push — a route that traverses the same stop pair
+    // twice legitimately claims two ranks, and deduping would move its line.
+    if(CORR){ const lk=laneKey(r); if(!lst.includes(lk)) lst.push(lk); }
+    else lst.push(r); } } }
 let idx=0;
 for(const r of order){ if(!routes[r])continue;
   const ro=(OV.routeOffsets||{})[r]||{dx:0,dy:0};                 // lateral spread off a shared corridor
   const sq=rseq[r]; const seq=sq.map(a=>rpos(r,a));
   if(seq.length<2)continue;
-  let d;
+  let poly;
   if(BUNDLE){                                                    // perpendicular fan-out of shared runs
     const v=[];                                                  // per-segment offset vector
     for(let i=0;i<sq.length-1;i++){ const a=sq[i],b=sq[i+1], key=a<b?a+'|'+b:b+'|'+a;
-      const list=segRoutes[key]||[r], cnt=list.length, rank=list.indexOf(r);
+      const list=segRoutes[key]||[r], cnt=list.length, rank=list.indexOf(CORR?laneKey(r):r);
       const so=(rank-(cnt-1)/2)*BGAP;
       const dx=seq[i+1][0]-seq[i][0], dy=seq[i+1][1]-seq[i][1], L=Math.hypot(dx,dy)||1;
       v.push([-dy/L*so, dx/L*so]); }
-    const sh=seq.map((p,i)=>{ let sx,sy;
+    poly=seq.map((p,i)=>{ let sx,sy;
       if(i===0){[sx,sy]=v[0];} else if(i===seq.length-1){[sx,sy]=v[i-1];}
       else {sx=(v[i-1][0]+v[i][0])/2; sy=(v[i-1][1]+v[i][1])/2;}
       return [p[0]+sx+ro.dx, p[1]+sy+ro.dy]; });
-    d=sh.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
   } else { const off=(idx-3)*0.6;
-    d=seq.map((p,i)=>(i?'L':'M')+(p[0]+off+ro.dx).toFixed(2)+' '+(p[1]+off+ro.dy).toFixed(2)).join(' '); }
+    poly=seq.map(p=>[p[0]+off+ro.dx, p[1]+off+ro.dy]); }
+  // coreBox: keep only the runs outside the box (one run, unchanged, without it)
+  const runs=clipOutCore(poly); if(!runs.length){ idx++; continue; }
+  const d=runs.map(rn=>rn.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ')).join(' ');
   out(gk('route',r,`<path d="${d}" fill="none" stroke="${C[r]}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>`)); idx++; }
 // stop ticks (one per physical stop at its base position)
 const seen=new Set();
-for(const r in routes) for(const a of routes[r]){ if(seen.has(a)||!atco2ll[a])continue; seen.add(a);
-  const[x,y]=XYS(a); out(gk('stop',a,`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="0.85" fill="#fff" stroke="#555" stroke-width="0.45"/>`));}
+for(const r in routes) for(const a of routes[r]){ if(seen.has(a)||!atco2ll[a]||!keepStop(a))continue; seen.add(a);
+  const[x,y]=XYS(a); if(inCore([x,y]))continue;
+  out(gk('stop',a,`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="0.85" fill="#fff" stroke="#555" stroke-width="0.45"/>`));}
 // per-route divergence ticks: only where a route pulled a shared stop off the base (no-op without overrides)
 for(const r in routeOv) for(const a of (routes[r]||[])){ if(!atco2ll[a]&&!baseOv[a])continue;
   const rp=routeOv[r][a]; if(!rp)continue; const bp=baseXY(a);
   if(Math.abs(rp[0]-bp[0])<0.01 && Math.abs(rp[1]-bp[1])<0.01)continue;
   out(gk('stop', r+':'+a, `<circle cx="${rp[0].toFixed(2)}" cy="${rp[1].toFixed(2)}" r="0.85" fill="#fff" stroke="#555" stroke-width="0.45"/>`));}
+}
+// ---- coreBox: the box itself, drawn last inside the clipped map group so it
+//      covers the road skeleton, context roads and any linear feature crossing
+//      the centre. The route lines were already cut at its boundary, so nothing
+//      of a route is hidden underneath — each one visibly runs TO the box.
+if(CORE){
+  const w=CORE.x1-CORE.x0, h=CORE.y1-CORE.y0;
+  const ts=CBOX.textSize||(CORE.sublabel?4.0:4.6);
+  out(gk('corebox','core',
+    `<rect x="${CORE.x0.toFixed(2)}" y="${CORE.y0.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${Math.min(6,Math.min(w,h)/3).toFixed(2)}" fill="${CBOX.fill||'#ffffff'}" stroke="${CBOX.stroke||'#444444'}" stroke-width="0.9"/>`));
+  const cx=(CORE.x0+CORE.x1)/2, cy=(CORE.y0+CORE.y1)/2;
+  if(CORE.label) out(`<text x="${cx.toFixed(2)}" y="${(cy+(CORE.sublabel?-0.6:ts*0.36)).toFixed(2)}" font-family="Arial" font-weight="bold" font-size="${ts}" fill="#111" text-anchor="middle">${esc(CORE.label)}</text>`);
+  if(CORE.sublabel) out(`<text x="${cx.toFixed(2)}" y="${(cy+ts*0.95).toFixed(2)}" font-family="Arial" font-size="${(ts*0.66).toFixed(2)}" fill="#555" text-anchor="middle">${esc(CORE.sublabel)}</text>`);
+  reserve(CORE.x0-0.5,CORE.y0-0.5,CORE.x1+0.5,CORE.y1+0.5);
 }
 out(`</g>`);
 
@@ -796,7 +1081,9 @@ for(const f of FEATURES){ const ov=featOv(f);           // linear-feature label 
   if(f.labelReserve) reserve(...f.labelReserve); }
 // Central interchange / bus-station label (the ANCHOR) drawn + reserved first
 // (suppressed when internalDiagram draws a lozenge for the anchor instead)
-if((atco2ll[ANCHOR]||baseOv[ANCHOR]) && !(ID && (ID.interchanges||[]).some(ic=>ic.atco===ANCHOR))){const[x,y]=XYS(ANCHOR);
+// (also suppressed by coreBox — the box IS the interchange, and its own label
+//  says so; drawing both puts two names on the same square centimetre)
+if((atco2ll[ANCHOR]||baseOv[ANCHOR]) && !CORE && !(ID && (ID.interchanges||[]).some(ic=>ic.atco===ANCHOR))){const[x,y]=XYS(ANCHOR);
   const _a=[`<rect x="${x-1.7}" y="${y-1.7}" width="3.4" height="3.4" rx="0.5" fill="#111"/>`,
     `<rect x="${x-1.0}" y="${y-1.0}" width="2.0" height="2.0" rx="0.3" fill="#fff"/>`,
     `<text x="${x+2.6}" y="${y+1.0}" font-family="Arial" font-weight="bold" font-size="3.0" fill="#111" stroke="#fff" stroke-width="0.7" paint-order="stroke">${esc(ANCHOR_LABEL)}</text>`].join('\n');
@@ -809,10 +1096,14 @@ if(IR && TRIM){
   const TL=RJ.terminiLabels||{};
   const aplaced=[];
   // terminal badge where a route simply ENDS in town (not continuing, not circular)
-  const termBadge=(p,r)=>{
+  const termBadge=(p,r,grp)=>{
+    if(inCore(p)) return;                                      // coreBox owns the centre
+    // and never on an end whose run was dropped as a stub (see clipOutCore)
+    if(CORERUNS && !(CORERUNS[r]||[]).some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<0.05)) return;
     const anc=(atco2ll[ANCHOR]||baseOv[ANCHOR])?XYS(ANCHOR):null;
     if(anc && Math.hypot(p[0]-anc[0],p[1]-anc[1])<8) return;   // not at the interchange knot
-    badge(p[0],p[1],r,2.6); reserve(p[0]-2.8,p[1]-2.8,p[0]+2.8,p[1]+2.8);
+    const hh=badgeStack(p[0],p[1],grp||[r],2.6);
+    reserve(p[0]-2.8,p[1]-hh-0.2,p[0]+2.8,p[1]+hh+0.2);
   };
   // -- consolidate frame-cut termini into ONE box per exit cluster (item 5,
   //    2026-07-04): nearby cut points used to each place an independent
@@ -873,10 +1164,18 @@ if(IR && TRIM){
     // The cut point sits ON the frame, so a badge centred near it straddles the edge and
     // renders half-clipped ("905" printed as "05" at the right edge in St Neots v1.1).
     // Keep the whole 3.0 mm badge inside the drawing frame.
-    bx=Math.min(Math.max(bx,MX0+3.4),MX1-3.4); by=Math.min(Math.max(by,MY0+3.4),MY1-3.4);
-    aplaced.push([bx,by]);
     const groups=[], gi2={};                   // same "to X" text -> one shared row
     for(const m of ms){ const k=m.label||''; if(!(k in gi2)){ gi2[k]=groups.length; groups.push({label:m.label,ms:[]}); } groups[gi2[k]].ms.push(m); }
+    // A row is centred on bx and spreads (n-1)/2*BS each way, so clamping the
+    // CENTRE to the frame is not enough once a bundled family puts 3+ badges in
+    // one row: High Wycombe's six-badge "to Loudwater & Beaconsfield" row ran
+    // 13 mm off the right edge and printed over the Services panel. Widen the
+    // clamp by the row's own half-width. A solo badge keeps the original 3.4 mm
+    // margin exactly; a multi-badge row is pulled fully inside the frame (St Ives'
+    // 2-badge "to Cambridge" row moves 2.1 mm — re-rendered at v6.8).
+    const rowHalf=Math.max(3.4, ((Math.max(...groups.map(g=>g.ms.length))-1)/2)*BS+3.4);
+    bx=Math.min(Math.max(bx,MX0+rowHalf),MX1-rowHalf); by=Math.min(Math.max(by,MY0+3.4),MY1-3.4);
+    aplaced.push([bx,by]);
     let bxMin=Infinity,bxMax=-Infinity,byMin=Infinity,byMax=-Infinity;
     groups.forEach((g,gidx)=>{
       const ry=by+(gidx-(groups.length-1)/2)*RH;
@@ -925,12 +1224,18 @@ if(IR && TRIM){
   for(const r of order){ const tr=TRIM[r]; if(!tr)continue;
     const closed = tr.pts.length>2 && Math.hypot(tr.pts[0][0]-tr.pts[tr.pts.length-1][0], tr.pts[0][1]-tr.pts[tr.pts.length-1][1])<2;
     if(!closed){
-      if(!tr.endCut   && tr.pts.length>=2 && inFrame(tr.pts[tr.pts.length-1])) termBadge(tr.pts[tr.pts.length-1],r);
-      if(!tr.startCut && tr.pts.length>=2 && inFrame(tr.pts[0])) termBadge(tr.pts[0],r);
+      if(!tr.endCut   && tr.pts.length>=2 && inFrame(tr.pts[tr.pts.length-1])){
+        const g=badgeGroup(r,segIdxOf(tr,tr.pts.length-2));
+        if(g) termBadge(tr.pts[tr.pts.length-1],r,g); }
+      if(!tr.startCut && tr.pts.length>=2 && inFrame(tr.pts[0])){
+        const g=badgeGroup(r,segIdxOf(tr,0));
+        if(g) termBadge(tr.pts[0],r,g); }
     }
   }
   // small route badges sprinkled along each visible line
   const bplaced=aplaced.slice();
+  const badged=new Set();          // routes that got at least one badge anywhere
+  const soloEligible=new Set();    // routes seen drawing ALONE (own colour, own line)
   for(const r of order){ const tr=TRIM[r]; if(!tr||tr.pts.length<2)continue;
     let acc=0, next=(IR.badgeEvery)*0.55;
     for(let i=0;i<tr.pts.length-1;i++){
@@ -940,13 +1245,143 @@ if(IR && TRIM){
         const p=[tr.pts[i][0]+(tr.pts[i+1][0]-tr.pts[i][0])*t, tr.pts[i][1]+(tr.pts[i+1][1]-tr.pts[i][1])*t];
         next+=IR.badgeEvery;
         if(!inFrame(p))continue;
+        if(inCore(p))continue;                       // coreBox: nothing inside the box
+        // On a bundled corridor only the group leader badges, and it badges the
+        // WHOLE stack; a sibling that has left the bundle badges its own branch.
+        const grp=badgeGroup(r,segIdxOf(tr,i));
+        if(!grp)continue;
+        if(grp.length===1) soloEligible.add(r);
         if(bplaced.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<9))continue;
-        if(overlaps([p[0]-2.3,p[1]-2.3,p[0]+2.3,p[1]+2.3]))continue;
-        bplaced.push(p); badge(p[0],p[1],r,2.4); reserve(p[0]-2.5,p[1]-2.5,p[0]+2.5,p[1]+2.5);
+        const gh=grp.length===1?2.3:(grp.length-1)/2*5.3+2.3;
+        if(overlaps([p[0]-2.3,p[1]-gh,p[0]+2.3,p[1]+gh]))continue;
+        bplaced.push(p); const hh=badgeStack(p[0],p[1],grp,2.4);
+        for(const g of grp) badged.add(g);
+        reserve(p[0]-2.5,p[1]-hh-0.1,p[0]+2.5,p[1]+hh+0.1);
       }
       acc+=L;
     }
   }
+  // ---- GUARANTEED badge for a line whose colour no longer identifies it ------
+  // Rung 3 (corridorPalette) deliberately gives several drawn lines one colour,
+  // and a rung-1 family that diverges does the same on its branches. The normal
+  // pass drops a badge rather than overlap something — fine when colour still
+  // says which route this is, fatal when it doesn't. So for those lines only,
+  // place one badge regardless of collision: an unidentifiable line is a worse
+  // defect than a crowded one. Gated on the keys, so no existing town changes.
+  if(CPAL || CORR){
+    for(const r of order){
+      if(badged.has(r)) continue;
+      const shared = colourShared(r) || (CORR && CORR.lead[r] && soloEligible.has(r));
+      if(!shared) continue;
+      const tr=TRIM[r]; if(!tr||tr.pts.length<2) continue;
+      // walk to the mid-point of the drawn line, then outwards, for the first
+      // spot that is on the page and outside the core box
+      const segs=[]; let tot=0;
+      for(let i=0;i<tr.pts.length-1;i++){
+        const L=Math.hypot(tr.pts[i+1][0]-tr.pts[i][0], tr.pts[i+1][1]-tr.pts[i][1]);
+        if(L){ segs.push({i,L,at:tot+L/2}); tot+=L; } }
+      if(!segs.length) continue;
+      segs.sort((a,b)=>Math.abs(a.at-tot/2)-Math.abs(b.at-tot/2));
+      for(const s of segs){
+        const p=[(tr.pts[s.i][0]+tr.pts[s.i+1][0])/2, (tr.pts[s.i][1]+tr.pts[s.i+1][1])/2];
+        if(!inFrame(p)||inCore(p)) continue;
+        const grp=badgeGroup(r,segIdxOf(tr,s.i)) || [r];
+        const hh=badgeStack(p[0],p[1],grp,2.4);
+        for(const g of grp) badged.add(g);
+        bplaced.push(p); reserve(p[0]-2.5,p[1]-hh-0.1,p[0]+2.5,p[1]+hh+0.1);
+        break;
+      }
+    }
+  }
+}
+
+// ---- internalCorridors: divergence report (no SVG output; CORR-gated) -------
+// Bundling asserts that a family runs together. The geometry keeps that honest
+// by itself — members separate where they diverge, because nothing merged their
+// coordinates — but a family whose members only share half their length is a bad
+// bundle even so: most of the sheet is then two SAME-COLOURED lines going
+// different ways, which is worse than two colours. Measure it and say so.
+//
+// The measure is the SAME one complexity_score.js uses to PROPOSE a family:
+// mutual overlap of ~111 m cells on the raw matched lat/lon paths, warn below
+// 0.6 (its --overlap default). The tool that suggests a bundle and the tool that
+// draws it must not disagree about what "co-running" means.
+//
+// Two measures were tried first and are wrong; recording them so they are not
+// re-invented. (a) The lane-bundling test (CORUN / corridor.dist 2.4 mm ≈ 65 m
+// at map scale) is right for "should these share a casing" but far too generous
+// here — in a dense core it makes almost every route a neighbour of every other.
+// (b) Page-space coincidence of the DRAWN lines is circular: bundling is exactly
+// what removes the lane offset between members, so measuring after it inflates
+// every family towards 1.0 (two unrelated High Wycombe routes read 0.70).
+if((CORR || CPAL) && RP && RP.routes){
+  const CELL=0.001;                                   // ~111 m of latitude
+  let laMin=90, laMax=-90;
+  for(const k of Object.keys(RP.routes)) for(const p of (RP.routes[k].pts||[])){
+    if(p[0]<laMin)laMin=p[0]; if(p[0]>laMax)laMax=p[0]; }
+  const cellLo = CELL/Math.cos((laMin+laMax)/2*Math.PI/180);
+  const cellsOf = r => { const e=RP.routes[r]; if(!e||!e.pts||e.pts.length<2) return null;
+    const s=new Set(); for(const p of e.pts) s.add(Math.floor(p[0]/CELL)+','+Math.floor(p[1]/cellLo));
+    return s; };
+  const rep={ town:RJ.town, measure:'mutual 111m-cell overlap of the matched paths (as complexity_score.js --overlap)',
+    sharedMin:0.6, families:[] };
+  for(const lead of Object.keys(CORR ? CORR.fam : {})){
+    const fam=CORR.fam[lead], cells={}, members=[];
+    for(const m of fam) cells[m]=cellsOf(m);
+    for(const m of fam){ const A=cells[m];
+      if(!A){ members.push({route:m, drawn:false}); continue; }
+      // worst pairwise overlap against the family: a member has to co-run with
+      // EVERY sibling, not just the one it happens to share a street with
+      let worst=1, worstWith=null;
+      for(const o of fam){ if(o===m||!cells[o])continue;
+        let inter=0; for(const c of A) if(cells[o].has(c)) inter++;
+        const f=inter/A.size; if(f<worst){ worst=f; worstWith=o; } }
+      members.push({ route:m, drawn:true, cells:A.size,
+        sharedFraction:+worst.toFixed(3), weakestAgainst:worstWith });
+    }
+    const weak=members.filter(x=>x.drawn && x.sharedFraction<rep.sharedMin).map(x=>x.route);
+    rep.families.push({ lead, routes:fam, members, weakMembers:weak });
+    console.log('  corridor '+fam.join('/')+'  '+members.map(x=>x.route+' '
+      +(x.drawn?Math.round(x.sharedFraction*100)+'%':'not drawn')).join('  '));
+    if(weak.length) console.error('CORRIDOR WARNING '+fam.join('/')+': '+weak.join(', ')
+      +' co-run with the family over <'+Math.round(rep.sharedMin*100)+'% of their route — the rest '
+      +'is now a second same-coloured line going somewhere else, which is worse than two colours. '
+      +'Reconsider this bundle.');
+  }
+  // ---- rung 3: what the colour scheme now says ------------------------------
+  // With corridorPalette the palette no longer identifies a route, so the honest
+  // number to report is DISTINCT COLOURS, not lines — that is the ~12 ceiling
+  // the whole ladder exists to respect. complexity_score.js counts the same way.
+  const drawnRoutes=order.filter(r=>TRIM && TRIM[r] && TRIM[r].pts && TRIM[r].pts.length>=2);
+  const distinct=new Set(drawnRoutes.map(r=>C[r])).size;
+  rep.colours={ drawnLines:drawnRoutes.length, distinctColours:distinct,
+    ambiguity:+(distinct?drawnRoutes.length/distinct:0).toFixed(2),
+    corridorPalette:!!CPAL };
+  if(CPAL){
+    rep.colourGroups=Object.keys(CPAL.fam).map(l=>({lead:l, routes:CPAL.fam[l]}));
+    // The check that matters most for rung 3. corridorPalette does not, on its
+    // own, reduce how many colours a town uses — it makes the SHARING MEANINGFUL.
+    // High Wycombe v1.0's real disease was 12 hues spread arbitrarily over 31
+    // routes: colour repeated, but repeated at random. So flag any hue used by
+    // two DIFFERENT corridor groups — an accidental clash, which reads to a
+    // reader exactly like a corridor and is not one.
+    const grpOf=r=>(CPAL.lead[r]) || (CORR&&CORR.lead[r]) || r;
+    const byColour={};
+    for(const r of drawnRoutes){ (byColour[C[r]]=byColour[C[r]]||new Set()).add(grpOf(r)); }
+    const clashes=Object.keys(byColour).filter(c=>byColour[c].size>1)
+      .map(c=>({colour:c, groups:[...byColour[c]]}));
+    rep.colourClashes=clashes;
+    for(const cl of clashes) console.error('CORRIDOR WARNING colour '+cl.colour+' is shared by '
+      +'unrelated groups ('+cl.groups.join(', ')+') — a reader will read them as one corridor. '
+      +'Give each corridor its own hue, or group them in corridorPalette.');
+  }
+  fs.writeFileSync(DIR+'/corridors_report.json', JSON.stringify(rep,null,2));
+  console.log('corridors: '+rep.families.length+' bundled famil'+(rep.families.length===1?'y':'ies')
+    +(CPAL?', '+Object.keys(CPAL.fam).length+' colour group(s)':'')
+    +' — '+drawnRoutes.length+' lines in '+distinct+' colours; corridors_report.json written');
+  if(distinct>12) console.error('CORRIDOR WARNING '+distinct+' distinct colours still exceeds the ~12 '
+    +'usable colour-blind-safe hues — colour cannot identify a line. Group more corridors '
+    +'(corridorPalette) or curate more services.');
 }
 
 // ---- internalDiagram: one-way loop arrows + interchange lozenges (ID-gated) --
@@ -973,7 +1408,7 @@ if(ID && IR && TRIM){
   // interchange lozenges — tube-style station boxes (Bus Station, Park & Ride)
   for(const ic of (ID.interchanges||[])){
     const a2=ic.atco; if(!(atco2ll[a2]||baseOv[a2]))continue;
-    const [x,y]=XYS(a2);
+    const [x,y]=XYS(a2); if(inCore([x,y]))continue;      // coreBox replaces it
     const label=ic.label||atco2name[a2]||'';
     const sz=ic.size||3.0, w=(ic.w!=null?ic.w:label.length*sz*0.58+5), h=ic.h!=null?ic.h:5.4;
     const fill=ic.fill||'#1e7a46';
@@ -1035,7 +1470,7 @@ if(IR && SKEL){
     const cands=[[cx0,cy0]].concat([0.3,0.7,0.15,0.85,0.42,0.58].map(along));
     let ok=false, anyInFrame=false;
     for(const [cx,cy] of cands){
-      if(!inFrame([cx,cy]))continue; anyInFrame=true;
+      if(!inFrame([cx,cy]))continue; if(inCore([cx,cy]))continue; anyInFrame=true;
       // reserve the ROTATED footprint (rect rotated by `ang`, then its axis-
       // aligned bounding box) -- the old axis-aligned-only box ignored rotation
       // entirely, so a steeply-angled road name (e.g. -35 deg) could visually
@@ -1115,7 +1550,12 @@ if(RJ.internalTermini && !IR){ const TL=RJ.terminiLabels||{};
 }
 
 // title
-out(`<text x="6" y="16" font-family="Arial" font-weight="bold" font-size="11" fill="${C[ORI]}">Buses within ${esc(RJ.town)}</text>`);
+// Title colour defaults to the orientation route's colour, as it always has.
+// `internalTitleColor` overrides it — needed once a town colours by CORRIDOR
+// (rung 3), because the orientation route then wears a shared corridor hue that
+// has nothing to do with the sheet's identity (High Wycombe's title turned red
+// when 32A joined the Booker–Micklefield corridor). Absent => byte-identical.
+out(`<text x="6" y="16" font-family="Arial" font-weight="bold" font-size="11" fill="${RJ.internalTitleColor||C[ORI]}">Buses within ${esc(RJ.town)}</text>`);
 out(`<text x="6" y="23" font-family="Arial" font-size="5" fill="#444">(from ${esc(RJ.validFrom||'June 2026')})</text>`);
 for(const f of FEATURES) drawFeatureLabel(f);
 
@@ -1227,5 +1667,10 @@ function stampNote(cfg,x,y,align){
 { const at=(RJ.stamp&&RJ.stamp.internalAt)||[6,196]; stampNote(RJ.stamp, at[0], at[1], 'start'); }
 
 out('</svg>');
+if(THINKEEP){
+  const all=new Set([].concat(...Object.values(routes)));
+  console.log('stopThinning: '+THINKEEP.size+' of '+all.size+' stops keep a tick'
+    +' (minLines '+(THIN.minLines!=null?THIN.minLines:2)+(THIN.termini!==false?' + termini':'')+')');
+}
 fs.writeFileSync(DIR+'/internal.svg', s);
 console.log('internal.svg', s.length, 'bytes; pois', pois.length, 'rotation°', (-theta*180/Math.PI).toFixed(1) + (IR?' [internalRoads]':''));

@@ -65,7 +65,11 @@ async function checkOne(scratch, refDir, generator, svgName, jpgName, overridesF
   const refJpgPath = path.join(refDir, jpgName);
   if (existsSync(refJpgPath)) {
     const outJpg = path.join(scratch, 're_' + jpgName);
-    await rasterise(refSvg, outJpg);
+    // Rasterise the REGENERATED svg, not the reference one. Rasterising the
+    // reference only ever proves the rasteriser is deterministic, so it reported
+    // "pixel-identical" even on a run where the SVG genuinely DIFFERED — which is
+    // exactly the run where you need the JPG line to be believable.
+    await rasterise(reproSvg, outJpg);
     r.pix = await pixelCompare(readFileSync(refJpgPath), readFileSync(outJpg));
   }
   return r;
