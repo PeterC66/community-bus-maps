@@ -1,7 +1,7 @@
 # Operations Handbook — BusMaps.uk portal
 
-<!-- docstamp v1.1 | 2026-08-02 | sha=a4bd6c84 -->
-**v1.1** · updated 2 August 2026
+<!-- docstamp v1.2 | 2026-08-02 | sha=cf834abd -->
+**v1.2** · updated 2 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
 **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
@@ -122,8 +122,9 @@ a restore.
 ## 6. Where everything is
 
 **Public site** (no sign-in): `/` shopfront · `/apply.html` · `/faq.html` · `/contact.html` ·
-`/examples.html` · **`/maps`** gallery · **`/m/<slug>`** a published map · **`/o/<slug>`** an org page ·
-`/legal.html` privacy & attribution.
+`/examples.html` · `/pricing.html` · **`/maps`** gallery · **`/m/<slug>`** a published map ·
+**`/o/<slug>`** an org page · `/opportunity.html` the CIC hand-over pitch ("Take this on", footer
+link only, not in the nav) · `/legal.html` privacy & attribution · `/terms.html`.
 
 **App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle,
 outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests ·

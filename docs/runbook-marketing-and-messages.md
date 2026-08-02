@@ -26,14 +26,17 @@ Plain HTML, edited directly, sharing one header/footer and `/css/styles.css`:
 | `index.html` | the pitch / landing page |
 | `examples.html` | a **fixed showcase** of sample maps (distinct from the live `/maps`) |
 | `apply.html` | the Apply form → `application` (onboarding, R2) |
+| `pricing.html` | what would be bought and how a price would be arrived at — **no figures on it**, and every claim in the future conditional |
 | `faq.html` | public questions — keep current as features land |
 | `contact.html` | the contact form → a `message` |
+| `opportunity.html` | "Take this on" — the pitch to hand the system to a CIC. **Footer link only, deliberately not in the nav**; it is outreach, not part of the shopfront journey |
 | `legal.html` | privacy & attribution (G2) |
 | `terms.html` | the customer agreement (G3) |
 
 > **Shared footers are duplicated per page** (static HTML, no shared include), so a new footer link
 > must be added to every page by hand. The **Terms** link is now in all of them (added across the
-> shopfront 2026-07-25) — follow the same pattern for any future footer link.
+> shopfront 2026-07-25) and **Take this on** likewise (2026-08-02) — follow the same pattern for any
+> future footer link, and see the sitemap note below, which is the half that gets forgotten.
 
 ### Adding a gallery example
 
@@ -55,7 +58,11 @@ customer is **active**, and the customer has left it **listed**.
 
 - **Publish ≠ public.** Publishing (R3) makes a version official; the customer's **listing** switch
   (`/app/maps/:id` → the public toggle) decides whether it shows. Either can be off.
-- `robots.txt` + `sitemap.xml` are automatic from `PUBLIC_BASE_URL` (DEPLOY §2) — no upkeep.
+- `robots.txt` is automatic, and `sitemap.xml` generates the **map and organisation** entries by
+  itself from `PUBLIC_BASE_URL` (DEPLOY §2). The **static** pages are a hand-kept list —
+  `STATIC_PAGES` in `src/server.js` — so **a new shopfront page needs adding there as well as to the
+  footers**. `terms.html` sat in every footer and out of the sitemap for a week because that step was
+  missed; the rule is that the two lists name the same pages.
 
 ## Per-customer branding (what customers control)
 

@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.2 | 2026-08-02 | sha=753410bc -->
-**v1.2** · updated 2 August 2026
+<!-- docstamp v1.3 | 2026-08-02 | sha=050ef899 -->
+**v1.3** · updated 2 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
@@ -278,7 +278,7 @@ src/
   render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
   maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render/swap)
   server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + monthly updates + admin console
-public/     the shopfront + public map pages (maps/map/org/legal) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
+public/     the shopfront (incl. pricing + opportunity) + public map pages (maps/map/org/legal/terms) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
 scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 docs/       DUMMIES_GUIDE.md (start here if git/Node are new) · DEVELOPING.md (read before changing code) · ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate) · OPERATIONS-HANDBOOK.md + runbook-*.md (running the service)

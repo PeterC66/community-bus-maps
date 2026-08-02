@@ -1,11 +1,36 @@
 # Changelog
 
-<!-- docstamp v1.4 | 2026-08-02 | sha=d430e18b -->
-**v1.4** · updated 2 August 2026
+<!-- docstamp v1.5 | 2026-08-02 | sha=6caed618 -->
+**v1.5** · updated 2 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — an opportunity page, for the visitor who would rather run this than buy it
+- **New [`public/opportunity.html`](public/opportunity.html)** — "Take this on": the co-founder pitch
+  for handing the system to a **Community Interest Company**, with four things a serious candidate
+  needs and rarely gets. *What the asset actually is*, stated concretely (seven towns and five places
+  built; the complexity gate; three approval gates and the monthly cycle; an operations handbook and
+  six runbooks; Apache-2.0 on GitHub; open data end to end). *Why a CIC* — the cross-subsidy from
+  campuses and business parks to parishes and community transport is governance, not goodwill, and
+  the asset lock keeps it that way. *Who would suit it*, including that this is a one-person project
+  and **succession is the problem being solved**. And *what is not resolved*: bustimes.org's terms,
+  and the fact that no decision has been taken between a CIC and a small commercial supplier.
+- **Linked from the footer of every public page** ("Take this on") and from one strip at the foot of
+  the home page. Not in the nav: it is not part of the shopfront journey.
+- **Every count on the page was checked against the disk**, not taken from the plan — which is how
+  "six place maps" became **five** (Beaconsfield Simpson Centre and Waitrose, High Wycombe Aldi,
+  St Neots Tesco Extra and Town Centre). The claim that the restore drill had been *rehearsed* was
+  removed for the same reason: `docs/DEPLOY.md` documents the procedure, and there is no record of it
+  having been run. The page now says it is written down, which is what is true.
+- **No figure, competitor estimate or effort-per-map number appears on it** — that material stays in
+  the private ops folder and goes to a candidate in conversation. The page says so.
+- **The pitch's "proprietary technology" was corrected to "openly licensed"** when it moved onto the
+  site: the repository is public and Apache-2.0, so the original wording was simply wrong.
+- `STATIC_PAGES` gained `/opportunity.html` **and `/terms.html`**, which had been in the footer but
+  missing from the sitemap. The rule is now written down beside the list: the sitemap and the footer
+  should name the same pages. What keeps the page unindexed during the pilot is `robots.txt`.
 
 ### Changed — the tube-map diagram is warned about, and request-only
 - **The cost is now stated wherever the diagram is offered.** The home page's *Four outputs* card, the

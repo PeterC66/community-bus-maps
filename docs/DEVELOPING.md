@@ -1,7 +1,7 @@
 # Developing the portal — how to change it safely
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=dea44374 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=d6f54218 -->
+**v1.1** · updated 2 August 2026
 
 This is the **developer** counterpart to the operator documentation. The
 [Operations Handbook](OPERATIONS-HANDBOOK.md) and the runbooks tell you how to *run* the service;

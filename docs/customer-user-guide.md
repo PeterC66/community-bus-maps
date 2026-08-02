@@ -1,7 +1,7 @@
 # Using your bus maps — a guide for customers
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=a2742f29 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=d08685df -->
+**v1.1** · updated 2 August 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to
 each new customer.*

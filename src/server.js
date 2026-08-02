@@ -361,7 +361,12 @@ app.get('/robots.txt', async (req, reply) => {
   ].join('\n');
 });
 
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/legal.html'];
+// Every public page that is linked from the footer, so the sitemap and the footer
+// agree. `/opportunity.html` is outreach rather than shopfront, but it is linked
+// from all of them — excluding it would hide it from crawlers while showing it to
+// every visitor, which is not privacy, just inconsistency. (What actually keeps it
+// unindexed during the pilot is robots.txt saying `Disallow: /`.)
+const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html'];
 
 app.get('/sitemap.xml', async (req, reply) => {
   const base = baseUrl(req);
