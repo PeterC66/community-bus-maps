@@ -1,11 +1,22 @@
 # Changelog
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=cf7bae5e -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-07-27 | sha=14de657f -->
+**v1.1** · updated 27 July 2026
 
 Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Docs — R1 says how to build a demo/example map
+- **[`docs/runbook-create-map.md`](docs/runbook-create-map.md): new "Demo and example maps" section.**
+  The obvious reading of R1 — "our own maps have no customer, so omit `--customer`" — produces an
+  **unowned** map, which is admin-only for good: every public query joins `customer`, so it can never
+  reach `/maps`, `/m/<slug>` or `/o/<org-slug>`, and with no editor account the edit → sign-off loop
+  can't be demonstrated either. The section says to seed a demo organisation (`is_demo`, "Sample"
+  everywhere) instead, preferring `DEMO[]` in `scripts/seed-demo.mjs` because `data/` is git-ignored
+  and a map only in a local `DATA_DIR` does not survive a fresh checkout. Also restates the naming +
+  disclaimer rule for orgs named after real bodies, and that Sample labelling is not pilot-gated.
+  The `--customer` row in the flag table now points at it.
 
 ### Fixed — three faults found driving the editor for real
 - **A newly enabled sheet said "Save to render" instead of rendering.** Switching on an expert

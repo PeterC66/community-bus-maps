@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=e1afbcec -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-07-27 | sha=6f65a758 -->
+**v1.1** · updated 27 July 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -62,7 +62,7 @@ Flags:
 | `--slug` | URL slug (defaults to a slugified name); **must be unique** |
 | `--kind area\|place` | default `area` |
 | `--subject` | what the map is of (defaults to `--name`) |
-| `--customer "Name"` | attach to that customer (created if missing). **Omit ⇒ unowned (admin-only)** — prefer the real customer |
+| `--customer "Name"` | attach to that customer (created if missing). **Omit ⇒ unowned (admin-only, invisible to the public site — see below)**; always name an owner, even for our own demo maps |
 | `--customer-type` | one of `council · shop · business · school · function-organiser · charity-nt · other` (only used if the customer is created here) |
 
 What it does: copies the generators + JSON inputs into the git-ignored object store
@@ -88,6 +88,44 @@ Green = the portal reproduces the desktop bytes exactly. **If it fails, stop** �
   renders internal-geographic + external by default; the two expert styles are opt-in).
 - The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer
   edits + submits, an approver signs off.
+
+## Demo and example maps (for demos, docs and screenshots)
+
+Same runbook — **do not "just leave off `--customer`"**. Without an owner the map is *unowned*, and
+unowned means admin-only: the public front's queries all `JOIN customer`, so an unowned map can never
+appear on `/maps`, `/m/<slug>` or `/o/<org-slug>` no matter how far it gets through the publish gate.
+There is also no editor account, so the edit → submit → sign-off loop — the thing most worth
+demonstrating — can't be shown at all. Owner also carries the branding, the org credit and the
+**Sample** badge.
+
+Give every example map a **seeded demo organisation** instead, flagged `is_demo` so it is labelled
+"Sample" on every public surface:
+
+- **Preferred — add it to `DEMO[]` in [`scripts/seed-demo.mjs`](../scripts/seed-demo.mjs)** and re-run
+  the script. It is idempotent (existing customers, users and maps are reused, not duplicated), it
+  creates the customer with `is_demo: true` plus an editor user and public branding, it calls
+  `import-map.mjs` with the right flags, and `publishBaseline()` takes the map through a real P4
+  sign-off so it has a live public page. The point is reproducibility: `data/` is git-ignored, so a
+  map that exists only in your local `DATA_DIR` is lost on a fresh checkout — a map in the seed script
+  is not.
+- **Ad hoc** — run Step 2 with `--customer "<Demo Org>" --customer-type …`, then set the flag
+  (`setCustomerDemo(id, true)`). Skip that and the organisation renders publicly as if it were a real
+  customer, which contradicts the pilot's "there are no customers" claim
+  ([`CLAUDE.md`](../CLAUDE.md), [`PILOT.md`](PILOT.md)).
+
+Two standing rules for demo material:
+
+1. **Name and label them so they can't be mistaken for the real body.** The seeded three are named
+   after real councils and a real health centre, and that is only defensible because each is
+   `is_demo` *and* carries an explicit "Sample organisation — invented for testing, not a real
+   customer" blurb. Reproduce both, or invent an unmistakably fictional name.
+2. **Sample labelling is not pilot-gated** — it must survive `PILOT_MODE=0`. The red **PILOT — SAMPLE
+   MAP** band on the sheets *is* pilot-gated, and on our own demo maps it is correct and wanted.
+
+Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area
+and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one
+map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all
+four outputs are demoable.
 
 ## Building a map a customer asked for (fulfil the request in place)
 
