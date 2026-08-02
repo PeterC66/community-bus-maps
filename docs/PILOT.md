@@ -1,7 +1,7 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=8adef294 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=567b521c -->
+**v1.1** · updated 2 August 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 

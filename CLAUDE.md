@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=0eaf0d4f -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=b8e86891 -->
+**v1.1** · updated 2 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Public repo, Apache-2.0. Node + Fastify + `node:sqlite`, no template engine, no framework.
@@ -60,6 +60,11 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 ## House rules
 
 - **No secrets, customer data or map data in git** — this is a public repo. `data/` is ignored.
+  So is `backups/`, and that one has bitten: **`npm run backup` writes to `<DATA_DIR>/../backups/`,
+  which is *inside* the repo**, so a plain `git add -A` after a backup stages ~125 files of map
+  payloads. `*.sqlite` was already ignored so the database never went in, but the JSON/SVG/JPG did.
+  Both are ignored now — the habit that matters is **look at what `git add -A` actually staged
+  before committing in a repo with a public remote.**
   Private operator records live in a separate local-only folder, never synced.
 - Server-enforced always; client-side checks are UX, not security.
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
