@@ -597,7 +597,7 @@ function showPending() {
     const body = await res.json();
     if (!res.ok || !body.ok) { $('stagePlaceholder').textContent = (body && body.error) || 'Could not load this map.'; return; }
     detail = body.map;
-    document.title = `Edit ${detail.name} — Community Bus Maps`;
+    document.title = `Edit ${detail.name} — BusMaps.uk`;
     $('mapName').textContent = detail.name;
     $('mapTag').innerHTML = `<span class="tag ${detail.kind === 'place' ? 'place' : 'area'}">${detail.kind === 'place' ? 'Place' : 'Area'}</span>`;
     $('mapCrumb').textContent = [detail.subject, detail.currentVersion ? 'current ' + detail.currentVersion : ''].filter(Boolean).join(' · ');

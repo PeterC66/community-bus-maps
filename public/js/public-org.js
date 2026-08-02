@@ -17,11 +17,11 @@
     return;
   }
 
-  document.title = `${org.name} — bus maps — Community Bus Maps`;
+  document.title = `${org.name} — bus maps — BusMaps.uk`;
   const md = document.querySelector('meta[name="description"]');
   if (md) md.setAttribute('content', org.isDemo
-    ? `Sample bus maps for ${org.name}, an invented organisation used to demonstrate Community Bus Maps.`
-    : `Bus maps published by ${org.name} through Community Bus Maps.`);
+    ? `Sample bus maps for ${org.name}, an invented organisation used to demonstrate BusMaps.uk.`
+    : `Bus maps published by ${org.name} through BusMaps.uk.`);
 
   $('head').innerHTML = `
     <div class="org-line big">

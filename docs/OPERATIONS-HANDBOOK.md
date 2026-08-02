@@ -1,4 +1,4 @@
-# Operations Handbook — Community Bus Maps portal
+# Operations Handbook — BusMaps.uk portal
 
 <!-- docstamp v1.0 | 2026-07-27 | sha=f50f7d51 -->
 **v1.0** · updated 27 July 2026

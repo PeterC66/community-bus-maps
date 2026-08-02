@@ -1,4 +1,4 @@
-# Community Bus Maps — portal
+# BusMaps.uk — portal
 
 <!-- docstamp v1.0 | 2026-07-27 | sha=0eaf0d4f -->
 **v1.0** · updated 27 July 2026

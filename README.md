@@ -1,4 +1,4 @@
-# Community Bus Maps — portal
+# BusMaps.uk — portal
 
 <!-- docstamp v1.1 | 2026-08-02 | sha=75506e8e -->
 **v1.1** · updated 2 August 2026
@@ -6,6 +6,11 @@
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
 tweak and keep up to date **printable bus maps** for the places they care about.
+
+> **The project is BusMaps.uk; the repository is still `community-bus-maps`.** The repo name
+> predates the brand and is deliberately not being changed — renaming it would break existing
+> clones, the links in these docs, and every local path, for no benefit. The same goes for the
+> `package.json` name and the `/healthz` service id. Anything a *user* sees says BusMaps.uk.
 
 Two kinds of map, from one deterministic engine:
 
@@ -110,7 +115,7 @@ one of the seeded emails and the one-time link is **printed to the server consol
 in dev):
 
 - `peter@pcooper.me.uk` — **admin**: sees every customer's maps, plus the **Admin** console and **Review**.
-- `approver@community-bus-maps.example` — **approver**: a platform reviewer who signs off submissions at
+- `approver@busmaps.example` — **approver**: a platform reviewer who signs off submissions at
   **/app/review** (can inspect any map's print files, but not edit them).
 - `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's maps.
 

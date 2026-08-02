@@ -1,4 +1,4 @@
-// Community Bus Maps — portal server.
+// BusMaps.uk — portal server.
 //   P0: public shopfront (apply / contact / health).
 //   P1: safe-subset editor (object store, versioned save→render→download).
 //   P2: passwordless auth, multi-customer tenant isolation, per-map output toggles.
@@ -378,10 +378,10 @@ function xmlEscape(s) {
 function notFoundPage(what) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Not found — Community Bus Maps</title><link rel="stylesheet" href="/css/styles.css">
+<title>Not found — BusMaps.uk</title><link rel="stylesheet" href="/css/styles.css">
 <script src="/js/site-banner.js" defer></script></head>
 <body><header class="site-header"><div class="container"><nav class="nav">
-<a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a><span class="spacer"></span>
+<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
 <a class="navlink" href="/maps">Published maps</a></nav></div></header>
 <main><section><div class="container">
 <h2 class="mt-0">We can’t find that ${what}</h2>
@@ -1515,7 +1515,7 @@ app.get('/api/admin/audit', async (req, reply) => {
 
 try {
   await app.listen({ port: PORT, host: HOST });
-  app.log.info(`Community Bus Maps portal (${VERSION}) → http://${HOST}:${PORT}`);
+  app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
   setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
 } catch (err) {
   app.log.error(err);

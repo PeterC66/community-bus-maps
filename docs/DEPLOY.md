@@ -50,7 +50,7 @@ Or without containers (systemd on a plain VM):
 ```ini
 # /etc/systemd/system/cbm-portal.service
 [Unit]
-Description=Community Bus Maps portal
+Description=BusMaps.uk portal
 After=network.target
 
 [Service]

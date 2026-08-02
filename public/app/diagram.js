@@ -194,7 +194,7 @@ $('logoutBtn').addEventListener('click', async () => {
       $('clearBtn').disabled = true;
       return;
     }
-    document.title = `Diagram — ${b.map.name} — Community Bus Maps`;
+    document.title = `Diagram — ${b.map.name} — BusMaps.uk`;
     $('mapName').textContent = `${b.map.name} — diagram layout`;
     $('mapCrumb').textContent = [b.map.customer, b.map.subject, b.map.currentVersion && ('current ' + b.map.currentVersion)].filter(Boolean).join(' · ');
     pins = b.pins || {}; nodes = b.nodes || {}; frame = b.frame || null; editable = b.editable !== false;

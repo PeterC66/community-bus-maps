@@ -5,7 +5,7 @@
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
-Community Bus Maps was built as if it were a running service. It isn't. There are
+BusMaps.uk was built as if it were a running service. It isn't. There are
 no customers, no organisation has signed up, and every map on the site is one we
 made ourselves. The copy said otherwise — "maps **our customers** have published",
 "those are live, kept up to date", "**our team** then builds the map data" — and

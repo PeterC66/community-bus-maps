@@ -92,7 +92,7 @@ function newestRenderDir(renderParent) {
 // --- admin + a platform approver (P4: signs off publications, separate from the
 //     editors who make the edits) ---
 const adminId = ensureUser(ADMIN_EMAIL, 'admin', null, 'Peter (admin)');
-const APPROVER_EMAIL = process.env.APPROVER_EMAIL || 'approver@community-bus-maps.example';
+const APPROVER_EMAIL = process.env.APPROVER_EMAIL || 'approver@busmaps.example';
 const approverId = ensureUser(APPROVER_EMAIL, 'approver', null, 'Central approver');
 
 // --- demo customers + editors + maps ---

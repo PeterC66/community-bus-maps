@@ -3,7 +3,7 @@
 <!-- docstamp v1.2 | 2026-08-02 | sha=566268b0 -->
 **v1.2** · updated 2 August 2026
 
-Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
+Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
 
@@ -622,7 +622,7 @@ publishes it — separation of duties.
 - **Roles activated**: the P2 `approver` role now has powers — a platform reviewer who can read/inspect
   and publish **any** map's submitted version but cannot edit it (`loadReadableMap` vs `loadOwnedMap`).
   A **Review** nav link appears for approvers + admins.
-- **Demo seed** now also creates a platform **approver** (`approver@community-bus-maps.example`),
+- **Demo seed** now also creates a platform **approver** (`approver@busmaps.example`),
   **publishes March v1.0** as a first official version, and renders a real **St Ives v1.1** (route 9
   recolour) **submitted for sign-off** — so the review queue, a published map and the audit trail are all
   non-empty on first run.
