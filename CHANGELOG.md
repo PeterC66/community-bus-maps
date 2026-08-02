@@ -7,6 +7,23 @@ Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates a
 
 ## [Unreleased]
 
+### Changed — fixture and source paths follow the Buses folder restructure
+- **The separate Buses data repo now nests towns under `Areas/`** and places under their area
+  (`Areas/<Town>/Places/<Place>/`), with `Places/_standalone/` for places whose town has no area map.
+  `Places/_portal-fixture/` is unchanged. Updated here: `.env.example` and `.env` (`FIXTURE_DIR`),
+  `scripts/seed-demo.mjs` (`renderParent` for all three seeded maps) and the `import-map` /
+  `propose-update` examples in [`README.md`](README.md).
+- **Both byte-identical gates were re-run against the new layout and still PASS** with unchanged byte
+  counts — area 471,569 / 33,768 / 253,112 / 252,096 B, place 60,014 / 10,068 B — and `npm test` is green.
+- **`FIXTURE_DIR` points two versions behind the newest render** (St Ives `S5-render/v6.6`, newest
+  `v6.8`). That is deliberate and it is now *pinned* in the Buses repo's `retention-pins.json`, because
+  the obvious "keep the newest couple of builds" tidy-up would otherwise delete the fixture and break
+  `npm run verify:place`/`:area` silently. **If you ever re-point `FIXTURE_DIR` or
+  `PLACE_FIXTURE_DIR`, update that pin file in the same change.**
+- The Buses repo now tracks build *inputs* (`S1`–`S3`, manifests, READMEs, `*.docx` reports) and
+  ignores build *outputs* (`S4`/`S5`/`S6`/`_latest`). `Places/_portal-fixture/` is tracked, so
+  `npm run verify:place` is reproducible from a clean checkout of that repo.
+
 ### Docs — R1 says how to build a demo/example map
 - **[`docs/runbook-create-map.md`](docs/runbook-create-map.md): new "Demo and example maps" section.**
   The obvious reading of R1 — "our own maps have no customer, so omit `--customer`" — produces an

@@ -1,7 +1,7 @@
 # Community Bus Maps — portal
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=f1194ea1 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=75506e8e -->
+**v1.1** · updated 2 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
