@@ -103,11 +103,18 @@ export function ensureProposedDirs(id, pid) {
 // (`engine: 'expert'`) and are only available when the map's routes.json opts in
 // with the config key the pre-stage requires (`requiresConfig`) — a map without it
 // shows the output as unavailable instead of failing at render time.
+//
+// `requestOnly` marks an output the customer may SEE but not switch on: the
+// tube-map diagram is generated and then pinned by hand in the pin editor, and
+// those pins are ours to maintain on every later refresh, so it is quoted
+// separately rather than being a tick-box. The editor shows it locked with an
+// "Ask us" button; the lock itself is enforced in chooseOutputs() (engine.js) —
+// hiding a checkbox is UX, not security.
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', portal: true },
   external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Octolinear schematic', portal: true },
-  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true },
+  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
 };
 
 // Files a rendered version can hold, with content types (derived from OUTPUTS).

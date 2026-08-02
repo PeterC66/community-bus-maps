@@ -1,11 +1,36 @@
 # Changelog
 
-<!-- docstamp v1.3 | 2026-08-02 | sha=f524229d -->
-**v1.3** · updated 2 August 2026
+<!-- docstamp v1.4 | 2026-08-02 | sha=d430e18b -->
+**v1.4** · updated 2 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Changed — the tube-map diagram is warned about, and request-only
+- **The cost is now stated wherever the diagram is offered.** The home page's *Four outputs* card, the
+  examples-page note and the `pricing.html` Extra list all carry a **hand-finished · extra** badge and
+  say why: the machine solves the topology, then every line and interchange is *placed by hand* — and
+  re-placed whenever the network moves. A new FAQ answer at
+  [`/faq.html#diagram`](public/faq.html) makes the real point explicitly: because the hand placements
+  are **pins we maintain**, the diagram costs drawing time in the *updates*, not only in the first
+  build. That is why it is priced separately rather than folded into the map.
+- **It is no longer a tick-box.** `OUTPUTS.internal_diagram` is marked `requestOnly` in
+  [`src/maps/store.js`](src/maps/store.js). The editor shows it locked with an **Ask us** button;
+  pressing it raises a `diagram-request` **message** (the existing table, with the map attached) that
+  the admin console already displays — it switches nothing on. Granting it stays what it was: an admin
+  ticking it, or the pin editor's save doing so itself.
+- **The lock is server-side.** The decision moved out of the route into a pure
+  `chooseOutputs()` in [`src/maps/engine.js`](src/maps/engine.js), which the PATCH handler now calls:
+  a non-admin asking for `internal_diagram` gets **403** with the whole change refused, and a granted
+  diagram can be neither switched off nor lost by a PATCH that omits the key. Nine new checks in
+  `test-p7.mjs` assert the rules, and four more assert the route is actually using them — hiding a
+  checkbox is UX, not security.
+- Fixed alongside: `applyLock()` re-enabled *every* output checkbox when a map came out of review,
+  including ones disabled for their own reason (an output this map cannot produce). Controls disabled
+  on their own account now carry `data-fixed` and stay that way.
+- `/faq.html#diagram` opens the answer it points at (`public/js/faq-anchor.js`) — answers are
+  `<details>`, and a link into a collapsed one is not much of a link.
 
 ### Added — a pricing page, with no figures on it
 - **New [`public/pricing.html`](public/pricing.html)**, in the nav between Examples and FAQ, in the

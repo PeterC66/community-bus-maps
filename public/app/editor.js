@@ -84,24 +84,41 @@ function refreshState() {
 }
 
 // Disable the editing controls while a version awaits publication sign-off.
+// `data-fixed` marks a control that is disabled for its OWN reason (an output this
+// map cannot produce, or the request-only diagram) — unlocking must not hand it back.
 function applyLock() {
   const locked = isLocked();
   document.querySelectorAll('#routes input, #routes button, #pois input, #outputs input, #resetBtn, #saveNote')
-    .forEach((el) => { el.disabled = locked; });
+    .forEach((el) => { el.disabled = locked || el.dataset.fixed === '1'; });
   refreshState();
 }
 function setPvState(kind, text) { $('pvDot').className = 'dot ' + kind; $('pvText').textContent = text; }
 
 // ---- controls: outputs -------------------------------------------------------
+// One output — the tube-map diagram — is `requestOnly`: hand-finished, quoted
+// separately, and re-pinned by us every time the network moves. The customer sees
+// it locked with an "Ask us" button rather than hidden, so they know it exists.
+// The lock is enforced in the server's PATCH handler; this is only the UX of it.
+const isAdmin = () => !!(ME && ME.role === 'admin');
+const lockedOutput = (o) => o.requestOnly && !isAdmin();
+
+function outputHint(o) {
+  if (!o.available) return ' <span class="soon">— not set up for this map</span>';
+  if (lockedOutput(o)) return ' <span class="soon">— hand-finished, quoted separately</span>';
+  return o.expert ? ' <span class="soon">— expert style</span>' : '';
+}
 function buildOutputs() {
   const box = $('outputs');
   box.innerHTML = detail.outputs.map((o) => `
     <div class="poi-item ${o.enabled ? '' : 'off'}" data-key="${esc(o.key)}">
-      <input type="checkbox" id="out_${esc(o.key)}" ${o.enabled ? 'checked' : ''} ${o.available ? '' : 'disabled'}>
-      <label for="out_${esc(o.key)}">${esc(o.label)}${o.available ? (o.expert ? ' <span class="soon">— expert style</span>' : '') : ' <span class="soon">— not set up for this map</span>'}</label>
+      <input type="checkbox" id="out_${esc(o.key)}" ${o.enabled ? 'checked' : ''} ${o.available && !lockedOutput(o) ? '' : 'disabled data-fixed="1"'}>
+      <label for="out_${esc(o.key)}">${esc(o.label)}${outputHint(o)}</label>
+      ${lockedOutput(o) && o.available && !o.enabled ? '<button class="btn btn-ghost btn-xs" type="button" id="askDiagram">Ask us</button>' : ''}
     </div>`).join('');
   $('outputCount').textContent = enabledOutputs().length + ' on';
   box.querySelectorAll('input[type=checkbox]').forEach((inp) => inp.addEventListener('change', onOutputsChange));
+  const ask = $('askDiagram');
+  if (ask) ask.addEventListener('click', askForDiagram);
 }
 async function onOutputsChange() {
   const outputs = {};
@@ -125,6 +142,32 @@ async function onOutputsChange() {
       buildOutputs(); // revert checkboxes to server truth
     }
   } catch { notice('err', 'Network error updating outputs.'); }
+}
+
+// Asking for the locked output raises a MESSAGE for the admin console — nothing
+// is switched on here. Granting it is expert work with a price attached.
+async function askForDiagram() {
+  const btn = $('askDiagram');
+  const note = prompt(
+    'Ask us for the tube-map diagram of this map.\n\n'
+    + 'Every line and interchange is positioned by hand, and re-positioned whenever the network '
+    + 'moves, so it is quoted separately from the rest of the map.\n\n'
+    + 'Anything we should know? (Where it would be displayed, when you need it — optional.)', '');
+  if (note === null) return; // cancelled
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/diagram-request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
+    });
+    const body = await res.json();
+    if (res.ok && body.ok) {
+      btn.textContent = 'Asked';
+      notice('ok', 'Thank you — we have your request and will come back to you with what it would involve.', true);
+    } else {
+      btn.disabled = false;
+      notice('err', (body && body.error) || 'Could not send that request.');
+    }
+  } catch { btn.disabled = false; notice('err', 'Network error sending that request.'); }
 }
 
 // ---- controls: routes --------------------------------------------------------

@@ -25,7 +25,11 @@ CREATE TABLE IF NOT EXISTS application (
 CREATE TABLE IF NOT EXISTS message (
   id            INTEGER PRIMARY KEY,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  kind          TEXT NOT NULL DEFAULT 'enquiry',  -- enquiry | question | feedback
+  kind          TEXT NOT NULL DEFAULT 'enquiry',  -- enquiry | question | feedback (the three
+                                                  -- the public contact form may set, MSG_KINDS
+                                                  -- in src/server.js), plus 'diagram-request',
+                                                  -- which only the server writes when a signed-in
+                                                  -- customer asks for the hand-finished diagram
   name          TEXT,
   email         TEXT,
   body          TEXT NOT NULL,

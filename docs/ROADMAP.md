@@ -68,6 +68,7 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 | Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
 | Accept/decline the monthly change — *shipped in P5* | New-map onboarding / bootstrapping a subject |
 | Choose which of the 4 outputs a map produces — *P2 toggles; **all four render as of P7** (the two expert styles are opt-in per map)* | Anything touching upstream (S1/S2) data |
+| — | **Switching the tube-map diagram on.** It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
 
 ## Known follow-ups (not blocking a phase)
 
@@ -185,7 +186,10 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   own `gen_internal.js` inside a workspace, so an inherited `LEAFLET_DIR` would silently reproduce
   the geographic map. Availability is **opt-in per map** (`routes.json` → `internalSchematic` /
   `internalDiagram`, via `requiresConfig`), and both are **off by default** so a pre-P7 map's saves
-  are unchanged. `npm run verify:area` gates them automatically when the fixture opts in.
+  are unchanged. `npm run verify:area` gates them automatically when the fixture opts in. The
+  **diagram additionally cannot be switched on by a customer at all** (`requestOnly`) — it is
+  hand-pinned and re-pinned on every refresh, so it is priced separately and granted by us; see
+  [OPERATIONS-HANDBOOK §4b](OPERATIONS-HANDBOOK.md).
 - **Diagram pin editor (P7):** **`/app/maps/:id/diagram`**, **admin-only** (`/api/expert/*` +
   `requireAdmin`) — the deliberate mirror of the customer safe subset, because dragging changes
   layout. Drag a junction to pin it, drop to re-solve, right-click to unpin. Previews solve in a

@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
   <script src="/js/site-banner.js" defer></script>
+  <!-- Opens the answer a link points at, e.g. /faq.html#diagram from the pricing page. -->
+  <script src="/js/faq-anchor.js" defer></script>
 </head>
 <body>
   <header class="site-header"><div class="container"><nav class="nav">
@@ -63,11 +65,17 @@
         </details>
         <details>
           <summary>What can I change myself?</summary>
-          <p>You can choose which outputs you want, recolour and relabel routes, turn landmarks on or off, and accept the monthly updates — then download print-ready files. The more delicate layout work (straightening lines, nudging labels) we do for you, so the result reads properly in print.</p>
+          <p>You can choose which of the standard outputs you want, recolour and relabel routes, turn landmarks on or off, and accept the monthly updates — then download print-ready files. The more delicate layout work (straightening lines, nudging labels) we do for you, so the result reads properly in print.</p>
         </details>
         <details>
           <summary>What are the four outputs?</summary>
-          <p>An <strong>internal geographic</strong> map (drawn to the streets), an <strong>internal schematic</strong> (straightened and tidied), an <strong>internal diagram</strong> (tube-map style), and an <strong>external</strong> map showing where the buses go. You pick which ones you want for each map.</p>
+          <p>An <strong>internal geographic</strong> map (drawn to the streets), an <strong>internal schematic</strong> (straightened and tidied), an <strong>internal diagram</strong> (tube-map style), and an <strong>external</strong> map showing where the buses go. You pick which ones you want for each map — except the diagram, which is <a href="#diagram">hand-finished and asked for rather than switched on</a>.</p>
+        </details>
+        <details id="diagram">
+          <summary>Why does the tube-map diagram cost extra?</summary>
+          <p>Because it is the one output that is not simply generated. The geographic and schematic maps and the external map are produced deterministically from the data: the same data always draws the same sheet, with nobody's hand on it.</p>
+          <p>The diagram is different. The software solves the network's <em>topology</em> — which line meets which, and where — but a readable tube map then needs junctions moved by eye until the whole thing sits well on the page. Those hand placements are stored as <em>pins</em>, and they are ours to maintain: when a route is extended or a service withdrawn, the topology changes and the pins have to be re-judged against it.</p>
+          <p>So the diagram would never be a one-off drawing charge. It is drawing time in the first build <strong>and</strong> drawing time in every update — which is why, when charging starts, it would be quoted separately rather than folded into the price of the map. Everything is free during the <a href="#pilot">pilot</a>; what is true today is that it is offered in the editor with an <em>Ask us</em> button rather than a tick-box, so nobody switches it on and only afterwards finds out what it involves.</p>
         </details>
         <details>
           <summary>How up to date are the maps?</summary>

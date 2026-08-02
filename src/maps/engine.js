@@ -113,9 +113,59 @@ export function outputsForClient(config, id) {
   return Object.entries(OUTPUTS).map(([key, meta]) => ({
     key, base: meta.base, label: meta.label, portal: !!meta.portal,
     expert: !!meta.expert,
+    // Locked to the customer: shown, never switched by them (see chooseOutputs).
+    requestOnly: !!meta.requestOnly,
     available: !!meta.portal && !!resolveGen(meta, dataDir),
     enabled: meta.portal ? (meta.expert ? cfg[key] === true : cfg[key] !== false) : false,
   }));
+}
+
+/** How `config` reads for one output, the same way effectiveOutputs() reads it. */
+function isOn(meta, cfg, key) {
+  return meta.expert ? cfg[key] === true : cfg[key] !== false;
+}
+
+/**
+ * Decide a map's stored output set from what a client asked for (PATCH
+ * /api/maps/:id/outputs). Pure, so the rules are testable without a server.
+ *
+ * Three rules, in order:
+ *   • **request-only** outputs (the hand-finished tube-map diagram) are never
+ *     moved by a non-admin. Whatever is posted, the stored value stays as it is
+ *     and the key is reported in `refused` — the route turns that into a 403
+ *     rather than a silent no-op, so a customer is told to ask rather than left
+ *     thinking they switched something on. We are the ones who grant it, via the
+ *     pin editor's save or an admin PATCH.
+ *   • an **expert style** can only be switched on for a map whose data actually
+ *     carries the config it needs (`available`).
+ *   • a key the client omits falls back to the shipped default (geographic on,
+ *     expert off) — except a locked one, which holds its current value.
+ *
+ * @param {any} incoming        `outputs` from the client (untrusted)
+ * @param {object} opts
+ * @param {object} opts.current  the map's stored output config
+ * @param {string[]} opts.available  keys whose generator resolves for this map
+ * @param {boolean} opts.isAdmin     admins are the expert side; the lock is not for them
+ * @returns {{ outputs: object, refused: string[] }}
+ */
+export function chooseOutputs(incoming, { current = {}, available = [], isAdmin = false } = {}) {
+  const inc = incoming && typeof incoming === 'object' ? incoming : {};
+  const cur = current && typeof current === 'object' ? current : {};
+  const availSet = new Set(available);
+  const outputs = {};
+  const refused = [];
+  for (const [key, meta] of Object.entries(OUTPUTS)) {
+    if (!meta.portal) continue;
+    if (meta.requestOnly && !isAdmin) {
+      const now = isOn(meta, cur, key);
+      outputs[key] = now;
+      if (typeof inc[key] === 'boolean' && inc[key] !== now) refused.push(key);
+      continue;
+    }
+    const wanted = typeof inc[key] === 'boolean' ? inc[key] : !meta.expert;
+    outputs[key] = wanted && (availSet.has(key) || !meta.expert);
+  }
+  return { outputs, refused };
 }
 
 function readJson(p, fallback = null) {

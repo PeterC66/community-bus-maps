@@ -39,11 +39,11 @@ import {
 } from './public/index.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
-  readOverrides, preview, previewFrom, renderVersion, outputsForClient, swapInProposedData,
-  carryExpertTuning,
+  readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
+  swapInProposedData, carryExpertTuning,
 } from './maps/engine.js';
 import { sanitizeOverrides } from './maps/safeSubset.js';
-import { versionDir, mapDataDir, proposedDataDir, OUTPUTS, OUTPUT_FILES } from './maps/store.js';
+import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES } from './maps/store.js';
 import {
   diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes,
 } from './expert/index.js';
@@ -69,6 +69,9 @@ const ORG_TYPES = [
   'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
   'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
 ];
+// What the PUBLIC contact form may set. 'diagram-request' is a fourth kind in the
+// message table, but only the server writes it (see /api/maps/:id/diagram-request),
+// so it is deliberately not in this list.
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
 const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
@@ -806,24 +809,49 @@ app.post('/api/maps/:id/publish-request/withdraw', async (req, reply) => {
 });
 
 // Choose which outputs a map produces (P2 output toggles).
+//
+// Expert styles (P7) can only be switched on for a map that carries the config
+// they need, and the tube-map diagram cannot be switched on by a customer at all
+// — it is request-only (see chooseOutputs). The server decides, not the UI.
 app.patch('/api/maps/:id/outputs', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
-  const incoming = (req.body || {}).outputs || {};
-  const available = new Set(outputsForClient(parseOutputs(map.outputs), map.id).filter((o) => o.available).map((o) => o.key));
-  const clean = {};
-  for (const [key, meta] of Object.entries(OUTPUTS)) {
-    if (!meta.portal) continue;
-    // Expert styles (P7) default OFF and can only be switched on for a map that
-    // actually carries the config they need — the server decides, not the UI.
-    const wanted = typeof incoming[key] === 'boolean' ? incoming[key] : !meta.expert;
-    clean[key] = wanted && (available.has(key) || !meta.expert);
+  const current = parseOutputs(map.outputs);
+  const available = outputsForClient(current, map.id).filter((o) => o.available).map((o) => o.key);
+  const { outputs: clean, refused } = chooseOutputs((req.body || {}).outputs, {
+    current, available, isAdmin: user.role === 'admin',
+  });
+  if (refused.length) {
+    req.log.warn({ mapId: map.id, refused, by: user.email }, 'refused a request-only output change');
+    return reply.code(403).send({
+      ok: false, refused,
+      error: 'The tube-map diagram is hand-finished, so it is not a tick-box — ask us for it and we will quote and set it up.',
+    });
   }
   if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
   setMapOutputs(map.id, clean);
   req.log.info({ mapId: map.id, outputs: clean }, 'updated map outputs');
   return { ok: true, outputs: outputsForClient(clean, map.id) };
+});
+
+// "Ask us for the diagram" — the customer half of the request-only lock above.
+// It deliberately creates nothing but a MESSAGE (the same table the contact form
+// and public map feedback use, with the map attached), because granting the
+// output is expert work with a price attached, not a state a form can set.
+app.post('/api/maps/:id/diagram-request', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const note = str((req.body || {}).note, 2000);
+  const body = [
+    `Asked for the tube-map diagram on "${map.name}" (map #${map.id}, ${map.kind}).`,
+    note && `They said: ${note}`,
+  ].filter(Boolean).join('\n\n');
+  const id = insertMessage({ kind: 'diagram-request', name: user.name || null, email: user.email, body, map_id: map.id });
+  req.log.info({ messageId: id, mapId: map.id, by: user.email }, 'tube-map diagram requested');
+  logAudit(req, 'diagram.request', { mapId: map.id, detail: { messageId: id, note } });
+  return { ok: true, id };
 });
 
 // Whether the map's PUBLISHED version appears on the public site (P6). This is

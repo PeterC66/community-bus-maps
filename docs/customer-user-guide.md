@@ -43,8 +43,11 @@ Open a map to make it yours. You can change:
 
 - **Route colours** — pick from a colour-blind-friendly palette.
 - **Landmarks (points of interest)** — switch icons on or off.
-- **Which outputs it produces** — any of: **internal (geographic)** street map, a straightened
-  **schematic**, a tube-map-style **diagram**, and the **external** "where the buses go" map.
+- **Which outputs it produces** — the **internal (geographic)** street map, a straightened
+  **schematic**, and the **external** "where the buses go" map are yours to switch on and off.
+  The tube-map-style **diagram** is the exception: it is positioned by hand rather than generated,
+  so it is quoted separately and shown with an **Ask us** button instead of a tick-box. Press it
+  and we will come back to you with what it would involve.
 
 You see a **live preview** as you change things. When you're happy, **Save new version**. Your first
 version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the

@@ -27,7 +27,7 @@ const eq = (name, got, want) =>
   check(name, JSON.stringify(got) === JSON.stringify(want), `got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`);
 
 const { OUTPUTS } = await import('../src/maps/store.js');
-const { defaultOutputs, effectiveOutputs, resolveGen, hasRoutesKey, EXPERT_DIR } = await import('../src/maps/engine.js');
+const { defaultOutputs, effectiveOutputs, chooseOutputs, resolveGen, hasRoutesKey, EXPERT_DIR } = await import('../src/maps/engine.js');
 
 // --- 1. the expert engine is vendored ---------------------------------------
 console.log('\nvendored expert engine');
@@ -75,6 +75,52 @@ eq('an opted-in style stays off for a map without the config',
   effectiveOutputs({ internal_schematic: true, internal_diagram: true }, plain).map((o) => o.key),
   ['internal_geographic', 'external']);
 
+// --- 2b. the request-only lock on the tube-map diagram ----------------------
+// The diagram is solved and then PINNED BY HAND, and the pins are ours to
+// maintain on every later refresh, so it is quoted separately and granted by us
+// — never switched on from the editor. Hiding the checkbox is UX; this is the
+// rule that actually holds, so it is asserted here and the route is checked to
+// be using it.
+console.log('\nrequest-only diagram');
+const ALL = ['internal_geographic', 'external', 'internal_schematic', 'internal_diagram'];
+const asCustomer = (incoming, current = {}) => chooseOutputs(incoming, { current, available: ALL, isAdmin: false });
+const asAdmin = (incoming, current = {}) => chooseOutputs(incoming, { current, available: ALL, isAdmin: true });
+
+check('the diagram is marked request-only', OUTPUTS.internal_diagram.requestOnly === true);
+check('no other output is', ALL.filter((k) => OUTPUTS[k].requestOnly).length === 1);
+{
+  const r = asCustomer({ internal_geographic: true, external: true, internal_diagram: true });
+  check('a customer posting internal_diagram:true does not get it', r.outputs.internal_diagram === false, JSON.stringify(r));
+  eq('…and is told, rather than silently ignored', r.refused, ['internal_diagram']);
+}
+{
+  const r = asAdmin({ internal_geographic: true, external: true, internal_diagram: true });
+  check('an admin CAN grant it', r.outputs.internal_diagram === true, JSON.stringify(r));
+  eq('nothing refused for an admin', r.refused, []);
+}
+{
+  // Granted, then the customer saves some other change: the diagram must survive
+  // both an explicit "off" and the key simply being absent from the PATCH.
+  const granted = { internal_geographic: true, external: true, internal_diagram: true };
+  const off = asCustomer({ internal_geographic: true, external: true, internal_diagram: false }, granted);
+  check('a customer cannot switch a granted diagram off', off.outputs.internal_diagram === true, JSON.stringify(off));
+  eq('…and that refusal is reported too', off.refused, ['internal_diagram']);
+  const absent = asCustomer({ internal_geographic: true, external: true }, granted);
+  check('a PATCH that omits the key leaves it granted', absent.outputs.internal_diagram === true, JSON.stringify(absent));
+  eq('omitting it is not a refusal', absent.refused, []);
+  check('an admin can revoke it', asAdmin({ internal_geographic: true, external: true }, granted).outputs.internal_diagram === false);
+}
+{
+  // The lock is on the diagram alone — the other expert style stays the
+  // customer's to switch, on a map whose data supports it.
+  const r = asCustomer({ internal_geographic: true, external: true, internal_schematic: true });
+  check('the schematic is still the customer\'s to switch on', r.outputs.internal_schematic === true, JSON.stringify(r));
+  const noSchematic = chooseOutputs({ internal_geographic: true, external: true, internal_schematic: true },
+    { available: ['internal_geographic', 'external'], isAdmin: false });
+  check('…but only where the map carries the config', noSchematic.outputs.internal_schematic === false);
+  eq('an unavailable style is not a "refusal" (it is just not offered)', noSchematic.refused, []);
+}
+
 // --- 3. pin whitelist -------------------------------------------------------
 // sanitizePins lives in server.js (not importable without starting Fastify), so
 // the same rules are asserted here against a copy kept in step with it. If this
@@ -92,6 +138,14 @@ eq('clearing removes the layout', readPins(layoutDir), {});
 const serverSrc = await import('node:fs').then((fs) => fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8'));
 check('server.js still sanitises pins before they are stored', /function sanitizePins\(/.test(serverSrc));
 check('the pin sanitiser bounds the coordinates', /num\(p\.x, 1000\)/.test(serverSrc));
+
+// The rules above only bind if the route actually runs them, and refuses rather
+// than quietly dropping the change.
+check('the outputs route decides through chooseOutputs', /chooseOutputs\(\(req\.body \|\| \{\}\)\.outputs/.test(serverSrc));
+check('…passing the caller\'s admin-ness, not the client\'s word for it', /isAdmin: user\.role === 'admin'/.test(serverSrc));
+check('a refused output change is a 403', /if \(refused\.length\)[\s\S]{0,400}reply\.code\(403\)/.test(serverSrc));
+check('asking for the diagram raises a message the admin console can see',
+  /app\.post\('\/api\/maps\/:id\/diagram-request'/.test(serverSrc) && /kind: 'diagram-request'/.test(serverSrc));
 
 // --- 3b. badge legibility after a recolour ----------------------------------
 // A route's label ink comes from the imported data and does not follow a

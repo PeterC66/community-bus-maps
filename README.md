@@ -24,7 +24,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 |---|---|
 | **internal (geographic)** | a street-anchored map of the buses within the area/around the place |
 | **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
-| **internal (diagram)** | a tube-map-style diagram, hand-tunable via the pin editor *(expert style, opt-in per map)* |
+| **internal (diagram)** | a tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only**: hand-pinned work, so it is quoted separately and granted by us — see [OPERATIONS-HANDBOOK §4b](docs/OPERATIONS-HANDBOOK.md))* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
 > **Status: PILOT — feature-complete against the plan (P0–P7), but not a live service.**
@@ -207,6 +207,14 @@ render folder never carried them), they are **opt-in per map** — the map's `ro
 `internalSchematic` / `internalDiagram` — and they are **off by default**, because a schematic is an
 editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six**
 outputs (four area + two place) are proved on every release.
+
+The diagram goes one step further: it is **request-only**. The other three outputs are generated —
+same data, same sheet, nobody's hand on it — but the diagram is solved and then *pinned by hand*, and
+those pins are ours to re-judge every time the network moves. So it costs drawing time in the updates,
+not only in the first build, and a customer cannot tick it on: the editor shows it locked with an
+**Ask us** button that raises a `diagram-request` message. The refusal is enforced in `chooseOutputs()`
+(`src/maps/engine.js`) — a non-admin PATCH asking for it gets a 403 — because hiding a checkbox is UX,
+not security.
 
 The diagram's automatic layout can be hand-tuned by an **admin** at **`/app/maps/:id/diagram`**: drag a
 junction to pin it, drop to re-solve and see the real sheet, right-click to unpin. This is the mirror

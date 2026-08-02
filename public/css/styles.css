@@ -189,6 +189,17 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
 }
 .badge.place { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+/* An output that is drawn by hand and therefore priced separately (the tube-map
+   diagram). Wherever it is offered it carries this badge, so nobody discovers the
+   cost after asking for it. */
+.badge.extra {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-transform: none;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
 
 /* steps */
 .steps { counter-reset: step; display: grid; gap: 16px; grid-template-columns: repeat(4, 1fr); }

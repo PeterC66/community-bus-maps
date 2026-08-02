@@ -125,7 +125,8 @@ Two standing rules for demo material:
 Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area
 and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one
 map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all
-four outputs are demoable.
+four outputs are demoable. Note the diagram is *request-only* for customers — you switch it on, they
+ask ([OPERATIONS-HANDBOOK §4b](OPERATIONS-HANDBOOK.md)).
 
 ## Building a map a customer asked for (fulfil the request in place)
 
