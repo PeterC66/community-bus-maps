@@ -7,6 +7,47 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — a pricing page, with no figures on it
+- **New [`public/pricing.html`](public/pricing.html)**, in the nav between Examples and FAQ, in the
+  footer of every page and in the sitemap. It leads with *free during the pilot* and then describes,
+  entirely in the future conditional, **what** would be bought (print-ready sheets, the monthly
+  maintenance cycle, the public page — saying plainly that the maintenance is the product and the
+  one-off sheets are what everyone else sells), **how** a price would be arrived at (a build fee
+  quoted after the survey, plus an annual fee per map), what would be included versus extra, how it
+  compares, which budgets normally pay, and that we do not print.
+- **No figure appears anywhere on it.** The commercial model — rates, competitor estimates,
+  effort-per-map — stays in the private ops folder. What is published is the *structure* of the
+  model, which is what a prospective buyer actually needs in order to decide whether to ask.
+- The FAQ's "How much does it cost?" now points here, and a new FAQ entry answers *why the price
+  would depend on your town*. The home page's closing note links here too.
+
+### Added — High Wycombe as the area example, told as the triage story
+- **A fourth card on [`public/examples.html`](public/examples.html)** using the area images prepared
+  last session, plus a **"Complex towns"** section at `#complex`: what makes a town hard to draw, the
+  fact that it is *scored before the expensive work starts*, and High Wycombe's own
+  **RED → GREEN** before-and-after (31 lines / 320 stops / two-thirds of the typical route buried,
+  down to 11 colour groups / 91 stops / nothing congested) with the remedy ladder in plain English.
+- **A "Does it work on a big town?" strip on the home page** carrying the same story in short, so the
+  system does not read as a one-town trick. Section shading alternates down that page, so the three
+  sections below the new one flip to keep the rhythm.
+- The claim that the shown map *is* the post-triage build was checked, not assumed: both example JPGs
+  are downscales of the current `_latest` render (RMS grey difference ~4–5 against a LANCZOS
+  downscale of the source, i.e. resampling and JPEG only).
+- High Wycombe has no `internal-schematic` output, so its card shows internal + external like every
+  other card and claims nothing more.
+
+### Changed — the shopfront speaks to five pain classes, not six organisation types
+- **"Who it's for" on the home page** was organised by *type of organisation*; it is now organised by
+  *pain*, around the five UK-wide classes: transport authorities and councils; healthcare, campuses
+  and schools; business and science parks; town centres, BIDs, tourism and attractions; bus operators
+  and community transport. A sixth tile keeps the door open for everyone else.
+- **[`public/apply.html`](public/apply.html) lets an applicant self-identify by class.** `ORG_TYPES`
+  in [`src/server.js`](src/server.js) gained the five class slugs; **the original seven values are
+  still accepted** so that stored applications and seeded demo rows keep validating, since
+  `customer.type` is copied straight from this field on approval. No schema change — only the column
+  comment. Verified against a scratch database: each new value and the legacy `council` accepted, an
+  unknown value rejected with 400.
+
 ### Changed — Simpson Centre replaced by High Wycombe Aldi as the place example
 - **The Simpson Centre has closed**, so it was a poor shop window as well as a stale one. The place
   example everywhere is now **Aldi, Tannery Road, High Wycombe** — the *busy* case (11 services

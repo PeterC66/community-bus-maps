@@ -61,7 +61,14 @@ const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
 const VERSION = '0.9.0-pilot';
 
-const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
+// The five pain-point classes the shopfront is organised around, plus 'other'.
+// The trailing seven are the original organisation-type values: no longer offered
+// on the form, still accepted so that stored applications and seeded demo rows
+// keep validating (customer.type is copied straight from here on approval).
+const ORG_TYPES = [
+  'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
+  'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
+];
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
 const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
@@ -351,7 +358,7 @@ app.get('/robots.txt', async (req, reply) => {
   ].join('\n');
 });
 
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/faq.html', '/apply.html', '/contact.html', '/legal.html'];
+const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/legal.html'];
 
 app.get('/sitemap.xml', async (req, reply) => {
   const base = baseUrl(req);

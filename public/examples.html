@@ -16,6 +16,7 @@
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/pricing.html">Pricing</a>
     <a class="navlink" href="/faq.html">FAQ</a>
     <a class="navlink" href="/contact.html">Contact</a>
     <a class="btn btn-primary" href="/apply.html">Apply to join</a>
@@ -65,9 +66,47 @@
           </div>
         </article>
 
+        <article class="card example">
+          <div class="imgs">
+            <a href="/examples/highwycombe-area-internal.jpg" target="_blank" rel="noopener"><img src="/examples/highwycombe-area-internal.jpg" width="1400" height="990" loading="lazy" alt="Geographic map of the buses within High Wycombe"></a>
+            <a href="/examples/highwycombe-area-external.jpg" target="_blank" rel="noopener"><img src="/examples/highwycombe-area-external.jpg" width="1400" height="990" loading="lazy" alt="Diagram of bus routes from High Wycombe to nearby towns"></a>
+          </div>
+          <div class="body">
+            <h3><span class="badge">Area</span> High Wycombe</h3>
+            <p>A big, busy town — and the hard case. Drawn the standard way it was unreadable; what you see here is the result of a documented process for making a complex network legible. <a href="#complex">How that was done</a>.</p>
+            <div class="outputs">Outputs shown: internal (geographic) · external</div>
+          </div>
+        </article>
+
       </div>
 
-      <p class="form-note" style="margin-top:24px">Each map can also be produced as a straightened <em>schematic</em> and a tube-map-style <em>diagram</em>. Colours, labels and which outputs to include are all adjustable.</p>
+      <p class="form-note" style="margin-top:24px">Each map can also be produced as a straightened <em>schematic</em> and a tube-map-style <em>diagram</em>. Colours, labels and which outputs to include are all adjustable — you turn on only the ones you want.</p>
+    </div></section>
+
+    <section class="alt" id="complex"><div class="container">
+      <h2>Complex towns</h2>
+      <p class="section-intro">St Ives fits on one sheet without much argument. High Wycombe does not — and pretending otherwise is how you end up with a map nobody can read.</p>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3 class="mt-0">What makes a town hard</h3>
+          <p>Three things, mostly: a lot of services, a dense centre where they all converge, and long through-routes that cross the whole map. The failure they cause is specific — lines end up drawn <em>underneath</em> other lines, so a route is on the sheet but invisible.</p>
+          <p>Rather than find that out at the end, the system measures it at the start: how many lines the map would draw, how many stops, how much of the area carries five or more routes at once, and how far that congestion stretches.</p>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">Scored before the work starts</h3>
+          <p>Those four measurements produce one verdict — <span class="pill green">GREEN</span> build it normally, <span class="pill amber">AMBER</span> apply some remedies first, <span class="pill red">RED</span> stop and choose a strategy.</p>
+          <p>It runs on the survey, before the expensive drawing work, which is what lets a quote be based on the actual difficulty of your town instead of a guess. <a href="/pricing.html">How that feeds into a price</a>.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px">
+        <h3 class="mt-0">High Wycombe: <span class="pill red">RED</span> → <span class="pill green">GREEN</span></h3>
+        <p>Scored as it came out of the data, High Wycombe failed all four measures at once: <strong>31 lines and 320 stops</strong> on one A4 sheet, over a square kilometre of the map carrying five or more routes, and congestion running right across it. Two-thirds of the typical route was buried under another one. That is a red verdict, and the honest response to it is not to build the sheet.</p>
+        <p>The fix is a documented sequence, applied in order and re-scored after each step: move the rarest services to a text list rather than drawing them; merge the route families that run along the same road into one line; stop routes at the edge of the town-centre box instead of tangling them through it; draw only the stops that are interchanges or termini; and where there are still more lines than there are distinguishable colours, colour by corridor and let the badges carry the route numbers.</p>
+        <p>The re-score came back <strong>11 colour groups, 91 stops, nothing congested and nothing buried</strong> — inside the range of the towns that were straightforward from the start. Same town, same data, and no service left off the sheet — the rarest are named in the services list instead of being drawn as lines. The map above is the result.</p>
+        <p class="form-note" style="margin-bottom:0">The point is not that High Wycombe is difficult. It is that we can tell you it is difficult <em>before</em> anyone starts drawing, and that there is a written procedure for what to do about it.</p>
+      </div>
 
       <div class="lead-cta">
         <a class="btn btn-primary" href="/apply.html">Register your interest</a>
@@ -82,7 +121,7 @@
       Example maps © OpenStreetMap contributors (ODbL); bus service data via BODS (Open Government Licence). Always check live times with the operator or at bustimes.org.
     </div>
     <div>
-      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a><br>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a><br>
       <span class="muted">Open-source (Apache-2.0) · <a href="https://github.com/PeterC66/community-bus-maps">GitHub</a></span>
     </div>
   </div></div></footer>
