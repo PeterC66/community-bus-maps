@@ -41,9 +41,9 @@
   }
 
   const headline = map.kind === 'place' ? `Buses serving ${map.name}` : `Buses within ${map.name}`;
-  document.title = `${headline} — Community Bus Maps`;
+  document.title = `${headline} — BusMaps.uk`;
   const desc = map.org.isDemo
-    ? `A sample printable bus map${map.subject ? ' for ' + map.subject : ''}, made to demonstrate Community Bus Maps.`
+    ? `A sample printable bus map${map.subject ? ' for ' + map.subject : ''}, made to demonstrate BusMaps.uk.`
     : `A printable bus map published by ${map.org.name}${map.subject ? ' for ' + map.subject : ''}, kept up to date as services change.`;
   const md = document.querySelector('meta[name="description"]');
   if (md) md.setAttribute('content', desc);

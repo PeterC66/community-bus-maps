@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=d34ebef5 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=f5693068 -->
+**v1.1** · updated 2 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.**
 No database server, no queue, no build step. Scale by giving the VM more disk, not by
@@ -50,7 +50,7 @@ Or without containers (systemd on a plain VM):
 ```ini
 # /etc/systemd/system/cbm-portal.service
 [Unit]
-Description=Community Bus Maps portal
+Description=BusMaps.uk portal
 After=network.target
 
 [Service]

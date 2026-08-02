@@ -1,4 +1,4 @@
-/* Community Bus Maps — customer app (editor) styles. Reuses tokens from
+/* BusMaps.uk — customer app (editor) styles. Reuses tokens from
    /css/styles.css; adds the editor's two-pane layout. Light/dark aware. */
 
 .app-main { max-width: 1360px; margin: 0 auto; padding: 18px 20px 40px; }
@@ -118,6 +118,9 @@
 /* output toggles + misc */
 .soon { color: var(--muted); font-size: .78rem; font-style: italic; }
 .poi-item input:disabled + label { color: var(--muted); }
+/* The "Ask us" button on a request-only output (the hand-finished diagram) sits
+   at the right-hand end of its row. */
+.poi-item .btn-xs { margin-left: auto; flex: 0 0 auto; }
 .map-card .meta.owner { margin-top: 6px; font-weight: 600; color: var(--primary); font-size: .82rem; }
 .nav .navlink#whoami { font-size: .82rem; color: var(--muted); }
 

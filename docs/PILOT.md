@@ -1,11 +1,11 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=8adef294 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-02 | sha=567b521c -->
+**v1.1** · updated 2 August 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
-Community Bus Maps was built as if it were a running service. It isn't. There are
+BusMaps.uk was built as if it were a running service. It isn't. There are
 no customers, no organisation has signed up, and every map on the site is one we
 made ourselves. The copy said otherwise — "maps **our customers** have published",
 "those are live, kept up to date", "**our team** then builds the map data" — and

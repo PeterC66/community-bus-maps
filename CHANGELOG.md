@@ -1,11 +1,158 @@
 # Changelog
 
-<!-- docstamp v1.2 | 2026-08-02 | sha=566268b0 -->
-**v1.2** · updated 2 August 2026
+<!-- docstamp v1.7 | 2026-08-02 | sha=ffab3bca -->
+**v1.7** · updated 2 August 2026
 
-Notable changes to Community Bus Maps. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
+Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### The BusMaps.uk repositioning — 2026-08-02, in one place
+
+Everything dated 2026-08-02 below belongs to one piece of work, done over seven sessions against
+[`Buses/Development Docs/busmapsuk-repositioning-plan_2026-08-02.md`](https://github.com/PeterC66/community-bus-maps),
+which is the plan of record and carries the per-session detail and lessons. The short version of
+**why**, since the individual entries only say what:
+
+The system had outgrown the way it described itself. It was called *Community Bus Maps* in a hundred
+places while the domain said something else; its shop window was a **place that had closed**; it made
+no claim about the one capability that most distinguishes it commercially (knowing how hard a town
+is *before* quoting); it had a page saying what it does and none saying what it would cost; and it
+offered, as a tick-box next to three generated outputs, an output that is **finished by hand and
+re-finished at every refresh**. Each of those is small. Together they meant a visitor could not
+answer "what is this, what would it cost me, and who is behind it" without asking.
+
+So, in order: the name became **BusMaps.uk** everywhere a person can see it (the repo, the package
+name and the service id deliberately did not change — that is stated in the README so nobody
+"fixes" it). The **Simpson Centre** was replaced by **High Wycombe Aldi** as both the shop-window
+example and the byte-identical fixture — which immediately earned its keep by exposing that the
+vendored place engine was 445 lines behind the skill, invisible for weeks because the old fixture was
+frozen against the same old code. **High Wycombe** was added as an area example told as the
+complexity-triage story, because RED → GREEN with the scores on either side is the most credible
+thing the system can say about itself. **`/pricing.html`** describes the model with no figure on it,
+and **`/opportunity.html`** says plainly that this is a one-person project looking for a CIC. The
+**tube-map diagram** stopped being a tick-box: it is badged wherever it is offered, explained in the
+FAQ, and request-only with the refusal enforced server-side.
+
+Two habits came out of it and are worth keeping. **Every count on a public page was checked against
+the disk rather than copied from the plan** — which is how "six place maps" became five, how "proven
+on four towns" became seven, and how a claim that the restore drill had been *rehearsed* came out
+altogether. And **the decks now generate from tracked source** ([`BusMapsUK/deck-src/`] in the Buses
+repo): three of the six had already lost their generators to expired scratchpads and had to be
+reconstructed by reading the shipped `.pptx` back.
+
+Still open, unchanged by any of this: the bustimes.org terms question (`docs/LICENSING.md` §3), the
+final read of `/legal.html`, CSRF, and an email provider.
+
+### Added — an opportunity page, for the visitor who would rather run this than buy it
+- **New [`public/opportunity.html`](public/opportunity.html)** — "Take this on": the co-founder pitch
+  for handing the system to a **Community Interest Company**, with four things a serious candidate
+  needs and rarely gets. *What the asset actually is*, stated concretely (seven towns and five places
+  built; the complexity gate; three approval gates and the monthly cycle; an operations handbook and
+  six runbooks; Apache-2.0 on GitHub; open data end to end). *Why a CIC* — the cross-subsidy from
+  campuses and business parks to parishes and community transport is governance, not goodwill, and
+  the asset lock keeps it that way. *Who would suit it*, including that this is a one-person project
+  and **succession is the problem being solved**. And *what is not resolved*: bustimes.org's terms,
+  and the fact that no decision has been taken between a CIC and a small commercial supplier.
+- **Linked from the footer of every public page** ("Take this on") and from one strip at the foot of
+  the home page. Not in the nav: it is not part of the shopfront journey.
+- **Every count on the page was checked against the disk**, not taken from the plan — which is how
+  "six place maps" became **five** (Beaconsfield Simpson Centre and Waitrose, High Wycombe Aldi,
+  St Neots Tesco Extra and Town Centre). The claim that the restore drill had been *rehearsed* was
+  removed for the same reason: `docs/DEPLOY.md` documents the procedure, and there is no record of it
+  having been run. The page now says it is written down, which is what is true.
+- **No figure, competitor estimate or effort-per-map number appears on it** — that material stays in
+  the private ops folder and goes to a candidate in conversation. The page says so.
+- **The pitch's "proprietary technology" was corrected to "openly licensed"** when it moved onto the
+  site: the repository is public and Apache-2.0, so the original wording was simply wrong.
+- `STATIC_PAGES` gained `/opportunity.html` **and `/terms.html`**, which had been in the footer but
+  missing from the sitemap. The rule is now written down beside the list: the sitemap and the footer
+  should name the same pages. What keeps the page unindexed during the pilot is `robots.txt`.
+
+### Changed — the tube-map diagram is warned about, and request-only
+- **The cost is now stated wherever the diagram is offered.** The home page's *Four outputs* card, the
+  examples-page note and the `pricing.html` Extra list all carry a **hand-finished · extra** badge and
+  say why: the machine solves the topology, then every line and interchange is *placed by hand* — and
+  re-placed whenever the network moves. A new FAQ answer at
+  [`/faq.html#diagram`](public/faq.html) makes the real point explicitly: because the hand placements
+  are **pins we maintain**, the diagram costs drawing time in the *updates*, not only in the first
+  build. That is why it is priced separately rather than folded into the map.
+- **It is no longer a tick-box.** `OUTPUTS.internal_diagram` is marked `requestOnly` in
+  [`src/maps/store.js`](src/maps/store.js). The editor shows it locked with an **Ask us** button;
+  pressing it raises a `diagram-request` **message** (the existing table, with the map attached) that
+  the admin console already displays — it switches nothing on. Granting it stays what it was: an admin
+  ticking it, or the pin editor's save doing so itself.
+- **The lock is server-side.** The decision moved out of the route into a pure
+  `chooseOutputs()` in [`src/maps/engine.js`](src/maps/engine.js), which the PATCH handler now calls:
+  a non-admin asking for `internal_diagram` gets **403** with the whole change refused, and a granted
+  diagram can be neither switched off nor lost by a PATCH that omits the key. Nine new checks in
+  `test-p7.mjs` assert the rules, and four more assert the route is actually using them — hiding a
+  checkbox is UX, not security.
+- Fixed alongside: `applyLock()` re-enabled *every* output checkbox when a map came out of review,
+  including ones disabled for their own reason (an output this map cannot produce). Controls disabled
+  on their own account now carry `data-fixed` and stay that way.
+- `/faq.html#diagram` opens the answer it points at (`public/js/faq-anchor.js`) — answers are
+  `<details>`, and a link into a collapsed one is not much of a link.
+
+### Added — a pricing page, with no figures on it
+- **New [`public/pricing.html`](public/pricing.html)**, in the nav between Examples and FAQ, in the
+  footer of every page and in the sitemap. It leads with *free during the pilot* and then describes,
+  entirely in the future conditional, **what** would be bought (print-ready sheets, the monthly
+  maintenance cycle, the public page — saying plainly that the maintenance is the product and the
+  one-off sheets are what everyone else sells), **how** a price would be arrived at (a build fee
+  quoted after the survey, plus an annual fee per map), what would be included versus extra, how it
+  compares, which budgets normally pay, and that we do not print.
+- **No figure appears anywhere on it.** The commercial model — rates, competitor estimates,
+  effort-per-map — stays in the private ops folder. What is published is the *structure* of the
+  model, which is what a prospective buyer actually needs in order to decide whether to ask.
+- The FAQ's "How much does it cost?" now points here, and a new FAQ entry answers *why the price
+  would depend on your town*. The home page's closing note links here too.
+
+### Added — High Wycombe as the area example, told as the triage story
+- **A fourth card on [`public/examples.html`](public/examples.html)** using the area images prepared
+  last session, plus a **"Complex towns"** section at `#complex`: what makes a town hard to draw, the
+  fact that it is *scored before the expensive work starts*, and High Wycombe's own
+  **RED → GREEN** before-and-after (31 lines / 320 stops / two-thirds of the typical route buried,
+  down to 11 colour groups / 91 stops / nothing congested) with the remedy ladder in plain English.
+- **A "Does it work on a big town?" strip on the home page** carrying the same story in short, so the
+  system does not read as a one-town trick. Section shading alternates down that page, so the three
+  sections below the new one flip to keep the rhythm.
+- The claim that the shown map *is* the post-triage build was checked, not assumed: both example JPGs
+  are downscales of the current `_latest` render (RMS grey difference ~4–5 against a LANCZOS
+  downscale of the source, i.e. resampling and JPEG only).
+- High Wycombe has no `internal-schematic` output, so its card shows internal + external like every
+  other card and claims nothing more.
+
+### Changed — the shopfront speaks to five pain classes, not six organisation types
+- **"Who it's for" on the home page** was organised by *type of organisation*; it is now organised by
+  *pain*, around the five UK-wide classes: transport authorities and councils; healthcare, campuses
+  and schools; business and science parks; town centres, BIDs, tourism and attractions; bus operators
+  and community transport. A sixth tile keeps the door open for everyone else.
+- **[`public/apply.html`](public/apply.html) lets an applicant self-identify by class.** `ORG_TYPES`
+  in [`src/server.js`](src/server.js) gained the five class slugs; **the original seven values are
+  still accepted** so that stored applications and seeded demo rows keep validating, since
+  `customer.type` is copied straight from this field on approval. No schema change — only the column
+  comment. Verified against a scratch database: each new value and the legacy `council` accepted, an
+  unknown value rejected with 400.
+
+### Changed — Simpson Centre replaced by High Wycombe Aldi as the place example
+- **The Simpson Centre has closed**, so it was a poor shop window as well as a stale one. The place
+  example everywhere is now **Aldi, Tannery Road, High Wycombe** — the *busy* case (11 services
+  calling, 14 reachable places), which demonstrates more than the quiet one did.
+- Swapped: [`public/examples.html`](public/examples.html) and its images, the seeded demo map and
+  organisation in [`scripts/seed-demo.mjs`](scripts/seed-demo.mjs), `PLACE_FIXTURE_DIR`, and the
+  references in [`README.md`](README.md), [`docs/OPERATIONS-HANDBOOK.md`](docs/OPERATIONS-HANDBOOK.md)
+  and [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- **The demo customer is invented, and deliberately not the retailer.** A map's *subject* may be a
+  real place — that is just geography — but naming a real commercial brand as the customer would
+  read as a signed-up client of a service that has none. The seeded org is
+  *Tannery Road Traders (sample)*, `is_demo`, with the usual Sample badge and disclaimer.
+
+### Fixed — the place gate was checking the wrong SVG
+- **[`scripts/verify-reproduce-place.mjs`](scripts/verify-reproduce-place.mjs) rasterised the
+  *reference* SVG rather than the regenerated one**, so the JPG line reported "pixel-identical" on a
+  run where the SVG genuinely DIFFERED — the one run where you need it to be believable. It now
+  rasterises what it just generated.
 
 ### Changed — fixture and source paths follow the Buses folder restructure
 - **The separate Buses data repo now nests towns under `Areas/`** and places under their area
@@ -622,7 +769,7 @@ publishes it — separation of duties.
 - **Roles activated**: the P2 `approver` role now has powers — a platform reviewer who can read/inspect
   and publish **any** map's submitted version but cannot edit it (`loadReadableMap` vs `loadOwnedMap`).
   A **Review** nav link appears for approvers + admins.
-- **Demo seed** now also creates a platform **approver** (`approver@community-bus-maps.example`),
+- **Demo seed** now also creates a platform **approver** (`approver@busmaps.example`),
   **publishes March v1.0** as a first official version, and renders a real **St Ives v1.1** (route 9
   recolour) **submitted for sign-off** — so the review queue, a published map and the audit trail are all
   non-empty on first run.

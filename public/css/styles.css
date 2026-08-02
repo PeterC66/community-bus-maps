@@ -1,4 +1,4 @@
-/* Community Bus Maps — shopfront styles. Light/dark aware, responsive, no deps. */
+/* BusMaps.uk — shopfront styles. Light/dark aware, responsive, no deps. */
 
 :root {
   --bg: #ffffff;
@@ -167,7 +167,14 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 }
 .card h3 { margin: 0 0 6px; font-size: 1.12rem; }
 .card p { margin: 0; color: var(--muted); font-size: .96rem; }
+/* Cards were single-paragraph everywhere until the pricing page; without this
+   two <p> in one card butt straight together. */
+.card p + p { margin-top: 10px; }
+.card ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: .96rem; }
+.card ul li + li { margin-top: 6px; }
 .card .ico { font-size: 1.6rem; line-height: 1; margin-bottom: 10px; }
+/* A map filling a card edge to edge (the card needs padding:0 to suit). */
+.card img.shot { width: 100%; height: auto; display: block; background: var(--surface-2); }
 
 .badge {
   display: inline-block;
@@ -182,6 +189,17 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
 }
 .badge.place { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+/* An output that is drawn by hand and therefore priced separately (the tube-map
+   diagram). Wherever it is offered it carries this badge, so nobody discovers the
+   cost after asking for it. */
+.badge.extra {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-transform: none;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
 
 /* steps */
 .steps { counter-reset: step; display: grid; gap: 16px; grid-template-columns: repeat(4, 1fr); }
@@ -210,6 +228,11 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 
 .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .pill { font-size: .82rem; padding: 5px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+/* Complexity-triage bands. Colour carries meaning here, so each pill also says
+   its own word — GREEN / AMBER / RED — rather than relying on the swatch. */
+.pill.green { background: color-mix(in srgb, var(--ok) 14%, transparent); border-color: color-mix(in srgb, var(--ok) 40%, transparent); color: var(--ok); font-weight: 700; }
+.pill.amber { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); font-weight: 700; }
+.pill.red { background: color-mix(in srgb, var(--err) 12%, transparent); border-color: color-mix(in srgb, var(--err) 40%, transparent); color: var(--err); font-weight: 700; }
 
 /* ---------- forms ---------- */
 .form-wrap { max-width: 640px; }

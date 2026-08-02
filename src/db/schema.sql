@@ -5,7 +5,12 @@ CREATE TABLE IF NOT EXISTS application (
   id            INTEGER PRIMARY KEY,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   org_name      TEXT NOT NULL,
-  org_type      TEXT NOT NULL,           -- council | shop | business | school | function-organiser | charity-nt | other
+  org_type      TEXT NOT NULL,           -- one of ORG_TYPES in src/server.js: the five pain-point
+                                          -- classes (authority-council | healthcare-campus |
+                                          -- business-park | bid-tourism | operator-ct | other),
+                                          -- plus the original values still held by older rows
+                                          -- (council | shop | business | school |
+                                          -- function-organiser | charity-nt)
   contact_name  TEXT NOT NULL,
   email         TEXT NOT NULL,
   phone         TEXT,
@@ -20,7 +25,11 @@ CREATE TABLE IF NOT EXISTS application (
 CREATE TABLE IF NOT EXISTS message (
   id            INTEGER PRIMARY KEY,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  kind          TEXT NOT NULL DEFAULT 'enquiry',  -- enquiry | question | feedback
+  kind          TEXT NOT NULL DEFAULT 'enquiry',  -- enquiry | question | feedback (the three
+                                                  -- the public contact form may set, MSG_KINDS
+                                                  -- in src/server.js), plus 'diagram-request',
+                                                  -- which only the server writes when a signed-in
+                                                  -- customer asks for the hand-finished diagram
   name          TEXT,
   email         TEXT,
   body          TEXT NOT NULL,

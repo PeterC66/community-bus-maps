@@ -1,7 +1,7 @@
 # Roadmap & architecture
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=f910da5b -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-02 | sha=5c54d6ff -->
+**v1.2** · updated 2 August 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project
 up. The full planning documents live in the companion **Buses** working repo
@@ -68,6 +68,7 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
 | Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
 | Accept/decline the monthly change — *shipped in P5* | New-map onboarding / bootstrapping a subject |
 | Choose which of the 4 outputs a map produces — *P2 toggles; **all four render as of P7** (the two expert styles are opt-in per map)* | Anything touching upstream (S1/S2) data |
+| — | **Switching the tube-map diagram on.** It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
 
 ## Known follow-ups (not blocking a phase)
 
@@ -109,9 +110,9 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   renderer:** set `FIXTURE_DIR` (a staged town render folder) and `PLACE_FIXTURE_DIR` (a place fixture)
   from the Buses repo, then `npm run verify` — it runs **both** the area and place byte-identical gates.
 - **Demo (P2–P5):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
-  + two councils (each an area map) + a health centre (**Beaconsfield Simpson Centre**, a **place** map),
+  + two councils (each an area map) + a shop (**High Wycombe Aldi**, a **place** map),
   each with an editor, plus a pending application, a requested map, **March published v1.0**, a **St Ives
-  v1.1 submitted for sign-off**, and **monthly updates staged for March (area) and the Simpson Centre
+  v1.1 submitted for sign-off**, and **monthly updates staged for March (area) and High Wycombe Aldi
   (place)**. Sign in with a seeded email; the one-time link is printed to the **server console**. **Stop
   the dev server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/
@@ -185,7 +186,10 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   own `gen_internal.js` inside a workspace, so an inherited `LEAFLET_DIR` would silently reproduce
   the geographic map. Availability is **opt-in per map** (`routes.json` → `internalSchematic` /
   `internalDiagram`, via `requiresConfig`), and both are **off by default** so a pre-P7 map's saves
-  are unchanged. `npm run verify:area` gates them automatically when the fixture opts in.
+  are unchanged. `npm run verify:area` gates them automatically when the fixture opts in. The
+  **diagram additionally cannot be switched on by a customer at all** (`requestOnly`) — it is
+  hand-pinned and re-pinned on every refresh, so it is priced separately and granted by us; see
+  [OPERATIONS-HANDBOOK §4b](OPERATIONS-HANDBOOK.md).
 - **Diagram pin editor (P7):** **`/app/maps/:id/diagram`**, **admin-only** (`/api/expert/*` +
   `requireAdmin`) — the deliberate mirror of the customer safe subset, because dragging changes
   layout. Drag a junction to pin it, drop to re-solve, right-click to unpin. Previews solve in a

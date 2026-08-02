@@ -1,17 +1,22 @@
-# Community Bus Maps — portal
+# BusMaps.uk — portal
 
-<!-- docstamp v1.1 | 2026-08-02 | sha=75506e8e -->
-**v1.1** · updated 2 August 2026
+<!-- docstamp v1.4 | 2026-08-02 | sha=1d5836a7 -->
+**v1.4** · updated 2 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
 tweak and keep up to date **printable bus maps** for the places they care about.
 
+> **The project is BusMaps.uk; the repository is still `community-bus-maps`.** The repo name
+> predates the brand and is deliberately not being changed — renaming it would break existing
+> clones, the links in these docs, and every local path, for no benefit. The same goes for the
+> `package.json` name and the `/healthz` service id. Anything a *user* sees says BusMaps.uk.
+
 Two kinds of map, from one deterministic engine:
 
 - **Area maps** — a whole town, a rural parish, or part of a larger town (e.g. *St Ives*, *March*).
 - **Place maps** — centred on a single point: a shop, school, station, community centre or town
-  centre (e.g. *Beaconsfield Simpson Centre*, *St Neots Town Centre*).
+  centre (e.g. *High Wycombe Aldi*, *St Neots Town Centre*).
 
 Each map can produce any of four outputs, and the customer chooses which they want:
 
@@ -19,7 +24,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 |---|---|
 | **internal (geographic)** | a street-anchored map of the buses within the area/around the place |
 | **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
-| **internal (diagram)** | a tube-map-style diagram, hand-tunable via the pin editor *(expert style, opt-in per map)* |
+| **internal (diagram)** | a tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only**: hand-pinned work, so it is quoted separately and granted by us — see [OPERATIONS-HANDBOOK §4b](docs/OPERATIONS-HANDBOOK.md))* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
 > **Status: PILOT — feature-complete against the plan (P0–P7), but not a live service.**
@@ -96,7 +101,7 @@ which gates to run.
 
 Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
 a **pending application**, a **requested map**, **two published maps with live public pages** (March v1.0
-and the Simpson Centre place map), a version **submitted for sign-off** (St Ives v1.1), **pending monthly
+and the High Wycombe Aldi place map), a version **submitted for sign-off** (St Ives v1.1), **pending monthly
 updates**, public **branding** for each organisation and a piece of public **feedback**, so the P3/P4/P5/P6
 queues and the public gallery aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
 writer at a time for now:
@@ -110,7 +115,7 @@ one of the seeded emails and the one-time link is **printed to the server consol
 in dev):
 
 - `peter@pcooper.me.uk` — **admin**: sees every customer's maps, plus the **Admin** console and **Review**.
-- `approver@community-bus-maps.example` — **approver**: a platform reviewer who signs off submissions at
+- `approver@busmaps.example` — **approver**: a platform reviewer who signs off submissions at
   **/app/review** (can inspect any map's print files, but not edit them).
 - `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's maps.
 
@@ -203,6 +208,14 @@ render folder never carried them), they are **opt-in per map** — the map's `ro
 editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six**
 outputs (four area + two place) are proved on every release.
 
+The diagram goes one step further: it is **request-only**. The other three outputs are generated —
+same data, same sheet, nobody's hand on it — but the diagram is solved and then *pinned by hand*, and
+those pins are ours to re-judge every time the network moves. So it costs drawing time in the updates,
+not only in the first build, and a customer cannot tick it on: the editor shows it locked with an
+**Ask us** button that raises a `diagram-request` message. The refusal is enforced in `chooseOutputs()`
+(`src/maps/engine.js`) — a non-admin PATCH asking for it gets a 403 — because hiding a checkbox is UX,
+not security.
+
 The diagram's automatic layout can be hand-tuned by an **admin** at **`/app/maps/:id/diagram`**: drag a
 junction to pin it, drop to re-solve and see the real sheet, right-click to unpin. This is the mirror
 image of the customer safe subset — dragging changes *layout*, which customers may not do — so every
@@ -265,7 +278,7 @@ src/
   render/   renderMap.js — run a map's generator, rasterise to a 300 dpi JPG (== desktop pipeline)
   maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render/swap)
   server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + monthly updates + admin console
-public/     the shopfront + public map pages (maps/map/org/legal) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
+public/     the shopfront (incl. pricing + opportunity) + public map pages (maps/map/org/legal/terms) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
 scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 docs/       DUMMIES_GUIDE.md (start here if git/Node are new) · DEVELOPING.md (read before changing code) · ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate) · OPERATIONS-HANDBOOK.md + runbook-*.md (running the service)

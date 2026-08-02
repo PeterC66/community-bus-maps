@@ -1,7 +1,7 @@
-# Operations Handbook — Community Bus Maps portal
+# Operations Handbook — BusMaps.uk portal
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=f50f7d51 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.3 | 2026-08-02 | sha=df2773ea -->
+**v1.3** · updated 2 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
 **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
@@ -43,8 +43,8 @@ event organisers, the National Trust…) generate and maintain **printable bus m
 | **Approver** | A *platform* reviewer. Signs off submissions at `/app/review`. Can **read/inspect any** map but **never edit** one. |
 | **Admin** | The *platform* operator (you). Approves applications + map requests, sets quotas, runs the console, and can do everything. |
 | **Area map** | A whole town / parish / part of a town (e.g. *St Ives*, *March*). |
-| **Place map** | Centred on a single point — a shop, school, station, centre (e.g. *Beaconsfield Simpson Centre*). |
-| **Output** | One of four renderings a map can produce: **internal geographic**, **internal schematic** (octolinear), **internal diagram** (tube-map), **external** (where the buses go). A customer chooses which are on. |
+| **Place map** | Centred on a single point — a shop, school, station, centre (e.g. *High Wycombe Aldi*). |
+| **Output** | One of four renderings a map can produce: **internal geographic**, **internal schematic** (octolinear), **internal diagram** (tube-map), **external** (where the buses go). A customer chooses which are on — **except the diagram**, which is *request-only*: hand-pinned, quoted separately, and granted by us. See §4b. |
 | **Overrides / safe subset** | The *only* edits a customer can make: **recolour a route** (from the palette) and **toggle a POI** on/off. Rebuilt from scratch and validated on every save — server-enforced in `safeSubset.js`, not just hidden in the UI. Everything else (geometry, pins, straightening, curation) is expert-only. |
 | **Baseline (v1.0)** | The imported version with **empty overrides** ⇒ **byte-identical** to the shipped desktop leaflet. The guarantee the whole system rests on. |
 | **Version review state** | `draft` → `pending` (submitted) → `published`; a superseded public version becomes `superseded`; a sent-back one `rejected`. |
@@ -80,6 +80,25 @@ trail depends on it.
 3. **Publish** — a rendered version stays a **draft** until an **approver signs it off** (a required
    checklist + the deterministic change summary as evidence) → the public-current pointer advances.
 
+### 4b. The tube-map diagram is request-only
+
+The other three outputs are generated: the same data always draws the same sheet. The diagram is
+solved and then **pinned by hand**, and those pins are ours to re-judge every time the network moves
+— so it is a *priced* output, not a tick-box, and it costs drawing time in the updates as well as in
+the first build.
+
+- A customer sees it in the editor's Outputs panel, **locked**, with an **Ask us** button.
+- Pressing it writes a `diagram-request` message (with the map attached) into **Messages** in the
+  admin console. It switches nothing on. Reply with what it would involve.
+- The lock is **server-enforced** in `chooseOutputs()` (`src/maps/engine.js`); a non-admin PATCH to
+  `/api/maps/:id/outputs` asking for `internal_diagram` gets **403** and the stored set is unchanged.
+  Hiding the checkbox is only the UX of it. Once granted, a customer cannot switch it *off* either.
+- **To grant it:** as admin, open the map's editor and tick it (admins are not subject to the lock),
+  or simply save a layout in `/app/maps/:id/diagram` — the pin editor switches the output on itself.
+  Either way the result is a new draft version that still needs the P4 sign-off.
+- It is only *available* at all when the map's `routes.json` carries an `internalDiagram` config,
+  which is set when the map is built.
+
 ## 5. The operating rhythm
 
 Point of reference for "what do I do, and how often." Detail lives in the linked runbook / doc.
@@ -87,7 +106,7 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 | Cadence | Task | How | Runbook |
 |---|---|---|---|
 | **Daily** (mostly automated) | Backup runs; glance at readiness | cron `npm run backup`; `curl /health?deep=1` | [DEPLOY.md §5](DEPLOY.md), [§4](DEPLOY.md) |
-| **Daily/weekly** | Clear the queues | `/app/admin` badges: **Applications**, **Messages** (contact + report-a-problem) | R2, R5 *(planned)* |
+| **Daily/weekly** | Clear the queues | `/app/admin` badges: **Applications**, **Messages** (contact + report-a-problem + diagram requests, §4b) | R2, R5 *(planned)* |
 | **Weekly** | Sign off submitted maps | `/app/review` | R3 *(planned)* |
 | **Monthly** | Run the update cycle after the BODS refresh; then prune | `propose-update.mjs` per map; `npm run prune:staged` | R4 *(planned)*, [DEPLOY.md §6](DEPLOY.md) |
 | **Per-event** | Onboard a customer | application arrives → vet → approve | R2, Pol1 *(planned)* |
@@ -103,8 +122,9 @@ a restore.
 ## 6. Where everything is
 
 **Public site** (no sign-in): `/` shopfront · `/apply.html` · `/faq.html` · `/contact.html` ·
-`/examples.html` · **`/maps`** gallery · **`/m/<slug>`** a published map · **`/o/<slug>`** an org page ·
-`/legal.html` privacy & attribution.
+`/examples.html` · `/pricing.html` · **`/maps`** gallery · **`/m/<slug>`** a published map ·
+**`/o/<slug>`** an org page · `/opportunity.html` the CIC hand-over pitch ("Take this on", footer
+link only, not in the nav) · `/legal.html` privacy & attribution · `/terms.html`.
 
 **App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle,
 outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests ·

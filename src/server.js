@@ -1,4 +1,4 @@
-// Community Bus Maps — portal server.
+// BusMaps.uk — portal server.
 //   P0: public shopfront (apply / contact / health).
 //   P1: safe-subset editor (object store, versioned save→render→download).
 //   P2: passwordless auth, multi-customer tenant isolation, per-map output toggles.
@@ -39,11 +39,11 @@ import {
 } from './public/index.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
-  readOverrides, preview, previewFrom, renderVersion, outputsForClient, swapInProposedData,
-  carryExpertTuning,
+  readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
+  swapInProposedData, carryExpertTuning,
 } from './maps/engine.js';
 import { sanitizeOverrides } from './maps/safeSubset.js';
-import { versionDir, mapDataDir, proposedDataDir, OUTPUTS, OUTPUT_FILES } from './maps/store.js';
+import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES } from './maps/store.js';
 import {
   diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes,
 } from './expert/index.js';
@@ -61,7 +61,17 @@ const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
 const VERSION = '0.9.0-pilot';
 
-const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
+// The five pain-point classes the shopfront is organised around, plus 'other'.
+// The trailing seven are the original organisation-type values: no longer offered
+// on the form, still accepted so that stored applications and seeded demo rows
+// keep validating (customer.type is copied straight from here on approval).
+const ORG_TYPES = [
+  'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
+  'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
+];
+// What the PUBLIC contact form may set. 'diagram-request' is a fourth kind in the
+// message table, but only the server writes it (see /api/maps/:id/diagram-request),
+// so it is deliberately not in this list.
 const MSG_KINDS = ['enquiry', 'question', 'feedback'];
 const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
@@ -351,7 +361,12 @@ app.get('/robots.txt', async (req, reply) => {
   ].join('\n');
 });
 
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/faq.html', '/apply.html', '/contact.html', '/legal.html'];
+// Every public page that is linked from the footer, so the sitemap and the footer
+// agree. `/opportunity.html` is outreach rather than shopfront, but it is linked
+// from all of them — excluding it would hide it from crawlers while showing it to
+// every visitor, which is not privacy, just inconsistency. (What actually keeps it
+// unindexed during the pilot is robots.txt saying `Disallow: /`.)
+const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html'];
 
 app.get('/sitemap.xml', async (req, reply) => {
   const base = baseUrl(req);
@@ -378,10 +393,10 @@ function xmlEscape(s) {
 function notFoundPage(what) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Not found — Community Bus Maps</title><link rel="stylesheet" href="/css/styles.css">
+<title>Not found — BusMaps.uk</title><link rel="stylesheet" href="/css/styles.css">
 <script src="/js/site-banner.js" defer></script></head>
 <body><header class="site-header"><div class="container"><nav class="nav">
-<a class="brand" href="/"><span class="logo">🚌</span> Community Bus Maps</a><span class="spacer"></span>
+<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
 <a class="navlink" href="/maps">Published maps</a></nav></div></header>
 <main><section><div class="container">
 <h2 class="mt-0">We can’t find that ${what}</h2>
@@ -799,24 +814,49 @@ app.post('/api/maps/:id/publish-request/withdraw', async (req, reply) => {
 });
 
 // Choose which outputs a map produces (P2 output toggles).
+//
+// Expert styles (P7) can only be switched on for a map that carries the config
+// they need, and the tube-map diagram cannot be switched on by a customer at all
+// — it is request-only (see chooseOutputs). The server decides, not the UI.
 app.patch('/api/maps/:id/outputs', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
-  const incoming = (req.body || {}).outputs || {};
-  const available = new Set(outputsForClient(parseOutputs(map.outputs), map.id).filter((o) => o.available).map((o) => o.key));
-  const clean = {};
-  for (const [key, meta] of Object.entries(OUTPUTS)) {
-    if (!meta.portal) continue;
-    // Expert styles (P7) default OFF and can only be switched on for a map that
-    // actually carries the config they need — the server decides, not the UI.
-    const wanted = typeof incoming[key] === 'boolean' ? incoming[key] : !meta.expert;
-    clean[key] = wanted && (available.has(key) || !meta.expert);
+  const current = parseOutputs(map.outputs);
+  const available = outputsForClient(current, map.id).filter((o) => o.available).map((o) => o.key);
+  const { outputs: clean, refused } = chooseOutputs((req.body || {}).outputs, {
+    current, available, isAdmin: user.role === 'admin',
+  });
+  if (refused.length) {
+    req.log.warn({ mapId: map.id, refused, by: user.email }, 'refused a request-only output change');
+    return reply.code(403).send({
+      ok: false, refused,
+      error: 'The tube-map diagram is hand-finished, so it is not a tick-box — ask us for it and we will quote and set it up.',
+    });
   }
   if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
   setMapOutputs(map.id, clean);
   req.log.info({ mapId: map.id, outputs: clean }, 'updated map outputs');
   return { ok: true, outputs: outputsForClient(clean, map.id) };
+});
+
+// "Ask us for the diagram" — the customer half of the request-only lock above.
+// It deliberately creates nothing but a MESSAGE (the same table the contact form
+// and public map feedback use, with the map attached), because granting the
+// output is expert work with a price attached, not a state a form can set.
+app.post('/api/maps/:id/diagram-request', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const note = str((req.body || {}).note, 2000);
+  const body = [
+    `Asked for the tube-map diagram on "${map.name}" (map #${map.id}, ${map.kind}).`,
+    note && `They said: ${note}`,
+  ].filter(Boolean).join('\n\n');
+  const id = insertMessage({ kind: 'diagram-request', name: user.name || null, email: user.email, body, map_id: map.id });
+  req.log.info({ messageId: id, mapId: map.id, by: user.email }, 'tube-map diagram requested');
+  logAudit(req, 'diagram.request', { mapId: map.id, detail: { messageId: id, note } });
+  return { ok: true, id };
 });
 
 // Whether the map's PUBLISHED version appears on the public site (P6). This is
@@ -1515,7 +1555,7 @@ app.get('/api/admin/audit', async (req, reply) => {
 
 try {
   await app.listen({ port: PORT, host: HOST });
-  app.log.info(`Community Bus Maps portal (${VERSION}) → http://${HOST}:${PORT}`);
+  app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
   setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
 } catch (err) {
   app.log.error(err);

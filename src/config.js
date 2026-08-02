@@ -4,7 +4,7 @@
 // see it: the web chrome (via /js/site-banner.js), the page titles, robots.txt
 // and a stamp on every rendered sheet (src/render/pilotStamp.js).
 //
-// Community Bus Maps was built as if it were a running service, but it has no
+// BusMaps.uk was built as if it were a running service, but it has no
 // customers: every organisation in the database is demo data and every map on
 // the site is one we made ourselves. Until that changes, nobody — a prospective
 // customer, a council clerk, a colleague signing in — should be able to mistake
@@ -18,7 +18,7 @@ export const PILOT = {
   word: 'Pilot',
   short: 'Pilot — not yet a live service',
   long:
-    'Community Bus Maps is a pilot. The system works end to end, but it has no '
+    'BusMaps.uk is a pilot. The system works end to end, but it has no '
     + 'customers yet: every map shown here was made by us to show what it produces. '
     + 'Nothing here is a commitment to a service level.',
   href: '/faq.html#pilot',

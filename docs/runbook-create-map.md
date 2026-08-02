@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.1 | 2026-07-27 | sha=6f65a758 -->
-**v1.1** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-02 | sha=b1c87b4a -->
+**v1.2** · updated 2 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -125,7 +125,8 @@ Two standing rules for demo material:
 Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area
 and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one
 map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all
-four outputs are demoable.
+four outputs are demoable. Note the diagram is *request-only* for customers — you switch it on, they
+ask ([OPERATIONS-HANDBOOK §4b](OPERATIONS-HANDBOOK.md)).
 
 ## Building a map a customer asked for (fulfil the request in place)
 
