@@ -47,15 +47,15 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 const DEMO = [
   { customer: 'St Ives Town Council', type: 'council', editor: 'clerk@st-ives-tc.example',
     name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
-    renderParent: 'St Ives/S5-render',
+    renderParent: 'Areas/St Ives/S5-render',
     branding: { emoji: '🏛️', accent: 'blue', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://st-ives-tc.example' } },
   { customer: 'March Town Council', type: 'council', editor: 'clerk@march-tc.example',
     name: 'March', slug: 'march', kind: 'area', subject: 'March, Cambridgeshire',
-    renderParent: 'March/S5-render',
+    renderParent: 'Areas/March/S5-render',
     branding: { emoji: '🌾', accent: 'green', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://march-tc.example' } },
   { customer: 'Beaconsfield Health Centre', type: 'other', editor: 'manager@beaconsfield-health.example',
     name: 'Simpson Centre', slug: 'simpson-centre', kind: 'place', subject: 'The Simpson Centre, Beaconsfield',
-    renderParent: 'Places/Beaconsfield Simpson Centre/S5-render',
+    renderParent: 'Areas/Beaconsfield/Places/Beaconsfield Simpson Centre/S5-render',
     branding: { emoji: '🏥', accent: 'teal', blurb: 'Sample organisation — invented for testing, not a real customer.' } },
 ];
 

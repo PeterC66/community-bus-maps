@@ -132,11 +132,11 @@ As the **admin**, open **/app/admin** to review **applications** (approve → cr
 customer's empty dashboard.
 
 To import a single map yourself (attaching it to a customer, created if new) — `--kind area` for a town,
-`--kind place` for a single point (a place `--src` is a `Places/<Place>/S5-render/...` folder):
+`--kind place` for a single point (a place `--src` is an `Areas/<Town>/Places/<Place>/S5-render/...` folder):
 
 ```bash
-node scripts/import-map.mjs --src "/path/to/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "March Town Council" --customer-type council
-node scripts/import-map.mjs --src "/path/to/Places/Beaconsfield Simpson Centre/S5-render/v1.0_..." --name "Simpson Centre" --slug simpson-centre --kind place --customer "Beaconsfield Health Centre"
+node scripts/import-map.mjs --src "/path/to/Buses/Areas/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "March Town Council" --customer-type council
+node scripts/import-map.mjs --src "/path/to/Buses/Areas/High Wycombe/Places/High Wycombe Aldi/S5-render/v1.1_..." --name "High Wycombe Aldi" --slug highwycombe-aldi --kind place --customer "Aldi Stores Ltd"
 ```
 
 To offer a customer a **monthly data refresh** (P5): regenerate that town's data centrally, then stage it
@@ -144,7 +144,7 @@ as a *proposed update* (stop the dev server first — one SQLite writer). The cu
 summary + old-vs-new preview in their editor and accepts or declines it:
 
 ```bash
-node scripts/propose-update.mjs --map march --src "/path/to/March/S5-render/v2.1_..." --note "August 2026 timetable"
+node scripts/propose-update.mjs --map march --src "/path/to/Buses/Areas/March/S5-render/v2.1_..." --note "August 2026 timetable"
 ```
 
 Accepting re-applies the customer's colours/landmark choices onto the fresh data as a new **major** draft
