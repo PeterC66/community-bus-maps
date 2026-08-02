@@ -7,6 +7,25 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Changed — Simpson Centre replaced by High Wycombe Aldi as the place example
+- **The Simpson Centre has closed**, so it was a poor shop window as well as a stale one. The place
+  example everywhere is now **Aldi, Tannery Road, High Wycombe** — the *busy* case (11 services
+  calling, 14 reachable places), which demonstrates more than the quiet one did.
+- Swapped: [`public/examples.html`](public/examples.html) and its images, the seeded demo map and
+  organisation in [`scripts/seed-demo.mjs`](scripts/seed-demo.mjs), `PLACE_FIXTURE_DIR`, and the
+  references in [`README.md`](README.md), [`docs/OPERATIONS-HANDBOOK.md`](docs/OPERATIONS-HANDBOOK.md)
+  and [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- **The demo customer is invented, and deliberately not the retailer.** A map's *subject* may be a
+  real place — that is just geography — but naming a real commercial brand as the customer would
+  read as a signed-up client of a service that has none. The seeded org is
+  *Tannery Road Traders (sample)*, `is_demo`, with the usual Sample badge and disclaimer.
+
+### Fixed — the place gate was checking the wrong SVG
+- **[`scripts/verify-reproduce-place.mjs`](scripts/verify-reproduce-place.mjs) rasterised the
+  *reference* SVG rather than the regenerated one**, so the JPG line reported "pixel-identical" on a
+  run where the SVG genuinely DIFFERED — the one run where you need it to be believable. It now
+  rasterises what it just generated.
+
 ### Changed — fixture and source paths follow the Buses folder restructure
 - **The separate Buses data repo now nests towns under `Areas/`** and places under their area
   (`Areas/<Town>/Places/<Place>/`), with `Places/_standalone/` for places whose town has no area map.

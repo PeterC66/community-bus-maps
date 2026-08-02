@@ -43,7 +43,7 @@ event organisers, the National Trust…) generate and maintain **printable bus m
 | **Approver** | A *platform* reviewer. Signs off submissions at `/app/review`. Can **read/inspect any** map but **never edit** one. |
 | **Admin** | The *platform* operator (you). Approves applications + map requests, sets quotas, runs the console, and can do everything. |
 | **Area map** | A whole town / parish / part of a town (e.g. *St Ives*, *March*). |
-| **Place map** | Centred on a single point — a shop, school, station, centre (e.g. *Beaconsfield Simpson Centre*). |
+| **Place map** | Centred on a single point — a shop, school, station, centre (e.g. *High Wycombe Aldi*). |
 | **Output** | One of four renderings a map can produce: **internal geographic**, **internal schematic** (octolinear), **internal diagram** (tube-map), **external** (where the buses go). A customer chooses which are on. |
 | **Overrides / safe subset** | The *only* edits a customer can make: **recolour a route** (from the palette) and **toggle a POI** on/off. Rebuilt from scratch and validated on every save — server-enforced in `safeSubset.js`, not just hidden in the UI. Everything else (geometry, pins, straightening, curation) is expert-only. |
 | **Baseline (v1.0)** | The imported version with **empty overrides** ⇒ **byte-identical** to the shipped desktop leaflet. The guarantee the whole system rests on. |

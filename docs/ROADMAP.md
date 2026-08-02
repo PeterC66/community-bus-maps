@@ -109,9 +109,9 @@ overrides from scratch on every preview/save, so only whitelisted, validated edi
   renderer:** set `FIXTURE_DIR` (a staged town render folder) and `PLACE_FIXTURE_DIR` (a place fixture)
   from the Buses repo, then `npm run verify` — it runs **both** the area and place byte-identical gates.
 - **Demo (P2–P5):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
-  + two councils (each an area map) + a health centre (**Beaconsfield Simpson Centre**, a **place** map),
+  + two councils (each an area map) + a shop (**High Wycombe Aldi**, a **place** map),
   each with an editor, plus a pending application, a requested map, **March published v1.0**, a **St Ives
-  v1.1 submitted for sign-off**, and **monthly updates staged for March (area) and the Simpson Centre
+  v1.1 submitted for sign-off**, and **monthly updates staged for March (area) and High Wycombe Aldi
   (place)**. Sign in with a seeded email; the one-time link is printed to the **server console**. **Stop
   the dev server first** (one SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/

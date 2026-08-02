@@ -7,6 +7,11 @@
 
 # ---- Runtime data & object store (map data / customer PII stay OUT of git) ----
 /data/
+
+# Backup output. `npm run backup` writes to <DATA_DIR>/../backups/<timestamp>/,
+# which is INSIDE the repo - and it contains map data and a copy of the SQLite
+# database. /data/ being ignored is not enough; this must be ignored too.
+/backups/
 *.sqlite
 *.sqlite-*
 *.db

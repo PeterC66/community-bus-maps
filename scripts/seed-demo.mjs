@@ -35,15 +35,16 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 // Both map kinds now render in the portal: AREA maps carry their generators
 // per-map (staged from the town render dir); PLACE maps are staged with the
 // vendored place engine (engine/place/). So the demo seeds a built place map
-// (Beaconsfield Simpson Centre) alongside the two council area maps.
+// (the Aldi store in High Wycombe) alongside the two council area maps.
 // `branding` seeds each demo organisation's PUBLIC identity (P6) so the public
 // pages and gallery show credits in the right SHAPE out of the box.
 //
-// These organisations are INVENTED. They are named after real councils and a
-// real health centre, none of which have any connection to this system, so
-// every one of them is flagged is_demo (→ a "Sample" label on every public
-// surface) and carries an explicit disclaimer in its blurb. Do not remove
-// either without removing the seeded org.
+// These organisations are INVENTED. Two are named after real councils, which
+// have no connection to this system, so every one of them is flagged is_demo
+// (→ a "Sample" label on every public surface) and carries an explicit
+// disclaimer in its blurb. Do not remove either without removing the seeded org.
+// A map's SUBJECT may be a real place — that is just geography — but no real
+// organisation is ever named as the customer.
 const DEMO = [
   { customer: 'St Ives Town Council', type: 'council', editor: 'clerk@st-ives-tc.example',
     name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
@@ -53,10 +54,14 @@ const DEMO = [
     name: 'March', slug: 'march', kind: 'area', subject: 'March, Cambridgeshire',
     renderParent: 'Areas/March/S5-render',
     branding: { emoji: '🌾', accent: 'green', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://march-tc.example' } },
-  { customer: 'Beaconsfield Health Centre', type: 'other', editor: 'manager@beaconsfield-health.example',
-    name: 'Simpson Centre', slug: 'simpson-centre', kind: 'place', subject: 'The Simpson Centre, Beaconsfield',
-    renderParent: 'Areas/Beaconsfield/Places/Beaconsfield Simpson Centre/S5-render',
-    branding: { emoji: '🏥', accent: 'teal', blurb: 'Sample organisation — invented for testing, not a real customer.' } },
+  // The SUBJECT is a real place (a supermarket anyone can catch a bus to) but the
+  // CUSTOMER is invented. Deliberately not named after the retailer: a Sample badge
+  // is enough to disclaim an invented council, but putting a real commercial brand
+  // in the customer column would read as a signed-up client of a service that has none.
+  { customer: 'Tannery Road Traders (sample)', type: 'shop', editor: 'manager@tannery-road-traders.example',
+    name: 'High Wycombe Aldi', slug: 'highwycombe-aldi', kind: 'place', subject: 'Aldi, Tannery Road, High Wycombe',
+    renderParent: 'Areas/High Wycombe/Places/High Wycombe Aldi/S5-render',
+    branding: { emoji: '🛒', accent: 'teal', blurb: 'Sample organisation — invented for testing, not a real customer.' } },
 ];
 
 function ensureUser(email, role, customerId, name) {
@@ -180,7 +185,7 @@ function publishBaseline(slug, editorEmail) {
 
 publishBaseline('march', 'clerk@march-tc.example');
 // A PLACE map too, so /maps shows both kinds publicly (P6).
-publishBaseline('simpson-centre', 'manager@beaconsfield-health.example');
+publishBaseline('highwycombe-aldi', 'manager@tannery-road-traders.example');
 
 // St Ives: a real customer edit (recolour a route) saved as v1.1 and submitted
 // for sign-off, so the review queue is non-empty with a genuine change.
@@ -260,22 +265,22 @@ if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.dat
   }
 } else console.log('· demo refresh already staged for March (or March not seeded)');
 
-// P5 for a PLACE map: stage the same kind of demo refresh for the Simpson Centre,
+// P5 for a PLACE map: stage the same kind of demo refresh for the Aldi place map,
 // so the accept flow (re-applying overrides + preserving the base framing) is
 // demoable for a place too. makeDemoRefreshSrc derives the "fresh" payload from the
 // live data (which for a place carries the vendored engine + base-overrides.json).
-const simpsonForRefresh = getMapBySlug('simpson-centre');
-if (simpsonForRefresh && simpsonForRefresh.current_version_id && simpsonForRefresh.data_dir && !getOpenProposedForMap(simpsonForRefresh.id)) {
+const placeForRefresh = getMapBySlug('highwycombe-aldi');
+if (placeForRefresh && placeForRefresh.current_version_id && placeForRefresh.data_dir && !getOpenProposedForMap(placeForRefresh.id)) {
   try {
-    const src = makeDemoRefreshSrc(mapDataDir(simpsonForRefresh.id));
+    const src = makeDemoRefreshSrc(mapDataDir(placeForRefresh.id));
     execFileSync(process.execPath, [
-      PROPOSE, '--map', 'simpson-centre', '--src', src, '--note', 'Demo: August 2026 timetable refresh (place)',
+      PROPOSE, '--map', 'highwycombe-aldi', '--src', src, '--note', 'Demo: August 2026 timetable refresh (place)',
     ], { stdio: 'inherit' });
-    console.log('· staged a demo monthly update for the Simpson Centre (place — its editor can accept/decline it)');
+    console.log('· staged a demo monthly update for High Wycombe Aldi (place — its editor can accept/decline it)');
   } catch (e) {
-    console.warn('· ⚠ could not stage the demo refresh for the Simpson Centre:', e.message);
+    console.warn('· ⚠ could not stage the demo refresh for High Wycombe Aldi:', e.message);
   }
-} else console.log('· demo place refresh already staged (or Simpson Centre not seeded)');
+} else console.log('· demo place refresh already staged (or High Wycombe Aldi not seeded)');
 
 // --- P6: a piece of feedback from a public map page, so the admin Messages tab
 //     shows the "About" (which map) column with something in it ---

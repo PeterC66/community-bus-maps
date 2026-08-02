@@ -16,7 +16,7 @@ Two kinds of map, from one deterministic engine:
 
 - **Area maps** — a whole town, a rural parish, or part of a larger town (e.g. *St Ives*, *March*).
 - **Place maps** — centred on a single point: a shop, school, station, community centre or town
-  centre (e.g. *Beaconsfield Simpson Centre*, *St Neots Town Centre*).
+  centre (e.g. *High Wycombe Aldi*, *St Neots Town Centre*).
 
 Each map can produce any of four outputs, and the customer chooses which they want:
 
@@ -101,7 +101,7 @@ which gates to run.
 
 Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
 a **pending application**, a **requested map**, **two published maps with live public pages** (March v1.0
-and the Simpson Centre place map), a version **submitted for sign-off** (St Ives v1.1), **pending monthly
+and the High Wycombe Aldi place map), a version **submitted for sign-off** (St Ives v1.1), **pending monthly
 updates**, public **branding** for each organisation and a piece of public **feedback**, so the P3/P4/P5/P6
 queues and the public gallery aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
 writer at a time for now:
