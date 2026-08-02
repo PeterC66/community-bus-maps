@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.3 | 2026-08-02 | sha=050ef899 -->
-**v1.3** · updated 2 August 2026
+<!-- docstamp v1.4 | 2026-08-02 | sha=1d5836a7 -->
+**v1.4** · updated 2 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,

@@ -1,11 +1,48 @@
 # Changelog
 
-<!-- docstamp v1.5 | 2026-08-02 | sha=6caed618 -->
-**v1.5** · updated 2 August 2026
+<!-- docstamp v1.6 | 2026-08-02 | sha=e5c04c8c -->
+**v1.6** · updated 2 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### The BusMaps.uk repositioning — 2026-08-02, in one place
+
+Everything dated 2026-08-02 below belongs to one piece of work, done over seven sessions against
+[`Buses/Development Docs/busmapsuk-repositioning-plan_2026-08-02.md`](https://github.com/PeterC66/community-bus-maps),
+which is the plan of record and carries the per-session detail and lessons. The short version of
+**why**, since the individual entries only say what:
+
+The system had outgrown the way it described itself. It was called *Community Bus Maps* in a hundred
+places while the domain said something else; its shop window was a **place that had closed**; it made
+no claim about the one capability that most distinguishes it commercially (knowing how hard a town
+is *before* quoting); it had a page saying what it does and none saying what it would cost; and it
+offered, as a tick-box next to three generated outputs, an output that is **finished by hand and
+re-finished at every refresh**. Each of those is small. Together they meant a visitor could not
+answer "what is this, what would it cost me, and who is behind it" without asking.
+
+So, in order: the name became **BusMaps.uk** everywhere a person can see it (the repo, the package
+name and the service id deliberately did not change — that is stated in the README so nobody
+"fixes" it). The **Simpson Centre** was replaced by **High Wycombe Aldi** as both the shop-window
+example and the byte-identical fixture — which immediately earned its keep by exposing that the
+vendored place engine was 445 lines behind the skill, invisible for weeks because the old fixture was
+frozen against the same old code. **High Wycombe** was added as an area example told as the
+complexity-triage story, because RED → GREEN with the scores on either side is the most credible
+thing the system can say about itself. **`/pricing.html`** describes the model with no figure on it,
+and **`/opportunity.html`** says plainly that this is a one-person project looking for a CIC. The
+**tube-map diagram** stopped being a tick-box: it is badged wherever it is offered, explained in the
+FAQ, and request-only with the refusal enforced server-side.
+
+Two habits came out of it and are worth keeping. **Every count on a public page was checked against
+the disk rather than copied from the plan** — which is how "six place maps" became five, how "proven
+on four towns" became seven, and how a claim that the restore drill had been *rehearsed* came out
+altogether. And **the decks now generate from tracked source** ([`BusMapsUK/deck-src/`] in the Buses
+repo): three of the six had already lost their generators to expired scratchpads and had to be
+reconstructed by reading the shipped `.pptx` back.
+
+Still open, unchanged by any of this: the bustimes.org terms question (`docs/LICENSING.md` §3), the
+final read of `/legal.html`, CSRF, and an email provider.
 
 ### Added — an opportunity page, for the visitor who would rather run this than buy it
 - **New [`public/opportunity.html`](public/opportunity.html)** — "Take this on": the co-founder pitch

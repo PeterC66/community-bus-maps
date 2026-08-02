@@ -1,7 +1,7 @@
 # Operations Handbook — BusMaps.uk portal
 
-<!-- docstamp v1.2 | 2026-08-02 | sha=cf834abd -->
-**v1.2** · updated 2 August 2026
+<!-- docstamp v1.3 | 2026-08-02 | sha=df2773ea -->
+**v1.3** · updated 2 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
 **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
