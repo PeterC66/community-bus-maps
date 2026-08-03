@@ -24,6 +24,11 @@ The monthly BODS refresh.
 > **Claude-assisted shortcut:** the Buses side mines **upcoming changes** (`gtfs_upcoming.py` — the
 > ≥42-day-ahead feed + a month-over-month diff → a per-town upcoming-changes report) so you know
 > *which* towns actually changed before regenerating anything. Work those first; skip the unchanged.
+> `npm run check-upcoming` cross-references that report against the portal's own maps and queues a
+> `refresh-flag` message (Admin → Messages) for every LIVE map — demo or real customer, treated the
+> same — whose town/place shows upcoming changes, so you don't have to remember which towns have a
+> portal map while reading the report. It does not regenerate anything itself: Step 1 below is still
+> a human (+ Claude) job.
 
 ## Step 1 — Regenerate the map data (central)
 

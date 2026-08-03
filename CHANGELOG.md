@@ -1,11 +1,24 @@
 # Changelog
 
-<!-- docstamp v1.9 | 2026-08-03 | sha=7479be67 -->
-**v1.9** · updated 3 August 2026
+<!-- docstamp v1.10 | 2026-08-03 | sha=c2af0d08 -->
+**v1.10** · updated 3 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — flag maps affected by upcoming GTFS changes — 2026-08-03
+
+New `scripts/check-upcoming-refreshes.mjs` (`npm run check-upcoming`) cross-references the Buses
+side's monthly `gtfs_upcoming.py` report against the portal's own maps and queues a `refresh-flag`
+message — reusing the existing admin Messages inbox, no new UI — for every **built** map (demo or
+real customer, treated identically; Path A from the "External maps feature planning" plan) whose
+town/place shows upcoming changes. Area maps match by exact town name; place maps match by a
+substring check on `map.subject` (places have no town field of their own). Idempotent: a map already
+flagged for a given report date is not flagged again. It deliberately does **not** call
+`propose-update.mjs` automatically — `gtfs_upcoming.py` only mines GTFS facts, it doesn't regenerate a
+leaflet, so a human (+ Claude) still has to re-run the skill and produce a fresh render; the message
+names the exact `propose-update.mjs` command to run once that exists.
 
 ### Added — customer download of the disagreements audit, as a PDF — 2026-08-03
 

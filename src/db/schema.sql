@@ -27,9 +27,12 @@ CREATE TABLE IF NOT EXISTS message (
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   kind          TEXT NOT NULL DEFAULT 'enquiry',  -- enquiry | question | feedback (the three
                                                   -- the public contact form may set, MSG_KINDS
-                                                  -- in src/server.js), plus 'diagram-request',
-                                                  -- which only the server writes when a signed-in
-                                                  -- customer asks for the hand-finished diagram
+                                                  -- in src/server.js), plus two kinds only server
+                                                  -- code ever writes: 'diagram-request' (a signed-in
+                                                  -- customer asking for the hand-finished diagram)
+                                                  -- and 'refresh-flag' (scripts/check-upcoming-
+                                                  -- refreshes.mjs flagging a map whose town/place
+                                                  -- has upcoming GTFS changes)
   name          TEXT,
   email         TEXT,
   body          TEXT NOT NULL,
