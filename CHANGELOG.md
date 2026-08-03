@@ -5,7 +5,11 @@
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
-## [Unreleased]
+## [0.9.0-pilot] — 2026-08-02
+
+The release that made the pilot presentable: it says what it is called, what it costs, who is behind
+it, and which of its outputs is not a tick-box. `package.json` and `src/server.js` have carried this
+version number since the pilot-mode work; this is where it is written down.
 
 ### The BusMaps.uk repositioning — 2026-08-02, in one place
 
