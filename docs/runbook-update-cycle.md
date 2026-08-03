@@ -1,7 +1,7 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=a173bfca -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-03 | sha=4fad48de -->
+**v1.1** · updated 3 August 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer
 > guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site
