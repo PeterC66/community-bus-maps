@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS customer (
   quota_places  INTEGER NOT NULL DEFAULT 3,      -- how many place maps
   branding_json TEXT NOT NULL DEFAULT '{}',      -- P6: public-facing branding (public name, website, blurb, emoji, accent)
   slug          TEXT,                             -- P6: url-safe id for the public organisation page /o/<slug>
-  is_demo       INTEGER NOT NULL DEFAULT 0        -- seeded demo organisation, not a real customer (labelled everywhere)
+  is_demo       INTEGER NOT NULL DEFAULT 0,       -- seeded demo organisation, not a real customer (labelled everywhere)
+  hide_operators_enabled INTEGER NOT NULL DEFAULT 0  -- opt-in: may this customer hide an operator's routes in Map Tuning? default off
 );
 
 CREATE TABLE IF NOT EXISTS user (

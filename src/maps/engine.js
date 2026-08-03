@@ -181,6 +181,7 @@ export function readRoutesMetaFromDir(dataDir) {
     routeOrder: rj.panelOrder || rj.routeOrder || Object.keys(rj.palette || {}),
     internalDesc: rj.internalDesc || rj.serviceDesc || {},
     town: rj.town || rj.place || '',
+    operatorNames: Array.isArray(rj.operators) ? rj.operators.map((o) => (o && o.name ? String(o.name) : '')).filter(Boolean) : [],
   };
 }
 

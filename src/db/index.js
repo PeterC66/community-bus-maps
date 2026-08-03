@@ -62,6 +62,11 @@ function tableColumns(table) {
   // data after the pilot ends.
   if (!custCols.includes('is_demo')) db.exec('ALTER TABLE customer ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0');
 
+  // Opt-in per-customer toggle: may this customer hide an operator's routes
+  // in the Map Tuning (safe-subset) editor? Off for everyone by default —
+  // an admin turns it on per customer, same pattern as quota_areas/plan.
+  if (!custCols.includes('hide_operators_enabled')) db.exec('ALTER TABLE customer ADD COLUMN hide_operators_enabled INTEGER NOT NULL DEFAULT 0');
+
   // Every customer needs a public slug for /o/<slug>; backfill the ones created
   // before P6 (and any created by a script that predates ensureCustomerSlug).
   for (const c of db.prepare("SELECT id, name FROM customer WHERE slug IS NULL OR slug = ''").all()) {
@@ -656,6 +661,7 @@ export function updateCustomerAdmin(id, f) {
   if (f.quota_places != null) { sets.push('quota_places = ?'); args.push(Math.max(0, Number(f.quota_places) | 0)); }
   if (f.status && ['active', 'suspended'].includes(f.status)) { sets.push('status = ?'); args.push(f.status); }
   if (f.plan) { sets.push('plan = ?'); args.push(String(f.plan).slice(0, 40)); }
+  if (f.hide_operators_enabled != null) { sets.push('hide_operators_enabled = ?'); args.push(f.hide_operators_enabled ? 1 : 0); }
   if (!sets.length) return false;
   args.push(Number(id));
   db.prepare(`UPDATE customer SET ${sets.join(', ')} WHERE id = ?`).run(...args);

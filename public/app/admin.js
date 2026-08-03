@@ -185,7 +185,7 @@ LOADERS.customers = async () => {
   const custs = (body && body.customers) || [];
   if (!custs.length) { box.innerHTML = '<div class="empty">No customers yet.</div>'; return; }
   box.innerHTML = `<table class="grid"><thead><tr>
-      <th>Customer</th><th>Users</th><th>Area maps</th><th>Place maps</th><th>Status</th><th>Plan</th><th></th>
+      <th>Customer</th><th>Users</th><th>Area maps</th><th>Place maps</th><th>Status</th><th>Plan</th><th>Operator filter</th><th></th>
     </tr></thead><tbody>${custs.map(rowCust).join('')}</tbody></table>`;
   box.querySelectorAll('button[data-save]').forEach((b) => b.addEventListener('click', () => saveCust(b.dataset.save)));
 };
@@ -198,13 +198,14 @@ function rowCust(c) {
     <td class="qcell${overP}"><span class="used">${c.usedPlaces}</span> / <input type="number" min="0" max="99" value="${c.quotaPlaces}" data-q="places" class="qnum"></td>
     <td><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></td>
     <td><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></td>
+    <td><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></td>
     <td class="actions"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></td>
   </tr>`;
 }
 async function saveCust(id) {
   const tr = $('customers').querySelector(`tr[data-cust="${id}"]`);
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);
-  const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value };
+  const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked };
   const { body } = await jsend(`/api/admin/customers/${id}`, 'PATCH', data);
   if (body.ok) banner('ok', `Saved changes to ${esc(body.customer.name)}.`);
   else banner('err', body.error || 'Save failed.');

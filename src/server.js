@@ -556,6 +556,14 @@ function loadReadableMap(id, user) {
   return { code: 403, error: 'You do not have access to this map.' };
 }
 
+// Whether this map's owning customer has opted into the hiddenOperators
+// safe-subset key (off by default — most maps/customers never see it).
+function operatorFilterAllow(customerId) {
+  if (customerId == null) return false;
+  const c = getCustomer(customerId);
+  return !!(c && c.hide_operators_enabled);
+}
+
 function downloadsForVersion(id, storageKey) {
   const dir = versionDir(id, storageKey);
   return Object.keys(OUTPUT_FILES)
@@ -599,6 +607,9 @@ function mapDetail(m) {
       customised: !!savedColors[r], textOn: meta.textOn[r] || '#111', desc: meta.internalDesc[r] || null,
     }));
   const pois = enumeratePois(id).map((p) => ({ ...p, hidden: !!(savedPois[p.key] && savedPois[p.key].hide) }));
+  const hideOperatorsEnabled = operatorFilterAllow(m.customer_id);
+  const savedHiddenOps = new Set(Array.isArray(saved.hiddenOperators) ? saved.hiddenOperators : []);
+  const operators = hideOperatorsEnabled ? meta.operatorNames.map((name) => ({ name, hidden: savedHiddenOps.has(name) })) : [];
 
   // Publish gate (P4): the pending request (if any) locks editing; the published
   // pointer + a diff of "what publishing the current head would change".
@@ -623,7 +634,7 @@ function mapDetail(m) {
     id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject, status: m.status,
     customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     town: meta.town, currentVersion: m.cur_key || null, overrides: saved,
-    routes, pois, outputs: outputsForClient(parseOutputs(m.outputs), id),
+    routes, pois, hideOperatorsEnabled, operators, outputs: outputsForClient(parseOutputs(m.outputs), id),
     versions: listVersions(id),
     downloads: m.cur_key ? downloadsForVersion(id, m.cur_key) : [],
     // --- publish gate ---
@@ -735,7 +746,10 @@ app.post('/api/maps/:id/preview', async (req, reply) => {
   const id = map.id;
   const meta = readRoutesMeta(id);
   const poiKeys = enumeratePois(id).map((p) => p.key);
-  const s = sanitizeOverrides((req.body || {}).overrides, { palette: meta.palette, poiKeys });
+  const s = sanitizeOverrides((req.body || {}).overrides, {
+    palette: meta.palette, poiKeys,
+    operatorNames: meta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
+  });
   try {
     const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs)));
     return { ok: true, overrides: s.overrides, rejected: s.rejected, svg };
@@ -758,7 +772,10 @@ app.post('/api/maps/:id/save', async (req, reply) => {
   const meta = readRoutesMeta(id);
   const poiKeys = enumeratePois(id).map((p) => p.key);
   const b = req.body || {};
-  const s = sanitizeOverrides(b.overrides, { palette: meta.palette, poiKeys });
+  const s = sanitizeOverrides(b.overrides, {
+    palette: meta.palette, poiKeys,
+    operatorNames: meta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
+  });
   const { major, minor } = nextVersion(id);
   const storageKey = `v${major}.${minor}`;
   try {
@@ -918,9 +935,12 @@ app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
       // The staged payload comes from central data and carries no expert tuning;
       // lay the map's own pins on it so the "after" side is what accepting gives.
       carryExpertTuning(id, stagedDir);
-      const palette = readRoutesMetaFromDir(stagedDir).palette;
+      const stagedMeta = readRoutesMetaFromDir(stagedDir);
       const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
-      const after = sanitizeOverrides(saved, { palette, poiKeys }); // re-apply onto proposed data
+      const after = sanitizeOverrides(saved, {
+        palette: stagedMeta.palette, poiKeys,
+        operatorNames: stagedMeta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
+      }); // re-apply onto proposed data
       return {
         before: previewFrom(mapDataDir(id), saved, outputs),
         after: previewFrom(stagedDir, after.overrides, outputs),
@@ -968,9 +988,12 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
       const carried = carryExpertTuning(id, stagedDir);
       if (carried.length) req.log.info({ mapId: id, carried }, 'carried expert tuning into the refreshed data');
       // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
-      const palette = readRoutesMetaFromDir(stagedDir).palette;
+      const stagedMeta = readRoutesMetaFromDir(stagedDir);
       const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
-      const reapplied = sanitizeOverrides(saved, { palette, poiKeys });
+      const reapplied = sanitizeOverrides(saved, {
+        palette: stagedMeta.palette, poiKeys,
+        operatorNames: stagedMeta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
+      });
       // Render from the staged data BEFORE committing the swap.
       const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
       // Render OK → make the staged data the live data (old data archived).
@@ -1497,6 +1520,7 @@ app.get('/api/admin/customers', async (req, reply) => {
     // P6 — where the organisation appears publicly, and how it has branded itself.
     slug: c.slug || null, publicUrl: c.slug ? orgPageUrl(c.slug) : null,
     branding: parseJson(c.branding_json),
+    hideOperatorsEnabled: !!c.hide_operators_enabled,
   }));
   return { ok: true, customers: rows };
 });
@@ -1508,12 +1532,13 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
   const b = req.body || {};
   const ok = updateCustomerAdmin(cust.id, {
     quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
+    hide_operators_enabled: b.hideOperatorsEnabled,
   });
   if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
   req.log.info({ customerId: cust.id }, 'customer updated by admin');
   const c = getCustomer(cust.id);
-  logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan } });
-  return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places } };
+  logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled } });
+  return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled } };
 });
 
 app.get('/api/admin/messages', async (req, reply) => {

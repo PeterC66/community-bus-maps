@@ -12,7 +12,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 let detail = null;
 let ME = null;                   // the signed-in user (gates the expert-only links)
-let staged = { colors: {}, hide: new Set() };
+let staged = { colors: {}, hide: new Set(), hiddenOps: new Set() };
 let savedSig = '';
 let activeMap = null;             // artefact base name of the shown output
 const savedSvg = {};             // saved-version SVGs by base
@@ -49,17 +49,19 @@ function stagedFromOverrides(ov) {
   const colors = { ...(ov.routeColors || {}) };
   const hide = new Set(Object.keys((ov.internal && ov.internal.pois) || {})
     .filter((k) => ov.internal.pois[k] && ov.internal.pois[k].hide));
-  return { colors, hide };
+  const hiddenOps = new Set(Array.isArray(ov.hiddenOperators) ? ov.hiddenOperators : []);
+  return { colors, hide, hiddenOps };
 }
 function overridesFromStaged(s) {
   const ov = {};
   if (Object.keys(s.colors).length) ov.routeColors = { ...s.colors };
   if (s.hide.size) ov.internal = { pois: Object.fromEntries([...s.hide].map((k) => [k, { hide: true }])) };
+  if (s.hiddenOps.size) ov.hiddenOperators = [...s.hiddenOps];
   return ov;
 }
 function sig(s) {
   const c = Object.keys(s.colors).sort().map((k) => `${k}=${(s.colors[k] || '').toLowerCase()}`).join(',');
-  return `C:${c}|H:${[...s.hide].sort().join(',')}`;
+  return `C:${c}|H:${[...s.hide].sort().join(',')}|O:${[...s.hiddenOps].sort().join(',')}`;
 }
 const isDirty = () => sig(staged) !== savedSig;
 
@@ -80,7 +82,7 @@ function refreshState() {
   $('stateDot').className = 'dot ' + (locked ? '' : (dirty ? 'dirty' : 'clean'));
   $('stateText').textContent = locked ? 'Locked for review' : (dirty ? 'Unsaved changes' : 'Saved');
   $('saveBtn').disabled = locked || !dirty;
-  $('resetBtn').disabled = locked || (staged.hide.size === 0 && Object.keys(staged.colors).length === 0);
+  $('resetBtn').disabled = locked || (staged.hide.size === 0 && staged.hiddenOps.size === 0 && Object.keys(staged.colors).length === 0);
 }
 
 // Disable the editing controls while a version awaits publication sign-off.
@@ -88,7 +90,7 @@ function refreshState() {
 // map cannot produce, or the request-only diagram) — unlocking must not hand it back.
 function applyLock() {
   const locked = isLocked();
-  document.querySelectorAll('#routes input, #routes button, #pois input, #outputs input, #resetBtn, #saveNote')
+  document.querySelectorAll('#routes input, #routes button, #operators input, #pois input, #outputs input, #resetBtn, #saveNote')
     .forEach((el) => { el.disabled = locked || el.dataset.fixed === '1'; });
   refreshState();
 }
@@ -204,6 +206,27 @@ function syncRouteRow(r) {
   badge.style.background = staged.colors[r] || def.defaultColor;
   badge.style.color = routeInk(def);
   row.querySelector('.r-reset').disabled = !staged.colors[r];
+}
+
+// ---- controls: operator filter (opt-in per customer) -------------------------
+function buildOperators() {
+  const panel = $('operatorsPanel');
+  if (!detail.hideOperatorsEnabled || !detail.operators.length) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const box = $('operators');
+  box.innerHTML = detail.operators.map((op) => {
+    const shown = !staged.hiddenOps.has(op.name);
+    return `<label class="poi-row" data-op="${esc(op.name)}">
+      <input type="checkbox" ${shown ? 'checked' : ''}>
+      <span>${esc(op.name)}</span>
+    </label>`;
+  }).join('');
+  $('operatorCount').textContent = detail.operators.length + ' operators';
+  box.querySelectorAll('label[data-op] input').forEach((inp) => inp.addEventListener('change', () => {
+    const name = inp.closest('label').dataset.op;
+    if (inp.checked) staged.hiddenOps.delete(name); else staged.hiddenOps.add(name);
+    onEdit();
+  }));
 }
 
 // ---- controls: POIs ----------------------------------------------------------
@@ -597,7 +620,7 @@ $('saveBtn').addEventListener('click', async () => {
 });
 
 // ---- reset / preview / logout ------------------------------------------------
-$('resetBtn').addEventListener('click', () => { staged = { colors: {}, hide: new Set() }; buildRoutes(); buildPois(); onEdit(); });
+$('resetBtn').addEventListener('click', () => { staged = { colors: {}, hide: new Set(), hiddenOps: new Set() }; buildRoutes(); buildOperators(); buildPois(); onEdit(); });
 $('previewBtn').addEventListener('click', () => { clearTimeout(debounce); runPreview(); });
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
 window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
@@ -651,7 +674,7 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildUpdatePanel(); applyLock();
+    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildUpdatePanel(); applyLock();
     buildExpertLinks();
 
     await loadSavedSvg();

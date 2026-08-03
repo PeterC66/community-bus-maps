@@ -5,6 +5,24 @@
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
+## [Unreleased]
+
+### Added — opt-in per-customer operator filter — 2026-08-03
+
+A third safe-subset key, `hiddenOperators`, alongside `routeColors` and POI hide/show: a customer can
+untick an operator in Map Tuning to drop all of its routes from both the "within" and "from" maps —
+route lines, badges, Services panel entries and its own legend row. Off for every customer by default
+(`customer.hide_operators_enabled`, admin-toggleable from the Customers panel); the editor UI hides the
+whole Operators panel unless the flag is on, and the server rejects the key outright for anyone it
+isn't enabled for, even if the client somehow sends it.
+
+The engine side of this shipped first in the `make-bus-leaflet`/`make-place-bus-leaflet` skills
+(`gen_internal.js`, `gen_external_radial.js`, `gen_external_busway.js`, `gen_external_places.js`) —
+absent/empty `hiddenOperators` is byte-identical, gated PASS on every town/place fixture — then
+vendored here (`engine/place/gen_internal.js`, `engine/place/gen_external_places.js`) and re-verified
+with `npm run verify`. New `scripts/test-safe-subset.mjs` (`npm run test:safe-subset`, folded into
+`npm test`) covers the validation boundary directly.
+
 ## [0.9.0-pilot] — 2026-08-02
 
 The release that made the pilot presentable: it says what it is called, what it costs, who is behind
