@@ -165,6 +165,7 @@ it pass** — the gate is the product's core claim.
 | **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/server.js` — see [`PILOT.md`](PILOT.md) |
 | Whether a demo org is labelled "Sample" | `customer.is_demo` → `src/branding/index.js` → `src/public/` → `public/js/public-*.js` |
 | Importing a finished map | `scripts/import-map.mjs` (`--request <id>` builds an approved request in place) |
+| A static per-map extra that isn't a render output (e.g. `disagreements.pdf`) | Add it to `OUTPUT_FILES` in `src/maps/store.js` as one extra entry (outside the `OUTPUTS`-driven list) so the existing generic download/serve routes pick it up for free; copy it into the version folder at the end of `renderVersion()` (`src/maps/engine.js`); add it to `carryExpertTuning()`'s file list so a staged monthly refresh that doesn't bring its own still carries the old one forward |
 
 ## House rules
 

@@ -113,6 +113,11 @@ export function publicMap(row) {
       is_demo: row.is_demo,
     }),
     outputs: publicOutputs(row),
+    // Static per-map extra (not a render output) — only area maps carry one
+    // today (see gen_disagreements.py); null if this version has no PDF.
+    reportUrl: existsSync(path.join(versionDir(row.id, row.pub_key), 'disagreements.pdf'))
+      ? fileUrl(row.slug, 'disagreements.pdf')
+      : null,
   };
 }
 

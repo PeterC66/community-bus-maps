@@ -73,6 +73,7 @@ const DL_LABELS = {
   'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)',
   'internal-schematic.svg': 'Schematic · SVG', 'internal-schematic.jpg': 'Schematic · JPG (print)',
   'internal-diagram.svg': 'Diagram · SVG', 'internal-diagram.jpg': 'Diagram · JPG (print)',
+  'disagreements.pdf': 'Disagreements report · PDF',
 };
 
 // ---- state chips -------------------------------------------------------------

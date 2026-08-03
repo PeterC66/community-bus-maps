@@ -318,6 +318,16 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
       files[`${o.base}.svg`] = statSync(svgOut).size;
       files[`${o.base}.jpg`] = statSync(jpgOut).size;
     }
+    // Static per-map extra, not a render output: carry the customer-facing
+    // disagreements PDF forward from the map's data folder into this version,
+    // same as the map images, so every version's downloads carry it. The .docx
+    // source never leaves the internal Buses tree — see OUTPUT_FILES in store.js.
+    const disagSrc = path.join(dataDir, 'disagreements.pdf');
+    if (existsSync(disagSrc)) {
+      const disagOut = path.join(outDir, 'disagreements.pdf');
+      cpSync(disagSrc, disagOut);
+      files['disagreements.pdf'] = statSync(disagOut).size;
+    }
   } finally {
     try { unlinkSync(tmp); } catch {}
   }
@@ -332,19 +342,20 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
 }
 
 /**
- * Copy the expert's hand-tuning from a map's LIVE data into a staged payload that
- * doesn't carry its own (P7). A monthly payload is produced centrally from fresh
- * source data and normally knows nothing about `diagram-layout.json`, so this must
- * run BEFORE anything renders from the staged folder — otherwise the refreshed
- * version (and the old-vs-new preview) would silently lose the pins even though
- * the file is carried forward afterwards.
+ * Copy the expert's hand-tuning — and other extras a fresh monthly payload
+ * doesn't regenerate — from a map's LIVE data into a staged payload that lacks
+ * its own copy (P7's `diagram-layout.json`; the disagreements PDF, if that
+ * month's import didn't re-run the S1 audit). This must run BEFORE anything
+ * renders from the staged folder — otherwise the refreshed version (and the
+ * old-vs-new preview) would silently lose the pins/report even though the file
+ * is carried forward afterwards.
  *
  * Returns the filenames carried. Safe to call repeatedly.
  */
 export function carryExpertTuning(id, stagedDir) {
   const live = mapDataDir(id);
   const carried = [];
-  for (const f of [DIAGRAM_LAYOUT]) {
+  for (const f of [DIAGRAM_LAYOUT, 'disagreements.pdf']) {
     const from = path.join(live, f);
     const to = path.join(stagedDir, f);
     if (existsSync(from) && !existsSync(to)) { cpSync(from, to); carried.push(f); }

@@ -118,9 +118,13 @@ export const OUTPUTS = {
 };
 
 // Files a rendered version can hold, with content types (derived from OUTPUTS).
-export const OUTPUT_FILES = Object.fromEntries(
-  Object.values(OUTPUTS).flatMap((o) => [
+// `disagreements.pdf` isn't a render output (nothing toggles it, no SVG/JPG
+// pair) — it's a static per-map extra carried forward by renderVersion() from
+// the map's data folder, same as diagram-layout.json. See docs/DEVELOPING.md.
+export const OUTPUT_FILES = Object.fromEntries([
+  ...Object.values(OUTPUTS).flatMap((o) => [
     [`${o.base}.svg`, 'image/svg+xml'],
     [`${o.base}.jpg`, 'image/jpeg'],
   ]),
-);
+  ['disagreements.pdf', 'application/pdf'],
+]);

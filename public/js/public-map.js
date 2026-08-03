@@ -77,6 +77,10 @@
     '<span class="pill">Free to print &amp; share</span>',
     ...(map.org.isDemo ? ['<span class="pill">Sample — not live</span>'] : []),
   ].join('');
+  if (map.reportUrl) {
+    $('reportLink').innerHTML = `<a href="${esc(map.reportUrl)}?download">⬇ Disagreements report (PDF)</a> — every route we checked against bustimes.org and the operator's own site.`;
+    $('reportLink').hidden = false;
+  }
   $('asideGrid').hidden = false;
 
   if (!map.outputs.length) {

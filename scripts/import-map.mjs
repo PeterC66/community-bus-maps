@@ -7,7 +7,11 @@
 // the shipped leaflet.
 //
 //   node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" \
-//        [--slug st-ives] [--kind area] [--subject "St Ives"]
+//        [--slug st-ives] [--kind area] [--subject "St Ives"] [--disagreements <pdf>]
+//
+// --disagreements overrides the auto-detected customer-facing PDF (normally
+// found at "<TownDir>/_latest/disagreements.pdf", walked up from --src). Area
+// maps only — see findDisagreementsPdf() below.
 //
 // --src must contain gen_internal.js / gen_external.js and their *.json inputs
 // (e.g. a ".../St Ives/S5-render/v6.6_..." folder in the separate Buses repo).
@@ -36,6 +40,27 @@ import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES } from '../src
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
+
+/**
+ * Auto-detect a town's customer-facing disagreements PDF (see gen_disagreements.py
+ * in the make-bus-leaflet skill, which converts disagreements.docx -> .pdf via
+ * LibreOffice). --src is normally "<TownDir>/S5-render/<run>", so walking up a
+ * few levels finds "<TownDir>/_latest/disagreements.pdf" — the newest copy the
+ * skill's refresh_latest.js keeps up to date. Best-effort only: an explicit
+ * --disagreements path always wins, and if neither resolves the map simply
+ * imports without one — it's a static extra, not a required input.
+ */
+function findDisagreementsPdf(srcDir) {
+  let dir = srcDir;
+  for (let i = 0; i < 4; i++) {
+    const cand = path.join(dir, '_latest', 'disagreements.pdf');
+    if (existsSync(cand)) return cand;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -227,6 +252,19 @@ if (isPlace) {
   }
 }
 console.log(`· copied ${copied} payload files → ${dest}`);
+
+// Disagreements report (area maps only — places have no S1 audit yet, per
+// make-place-bus-leaflet's SKILL.md). Static per-map extra, not a render
+// output — renderVersion() in engine.js carries it into every version folder.
+if (!isPlace) {
+  const disagPath = arg('disagreements') || findDisagreementsPdf(SRC);
+  if (disagPath && existsSync(disagPath)) {
+    cpSync(disagPath, path.join(dest, 'disagreements.pdf'));
+    console.log(`· copied disagreements report → ${dest}\\disagreements.pdf`);
+  } else {
+    console.warn('· note: no disagreements.pdf found (checked --disagreements and _latest/ up from --src) — importing without one');
+  }
+}
 
 // 3) Baseline overrides = {} and render v1.0
 writeFileSync(overridesPath(id), '{}\n');
