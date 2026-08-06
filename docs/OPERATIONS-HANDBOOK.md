@@ -3,36 +3,22 @@
 <!-- docstamp v1.4 | 2026-08-06 | sha=4024f8d2 -->
 **v1.4** · updated 6 August 2026
 
-**For:** the operator (Peter today; anyone running the service later), working with Claude.
-**Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
+**For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
-This is the spine: the shared vocabulary, who does what, the operating rhythm, a map of where
-everything lives, and the **single index** of every document. It links to the detailed runbooks
-rather than repeating them — all are written (see [`DOCUMENTATION-PLAN.md`](DOCUMENTATION-PLAN.md)
-and §7's index). Start here when you pick the service up.
+This is the spine: the shared vocabulary, who does what, the operating rhythm, a map of where everything lives, and the **single index** of every document. It links to the detailed runbooks rather than repeating them — all are written (see [`DOCUMENTATION-PLAN.md`](DOCUMENTATION-PLAN.md) and §7's index). Start here when you pick the service up.
 
 ---
 
 ## 1. What the service is
 
-> **It is a pilot.** The system is feature-complete and works end to end, but it has no customers —
-> every organisation in the database is seeded demo data and every published map is one of ours.
-> Everything below describes how the service is *built to run*, not a track record. While pilot mode
-> is on, every page and every rendered sheet says so. See [`PILOT.md`](PILOT.md) for what it claims
-> and how to switch it off; §5's operating rhythm is the **intended** rhythm, not an established one.
+> **It is a pilot.** The system is feature-complete and works end to end, but it has no customers — every organisation in the database is seeded demo data and every published map is one of ours. Everything below describes how the service is *built to run*, not a track record. While pilot mode is on, every page and every rendered sheet says so. See [`PILOT.md`](PILOT.md) for what it claims and how to switch it off; §5's operating rhythm is the **intended** rhythm, not an established one.
 
-A self-serve portal that lets **approved organisations** (councils first, then shops, schools,
-event organisers, the National Trust…) generate and maintain **printable bus maps**. Two map kinds
-— **area** and **place** — from one deterministic engine, each able to produce four outputs.
+A self-serve portal that lets **approved organisations** (councils first, then shops, schools, event organisers, the National Trust…) generate and maintain **printable bus maps**. Two map kinds — **area** and **place** — from one deterministic engine, each able to produce four outputs.
 
 **The load-bearing split** (this is what makes self-serve safe):
 
-- **Deterministic tier (the portal).** Given a map's prepared data + a customer's overrides, the
-  engine renders SVG/JPG with **no AI and no external calls** — same input, same output. This is
-  what customers self-serve against, and what the byte-identical `verify` gate protects.
-- **Central pipeline (expert, run by you).** Fetching bus/map data, onboarding a new area/place, and
-  the monthly "what changed?" refresh use judgement and live sources. They run centrally and produce
-  *proposed updates* a customer accepts. **Every map is signed off by a human before it can be printed.**
+- **Deterministic tier (the portal).** Given a map's prepared data + a customer's overrides, the engine renders SVG/JPG with **no AI and no external calls** — same input, same output. This is what customers self-serve against, and what the byte-identical `verify` gate protects.
+- **Central pipeline (expert, run by you).** Fetching bus/map data, onboarding a new area/place, and the monthly "what changed?" refresh use judgement and live sources. They run centrally and produce *proposed updates* a customer accepts. **Every map is signed off by a human before it can be printed.**
 
 ## 2. Vocabulary
 
@@ -56,8 +42,7 @@ event organisers, the National Trust…) generate and maintain **printable bus m
 
 ## 3. Roles & who does what
 
-At launch **you wear three hats** — Admin, Approver, and central map-maker. The system keeps them
-as *separate roles* on purpose, so any one can be handed to someone else later without rework.
+At launch **you wear three hats** — Admin, Approver, and central map-maker. The system keeps them as *separate roles* on purpose, so any one can be handed to someone else later without rework.
 
 | Job | Role | Where |
 |---|---|---|
@@ -69,35 +54,23 @@ as *separate roles* on purpose, so any one can be handed to someone else later w
 | Per-customer branding of public pages | Customer (or you) | `/app/branding` |
 | Expert diagram pin editing | **Admin** | `/app/maps/:id/diagram` |
 
-**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even
-when you are both, submit as the editor, then switch to the approver view and sign off — the audit
-trail depends on it.
+**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and sign off — the audit trail depends on it.
 
 ## 4. The three approval gates
 
 1. **Organisation** — a public application → **admin approves** → a customer + first editor + invite.
 2. **Map request** — an approved customer requests an area/place map (within quota) → **admin approves** → queued for central build.
-3. **Publish** — a rendered version stays a **draft** until an **approver signs it off** (a required
-   checklist + the deterministic change summary as evidence) → the public-current pointer advances.
+3. **Publish** — a rendered version stays a **draft** until an **approver signs it off** (a required checklist + the deterministic change summary as evidence) → the public-current pointer advances.
 
 ### 4b. The tube-map diagram is request-only
 
-The other three outputs are generated: the same data always draws the same sheet. The diagram is
-solved and then **pinned by hand**, and those pins are ours to re-judge every time the network moves
-— so it is a *priced* output, not a tick-box, and it costs drawing time in the updates as well as in
-the first build.
+The other three outputs are generated: the same data always draws the same sheet. The diagram is solved and then **pinned by hand**, and those pins are ours to re-judge every time the network moves — so it is a *priced* output, not a tick-box, and it costs drawing time in the updates as well as in the first build.
 
 - A customer sees it in the editor's Outputs panel, **locked**, with an **Ask us** button.
-- Pressing it writes a `diagram-request` message (with the map attached) into **Messages** in the
-  admin console. It switches nothing on. Reply with what it would involve.
-- The lock is **server-enforced** in `chooseOutputs()` (`src/maps/engine.js`); a non-admin PATCH to
-  `/api/maps/:id/outputs` asking for `internal_diagram` gets **403** and the stored set is unchanged.
-  Hiding the checkbox is only the UX of it. Once granted, a customer cannot switch it *off* either.
-- **To grant it:** as admin, open the map's editor and tick it (admins are not subject to the lock),
-  or simply save a layout in `/app/maps/:id/diagram` — the pin editor switches the output on itself.
-  Either way the result is a new draft version that still needs the P4 sign-off.
-- It is only *available* at all when the map's `routes.json` carries an `internalDiagram` config,
-  which is set when the map is built.
+- Pressing it writes a `diagram-request` message (with the map attached) into **Messages** in the admin console. It switches nothing on. Reply with what it would involve.
+- The lock is **server-enforced** in `chooseOutputs()` (`src/maps/engine.js`); a non-admin PATCH to `/api/maps/:id/outputs` asking for `internal_diagram` gets **403** and the stored set is unchanged. Hiding the checkbox is only the UX of it. Once granted, a customer cannot switch it *off* either.
+- **To grant it:** as admin, open the map's editor and tick it (admins are not subject to the lock), or simply save a layout in `/app/maps/:id/diagram` — the pin editor switches the output on itself. Either way the result is a new draft version that still needs the P4 sign-off.
+- It is only *available* at all when the map's `routes.json` carries an `internalDiagram` config, which is set when the map is built.
 
 ## 5. The operating rhythm
 
@@ -115,39 +88,21 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 | **On upgrade** | Release gate | `npm test` **and** `npm run verify` (byte-identical) before deploy | [DEPLOY.md §7](DEPLOY.md) |
 | **Before launch** | Close the licensing gate | fill the sign-off, resolve bustimes.org | [LICENSING.md](LICENSING.md) → G1 |
 
-**One-writer rule (operational gotcha):** the SQLite file has a single writer. **Stop the server**
-before any script that writes it — `seed-demo.mjs`, `import-map.mjs`, `propose-update.mjs`, and before
-a restore.
+**One-writer rule (operational gotcha):** the SQLite file has a single writer. **Stop the server** before any script that writes it — `seed-demo.mjs`, `import-map.mjs`, `propose-update.mjs`, and before a restore.
 
 ## 6. Where everything is
 
-**Public site** (no sign-in): `/` shopfront · `/apply.html` · `/faq.html` · `/contact.html` ·
-`/examples.html` · `/pricing.html` · **`/maps`** gallery · **`/m/<slug>`** a published map ·
-**`/o/<slug>`** an org page · `/opportunity.html` the CIC hand-over pitch ("Take this on", footer
-link only, not in the nav) · `/legal.html` privacy & attribution · `/terms.html`.
+**Public site** (no sign-in): `/` shopfront · `/apply.html` · `/faq.html` · `/contact.html` · `/examples.html` · `/pricing.html` · **`/maps`** gallery · **`/m/<slug>`** a published map · **`/o/<slug>`** an org page · `/opportunity.html` the CIC hand-over pitch ("Take this on", footer link only, not in the nav) · `/legal.html` privacy & attribution · `/terms.html`.
 
-**App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle,
-outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests ·
-Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver sign-off ·
-**`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
+**App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle, outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests · Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver sign-off · **`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
 
-**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) ·
-**`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session).
+**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session).
 
-**Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one
-map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly
-refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) ·
-`fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already
-stored — a one-off catch-up; renders made now are fixed as they are produced) ·
-`verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` /
-`test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
+**Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) · `fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already stored — a one-off catch-up; renders made now are fixed as they are produced) · `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` / `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
-**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`.
-Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`,
-`METRICS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
+**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
 
-**Private ops folder** (local-only, no cloud): **`C:\Claude\community-bus-maps-ops\`** — the customer
-register, vetting log, incident log and business notes. **Never** synced to GitHub. Back it up yourself.
+**Private ops folder** (local-only, no cloud): **`C:\Claude\community-bus-maps-ops\`** — the customer register, vetting log, incident log and business notes. **Never** synced to GitHub. Back it up yourself.
 
 ## 7. Document index — the canonical list
 
@@ -183,15 +138,9 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 
 If someone (or a future session) has to pick this up:
 
-1. Read this handbook, then `docs/ROADMAP.md` (architecture) and `CHANGELOG.md` (why things are as
-   they are). The code is at **github.com/PeterC66/community-bus-maps** (public, Apache-2.0).
-2. **The code is not the service.** The service also needs, and git does **not** contain: the runtime
-   data under `DATA_DIR` (customers, maps, published bytes) and the **local-only ops folder** (PII +
-   business). Both must be restored from their own backups — confirm they exist before you need them
-   ([DEPLOY.md §5](DEPLOY.md) restore drill; the ops folder you back up yourself).
-3. **The promise is byte-identical output.** After any dependency/host change, `npm run verify` must
-   pass before you serve anything — a different `sharp`/libvips build silently breaks "the file we
-   serve is the file that was approved."
+1. Read this handbook, then `docs/ROADMAP.md` (architecture) and `CHANGELOG.md` (why things are as they are). The code is at **github.com/PeterC66/community-bus-maps** (public, Apache-2.0).
+2. **The code is not the service.** The service also needs, and git does **not** contain: the runtime data under `DATA_DIR` (customers, maps, published bytes) and the **local-only ops folder** (PII + business). Both must be restored from their own backups — confirm they exist before you need them ([DEPLOY.md §5](DEPLOY.md) restore drill; the ops folder you back up yourself).
+3. **The promise is byte-identical output.** After any dependency/host change, `npm run verify` must pass before you serve anything — a different `sharp`/libvips build silently breaks "the file we serve is the file that was approved."
 4. Remember the **one-writer rule** (§5) and the **separation of duties** (§3).
 
 ---

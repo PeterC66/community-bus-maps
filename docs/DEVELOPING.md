@@ -3,20 +3,11 @@
 <!-- docstamp v1.2 | 2026-08-03 | sha=3c49da0c -->
 **v1.2** · updated 3 August 2026
 
-This is the **developer** counterpart to the operator documentation. The
-[Operations Handbook](OPERATIONS-HANDBOOK.md) and the runbooks tell you how to *run* the service;
-this tells you how to *change* it without breaking the two things the product rests on: the
-deterministic render, and the approval gates.
+This is the **developer** counterpart to the operator documentation. The [Operations Handbook](OPERATIONS-HANDBOOK.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
-`README.md` covers architecture and quick start — read that first. Start here when you are about to
-edit code.
+`README.md` covers architecture and quick start — read that first. Start here when you are about to edit code.
 
-> **The system is a PILOT.** It is feature-complete but has **no customers** — every organisation in
-> the database is seeded demo data and every published map is one of ours. Every page carries a
-> banner and every rendered sheet a band saying so, gated on one env var. Two consequences for you:
-> the render path has a post-generation step you need to know about (see *The gates you must run*),
-> and **you must not write copy that claims customers, uptime or response times**. Read
-> [`PILOT.md`](PILOT.md) before touching the render path, the public copy or the seed script.
+> **The system is a PILOT.** It is feature-complete but has **no customers** — every organisation in the database is seeded demo data and every published map is one of ours. Every page carries a banner and every rendered sheet a band saying so, gated on one env var. Two consequences for you: the render path has a post-generation step you need to know about (see *The gates you must run*), and **you must not write copy that claims customers, uptime or response times**. Read [`PILOT.md`](PILOT.md) before touching the render path, the public copy or the seed script.
 
 ---
 
@@ -24,30 +15,15 @@ edit code.
 
 ### 1. Determinism
 
-Given a map's data + config + a customer's overrides, the engine must produce **byte-identical**
-output every time, with **no network access and no AI**. Everything else in the product is built on
-that promise: customers self-serve edits, the server re-renders untrusted input, and a print file is
-reproducible months later.
+Given a map's data + config + a customer's overrides, the engine must produce **byte-identical** output every time, with **no network access and no AI**. Everything else in the product is built on that promise: customers self-serve edits, the server re-renders untrusted input, and a print file is reproducible months later.
 
 Concretely, in any engine or render code:
 
-- No timestamps, no `Math.random`, no locale-dependent formatting, no reliance on filesystem
-  ordering in anything that reaches the SVG.
+- No timestamps, no `Math.random`, no locale-dependent formatting, no reliance on filesystem ordering in anything that reaches the SVG.
 - No `fetch`/network at render time. Everything a map needs is baked into its payload at import.
-- **Absent config ⇒ previous behaviour.** Every new feature is opt-in via a config key and must be
-  byte-identical when the key is missing. This is what lets a new capability ship without
-  re-validating every existing map.
+- **Absent config ⇒ previous behaviour.** Every new feature is opt-in via a config key and must be byte-identical when the key is missing. This is what lets a new capability ship without re-validating every existing map.
 
-The pilot band is the worked example of doing this *without* touching the engine: it is applied to
-the finished SVG in `src/render/renderMap.js` **after** the generator has run, so the generator's own
-bytes are unchanged and the determinism gate still tests determinism. If you need to add something
-to every sheet, copy that pattern rather than editing generators — they are vendored per-map (below),
-so editing `engine/` would not change a single existing map anyway.
-`src/render/badgeContrast.js` is the second one (a route number must stay readable on a recoloured
-badge), and it shows the other half of the discipline: a post-generation fix must be a **no-op on a
-sheet that does not have the fault**, so an untouched map is still byte-for-byte what the generator
-produced. Both have a companion `scripts/*.mjs` that applies them to sheets already in the object
-store, because a fix at render time reaches nothing that was rendered before it landed.
+The pilot band is the worked example of doing this *without* touching the engine: it is applied to the finished SVG in `src/render/renderMap.js` **after** the generator has run, so the generator's own bytes are unchanged and the determinism gate still tests determinism. If you need to add something to every sheet, copy that pattern rather than editing generators — they are vendored per-map (below), so editing `engine/` would not change a single existing map anyway. `src/render/badgeContrast.js` is the second one (a route number must stay readable on a recoloured badge), and it shows the other half of the discipline: a post-generation fix must be a **no-op on a sheet that does not have the fault**, so an untouched map is still byte-for-byte what the generator produced. Both have a companion `scripts/*.mjs` that applies them to sheets already in the object store, because a fix at render time reaches nothing that was rendered before it landed.
 
 ### 2. The three approval gates
 
@@ -59,17 +35,13 @@ Nothing reaches the public without a human. Don't add a code path that routes ar
 | **Map request + quota** | `src/db` map-request lifecycle, server-enforced quota | a customer can't mint unlimited maps |
 | **Publish sign-off** | `src/publish` — draft/published two-pointer, approver checklist, audit | no draft becomes a published/printable map without a signed-off approver |
 
-Note also that **publish ≠ public**. A published map only appears on the public front when the
-customer's own `map.public_listed` switch is on, the customer is active, and the map is published —
-all three enforced in SQL in `src/public/`.
+Note also that **publish ≠ public**. A published map only appears on the public front when the customer's own `map.public_listed` switch is on, the customer is active, and the map is published — all three enforced in SQL in `src/public/`.
 
 ---
 
 ## The engine is vendored, not imported
 
-The map generators are **maintained in a separate authoring toolchain** (the "skill" side, which
-also does the data fetching, area onboarding and monthly refresh — the judgement-heavy work that
-deliberately does not live in this repo). This repo holds **byte-for-byte copies**.
+The map generators are **maintained in a separate authoring toolchain** (the "skill" side, which also does the data fetching, area onboarding and monthly refresh — the judgement-heavy work that deliberately does not live in this repo). This repo holds **byte-for-byte copies**.
 
 | Location | What | Who owns it |
 |---|---|---|
@@ -78,12 +50,9 @@ deliberately does not live in this repo). This repo holds **byte-for-byte copies
 | `engine/expert/` | the schematic + diagram pre-stages, plus the portal's two wrappers | two copied, two portal-owned |
 | *(not vendored)* | area generators — these travel **with each map's data** in the object store | per-map |
 
-Each of those folders has its own `README.md` explaining the provenance and why it is arranged that
-way. Read the relevant one before touching anything in it.
+Each of those folders has its own `README.md` explaining the provenance and why it is arranged that way. Read the relevant one before touching anything in it.
 
-**Consequence:** if the authoring toolchain's engine changes, this repo keeps running the old code
-until someone re-copies the files and re-runs the gates. There is no automated drift check. When you
-re-vendor, re-run every gate below and note it in `CHANGELOG.md`.
+**Consequence:** if the authoring toolchain's engine changes, this repo keeps running the old code until someone re-copies the files and re-runs the gates. There is no automated drift check. When you re-vendor, re-run every gate below and note it in `CHANGELOG.md`.
 
 ### The generator env contract
 
@@ -96,12 +65,7 @@ All generators, vendored or per-map, are driven the same way:
 | `OVERRIDES_FILE` | the customer's saved safe-subset edits. **Absent or empty ⇒ byte-identical baseline.** |
 | `EDITOR_KEYS` | editor-support keys emitted into the SVG |
 
-**The `LEAFLET_DIR` trap.** The schematic and diagram pre-stages spawn `gen_internal.js` with `cwd`
-set to a workspace and an inherited environment. Because `gen_internal.js` prefers `LEAFLET_DIR`
-over `cwd`, an inherited value sends that render back to the parent folder and **silently produces
-the ordinary geographic map** under the expert style's filename. The wrappers in `engine/expert/`
-delete it for the child and pass everything else through. If you write a new pre-stage or wrapper,
-do the same. Symptom: an expert sheet that looks exactly like the plain internal map.
+**The `LEAFLET_DIR` trap.** The schematic and diagram pre-stages spawn `gen_internal.js` with `cwd` set to a workspace and an inherited environment. Because `gen_internal.js` prefers `LEAFLET_DIR` over `cwd`, an inherited value sends that render back to the parent folder and **silently produces the ordinary geographic map** under the expert style's filename. The wrappers in `engine/expert/` delete it for the child and pass everything else through. If you write a new pre-stage or wrapper, do the same. Symptom: an expert sheet that looks exactly like the plain internal map.
 
 ---
 
@@ -117,31 +81,19 @@ npm test                # public front (P6)
 
 ### `verify` skips silently — this has caught people out
 
-`verify-reproduce.mjs` and `verify-reproduce-place.mjs` **exit 0 with a "skipping" message when
-`FIXTURE_DIR` / `PLACE_FIXTURE_DIR` are unset or missing.** That is deliberate — a fresh clone
-without the separate data repo should still pass `npm test` — but it means **a green run in a clean
-checkout proves nothing about the renderer.** Set both in `.env` (git-ignored; see `.env.example`)
-and confirm the output says PASS with byte counts, not "skipping", before you trust a render change.
+`verify-reproduce.mjs` and `verify-reproduce-place.mjs` **exit 0 with a "skipping" message when `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` are unset or missing.** That is deliberate — a fresh clone without the separate data repo should still pass `npm test` — but it means **a green run in a clean checkout proves nothing about the renderer.** Set both in `.env` (git-ignored; see `.env.example`) and confirm the output says PASS with byte counts, not "skipping", before you trust a render change.
 
 ### The post-generation sheet fixes and the reproduce gates
 
-`generateSvg()` post-processes the finished SVG unless you pass `stamp: false` — badge contrast
-(`src/render/badgeContrast.js`) then the pilot band (`src/render/pilotStamp.js`).
-The two `verify-reproduce*` scripts pass it, because they compare the **generator's** output against
-a shipped fixture — they test determinism, not presentation.
+`generateSvg()` post-processes the finished SVG unless you pass `stamp: false` — badge contrast (`src/render/badgeContrast.js`) then the pilot band (`src/render/pilotStamp.js`). The two `verify-reproduce*` scripts pass it, because they compare the **generator's** output against a shipped fixture — they test determinism, not presentation.
 
-**If `verify` suddenly reports the SVG DIFFERS by a few hundred bytes, check that first.** The fix is
-never to disable the stamp globally: if a verify script has lost its `stamp: false`, restore it; if it
-still differs with the stamp off, the generator genuinely changed and the section below applies.
+**If `verify` suddenly reports the SVG DIFFERS by a few hundred bytes, check that first.** The fix is never to disable the stamp globally: if a verify script has lost its `stamp: false`, restore it; if it still differs with the stamp off, the generator genuinely changed and the section below applies.
 
-Sheets already in the object store keep whatever band they were rendered with —
-`node scripts/restamp-renders.mjs` (add `--apply`) brings them into line, in either direction.
+Sheets already in the object store keep whatever band they were rendered with — `node scripts/restamp-renders.mjs` (add `--apply`) brings them into line, in either direction.
 
 ### When a gate legitimately fails
 
-If output changed *on purpose*, the shipped fixture is now stale. Re-render the fixture from the new
-engine, re-import it, and record why in `CHANGELOG.md`. **Never relax a gate's expectation to make
-it pass** — the gate is the product's core claim.
+If output changed *on purpose*, the shipped fixture is now stale. Re-render the fixture from the new engine, re-import it, and record why in `CHANGELOG.md`. **Never relax a gate's expectation to make it pass** — the gate is the product's core claim.
 
 ---
 
@@ -169,22 +121,13 @@ it pass** — the gate is the product's core claim.
 
 ## House rules
 
-- **No secrets or map/customer data in git.** This is a public repo — see README "Data hygiene".
-  Configuration comes from `.env`.
-- **Pure functions where the decisions are.** `publish/`, `refresh/`, `branding/` are deliberately
-  side-effect-free so the rules can be tested directly. Keep them that way.
-- **Server-enforced, always.** Every safe-subset restriction, quota, and visibility condition is
-  checked on the server (and in SQL where it's a visibility condition). Client-side checks are UX,
-  not security.
-- **Attribution is not optional.** Maps derive from OpenStreetMap (ODbL) and BODS (OGL). See
-  `NOTICE`. Don't ship an output path that drops the credit.
-- **Don't claim what isn't true.** While the pilot is on there are no customers, no SLA and no
-  guaranteed refresh cadence. Copy that says otherwise has been removed once already; don't
-  reintroduce it. If you add a public page, give it the `/js/site-banner.js` `<script>` tag — that is
-  what puts the pilot banner on it.
+- **No secrets or map/customer data in git.** This is a public repo — see README "Data hygiene". Configuration comes from `.env`.
+- **Pure functions where the decisions are.** `publish/`, `refresh/`, `branding/` are deliberately side-effect-free so the rules can be tested directly. Keep them that way.
+- **Server-enforced, always.** Every safe-subset restriction, quota, and visibility condition is checked on the server (and in SQL where it's a visibility condition). Client-side checks are UX, not security.
+- **Attribution is not optional.** Maps derive from OpenStreetMap (ODbL) and BODS (OGL). See `NOTICE`. Don't ship an output path that drops the credit.
+- **Don't claim what isn't true.** While the pilot is on there are no customers, no SLA and no guaranteed refresh cadence. Copy that says otherwise has been removed once already; don't reintroduce it. If you add a public page, give it the `/js/site-banner.js` `<script>` tag — that is what puts the pilot banner on it.
 - **Update `CHANGELOG.md`** with the version and what changed — including re-vendoring.
 
 ## Known rough edge
 
-The vendored-engine duplication above is maintained by hand with no drift detection. If you are
-changing the engine often, that is the first thing worth fixing.
+The vendored-engine duplication above is maintained by hand with no drift detection. If you are changing the engine often, that is the first thing worth fixing.

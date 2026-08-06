@@ -3,12 +3,9 @@
 <!-- docstamp v1.1 | 2026-08-02 | sha=f5693068 -->
 **v1.1** · updated 2 August 2026
 
-Small service, deliberately: **one Node process, one SQLite file, one data volume.**
-No database server, no queue, no build step. Scale by giving the VM more disk, not by
-adding components — the plan says single-VM until something actually binds.
+Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
-Everything below assumes the decisions already locked in the planning docs: build
-locally, choose the host at launch; the render pipeline must stay byte-identical.
+Everything below assumes the decisions already locked in the planning docs: build locally, choose the host at launch; the render pipeline must stay byte-identical.
 
 ---
 
@@ -23,8 +20,7 @@ locally, choose the host at launch; the render pipeline must stay byte-identical
 | `maps/<id>/proposed/<pid>/` | a staged monthly refresh | no — re-stageable centrally |
 | `maps/<id>/archive/` | data replaced by an accepted refresh | no — superseded |
 
-Nothing in this list is in git, and nothing in git is needed at runtime beyond the
-application itself.
+Nothing in this list is in git, and nothing in git is needed at runtime beyond the application itself.
 
 ## 2. Environment
 
@@ -68,9 +64,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the app
-relies on: forward `X-Forwarded-Proto` (the session cookie is marked `Secure` when the
-request is HTTPS) and don't strip `/api/` or `/m/` paths.
+Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the app relies on: forward `X-Forwarded-Proto` (the session cookie is marked `Secure` when the request is HTTPS) and don't strip `/api/` or `/m/` paths.
 
 ## 4. Smoke test after every deploy
 
@@ -78,14 +72,9 @@ request is HTTPS) and don't strip `/api/` or `/m/` paths.
 curl -fsS localhost:5180/health?deep=1 | head -40
 ```
 
-`?deep=1` is the **readiness** probe, not a ping: it queries the database, writes and
-deletes a probe file in `DATA_DIR`, checks the vendored engine files (including the P7
-expert styles) and rasterises a tiny image through sharp. It returns **503** if any of
-those fail, so it is what a load balancer and the container `HEALTHCHECK` should use.
+`?deep=1` is the **readiness** probe, not a ping: it queries the database, writes and deletes a probe file in `DATA_DIR`, checks the vendored engine files (including the P7 expert styles) and rasterises a tiny image through sharp. It returns **503** if any of those fail, so it is what a load balancer and the container `HEALTHCHECK` should use.
 
-Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map
-disk usage, what a prune could reclaim, and the activity counts. Same numbers as
-`/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
+Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
 
 ## 5. Backups
 
@@ -93,12 +82,7 @@ disk usage, what a prune could reclaim, and the activity counts. Same numbers as
 npm run backup -- --out /backups --keep 14        # or: docker compose run --rm backup
 ```
 
-The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent** copy
-of a committed state while the server is running — copying `portal.sqlite` with `cp`
-under WAL can capture a torn file plus a stale `-wal`, so don't. Each run writes
-`<out>/<timestamp>/` with `portal.sqlite`, `maps/<id>/{data,renders,overrides.json}`
-and a `manifest.json`, then prunes to `--keep` newest. Run it from cron/a timer daily,
-and keep at least one copy **off the box**.
+The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent** copy of a committed state while the server is running — copying `portal.sqlite` with `cp` under WAL can capture a torn file plus a stale `-wal`, so don't. Each run writes `<out>/<timestamp>/` with `portal.sqlite`, `maps/<id>/{data,renders,overrides.json}` and a `manifest.json`, then prunes to `--keep` newest. Run it from cron/a timer daily, and keep at least one copy **off the box**.
 
 ### Restore drill (do it once, before you need it)
 
@@ -112,10 +96,7 @@ systemctl start cbm-portal
 curl -fsS localhost:5180/health?deep=1
 ```
 
-Then check a published map's public page still serves the same file sizes as before —
-the published bytes are the promise, so that is the real "restore succeeded" test.
-There is **one writer**: stop the server before any script that writes SQLite
-(`seed-demo`, `import-map`, `propose-update`) and before restoring.
+Then check a published map's public page still serves the same file sizes as before — the published bytes are the promise, so that is the real "restore succeeded" test. There is **one writer**: stop the server before any script that writes SQLite (`seed-demo`, `import-map`, `propose-update`) and before restoring.
 
 ## 6. Housekeeping
 
@@ -123,29 +104,18 @@ There is **one writer**: stop the server before any script that writes SQLite
 npm run prune:staged -- --days 90 --dry-run   # then without --dry-run
 ```
 
-Removes staged payloads of **settled** monthly refreshes and the data an accepted
-refresh replaced, once they are older than `--days`. It never touches a pending update,
-a map's live data, or any rendered version. The Ops tab shows how much it would free.
+Removes staged payloads of **settled** monthly refreshes and the data an accepted refresh replaced, once they are older than `--days`. It never touches a pending update, a map's live data, or any rendered version. The Ops tab shows how much it would free.
 
-Sessions expire themselves (the server purges hourly). Nothing else grows unbounded
-except renders, which are kept on purpose — every version stays downloadable.
+Sessions expire themselves (the server purges hourly). Nothing else grows unbounded except renders, which are kept on purpose — every version stays downloadable.
 
 ## 7. Upgrading the app
 
 1. `npm ci` (respect the lockfile — see the sharp warning below), then **`npm test`**.
-2. **`npm run verify`** with `FIXTURE_DIR` + `PLACE_FIXTURE_DIR` pointing at the private
-   fixtures. This is the release gate: it re-renders the area map, the place map **and
-   the two expert styles** and requires them to be byte-identical.
+2. **`npm run verify`** with `FIXTURE_DIR` + `PLACE_FIXTURE_DIR` pointing at the private fixtures. This is the release gate: it re-renders the area map, the place map **and the two expert styles** and requires them to be byte-identical.
 3. Deploy, then `/health?deep=1`.
 
-**The sharp/libvips warning is not boilerplate.** The print JPG is the product; a
-different libvips build can encode the same SVG to different bytes, which would silently
-break "the file we serve is the file that was approved". Treat any `sharp` bump as a
-change that must pass step 2 on the target platform before it ships.
+**The sharp/libvips warning is not boilerplate.** The print JPG is the product; a different libvips build can encode the same SVG to different bytes, which would silently break "the file we serve is the file that was approved". Treat any `sharp` bump as a change that must pass step 2 on the target platform before it ships.
 
 ## 8. Licensing gate
 
-`docs/LICENSING.md` lists the data sources, what must be credited, and the open
-**bustimes.org terms** question. It is a launch go/no-go, not a footnote: the sign-off
-lines at the bottom of that file are meant to be filled in before the public site is
-announced.
+`docs/LICENSING.md` lists the data sources, what must be credited, and the open **bustimes.org terms** question. It is a launch go/no-go, not a footnote: the sign-off lines at the bottom of that file are meant to be filled in before the public site is announced.
