@@ -7,6 +7,23 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — re-vendored place external-map engine, refreshed the fixture — 2026-08-06
+
+`engine/place/gen_external_places.js` was re-vendored from the skill (`make-place-bus-leaflet`)
+after a fix session brought the place external map up to the level of the recently-upgraded area
+external map: crisp (not blobby) dashed limited-service spokes, an auto-sized boxed operators
+panel that now searches for a placement clear of both destination nodes AND spoke lines (not just
+a first-fit), a hub clear-zone sized to the place label so route badges are never hidden under it,
+and the version stamp moved to the bottom-right corner. Full detail in the skill's
+`references/gotchas.md` (2026-08-06 section). Consequence: the `High Wycombe Aldi` portal fixture
+(`Buses/Places/_portal-fixture/`) was regenerated from its own `routes.json` +
+`base-overrides.json` through the fixed engine — its shipped `external.svg`/`.jpg` legitimately
+changed, this was not a gate-relaxation. `npm run verify`, `verify:place`, `test:p7` and `test`
+all pass against the refreshed fixture. All 5 built places (Beaconsfield Simpson Centre/Waitrose,
+St Neots Tesco Extra/Town Centre, High Wycombe Aldi) were rebuilt through `stage.js` in the
+separate Buses repo and their external maps refreshed; this repo only carries the vendored
+engine + fixture, not those places' own render output.
+
 ### Added — flag maps affected by upcoming GTFS changes — 2026-08-03
 
 New `scripts/check-upcoming-refreshes.mjs` (`npm run check-upcoming`) cross-references the Buses
