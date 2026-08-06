@@ -1,15 +1,15 @@
 # Operations Handbook — BusMaps.uk portal
 
-<!-- docstamp v1.3 | 2026-08-02 | sha=df2773ea -->
-**v1.3** · updated 2 August 2026
+<!-- docstamp v1.4 | 2026-08-06 | sha=4024f8d2 -->
+**v1.4** · updated 6 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude.
 **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
 This is the spine: the shared vocabulary, who does what, the operating rhythm, a map of where
 everything lives, and the **single index** of every document. It links to the detailed runbooks
-rather than repeating them; several are still to be written (marked *planned* below — see
-[`DOCUMENTATION-PLAN.md`](DOCUMENTATION-PLAN.md)). Start here when you pick the service up.
+rather than repeating them — all are written (see [`DOCUMENTATION-PLAN.md`](DOCUMENTATION-PLAN.md)
+and §7's index). Start here when you pick the service up.
 
 ---
 
@@ -106,12 +106,12 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 | Cadence | Task | How | Runbook |
 |---|---|---|---|
 | **Daily** (mostly automated) | Backup runs; glance at readiness | cron `npm run backup`; `curl /health?deep=1` | [DEPLOY.md §5](DEPLOY.md), [§4](DEPLOY.md) |
-| **Daily/weekly** | Clear the queues | `/app/admin` badges: **Applications**, **Messages** (contact + report-a-problem + diagram requests, §4b) | R2, R5 *(planned)* |
-| **Weekly** | Sign off submitted maps | `/app/review` | R3 *(planned)* |
-| **Monthly** | Run the update cycle after the BODS refresh; then prune | `propose-update.mjs` per map; `npm run prune:staged` | R4 *(planned)*, [DEPLOY.md §6](DEPLOY.md) |
-| **Per-event** | Onboard a customer | application arrives → vet → approve | R2, Pol1 *(planned)* |
-| **Per-event** | Create a map | request approved → make → import → verify → hand to sign-off | R1 *(planned)* |
-| **Per-event** | Handle an incident | a published map is wrong / access fails / a source outage | R6 *(planned)* |
+| **Daily/weekly** | Clear the queues | `/app/admin` badges: **Applications**, **Messages** (contact + report-a-problem + diagram requests, §4b) | R2, R5 |
+| **Weekly** | Sign off submitted maps | `/app/review` | R3 |
+| **Monthly** | Run the update cycle after the BODS refresh; then prune | `propose-update.mjs` per map; `npm run prune:staged` | R4, [DEPLOY.md §6](DEPLOY.md) |
+| **Per-event** | Onboard a customer | application arrives → vet → approve | R2, Pol1 |
+| **Per-event** | Create a map | request approved → make → import → verify → hand to sign-off | R1 |
+| **Per-event** | Handle an incident | a published map is wrong / access fails / a source outage | R6 |
 | **On upgrade** | Release gate | `npm test` **and** `npm run verify` (byte-identical) before deploy | [DEPLOY.md §7](DEPLOY.md) |
 | **Before launch** | Close the licensing gate | fill the sign-off, resolve bustimes.org | [LICENSING.md](LICENSING.md) → G1 |
 
