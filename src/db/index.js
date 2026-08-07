@@ -703,6 +703,28 @@ export function listUsers() {
     .prepare('SELECT u.*, c.name AS customer_name FROM user u LEFT JOIN customer c ON c.id = u.customer_id ORDER BY u.email')
     .all();
 }
+/** Admin console listing, optionally scoped to one customer. */
+export function listUsersAdmin(customerId) {
+  if (customerId != null) {
+    return db
+      .prepare('SELECT u.*, c.name AS customer_name FROM user u LEFT JOIN customer c ON c.id = u.customer_id WHERE u.customer_id = ? ORDER BY u.email')
+      .all(Number(customerId));
+  }
+  return listUsers();
+}
+const USER_ROLES = ['editor', 'approver', 'admin'];
+const USER_STATUSES = ['active', 'disabled'];
+/** Whitelisted admin update of a user's name / role / status. */
+export function updateUserAdmin(id, f) {
+  const sets = [], args = [];
+  if (f.name != null) { sets.push('name = ?'); args.push(String(f.name).slice(0, 120) || null); }
+  if (f.role && USER_ROLES.includes(f.role)) { sets.push('role = ?'); args.push(f.role); }
+  if (f.status && USER_STATUSES.includes(f.status)) { sets.push('status = ?'); args.push(f.status); }
+  if (!sets.length) return false;
+  args.push(Number(id));
+  db.prepare(`UPDATE user SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+  return true;
+}
 
 export function insertSession(token, userId, expiresAt) {
   db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, Number(userId), expiresAt);

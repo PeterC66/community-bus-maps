@@ -23,7 +23,7 @@ import {
   setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions,
   listPublishedHistory, listPublishedMaps,
   listApplications, getApplication, setApplicationReviewed, listMessages,
-  insertCustomer, insertUser, getUserByEmail,
+  insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin,
   listCustomersAdmin, updateCustomerAdmin, adminSummary,
   getVersionById, setVersionState, setPublishedVersion,
   insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests,
@@ -1539,6 +1539,63 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
   const c = getCustomer(cust.id);
   logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled } });
   return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled } };
+});
+
+// User CRUD (admin-only). Invite adds another person to an existing customer
+// (or, with no customerId, a platform admin); update/disable are the same
+// PATCH — status:'disabled' is how an account is switched off, mirroring the
+// customer status pattern above. No delete: disabling is the reversible,
+// audit-preserving equivalent (sessions and history keep referencing the row).
+const userShape = (u) => ({
+  id: u.id, email: u.email, name: u.name, role: u.role, status: u.status,
+  customerId: u.customer_id, customerName: u.customer_name || null, createdAt: u.created_at,
+});
+
+app.get('/api/admin/users', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const q = req.query || {};
+  const customerId = q.customerId != null && q.customerId !== '' ? Number(q.customerId) : undefined;
+  return { ok: true, users: listUsersAdmin(customerId).map(userShape) };
+});
+
+app.post('/api/admin/users', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const b = req.body || {};
+  const email = str(b.email, 200).toLowerCase();
+  if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'A valid email is required.' });
+  if (getUserByEmail(email)) return reply.code(409).send({ ok: false, error: `${email} already has an account.` });
+
+  let customerId = null;
+  if (b.customerId != null && b.customerId !== '') {
+    const cust = getCustomer(Number(b.customerId));
+    if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
+    customerId = cust.id;
+  }
+  const role = ['editor', 'approver', 'admin'].includes(b.role) ? b.role : 'editor';
+
+  const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
+  const token = requestMagicLink(email);
+  const link = token ? authLink(req, token) : null;
+  if (link) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+  req.log.info({ userId, customerId, email, role }, 'user invited by admin');
+  logAudit(req, 'user.invite', { detail: { userId, customerId, email, role } });
+  return { ok: true, user: userShape(getUser(userId)), inviteLink: DEV_LINKS ? link : undefined };
+});
+
+app.patch('/api/admin/users/:id', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const u = getUser(Number(req.params.id));
+  if (!u) return reply.code(404).send({ ok: false, error: 'No such user.' });
+  const b = req.body || {};
+  if (b.status === 'disabled' && u.id === req.user.id) {
+    return reply.code(400).send({ ok: false, error: 'You cannot disable your own account.' });
+  }
+  const ok = updateUserAdmin(u.id, { name: b.name, role: b.role, status: b.status });
+  if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
+  const updated = getUser(u.id);
+  req.log.info({ userId: u.id }, 'user updated by admin');
+  logAudit(req, 'user.update', { detail: { userId: u.id, email: updated.email, role: updated.role, status: updated.status } });
+  return { ok: true, user: userShape(updated) };
 });
 
 app.get('/api/admin/messages', async (req, reply) => {

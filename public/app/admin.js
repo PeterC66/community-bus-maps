@@ -33,7 +33,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['applications', 'requests', 'customers', 'messages', 'refreshes', 'audit', 'ops'];
+const SECTIONS = ['applications', 'requests', 'customers', 'users', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -213,6 +213,83 @@ async function saveCust(id) {
   else banner('err', body.error || 'Save failed.');
 }
 
+// ---- users --------------------------------------------------------------
+let me = null; // set once at init; used only to stop an admin disabling their own row in the UI
+let customersForInvite = null; // cached [{id,name}], loaded lazily when the invite dialog opens
+LOADERS.users = async () => {
+  const { body } = await jget('/api/admin/users');
+  const box = $('users');
+  const users = (body && body.users) || [];
+  if (!users.length) { box.innerHTML = '<div class="empty">No users yet.</div>'; return; }
+  box.innerHTML = gtOpen([26, 18, 14, 14, 12, 16], ['User', 'Customer', 'Role', 'Status', 'Invited', '']) + users.map(rowUser).join('') + gtClose;
+  box.querySelectorAll('button[data-save]').forEach((b) => b.addEventListener('click', () => saveUser(b.dataset.save)));
+};
+function rowUser(u) {
+  const self = me && u.id === me.id;
+  return `<div class="gt-row" role="row" data-user="${u.id}">
+    <div class="gt-cell" role="cell"><strong>${esc(u.email)}</strong>${self ? ' <span class="muted">(you)</span>' : ''}<div><input type="text" value="${esc(u.name || '')}" data-q="name" class="planin" maxlength="120" placeholder="name"></div></div>
+    <div class="gt-cell" role="cell">${u.customerName ? esc(u.customerName) : '<span class="muted">— platform —</span>'}</div>
+    <div class="gt-cell" role="cell"><select data-q="role">
+        <option value="editor"${u.role === 'editor' ? ' selected' : ''}>editor</option>
+        <option value="approver"${u.role === 'approver' ? ' selected' : ''}>approver</option>
+        <option value="admin"${u.role === 'admin' ? ' selected' : ''}>admin</option>
+      </select></div>
+    <div class="gt-cell" role="cell"><select data-q="status"${self ? ' disabled title="You cannot disable your own account."' : ''}>
+        <option value="active"${u.status === 'active' ? ' selected' : ''}>active</option>
+        <option value="disabled"${u.status === 'disabled' ? ' selected' : ''}>disabled</option>
+      </select></div>
+    <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
+    <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${u.id}">Save</button></div>
+  </div>`;
+}
+async function saveUser(id) {
+  const tr = $('users').querySelector(`[data-user="${id}"]`);
+  const g = (q) => tr.querySelector(`[data-q="${q}"]`);
+  const data = { name: g('name').value, role: g('role').value, status: g('status').disabled ? undefined : g('status').value };
+  const { body } = await jsend(`/api/admin/users/${id}`, 'PATCH', data);
+  if (body.ok) { banner('ok', `Saved changes to ${esc(body.user.email)}.`); LOADERS.customers(); }
+  else banner('err', body.error || 'Save failed.');
+}
+
+// invite dialog
+const inviteDlg = $('inviteDialog');
+async function openInvite() {
+  $('inviteForm').reset();
+  $('inviteMsg').className = 'notice';
+  if (!customersForInvite) {
+    const { body } = await jget('/api/admin/customers');
+    customersForInvite = ((body && body.customers) || []).map((c) => ({ id: c.id, name: c.name }));
+  }
+  const sel = $('invCustomer');
+  sel.innerHTML = '<option value="">— platform admin, no customer —</option>'
+    + customersForInvite.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  inviteDlg.showModal();
+}
+$('inviteUserBtn').addEventListener('click', openInvite);
+$('inviteCancel').addEventListener('click', () => inviteDlg.close());
+$('inviteForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('inviteSubmit'); btn.disabled = true; btn.textContent = 'Inviting…';
+  const data = {
+    email: $('invEmail').value, name: $('invName').value, role: $('invRole').value,
+    customerId: $('invCustomer').value || undefined,
+  };
+  const { body } = await jsend('/api/admin/users', 'POST', data);
+  btn.disabled = false; btn.textContent = 'Invite';
+  if (body.ok) {
+    inviteDlg.close();
+    const link = body.inviteLink
+      ? `<div class="invite">Invite link (dev — normally emailed): <code id="ulink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyULink" type="button">Copy</button></div>`
+      : ' The invite has been emailed.';
+    banner('ok-sticky', `✓ Invited ${esc(body.user.email)} as ${esc(body.user.role)}.${link}`);
+    const cp = $('copyULink'); if (cp) cp.addEventListener('click', () => navigator.clipboard.writeText(body.inviteLink).then(() => { cp.textContent = 'Copied'; }));
+    customersForInvite = null; // customer user-counts changed
+    LOADERS.users(); LOADERS.customers();
+  } else {
+    $('inviteMsg').className = 'notice err show'; $('inviteMsg').textContent = body.error || 'Invite failed.';
+  }
+});
+
 // ---- messages ---------------------------------------------------------------
 LOADERS.messages = async () => {
   const { body } = await jget('/api/admin/messages');
@@ -353,7 +430,7 @@ $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/lo
 (async () => {
   const { status, body } = await jget('/api/me');
   if (status === 401) { location.href = '/app/login.html'; return; }
-  const me = body.user;
+  me = body.user;
   if (!me || me.role !== 'admin') { location.href = '/app'; return; }
   $('whoami').textContent = `${me.email} · admin`;
   $('logoutBtn').style.display = '';

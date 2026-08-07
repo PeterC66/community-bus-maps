@@ -1,11 +1,33 @@
 # Changelog
 
-<!-- docstamp v1.18 | 2026-08-07 | sha=bae5fef2 -->
-**v1.18** · updated 7 August 2026
+<!-- docstamp v1.21 | 2026-08-07 | sha=60e73b39 -->
+**v1.21** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — admin console UI for user CRUD — 2026-08-07
+
+A **Users** tab in `/app/admin` (`public/app/admin.html`, `public/app/admin.js`) fronting the
+`/api/admin/users` endpoints below: a table of every user (name/role/status editable in place, a Save
+per row — matching the existing Customers tab's pattern) plus an "Invite user" dialog (email, name,
+role, and a customer picker with "platform admin, no customer" as the blank option) that shows the
+dev invite link the same way application approval does. An admin's own row has its status select
+disabled client-side so they can't lock themselves out (the API already refuses it server-side).
+Saving an invite or a status/role change also refreshes the Customers tab's per-customer user count.
+
+### Added — admin user CRUD (`/api/admin/users`) — 2026-08-07
+
+Roles (`editor|approver|admin`) and per-customer tenancy already existed in the schema, but the only
+way a `user` row was ever created was the one-off invite baked into application approval — there was
+no way to add a second person to an existing customer, change anyone's role, or turn an account off.
+Added `GET/POST /api/admin/users` (list, optionally `?customerId=`; invite via the existing
+passwordless magic-link flow) and `PATCH /api/admin/users/:id` (name/role/status — `status: 'disabled'`
+is how an account is switched off; there's no delete, since disabling is the reversible,
+audit-preserving equivalent and keeps sessions/audit rows meaningful). Admin-only
+(`requireAdmin`), and an admin can't disable their own account. `listUsersAdmin`/`updateUserAdmin`
+added to `src/db/index.js` alongside the existing (previously unused) `listUsers`.
 
 ### Changed — demo organisations restructured to a 0/1/rest split — 2026-08-07
 
