@@ -18,15 +18,18 @@ notes, action buttons) stay plain, unclickable headers. The Users tab additional
 to being grouped by customer then role (`sortRowsMulti`) before any column is clicked, so
 platform users and users of the same customer sit together on first load.
 
-### Added — signed-in status and sign out on every public page — 2026-08-07
+### Added — signed-in status and sign in/out on every public page — 2026-08-07
 
 Previously the only way to see you were signed in, or to sign out, was `/app` itself — there was no
-way back once you'd followed a link out to `/examples.html` or any other public page. A new shared
-script, `public/js/auth-status.js`, checks `/api/me` and, if signed in, appends "My maps", "Signed in
-as …" and a "Sign out" button to the header nav. Wired into the `<head>` of all twelve public pages
-(`index`, `apply`, `contact`, `examples`, `faq`, `legal`, `map`, `maps`, `opportunity`, `org`,
-`pricing`, `terms`). Signed-out visitors see no change. `/app/*` pages keep their existing bespoke
-whoami/logout wiring, which also handles role-based admin/review link visibility.
+way back once you'd followed a link out to `/examples.html` or any other public page, and no way to
+sign in from a public page either. A new shared script, `public/js/auth-status.js`, checks `/api/me`
+and updates the header nav accordingly: signed in shows "Signed in as …", "My maps" and "Sign out"
+(in that order) and drops the "Apply to join" CTA, since it's aimed at prospective organisations, not
+existing users; signed out adds a "Sign in" link to `/app/login.html`, keeping "Apply to join". Wired
+into the `<head>` of all twelve public pages (`index`, `apply`, `contact`, `examples`, `faq`, `legal`,
+`map`, `maps`, `opportunity`, `org`, `pricing`, `terms`). `/app/*` pages keep their existing bespoke
+whoami/logout wiring, which also handles role-based admin/review link visibility and redirects
+signed-out visitors to login, so they never see the public "Sign in" case.
 
 ### Added — admin console UI for user CRUD — 2026-08-07
 

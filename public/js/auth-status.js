@@ -1,38 +1,49 @@
-// Shows "Signed in as …" + a Sign out button in the site header on public pages,
-// so there's a way back to logout from anywhere other than /app.
+// Shows sign-in state in the site header on public pages, so there's a way
+// back to sign in or sign out from anywhere other than /app.
 (async () => {
   try {
-    const r = await fetch('/api/me', { credentials: 'same-origin' });
-    if (!r.ok) return;
-    const { user } = await r.json();
-    if (!user) return;
-
     const nav = document.querySelector('.site-header .nav');
     if (!nav) return;
 
-    const who = document.createElement('span');
-    who.className = 'navlink';
-    who.id = 'authWhoami';
-    who.textContent = `Signed in as ${user.name || user.email}`;
+    const r = await fetch('/api/me', { credentials: 'same-origin' });
+    const user = r.ok ? (await r.json()).user : null;
 
-    const signOut = document.createElement('button');
-    signOut.className = 'btn btn-ghost btn-sm';
-    signOut.id = 'authSignout';
-    signOut.type = 'button';
-    signOut.textContent = 'Sign out';
-    signOut.addEventListener('click', async () => {
-      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-      location.href = '/';
-    });
+    if (user) {
+      // Already signed in — the "Apply to join" CTA is for prospective organisations.
+      nav.querySelector('a[href="/apply.html"]')?.remove();
 
-    const appLink = document.createElement('a');
-    appLink.className = 'navlink';
-    appLink.id = 'authAppLink';
-    appLink.href = '/app';
-    appLink.textContent = 'My maps';
+      const who = document.createElement('span');
+      who.className = 'navlink';
+      who.id = 'authWhoami';
+      who.textContent = `Signed in as ${user.name || user.email}`;
 
-    nav.append(appLink, who, signOut);
+      const appLink = document.createElement('a');
+      appLink.className = 'navlink';
+      appLink.id = 'authAppLink';
+      appLink.href = '/app';
+      appLink.textContent = 'My maps';
+
+      const signOut = document.createElement('button');
+      signOut.className = 'btn btn-ghost btn-sm';
+      signOut.id = 'authSignout';
+      signOut.type = 'button';
+      signOut.textContent = 'Sign out';
+      signOut.addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        location.href = '/';
+      });
+
+      nav.append(who, appLink, signOut);
+    } else if (r.status === 401) {
+      const signIn = document.createElement('a');
+      signIn.className = 'navlink';
+      signIn.id = 'authSignin';
+      signIn.href = '/app/login.html';
+      signIn.textContent = 'Sign in';
+      nav.appendChild(signIn);
+    }
+    // Any other /api/me failure (network error etc.) — leave the header as-is.
   } catch {
-    // Not signed in, or /api/me unavailable — leave the header as-is.
+    // /api/me unavailable — leave the header as-is.
   }
 })();
