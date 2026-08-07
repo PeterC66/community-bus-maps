@@ -1,11 +1,28 @@
 # Changelog
 
-<!-- docstamp v1.13 | 2026-08-07 | sha=042ba592 -->
-**v1.13** · updated 7 August 2026
+<!-- docstamp v1.14 | 2026-08-07 | sha=0af4ac55 -->
+**v1.14** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — admin/review consoles: replaced `<table>` with CSS Grid rows — 2026-08-07
+
+Every table in the admin console (all 8: applications, map requests, awaiting-build, customers,
+messages, refreshes, audit, ops store) and the review console's publication-history table had their
+header row visually detached from their body columns — headers bunched left, data spread to fill
+the full width. Root cause: `table.grid` used `table-layout: fixed` with a `<colgroup>` (the
+textbook-correct way to pin table columns), but in real Chrome — reproduced in Incognito with
+extensions off, so not an extension — the fixed-column widths silently stopped being shared between
+`<thead>` and `<tbody>` once a body row contained unbreakable content (a `<button>`, a pill/badge)
+sitting under a `white-space:nowrap` header cell. `table-layout: auto` vs `fixed` on a live clone
+produced byte-identical (wrong) measurements, `<colgroup>` percentages read back as `0px` via
+`getComputedStyle`, and no single CSS property (removing nowrap, `min-width`/`max-width` on
+`.wrap` cells, `border-collapse`, stripping badges) fixed it in isolation — only converting away
+from `<table>` did. See `docs/DEVELOPING.md` "Table-like grids" for the write-up and the fix
+pattern (`.grid-table` / `.gt-row` / `.gt-cell` in `app.css`, `gtOpen()` in `admin.js`) — reuse it,
+don't reintroduce a real `<table>` for anything with buttons/badges in a data cell.
 
 ### Changed — reworded "sign-off" as "review", re-scoped what review claims — 2026-08-07
 

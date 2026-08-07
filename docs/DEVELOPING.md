@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.4 | 2026-08-07 | sha=49a3fbf4 -->
-**v1.4** · updated 7 August 2026
+<!-- docstamp v1.5 | 2026-08-07 | sha=f39bf408 -->
+**v1.5** · updated 7 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](OPERATIONS-HANDBOOK.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -131,3 +131,47 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 ## Known rough edge
 
 The vendored-engine duplication above is maintained by hand with no drift detection. If you are changing the engine often, that is the first thing worth fixing.
+
+## Table-like grids: use `.grid-table`, not `<table>`
+
+`public/app/admin.js`, `public/app/review.js` and `public/app/app.css` build every data table (admin
+console: applications, map requests, awaiting-build, customers, messages, refreshes, audit, ops
+store; review console: publication history) as a **CSS Grid**, not an HTML `<table>`. This was not
+a style preference — it replaced a real `<table>` that had a genuine, reproducible Chrome bug.
+
+**The bug (2026-08-07):** `table.grid` used `table-layout: fixed` with an explicit `<colgroup>` —
+the standard, textbook-correct way to force table columns to stay put. In real Chrome (reproduced in
+Incognito with all extensions off), the header row's columns silently stopped sharing widths with
+the body rows once a body row held content the header didn't — specifically, a `<button>` or a
+pill/badge sitting in a column whose header cell had `white-space: nowrap`. Headers rendered
+bunched at their own intrinsic width; data columns spread to fill the table, with no relationship
+between the two. Diagnosis (all confirmed against the real, non-injected page, not just a test
+harness):
+
+- Toggling `table-layout: auto` vs `fixed` on a live clone produced **byte-identical** (wrong)
+  `getBoundingClientRect()` results — evidence the fixed-column algorithm wasn't being applied at
+  all in that render path, despite `getComputedStyle(table).tableLayout` reporting `"fixed"`.
+- `getComputedStyle(colEl).width` read back as `"0px"` for every `<col>`, even though
+  `col.style.width` correctly showed the set percentage.
+- An automated bisection (clone the real table, mutate one property at a time, measure) ruled out
+  `td.wrap`'s `min-width`/`max-width`, `white-space: pre-wrap`, the `.tag` badge, the `.sub` div,
+  `overflow: hidden` on cells, and `border-collapse` — none of them, alone, fixed or explained it.
+- It reproduced with plain inline styles (no site CSS at all) once the row included a real
+  `<button>` element under a `nowrap` header — but not with plain text, not with `<div>`s, not with
+  `min-width` alone. It needed the specific combination.
+
+**The fix:** stop depending on `<table>`'s column-sync guarantee. `.grid-table` (in `app.css`) is a
+`display: grid` container; each row is `.gt-row { display: contents }` so its `.gt-cell` children
+become direct grid items sharing the **one** `grid-template-columns` declared on `.grid-table`
+itself (set inline per table, e.g. `style="grid-template-columns:20% 16% 28% 11% 10% 15%"`). Because
+there is only one column-track definition for the whole component — not one resolved per row the
+way `<table>` does it — header and body cannot drift apart; there's no separate algorithm to
+disagree. `gtOpen(colWidths, headers)` in `admin.js` builds the opening markup; `gtClose` closes it.
+Roles (`role="table"/"row"/"columnheader"/"cell"`) preserve table semantics for assistive tech since
+these are no longer real `<table>` elements.
+
+**If you add a new admin/review table:** use `gtOpen()` / `.gt-row` / `.gt-cell`, not `<table>`. If
+you're tempted to use a real `<table>` for something else in this codebase, it's probably fine for
+plain-text content — the bug needs unbreakable content (buttons, badges) under a nowrap header to
+trigger — but there's no known safe subset, so default to the grid pattern for anything with actions
+or status pills in a cell.

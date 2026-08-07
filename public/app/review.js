@@ -208,14 +208,14 @@ async function openPublished(mapId) {
       : '<span class="status-pill rej">files missing</span>';
     const jpgs = h.files.filter((f) => f.file.endsWith('.jpg'))
       .map((f) => `<a href="${f.url}" target="_blank" rel="noopener">${esc(f.file)}</a>`).join(' · ');
-    return `<tr>
-      <td><strong>${esc(h.version)}</strong> ${badge}</td>
-      <td>${fmtDate(h.publishedAt)}<div class="qi-meta">${esc(h.approver || '—')}</div></td>
-      <td class="wrap">${esc(h.decisionNote || '') || '<span class="muted">—</span>'}<div class="qi-meta">${jpgs || ''}</div></td>
-      <td class="actions">${h.revertable
+    return `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell"><strong>${esc(h.version)}</strong> ${badge}</div>
+      <div class="gt-cell" role="cell">${fmtDate(h.publishedAt)}<div class="qi-meta">${esc(h.approver || '—')}</div></div>
+      <div class="gt-cell wrap" role="cell">${esc(h.decisionNote || '') || '<span class="muted">—</span>'}<div class="qi-meta">${jpgs || ''}</div></div>
+      <div class="gt-cell actions" role="cell">${h.revertable
         ? `<button class="btn btn-ghost btn-xs" data-revert="${h.versionId}" data-ver="${esc(h.version)}" type="button">Revert to this</button>`
-        : ''}</td>
-    </tr>`;
+        : ''}</div>
+    </div>`;
   }).join('');
 
   const target = history.find((h) => h.revertable);
@@ -229,9 +229,9 @@ async function openPublished(mapId) {
     <div class="rd-section">
       <h3>Publication history</h3>
       <p class="hint-line">Reverting changes only what the public is served. It does not undo the customer's edits, and only versions that already passed review are offered.</p>
-      <div class="table-wrap"><table class="grid"><thead><tr>
-        <th>Version</th><th>Reviewed</th><th>Approver's note</th><th></th>
-      </tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="table-wrap"><div class="grid-table" role="table" style="grid-template-columns:16% 20% 44% 20%"><div class="gt-row gt-head" role="row">
+        <div class="gt-cell" role="columnheader">Version</div><div class="gt-cell" role="columnheader">Reviewed</div><div class="gt-cell" role="columnheader">Approver's note</div><div class="gt-cell" role="columnheader"></div>
+      </div>${rows}</div></div>
     </div>
 
     <div class="rd-section">

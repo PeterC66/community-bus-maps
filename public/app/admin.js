@@ -9,6 +9,16 @@ const fmtDate = (s) => {
   const d = new Date(String(s).replace(' ', 'T') + (String(s).includes('Z') ? '' : 'Z'));
   return isNaN(d) ? s : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 };
+// CSS-grid "table" builder — see the .grid-table comment in app.css for why
+// this replaced <table>: header and body rows share one grid-template-columns
+// track list, so columns can't drift apart the way a <table>'s own column-sync
+// did once a row held unbreakable content.
+function gtOpen(colWidths, headers) {
+  const style = `grid-template-columns:${colWidths.map((w) => w + '%').join(' ')}`;
+  const head = headers.map((h) => `<div class="gt-cell" role="columnheader">${h}</div>`).join('');
+  return `<div class="grid-table" role="table" style="${style}"><div class="gt-row gt-head" role="row">${head}</div>`;
+}
+const gtClose = '</div>';
 async function jget(url) { const r = await fetch(url); return { status: r.status, body: await r.json().catch(() => ({})) }; }
 async function jsend(url, method, data) {
   const r = await fetch(url, { method, headers: data ? { 'Content-Type': 'application/json' } : undefined, body: data ? JSON.stringify(data) : undefined });
@@ -53,9 +63,7 @@ LOADERS.applications = async () => {
   const box = $('applications');
   const apps = (body && body.applications) || [];
   if (!apps.length) { box.innerHTML = `<div class="empty">${showReviewed ? 'No applications yet.' : 'No pending applications. 🎉'}</div>`; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>Organisation</th><th>Contact</th><th>Wants</th><th>Received</th><th>Status</th><th></th>
-    </tr></thead><tbody>${apps.map(rowApp).join('')}</tbody></table>`;
+  box.innerHTML = gtOpen([20, 16, 28, 11, 10, 15], ['Organisation', 'Contact', 'Wants', 'Received', 'Status', '']) + apps.map(rowApp).join('') + gtClose;
   box.querySelectorAll('button[data-approve]').forEach((b) => b.addEventListener('click', () => openApprove(b.dataset.approve, b.dataset.name, b.dataset.contact)));
   box.querySelectorAll('button[data-reject]').forEach((b) => b.addEventListener('click', () => rejectApp(b.dataset.reject, b.dataset.name)));
 };
@@ -68,14 +76,14 @@ function rowApp(a) {
     ? `<button class="btn btn-primary btn-xs" data-approve="${a.id}" data-name="${esc(a.org_name)}" data-contact="${esc(a.contact_name)}">Approve</button>
        <button class="btn btn-ghost btn-xs" data-reject="${a.id}" data-name="${esc(a.org_name)}">Reject</button>`
     : `<span class="muted">${a.reviewed_at ? fmtDate(a.reviewed_at) : ''}</span>`;
-  return `<tr>
-    <td><strong>${esc(a.org_name)}</strong><div class="sub">${esc(a.org_type)}${a.website ? ' · <a href="' + esc(a.website) + '" target="_blank" rel="noopener">site</a>' : ''}</div></td>
-    <td>${esc(a.contact_name)}<div class="sub">${esc(a.email)}${a.phone ? ' · ' + esc(a.phone) : ''}</div></td>
-    <td class="wrap">${esc(a.wants || '') || '<span class="muted">—</span>'}${a.message ? '<div class="sub">' + esc(a.message) + '</div>' : ''}</td>
-    <td>${fmtDate(a.created_at)}</td>
-    <td>${badge}</td>
-    <td class="actions">${actions}</td>
-  </tr>`;
+  return `<div class="gt-row" role="row">
+    <div class="gt-cell" role="cell"><strong>${esc(a.org_name)}</strong><div class="sub">${esc(a.org_type)}${a.website ? ' · <a href="' + esc(a.website) + '" target="_blank" rel="noopener">site</a>' : ''}</div></div>
+    <div class="gt-cell" role="cell">${esc(a.contact_name)}<div class="sub">${esc(a.email)}${a.phone ? ' · ' + esc(a.phone) : ''}</div></div>
+    <div class="gt-cell wrap" role="cell">${esc(a.wants || '') || '<span class="muted">—</span>'}${a.message ? '<div class="sub">' + esc(a.message) + '</div>' : ''}</div>
+    <div class="gt-cell" role="cell">${fmtDate(a.created_at)}</div>
+    <div class="gt-cell" role="cell">${badge}</div>
+    <div class="gt-cell actions" role="cell">${actions}</div>
+  </div>`;
 }
 
 // approve dialog
@@ -123,9 +131,7 @@ LOADERS.requests = async () => {
   const reqs = (body && body.requests) || [];
   if (!reqs.length) box.innerHTML = '<div class="empty">No pending map requests.</div>';
   else {
-    box.innerHTML = `<table class="grid"><thead><tr>
-        <th>Map</th><th>Customer</th><th>Requested by</th><th>Notes</th><th>When</th><th></th>
-      </tr></thead><tbody>${reqs.map(rowReq).join('')}</tbody></table>`;
+    box.innerHTML = gtOpen([18, 16, 14, 26, 12, 14], ['Map', 'Customer', 'Requested by', 'Notes', 'When', '']) + reqs.map(rowReq).join('') + gtClose;
     box.querySelectorAll('button[data-appr]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.appr, 'approve', b.dataset.name)));
     box.querySelectorAll('button[data-rej]').forEach((b) => b.addEventListener('click', () => mapAction(b.dataset.rej, 'reject', b.dataset.name)));
   }
@@ -137,18 +143,16 @@ LOADERS.requests = async () => {
 function renderAwaitingBuild(rows) {
   const box = $('awaitingBuild');
   if (!rows.length) { box.innerHTML = '<div class="empty">Nothing waiting to be built.</div>'; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>Map</th><th>Customer</th><th>Approved for</th><th>Build command</th><th></th>
-    </tr></thead><tbody>${rows.map((m) => `<tr>
-      <td><strong>${esc(m.name)}</strong> <span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span>
-        <div class="sub">#${m.id} · ${esc(m.slug)}${m.subject ? ' · ' + esc(m.subject) : ''}</div></td>
-      <td>${esc(m.customer ? m.customer.name : '—')}<div class="sub">${esc(m.requestedBy || '')}</div></td>
-      <td>${fmtDate(m.createdAt)}<div class="sub wrap">${esc(m.requestNote || '')}</div></td>
-      <td class="wrap"><code class="cmd" data-cmd="${esc(m.importCommand)}">${esc(m.importCommand)}</code></td>
-      <td class="actions">
+  box.innerHTML = gtOpen([18, 16, 12, 40, 14], ['Map', 'Customer', 'Approved for', 'Build command', '']) + rows.map((m) => `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell"><strong>${esc(m.name)}</strong> <span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span>
+        <div class="sub">#${m.id} · ${esc(m.slug)}${m.subject ? ' · ' + esc(m.subject) : ''}</div></div>
+      <div class="gt-cell" role="cell">${esc(m.customer ? m.customer.name : '—')}<div class="sub">${esc(m.requestedBy || '')}</div></div>
+      <div class="gt-cell" role="cell">${fmtDate(m.createdAt)}<div class="sub wrap">${esc(m.requestNote || '')}</div></div>
+      <div class="gt-cell wrap" role="cell"><code class="cmd" data-cmd="${esc(m.importCommand)}">${esc(m.importCommand)}</code></div>
+      <div class="gt-cell actions" role="cell">
         <button class="btn btn-ghost btn-xs" data-copy="${m.id}" data-cmd="${esc(m.importCommand)}">Copy</button>
         <button class="btn btn-ghost btn-xs" data-rej="${m.id}" data-name="${esc(m.name)}">Archive</button>
-      </td></tr>`).join('')}</tbody></table>`;
+      </div></div>`).join('') + gtClose;
   box.querySelectorAll('button[data-copy]').forEach((b) => b.addEventListener('click', () => {
     navigator.clipboard.writeText(b.dataset.cmd).then(() => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 2000); });
   }));
@@ -156,16 +160,16 @@ function renderAwaitingBuild(rows) {
 }
 function rowReq(m) {
   const kind = `<span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span>`;
-  return `<tr>
-    <td><strong>${esc(m.name)}</strong> ${kind}<div class="sub">${esc(m.subject || '')}</div></td>
-    <td>${esc(m.customer ? m.customer.name : '—')}</td>
-    <td>${esc(m.requestedBy || '—')}</td>
-    <td class="wrap">${esc(m.requestNote || '') || '<span class="muted">—</span>'}</td>
-    <td>${fmtDate(m.createdAt)}</td>
-    <td class="actions">
+  return `<div class="gt-row" role="row">
+    <div class="gt-cell" role="cell"><strong>${esc(m.name)}</strong> ${kind}<div class="sub">${esc(m.subject || '')}</div></div>
+    <div class="gt-cell" role="cell">${esc(m.customer ? m.customer.name : '—')}</div>
+    <div class="gt-cell" role="cell">${esc(m.requestedBy || '—')}</div>
+    <div class="gt-cell wrap" role="cell">${esc(m.requestNote || '') || '<span class="muted">—</span>'}</div>
+    <div class="gt-cell" role="cell">${fmtDate(m.createdAt)}</div>
+    <div class="gt-cell actions" role="cell">
       <button class="btn btn-primary btn-xs" data-appr="${m.id}" data-name="${esc(m.name)}">Approve</button>
       <button class="btn btn-ghost btn-xs" data-rej="${m.id}" data-name="${esc(m.name)}">Reject</button>
-    </td></tr>`;
+    </div></div>`;
 }
 async function mapAction(id, action, name) {
   if (action === 'reject' && !confirm(`Reject the request for "${name}"? It will be archived and the quota slot freed.`)) return;
@@ -184,26 +188,24 @@ LOADERS.customers = async () => {
   const box = $('customers');
   const custs = (body && body.customers) || [];
   if (!custs.length) { box.innerHTML = '<div class="empty">No customers yet.</div>'; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>Customer</th><th>Users</th><th>Area maps</th><th>Place maps</th><th>Status</th><th>Plan</th><th>Operator filter</th><th></th>
-    </tr></thead><tbody>${custs.map(rowCust).join('')}</tbody></table>`;
+  box.innerHTML = gtOpen([20, 8, 12, 12, 10, 14, 14, 10], ['Customer', 'Users', 'Area maps', 'Place maps', 'Status', 'Plan', 'Operator filter', '']) + custs.map(rowCust).join('') + gtClose;
   box.querySelectorAll('button[data-save]').forEach((b) => b.addEventListener('click', () => saveCust(b.dataset.save)));
 };
 function rowCust(c) {
   const overA = c.usedAreas > c.quotaAreas ? ' over' : '', overP = c.usedPlaces > c.quotaPlaces ? ' over' : '';
-  return `<tr data-cust="${c.id}">
-    <td><strong>${esc(c.name)}</strong><div class="sub">${esc(c.type)}${c.publicUrl ? ' · <a href="' + esc(c.publicUrl) + '" target="_blank" rel="noopener">public page</a>' : ''}</div></td>
-    <td>${c.users}</td>
-    <td class="qcell${overA}"><span class="used">${c.usedAreas}</span> / <input type="number" min="0" max="99" value="${c.quotaAreas}" data-q="areas" class="qnum"></td>
-    <td class="qcell${overP}"><span class="used">${c.usedPlaces}</span> / <input type="number" min="0" max="99" value="${c.quotaPlaces}" data-q="places" class="qnum"></td>
-    <td><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></td>
-    <td><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></td>
-    <td><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></td>
-    <td class="actions"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></td>
-  </tr>`;
+  return `<div class="gt-row" role="row" data-cust="${c.id}">
+    <div class="gt-cell" role="cell"><strong>${esc(c.name)}</strong><div class="sub">${esc(c.type)}${c.publicUrl ? ' · <a href="' + esc(c.publicUrl) + '" target="_blank" rel="noopener">public page</a>' : ''}</div></div>
+    <div class="gt-cell" role="cell">${c.users}</div>
+    <div class="gt-cell qcell${overA}" role="cell"><span class="used">${c.usedAreas}</span> / <input type="number" min="0" max="99" value="${c.quotaAreas}" data-q="areas" class="qnum"></div>
+    <div class="gt-cell qcell${overP}" role="cell"><span class="used">${c.usedPlaces}</span> / <input type="number" min="0" max="99" value="${c.quotaPlaces}" data-q="places" class="qnum"></div>
+    <div class="gt-cell" role="cell"><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></div>
+    <div class="gt-cell" role="cell"><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></div>
+    <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></div>
+  </div>`;
 }
 async function saveCust(id) {
-  const tr = $('customers').querySelector(`tr[data-cust="${id}"]`);
+  const tr = $('customers').querySelector(`[data-cust="${id}"]`);
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);
   const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked };
   const { body } = await jsend(`/api/admin/customers/${id}`, 'PATCH', data);
@@ -217,13 +219,11 @@ LOADERS.messages = async () => {
   const box = $('messages');
   const msgs = (body && body.messages) || [];
   if (!msgs.length) { box.innerHTML = '<div class="empty">No messages.</div>'; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>When</th><th>Kind</th><th>From</th><th>About</th><th>Message</th>
-    </tr></thead><tbody>${msgs.map((m) => `<tr>
-      <td>${fmtDate(m.created_at)}</td><td>${esc(m.kind)}</td>
-      <td>${esc(m.name || '')}<div class="sub">${esc(m.email || '')}</div></td>
-      <td>${m.map_slug ? '<a href="/m/' + esc(m.map_slug) + '" target="_blank" rel="noopener">' + esc(m.map_name || m.map_slug) + '</a>' : '<span class="muted">—</span>'}</td>
-      <td class="wrap">${esc(m.body)}</td></tr>`).join('')}</tbody></table>`;
+  box.innerHTML = gtOpen([10, 10, 18, 18, 44], ['When', 'Kind', 'From', 'About', 'Message']) + msgs.map((m) => `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell">${fmtDate(m.created_at)}</div><div class="gt-cell" role="cell">${esc(m.kind)}</div>
+      <div class="gt-cell" role="cell">${esc(m.name || '')}<div class="sub">${esc(m.email || '')}</div></div>
+      <div class="gt-cell" role="cell">${m.map_slug ? '<a href="/m/' + esc(m.map_slug) + '" target="_blank" rel="noopener">' + esc(m.map_name || m.map_slug) + '</a>' : '<span class="muted">—</span>'}</div>
+      <div class="gt-cell wrap" role="cell">${esc(m.body)}</div></div>`).join('') + gtClose;
 };
 
 // ---- refreshes (P5 monthly-update queue, read-only) -------------------------
@@ -254,15 +254,13 @@ LOADERS.refreshes = async () => {
   const box = $('refreshes');
   const ups = (body && body.updates) || [];
   if (!ups.length) { box.innerHTML = '<div class="empty">No pending monthly updates. 🎉</div>'; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>Map</th><th>Customer</th><th>Source</th><th>Changes</th><th>Staged</th>
-    </tr></thead><tbody>${ups.map((u) => `<tr>
-      <td><strong>${esc(u.map.name)}</strong> <span class="tag ${u.map.kind === 'place' ? 'place' : 'area'}">${u.map.kind === 'place' ? 'Place' : 'Area'}</span><div class="sub">${esc(u.map.subject || '')}</div></td>
-      <td>${esc(u.customer || '—')}</td>
-      <td class="wrap">${esc(u.sourceNote || '') || '<span class="muted">—</span>'}</td>
-      <td class="wrap">${refreshSummaryText(u.summary)}</td>
-      <td>${fmtDate(u.createdAt)}</td>
-    </tr>`).join('')}</tbody></table>`;
+  box.innerHTML = gtOpen([20, 14, 16, 32, 18], ['Map', 'Customer', 'Source', 'Changes', 'Staged']) + ups.map((u) => `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell"><strong>${esc(u.map.name)}</strong> <span class="tag ${u.map.kind === 'place' ? 'place' : 'area'}">${u.map.kind === 'place' ? 'Place' : 'Area'}</span><div class="sub">${esc(u.map.subject || '')}</div></div>
+      <div class="gt-cell" role="cell">${esc(u.customer || '—')}</div>
+      <div class="gt-cell wrap" role="cell">${esc(u.sourceNote || '') || '<span class="muted">—</span>'}</div>
+      <div class="gt-cell wrap" role="cell">${refreshSummaryText(u.summary)}</div>
+      <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
+    </div>`).join('') + gtClose;
 };
 
 // ---- audit ------------------------------------------------------------------
@@ -304,15 +302,13 @@ LOADERS.audit = async () => {
   const box = $('audit');
   const rows = (body && body.audit) || [];
   if (!rows.length) { box.innerHTML = '<div class="empty">No audit events yet.</div>'; return; }
-  box.innerHTML = `<table class="grid"><thead><tr>
-      <th>When</th><th>Who</th><th>Action</th><th>Map</th><th>Details</th>
-    </tr></thead><tbody>${rows.map((a) => `<tr>
-      <td>${fmtDate(a.at)}</td>
-      <td>${esc(a.actor)}</td>
-      <td>${esc(ACTION_LABEL[a.action] || a.action)}</td>
-      <td>${a.mapName ? esc(a.mapName) : '<span class="muted">—</span>'}</td>
-      <td class="wrap">${auditDetail(a) || '<span class="muted">—</span>'}</td>
-    </tr>`).join('')}</tbody></table>`;
+  box.innerHTML = gtOpen([12, 16, 18, 16, 38], ['When', 'Who', 'Action', 'Map', 'Details']) + rows.map((a) => `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell">${fmtDate(a.at)}</div>
+      <div class="gt-cell" role="cell">${esc(a.actor)}</div>
+      <div class="gt-cell" role="cell">${esc(ACTION_LABEL[a.action] || a.action)}</div>
+      <div class="gt-cell" role="cell">${a.mapName ? esc(a.mapName) : '<span class="muted">—</span>'}</div>
+      <div class="gt-cell wrap" role="cell">${auditDetail(a) || '<span class="muted">—</span>'}</div>
+    </div>`).join('') + gtClose;
 };
 
 // ---- ops (P7) ---------------------------------------------------------------
@@ -329,12 +325,12 @@ LOADERS.ops = async () => {
   const checks = Object.entries(r.checks).map(([name, c]) =>
     `<span class="status-pill ${c.ok ? 'pub' : 'req'}">${esc(name)}${c.ok ? ' ok' : ' — ' + esc(c.error || (c.missing || []).join(', '))}</span>`).join(' ');
 
-  const rows = s.maps.map((m) => `<tr>
-      <td><strong>${esc(m.name)}</strong><div class="sub">#${m.id} · ${esc(m.kind)} · ${m.versions} version(s)</div></td>
-      <td>${mb(m.bytes.data)}</td><td>${mb(m.bytes.renders)}</td>
-      <td>${mb(m.bytes.staged)}</td><td>${mb(m.bytes.archived)}</td>
-      <td><strong>${mb(m.bytes.total)}</strong></td>
-    </tr>`).join('');
+  const rows = s.maps.map((m) => `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell"><strong>${esc(m.name)}</strong><div class="sub">#${m.id} · ${esc(m.kind)} · ${m.versions} version(s)</div></div>
+      <div class="gt-cell" role="cell">${mb(m.bytes.data)}</div><div class="gt-cell" role="cell">${mb(m.bytes.renders)}</div>
+      <div class="gt-cell" role="cell">${mb(m.bytes.staged)}</div><div class="gt-cell" role="cell">${mb(m.bytes.archived)}</div>
+      <div class="gt-cell" role="cell"><strong>${mb(m.bytes.total)}</strong></div>
+    </div>`).join('');
 
   const reclaimable = (s.totals.stagedBytes || 0) + (s.totals.archivedBytes || 0);
   box.innerHTML = `
@@ -349,9 +345,7 @@ LOADERS.ops = async () => {
         <p>${a.publishedMaps} published · ${a.pendingPublishRequests} awaiting review · ${a.pendingProposedUpdates} update(s) pending · ${a.sessions} active session(s)</p>
         <p class="sub">last version ${esc(fmtDate(a.lastVersionAt) || '—')} · last publish ${esc(fmtDate(a.lastPublishAt) || '—')} · ${a.auditEvents} audit event(s)</p></div>
     </div>
-    <div class="table-wrap" style="margin-top:14px"><table class="grid"><thead><tr>
-      <th>Map</th><th>Data</th><th>Renders</th><th>Staged</th><th>Archived</th><th>Total</th>
-    </tr></thead><tbody>${rows || '<tr><td colspan="6">No maps with an object store yet.</td></tr>'}</tbody></table></div>`;
+    <div class="table-wrap" style="margin-top:14px">${gtOpen([30, 14, 14, 14, 14, 14], ['Map', 'Data', 'Renders', 'Staged', 'Archived', 'Total']) + (rows || '<div class="gt-row" role="row"><div class="gt-cell" role="cell" style="grid-column:1/-1">No maps with an object store yet.</div></div>') + gtClose}</div>`;
 };
 
 // ---- init -------------------------------------------------------------------

@@ -11,6 +11,7 @@
   <script src="/js/site-banner.js" defer></script>
   <!-- Opens the answer a link points at, e.g. /faq.html#diagram from the pricing page. -->
   <script src="/js/faq-anchor.js" defer></script>
+  <script src="/js/faq-toggle.js" defer></script>
 </head>
 <body>
   <header class="site-header"><div class="container"><nav class="nav">
@@ -28,6 +29,10 @@
     <section><div class="container">
       <h2 class="mt-0">Frequently asked questions</h2>
       <p class="section-intro">Can’t see your question? <a href="/contact.html">Ask us</a> — we’re happy to help.</p>
+
+      <div style="max-width:760px;text-align:right;margin-bottom:8px">
+        <button type="button" class="btn btn-ghost btn-sm" id="faqToggleAll">Expand all</button>
+      </div>
 
       <div class="faq form-wrap" style="max-width:760px">
         <!-- PILOT: this entry is the banner's link target. Delete with docs/PILOT.md. -->
@@ -84,6 +89,11 @@
         <details>
           <summary>Where does the data come from?</summary>
           <p>Bus routes, stops and timetables come from the UK <strong>Bus Open Data Service (BODS)</strong>, published under the Open Government Licence. Streets, rivers and landmarks come from <strong>OpenStreetMap</strong> (© OpenStreetMap contributors, ODbL). Live times should always be checked with the operator or at bustimes.org.</p>
+        </details>
+        <details id="ai">
+          <summary>Do you use AI?</summary>
+          <p>Not to make decisions about your map. The maps themselves are <a href="#pilot">deterministic</a>: the geographic, schematic and external outputs are drawn straight from the BODS and OpenStreetMap data by ordinary code, with no AI involved and no network call made at the moment a sheet is generated — the same data always produces the same sheet. The <a href="#diagram">tube-map diagram</a> is hand-placed by a person, not by AI. And every map, whichever outputs it uses, is checked by a person before it can be published.</p>
+          <p>Where AI has been involved is in building the software itself — it was written with the help of an AI coding assistant, the same as a growing share of software generally is. That is a statement about how the code was written, not about how your map gets drawn.</p>
         </details>
         <details>
           <summary>Does our map get a public web page?</summary>
