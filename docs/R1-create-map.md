@@ -1,7 +1,7 @@
 ﻿# Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.4 | 2026-08-07 | sha=eca42c84 -->
-**v1.4** · updated 7 August 2026
+<!-- docstamp v1.5 | 2026-08-07 | sha=ae5e4619 -->
+**v1.5** · updated 7 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -9,7 +9,7 @@
 
 Two halves, and the split is the point (see the Handbook): **making** the map (stages S1–S6 — live data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic, no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
 
-> **Pilot.** Step 3's byte-identical check compares the **generator's** output, which the pilot band does not touch — but the map's rendered sheets *will* carry the band. That is correct for our own demo maps; for a real customer's map, see the note in [R3](runbook-review-and-publish.md).
+> **Pilot.** Step 3's byte-identical check compares the **generator's** output, which the pilot band does not touch — but the map's rendered sheets *will* carry the band. That is correct for our own demo maps; for a real customer's map, see the note in [R3](R3-review-and-publish.md).
 
 ## Prerequisites
 
@@ -86,7 +86,7 @@ Two standing rules for demo material:
 1. **Name and label them so they can't be mistaken for the real body.** The seeded three are named after real councils and a real health centre, and that is only defensible because each is `is_demo` *and* carries an explicit "Sample organisation — invented for testing, not a real customer" blurb. Reproduce both, or invent an unmistakably fictional name.
 2. **Sample labelling is not pilot-gated** — it must survive `PILOT_MODE=0`. The red **PILOT — SAMPLE MAP** band on the sheets *is* pilot-gated, and on our own demo maps it is correct and wanted.
 
-Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all four outputs are demoable. Note the diagram is *request-only* for customers — you switch it on, they ask ([OPERATIONS-HANDBOOK §4b](OPERATIONS-HANDBOOK.md)).
+Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all four outputs are demoable. Note the diagram is *request-only* for customers — you switch it on, they ask ([OPERATIONS-HANDBOOK §4b](H1-operations-handbook.md)).
 
 ## Building a map a customer asked for (fulfil the request in place)
 

@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.5 | 2026-08-07 | sha=e49670c3 -->
-**v1.5** · updated 7 August 2026
+<!-- docstamp v1.6 | 2026-08-07 | sha=d8171c5f -->
+**v1.6** · updated 7 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
@@ -24,7 +24,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 |---|---|
 | **internal (geographic)** | a street-anchored map of the buses within the area/around the place |
 | **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
-| **internal (diagram)** | a tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only**: hand-pinned work, so it is quoted separately and granted by us — see [OPERATIONS-HANDBOOK §4b](docs/OPERATIONS-HANDBOOK.md))* |
+| **internal (diagram)** | a tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only**: hand-pinned work, so it is quoted separately and granted by us — see [OPERATIONS-HANDBOOK §4b](docs/H1-operations-handbook.md))* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
 > **Status: PILOT — feature-complete against the plan (P0–P7), but not a live service.**
@@ -281,6 +281,6 @@ src/
 public/     the shopfront (incl. pricing + opportunity) + public map pages (maps/map/org/legal/terms) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
 scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
-docs/       DUMMIES_GUIDE.md (start here if git/Node are new) · DEVELOPING.md (read before changing code) · ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate) · OPERATIONS-HANDBOOK.md + runbook-*.md (running the service)
+docs/       DUMMIES_GUIDE.md (start here if git/Node are new) · DEVELOPING.md (read before changing code) · ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate) · H1-operations-handbook.md + R1-R6-*.md (running the service)
 Dockerfile, compose.yaml   single-process container + single-volume deployment
 ```

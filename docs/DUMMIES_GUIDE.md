@@ -1,7 +1,7 @@
 ﻿# The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.2 | 2026-08-07 | sha=7568020b -->
-**v1.2** · updated 7 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=92473010 -->
+**v1.3** · updated 7 August 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
@@ -197,7 +197,7 @@ For anything beyond a demo — a real public site on your own domain, running co
 | [`README.md`](../README.md) | you want the full picture: what the product does, the demo walkthrough in more detail, the file layout |
 | [`docs/DEVELOPING.md`](DEVELOPING.md) | **before changing any code** — the determinism rule, the three approval gates, which test commands to run and why `verify` can lie to you |
 | [`docs/DEPLOY.md`](DEPLOY.md) | you're moving from "demo" to "real production hosting somewhere" — persistence, backups, the restore drill, upgrading |
-| [`docs/OPERATIONS-HANDBOOK.md`](OPERATIONS-HANDBOOK.md) + `runbook-*.md` | the service is live and you're running day-to-day: onboarding a customer, publishing, handling an incident |
+| [`docs/H1-operations-handbook.md`](H1-operations-handbook.md) + `R1`–`R6-*.md` | the service is live and you're running day-to-day: onboarding a customer, publishing, handling an incident |
 | [`docs/LICENSING.md`](LICENSING.md) | before announcing anything publicly — the OSM/BODS attribution and terms review |
 | [`CHANGELOG.md`](../CHANGELOG.md) | "what changed and when" |
 

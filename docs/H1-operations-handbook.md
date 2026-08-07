@@ -1,7 +1,7 @@
-﻿# Operations Handbook — BusMaps.uk portal
+﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.7 | 2026-08-07 | sha=682f9940 -->
-**v1.7** · updated 7 August 2026
+<!-- docstamp v1.8 | 2026-08-07 | sha=004b2e49 -->
+**v1.8** · updated 7 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -110,7 +110,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 
 | Doc | Home | What it's for | Status |
 |---|---|---|---|
-| **This handbook** | `docs/OPERATIONS-HANDBOOK.md` | the operator spine | ✅ |
+| **This handbook** | `docs/H1-operations-handbook.md` | the operator spine | ✅ |
 | **Repo orientation for a new session** | `CLAUDE.md` | pilot status + the non-negotiables, loaded automatically by Claude Code | ✅ added 2026-07-26 |
 | **Pilot mode** | `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | ✅ added 2026-07-26 |
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
@@ -124,14 +124,14 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Engine references | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the renderer + place + expert styles | ✅ |
 | Changelog | `CHANGELOG.md` | per-phase lessons | ✅ |
 | **Terms of use / customer agreement** | `public/terms.html` | the customer's side of the deal | ✅ draft (G3); governing law + review to confirm |
-| **R1** create a new area/place map | `docs/runbook-create-map.md` | generating maps | ✅ |
-| **R2** customer onboarding | `docs/runbook-onboarding.md` | accepting customers | ✅ |
-| **R3** review & publish | `docs/runbook-review-and-publish.md` | approver review | ✅ |
-| **R4** monthly update cycle | `docs/runbook-update-cycle.md` | managing updates | ✅ |
-| **R5** marketing site & messages | `docs/runbook-marketing-and-messages.md` | maintaining the website | ✅ |
-| **R6** incident response | `docs/runbook-incident-response.md` | when a live map is wrong | ✅ |
-| **C1** customer user guide | `docs/customer-user-guide.md` | hand to each customer | ✅ |
-| **Pol1** vetting & quota policy | `docs/vetting-and-quota-policy.md` | who qualifies, default quotas | ✅ |
+| **R1** create a new area/place map | `docs/R1-create-map.md` | generating maps | ✅ |
+| **R2** customer onboarding | `docs/R2-onboarding.md` | accepting customers | ✅ |
+| **R3** review & publish | `docs/R3-review-and-publish.md` | approver review | ✅ |
+| **R4** monthly update cycle | `docs/R4-update-cycle.md` | managing updates | ✅ |
+| **R5** marketing site & messages | `docs/R5-marketing-and-messages.md` | maintaining the website | ✅ |
+| **R6** incident response | `docs/R6-incident-response.md` | when a live map is wrong | ✅ |
+| **C1** customer user guide | `docs/C1-customer-user-guide.md` | hand to each customer | ✅ |
+| **Pol1** vetting & quota policy | `docs/Pol1-vetting-and-quota-policy.md` | who qualifies, default quotas | ✅ |
 | **P1–P4** register / logs / notes | `ops/` (local-only) | customers, vetting, incidents, business | ⏳ templates created (Tier 0) |
 
 ## 8. Continuity — resuming cold

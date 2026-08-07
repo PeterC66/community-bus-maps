@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.1 | 2026-08-06 | sha=5352e99b -->
-**v1.1** · updated 6 August 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=cfcd462b -->
+**v1.2** · updated 7 August 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -15,7 +15,7 @@ The public **Apply** form (`/apply.html` → `POST /api/apply`) writes an `appli
 
 ## Step 1 — Vet (Pol1)
 
-Open the application and apply the [vetting & quota policy](vetting-and-quota-policy.md): authority over the area/place, a plausible purpose, no endorsement or personal-data red flags. Decide **approve / hold / decline**, and record the decision + reason in the private vetting log.
+Open the application and apply the [vetting & quota policy](Pol1-vetting-and-quota-policy.md): authority over the area/place, a plausible purpose, no endorsement or personal-data red flags. Decide **approve / hold / decline**, and record the decision + reason in the private vetting log.
 
 ## Step 2 — Approve (creates customer + editor + invite)
 

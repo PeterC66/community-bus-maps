@@ -12,7 +12,7 @@
 // The checklist is deliberately scoped to what a person can confirm by eye in a
 // few minutes: does this look right. It is not a claim that routes, stops or
 // timetables were independently re-verified against source data — see
-// docs/LICENSING.md §5 and docs/OPERATIONS-HANDBOOK.md for what review does and
+// docs/LICENSING.md §5 and docs/H1-operations-handbook.md for what review does and
 // doesn't cover.
 
 // Bump when the checklist wording/ids change so stored evidence stays interpretable.

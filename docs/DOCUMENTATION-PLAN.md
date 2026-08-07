@@ -1,7 +1,7 @@
 ﻿# Documentation development plan — the operator layer
 
-<!-- docstamp v1.3 | 2026-08-07 | sha=c938175f -->
-**v1.3** · updated 7 August 2026
+<!-- docstamp v1.4 | 2026-08-07 | sha=2d51fb32 -->
+**v1.4** · updated 7 August 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
@@ -111,7 +111,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 "Complete reference set, dependency order" → foundational/vocabulary first, dependents after.
 
 **Tier 0 — Foundation & workspace** ✅ *done 2026-07-25*
-1. ✅ **H1 Operations Handbook** — skeleton written at [`OPERATIONS-HANDBOOK.md`](OPERATIONS-HANDBOOK.md) (vocabulary + role map + rhythm + systems map + doc index + continuity). Grows as docs land.
+1. ✅ **H1 Operations Handbook** — skeleton written at [`H1-operations-handbook.md`](H1-operations-handbook.md) (vocabulary + role map + rhythm + systems map + doc index + continuity). Grows as docs land.
 2. ✅ **`ops/` folder** created at `C:\Claude\community-bus-maps-ops\` (local-only, no cloud) with a README + **P1–P4** stubbed templates (customer register, vetting log, incident log, business notes).
 
 **Tier 1 — Governance (defines the relationship the runbooks operate within)** ✅ *done 2026-07-25 — what remains is yours, noted below*
@@ -120,17 +120,17 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. *Yours:* confirm governing law + a review before launch; propagate the footer Terms link to the other shopfront pages.
 
 **Tier 2 — Core operator runbooks** ✅ *done 2026-07-25*
-6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to review. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
-7. ✅ **Pol1** [`vetting-and-quota-policy.md`](vetting-and-quota-policy.md) + **R2** [`runbook-onboarding.md`](runbook-onboarding.md) — vet → approve (customer + editor + invite) → record → their maps.
-8. ✅ **R3** [`runbook-review-and-publish.md`](runbook-review-and-publish.md) — submit → review (change summary + JPGs) → 5-item checklist → publish / send-back; the two pointers.
+6. ✅ **R1** [`R1-create-map.md`](R1-create-map.md) — make → import → verify byte-identical → attach → hand to review. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
+7. ✅ **Pol1** [`Pol1-vetting-and-quota-policy.md`](Pol1-vetting-and-quota-policy.md) + **R2** [`R2-onboarding.md`](R2-onboarding.md) — vet → approve (customer + editor + invite) → record → their maps.
+8. ✅ **R3** [`R3-review-and-publish.md`](R3-review-and-publish.md) — submit → review (change summary + JPGs) → 5-item checklist → publish / send-back; the two pointers.
 
 **Tier 3 — Customer-facing** ✅ *done 2026-07-25*
-9. ✅ **C1** [`customer-user-guide.md`](customer-user-guide.md) — sign in → request → edit (colours/POIs/outputs) → branding → submit → list → download → accept monthly updates.
-10. ✅ **R5** [`runbook-marketing-and-messages.md`](runbook-marketing-and-messages.md) — shopfront pages, adding an example, the self-generating public front (publish≠public), the branding whitelist, the two message queues.
+9. ✅ **C1** [`C1-customer-user-guide.md`](C1-customer-user-guide.md) — sign in → request → edit (colours/POIs/outputs) → branding → submit → list → download → accept monthly updates.
+10. ✅ **R5** [`R5-marketing-and-messages.md`](R5-marketing-and-messages.md) — shopfront pages, adding an example, the self-generating public front (publish≠public), the branding whitelist, the two message queues.
 
 **Tier 4 — Cyclical & exceptional** ✅ *done 2026-07-25*
-11. ✅ **R4** [`runbook-update-cycle.md`](runbook-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → review → prune.
-12. ✅ **R6** [`runbook-incident-response.md`](runbook-incident-response.md) — severity; a wrong published map (unlist fast → re-publish fix); access / health / byte-parity / source-outage / PII; log it.
+11. ✅ **R4** [`R4-update-cycle.md`](R4-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → review → prune.
+12. ✅ **R6** [`R6-incident-response.md`](R6-incident-response.md) — severity; a wrong published map (unlist fast → re-publish fix); access / health / byte-parity / source-outage / PII; log it.
 
 Registers **P1–P4** are stubbed in Tier 0 and **populated continuously** as you operate.
 

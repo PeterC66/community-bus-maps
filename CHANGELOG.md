@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.17 | 2026-08-07 | sha=b6b00473 -->
-**v1.17** · updated 7 August 2026
+<!-- docstamp v1.18 | 2026-08-07 | sha=bae5fef2 -->
+**v1.18** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -23,7 +23,7 @@ The site owner (Josh Goodwin, bustimes.org) confirmed by email that our use — 
 human-in-the-loop, a handful of pages per town per month — is acceptable and that no attribution
 is required. This closes the item that `docs/LICENSING.md` §3 had flagged as an open launch-gate
 question. Updated `docs/LICENSING.md`, `NOTICE`, `docs/ROADMAP.md`, `docs/DOCUMENTATION-PLAN.md`
-and `docs/OPERATIONS-HANDBOOK.md` to record the outcome; no attribution text was added anywhere.
+and `docs/H1-operations-handbook.md` to record the outcome; no attribution text was added anywhere.
 
 ### Fixed — place engine: re-vendored `gen_external_places.js` (tick draw-order + legend collision) — 2026-08-07
 
@@ -71,7 +71,7 @@ routes or timetables against source data. Two changes, everywhere the claim was 
 2. **Scope**: the `CHECKLIST` items in `src/publish/index.js` (bumped to `CHECKLIST_VERSION = 2`)
    and every public/doc description of review now say plainly that it's a visual check, not
    verification against timetables. See `docs/PILOT.md`, `docs/LICENSING.md` §5,
-   `docs/runbook-review-and-publish.md`, and the FAQ/legal/terms pages.
+   `docs/R3-review-and-publish.md`, and the FAQ/legal/terms pages.
 
 If the review process becomes more rigorous later (e.g. routine timetable cross-checks), upgrade
 the checklist and the copy together rather than letting the words run ahead of the practice again.
@@ -282,7 +282,7 @@ final read of `/legal.html`, CSRF, and an email provider.
   calling, 14 reachable places), which demonstrates more than the quiet one did.
 - Swapped: [`public/examples.html`](public/examples.html) and its images, the seeded demo map and
   organisation in [`scripts/seed-demo.mjs`](scripts/seed-demo.mjs), `PLACE_FIXTURE_DIR`, and the
-  references in [`README.md`](README.md), [`docs/OPERATIONS-HANDBOOK.md`](docs/OPERATIONS-HANDBOOK.md)
+  references in [`README.md`](README.md), [`docs/H1-operations-handbook.md`](docs/H1-operations-handbook.md)
   and [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **The demo customer is invented, and deliberately not the retailer.** A map's *subject* may be a
   real place — that is just geography — but naming a real commercial brand as the customer would
@@ -313,7 +313,7 @@ final read of `/legal.html`, CSRF, and an email provider.
   `npm run verify:place` is reproducible from a clean checkout of that repo.
 
 ### Docs — R1 says how to build a demo/example map
-- **[`docs/runbook-create-map.md`](docs/runbook-create-map.md): new "Demo and example maps" section.**
+- **[`docs/R1-create-map.md`](docs/R1-create-map.md): new "Demo and example maps" section.**
   The obvious reading of R1 — "our own maps have no customer, so omit `--customer`" — produces an
   **unowned** map, which is admin-only for good: every public query joins `customer`, so it can never
   reach `/maps`, `/m/<slug>` or `/o/<org-slug>`, and with no editor account the edit → sign-off loop

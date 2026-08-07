@@ -8,7 +8,7 @@
 // it does not regenerate one. Actually refreshing a map still needs a human
 // (+ Claude) to re-run the make-bus-leaflet/make-place-bus-leaflet skill for
 // that town and produce a fresh S5-render dir, which is exactly the judgement
-// work docs/runbook-update-cycle.md (R4) already describes. What this script
+// work docs/R4-update-cycle.md (R4) already describes. What this script
 // automates is the OTHER half: turning "a human reads upcoming-report_*.md
 // and remembers which of those towns have portal maps" into a queued flag —
 // reusing the existing admin Messages inbox, no new UI.
