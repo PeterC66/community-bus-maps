@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Changed — demo organisations restructured to a 0/1/rest split — 2026-08-07
+
+`scripts/seed-demo.mjs`'s `DEMO[]` previously paired one demo org per map (St Ives Town Council,
+March Town Council, Tannery Road Traders — real-council names disclaimed with a Sample badge). Editor
+logins for two of the three org emails were undocumented (README only listed two of three), and there
+was no seeded org demonstrating the empty-dashboard state. Replaced with three fully fictional
+`(demo)`-suffixed organisations grouped by **map-count** rather than locality: Broadmeadow Parish
+Council (0 maps), Fenmarsh District Council (1 map — March), and Oakfield Community Transport Trust
+(the rest — St Ives, High Wycombe Aldi, and the requested St Ives Waitrose). Updated
+`docs/R1-create-map.md`, `docs/PILOT.md`, `docs/ROADMAP.md` and `README.md` to match, and reassigned
+ownership on the local dev DB (`data/` is git-ignored — a fresh `seed-demo.mjs` run reproduces this
+distribution from a clean checkout, including once pointed at a production `DATA_DIR`).
+
 ### Added — "Report an issue" link on every public page — 2026-08-07
 
 Printed leaflets deliberately carry no contact detail on the sheet itself, so the portal needed to

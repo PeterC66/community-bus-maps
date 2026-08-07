@@ -6,8 +6,9 @@
 //   BUSES_DIR="/path/to/Buses" node scripts/seed-demo.mjs   (override the data location)
 //
 // Sign in (magic link printed to the server console) as:
-//   admin  : peter@pcooper.me.uk               (sees every customer's maps)
-//   editor : clerk@st-ives-tc.example  etc.    (sees only their own org's maps)
+//   admin  : peter@pcooper.me.uk                    (sees every customer's maps)
+//   editor : clerk@broadmeadow-pc.example  etc.     (sees only their own org's maps —
+//            the three demo orgs hold 0 / 1 / the rest of the seeded maps, see below)
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync, cpSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
@@ -35,33 +36,38 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 // Both map kinds now render in the portal: AREA maps carry their generators
 // per-map (staged from the town render dir); PLACE maps are staged with the
 // vendored place engine (engine/place/). So the demo seeds a built place map
-// (the Aldi store in High Wycombe) alongside the two council area maps.
+// (the Aldi store in High Wycombe) alongside two area maps.
 // `branding` seeds each demo organisation's PUBLIC identity (P6) so the public
 // pages and gallery show credits in the right SHAPE out of the box.
 //
-// These organisations are INVENTED. Two are named after real councils, which
-// have no connection to this system, so every one of them is flagged is_demo
-// (→ a "Sample" label on every public surface) and carries an explicit
-// disclaimer in its blurb. Do not remove either without removing the seeded org.
-// A map's SUBJECT may be a real place — that is just geography — but no real
-// organisation is ever named as the customer.
+// Three demo organisations, deliberately holding **0, 1 and "the rest"** of the
+// seeded maps so the portal's own UI states are all demoable without hunting:
+// an org with nothing yet (empty state), a plain single-map org, and a
+// multi-map org with mixed kinds/statuses. Because the grouping is now by
+// map-count rather than "this council owns its own map", none of the three is
+// named after (or paired with) any real body — fully invented names, per R1's
+// rule "invent an unmistakably fictional name" when there's no real body to
+// pair against. Every one is flagged is_demo (→ a "Sample" label on every
+// public surface) and carries an explicit disclaimer in its blurb.
+const ORG_EMPTY = { customer: 'Broadmeadow Parish Council (demo)', type: 'council', editor: 'clerk@broadmeadow-pc.example',
+  branding: { emoji: '🪴', accent: 'grey', blurb: 'Sample organisation — invented for testing, not a real customer. Recently approved; no maps yet.' } };
 const DEMO = [
-  { customer: 'St Ives Town Council', type: 'council', editor: 'clerk@st-ives-tc.example',
-    name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
-    renderParent: 'Areas/St Ives/S5-render',
-    branding: { emoji: '🏛️', accent: 'blue', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://st-ives-tc.example' } },
-  { customer: 'March Town Council', type: 'council', editor: 'clerk@march-tc.example',
+  // Org B — one map.
+  { customer: 'Fenmarsh District Council (demo)', type: 'council', editor: 'clerk@fenmarsh-dc.example',
     name: 'March', slug: 'march', kind: 'area', subject: 'March, Cambridgeshire',
     renderParent: 'Areas/March/S5-render',
-    branding: { emoji: '🌾', accent: 'green', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://march-tc.example' } },
-  // The SUBJECT is a real place (a supermarket anyone can catch a bus to) but the
-  // CUSTOMER is invented. Deliberately not named after the retailer: a Sample badge
-  // is enough to disclaim an invented council, but putting a real commercial brand
-  // in the customer column would read as a signed-up client of a service that has none.
-  { customer: 'Tannery Road Traders (sample)', type: 'shop', editor: 'manager@tannery-road-traders.example',
+    branding: { emoji: '🌾', accent: 'green', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://fenmarsh-dc.example' } },
+  // Org C — the rest: an area map, a requested place map (added further below)
+  // and a built place map, spanning two counties on purpose — a multi-site
+  // community trust is a plausible owner of unrelated maps in a way a single
+  // town council is not.
+  { customer: 'Oakfield Community Transport Trust (demo)', type: 'charity-nt', editor: 'coordinator@oakfield-ctt.example',
+    name: 'St Ives', slug: 'st-ives', kind: 'area', subject: 'St Ives, Cambridgeshire',
+    renderParent: 'Areas/St Ives/S5-render',
+    branding: { emoji: '🚌', accent: 'blue', blurb: 'Sample organisation — invented for testing, not a real customer.', website: 'https://oakfield-ctt.example' } },
+  { customer: 'Oakfield Community Transport Trust (demo)', type: 'charity-nt', editor: 'coordinator@oakfield-ctt.example',
     name: 'High Wycombe Aldi', slug: 'highwycombe-aldi', kind: 'place', subject: 'Aldi, Tannery Road, High Wycombe',
-    renderParent: 'Areas/High Wycombe/Places/High Wycombe Aldi/S5-render',
-    branding: { emoji: '🛒', accent: 'teal', blurb: 'Sample organisation — invented for testing, not a real customer.' } },
+    renderParent: 'Areas/High Wycombe/Places/High Wycombe Aldi/S5-render' },
 ];
 
 function ensureUser(email, role, customerId, name) {
@@ -99,6 +105,19 @@ function newestRenderDir(renderParent) {
 const adminId = ensureUser(ADMIN_EMAIL, 'admin', null, 'Peter (admin)');
 const APPROVER_EMAIL = process.env.APPROVER_EMAIL || 'approver@busmaps.example';
 const approverId = ensureUser(APPROVER_EMAIL, 'approver', null, 'Central approver');
+
+// --- Org A: the zero-map demo org. Created directly (no map to import), so
+//     the portal has an org whose editor sees an empty dashboard/gallery. ---
+{
+  const emptyId = ensureCustomer(ORG_EMPTY.customer, ORG_EMPTY.type);
+  const cust = getCustomer(emptyId);
+  if (!cust.branding_json || cust.branding_json === '{}') {
+    const { branding } = sanitizeBranding(ORG_EMPTY.branding);
+    setCustomerBranding(emptyId, branding);
+    console.log(`· seeded public branding for ${ORG_EMPTY.customer}`);
+  }
+  ensureUser(ORG_EMPTY.editor, 'editor', emptyId, `${ORG_EMPTY.customer} editor`);
+}
 
 // --- demo customers + editors + maps ---
 let imported = 0, skipped = 0;
@@ -183,9 +202,9 @@ function publishBaseline(slug, editorEmail) {
   console.log(`· published ${slug} v1.0 as its first official version (SAMPLE org — public page now live)`);
 }
 
-publishBaseline('march', 'clerk@march-tc.example');
+publishBaseline('march', 'clerk@fenmarsh-dc.example');
 // A PLACE map too, so /maps shows both kinds publicly (P6).
-publishBaseline('highwycombe-aldi', 'manager@tannery-road-traders.example');
+publishBaseline('highwycombe-aldi', 'coordinator@oakfield-ctt.example');
 
 // St Ives: a real customer edit (recolour a route) saved as v1.1 and submitted
 // for review, so the review queue is non-empty with a genuine change.
@@ -207,7 +226,7 @@ if (stFresh) {
     setCurrentVersion(stMap.id, vid);
     insertPublishRequest({ map_id: stMap.id, version_id: vid, requested_by: editors['st-ives'], note: `Demo: please publish the new route ${routeId} colour for the summer timetable.` });
     setVersionState(vid, 'pending');
-    recordAudit({ actorId: editors['st-ives'], actorEmail: 'clerk@st-ives-tc.example', action: 'version.submit', mapId: stMap.id, versionId: vid, detail: { version: key } });
+    recordAudit({ actorId: editors['st-ives'], actorEmail: 'coordinator@oakfield-ctt.example', action: 'version.submit', mapId: stMap.id, versionId: vid, detail: { version: key } });
     console.log(`· St Ives ${key} submitted for publication (demo pending review)`);
   } catch (e) {
     console.warn('· ⚠ could not seed the St Ives pending review:', e.message);
@@ -298,7 +317,15 @@ console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');
 console.log(`    admin    : ${ADMIN_EMAIL}`);
 console.log(`    approver : ${APPROVER_EMAIL}   (reviews + publishes at /app/review)`);
-for (const d of DEMO) console.log(`    editor   : ${d.editor}   (${d.customer})`);
+const seenEditors = new Set();
+console.log(`    editor   : ${ORG_EMPTY.editor}   (${ORG_EMPTY.customer} — 0 maps)`);
+seenEditors.add(ORG_EMPTY.editor);
+for (const d of DEMO) {
+  if (seenEditors.has(d.editor)) continue;
+  seenEditors.add(d.editor);
+  const mapCount = DEMO.filter((x) => x.editor === d.editor).length;
+  console.log(`    editor   : ${d.editor}   (${d.customer} — ${mapCount} map${mapCount === 1 ? '' : 's'})`);
+}
 console.log('  The sign-in link is printed to the SERVER console.');
 // P7: the expert styles are opt-in per map, so point at them rather than switching
 // them on behind the demo user's back.

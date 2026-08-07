@@ -67,7 +67,13 @@ Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI
 
 - **Run:** `npm run dev` → `http://127.0.0.1:5180` (shopfront) and `/app` (sign-in → editor). **Prove the renderer:** set `FIXTURE_DIR` (a staged town render folder) and `PLACE_FIXTURE_DIR` (a place fixture) from the Buses repo, then `npm run verify` — it runs **both** the area and place byte-identical gates.
 - **Demo (P2–P5):** `BUSES_DIR="…/Buses" node scripts/seed-demo.mjs` → admin + a platform **approver**
-  + two councils (each an area map) + a shop (**High Wycombe Aldi**, a **place** map), each with an editor, plus a pending application, a requested map, **March published v1.0**, a **St Ives v1.1 submitted for review**, and **monthly updates staged for March (area) and High Wycombe Aldi (place)**. Sign in with a seeded email; the one-time link is printed to the **server console**. **Stop the dev server first** (one SQLite writer).
+  + **three demo organisations**, each with an editor, holding **0 / 1 / the rest** of the seeded maps
+  (Broadmeadow Parish Council: none yet; Fenmarsh District Council: March, area; Oakfield Community
+  Transport Trust: St Ives area, High Wycombe Aldi place, and the requested St Ives Waitrose place map),
+  plus a pending application, **March published v1.0**, a **St Ives v1.1 submitted for review**, and
+  **monthly updates staged for March (area) and High Wycombe Aldi (place)**. Sign in with a seeded
+  email; the one-time link is printed to the **server console**. **Stop the dev server first** (one
+  SQLite writer).
 - **Auth:** passwordless magic link → opaque httpOnly session cookie (`src/auth/`). Roles editor/approver/ admin; **every `/api/maps*` route is tenant-scoped by `customer_id`** (admins excepted).
 - **Admin console (P3):** `/app/admin` (admin-only) reviews applications (approve → customer + editor + invite), runs the map-request queue, and edits customer quotas/plan; `/api/admin/*` re-checks the role. Customers **request maps within quota** from their dashboard (`POST /api/maps/request`, enforced server-side). The invite in dev is the magic link, logged to the console and returned in the API response (gated on `EMAIL_PROVIDER` unset).
 - **Map lifecycle:** `requested` → (admin) `approved` → *(central build)* → `draft`/`published`; a map with no rendered version shows as "being prepared" and is not editable. `reject` → `archived` (frees quota).

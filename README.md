@@ -99,12 +99,13 @@ which gates to run.
 
 ### Set up the multi-customer demo (P2 + P3 + P4 + P5)
 
-Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
-a **pending application**, a **requested map**, **two published maps with live public pages** (March v1.0
-and the High Wycombe Aldi place map), a version **submitted for review** (St Ives v1.1), **pending monthly
-updates**, public **branding** for each organisation and a piece of public **feedback**, so the P3/P4/P5/P6
-queues and the public gallery aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
-writer at a time for now:
+Seed an admin, a platform **approver**, three demo organisations (each with an editor user) holding
+**0, 1 and the rest** of the seeded maps — so the empty-dashboard, single-map and multi-map states are
+all demoable without extra setup — plus a **pending application**, a **requested map**, **two published
+maps with live public pages** (March v1.0 and the High Wycombe Aldi place map), a version **submitted
+for review** (St Ives v1.1), **pending monthly updates**, public **branding** for each organisation and
+a piece of public **feedback**, so the P3/P4/P5/P6 queues and the public gallery aren't empty. **Stop the
+dev server first** — the seed and the server share the SQLite file, and it's one writer at a time for now:
 
 ```bash
 BUSES_DIR="/path/to/Buses" node scripts/seed-demo.mjs
@@ -117,7 +118,12 @@ in dev):
 - `peter@pcooper.me.uk` — **admin**: sees every customer's maps, plus the **Admin** console and **Review**.
 - `approver@busmaps.example` — **approver**: a platform reviewer who reviews submissions at
   **/app/review** (can inspect any map's print files, but not edit them).
-- `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's maps.
+- `clerk@broadmeadow-pc.example` — **editor**, Broadmeadow Parish Council (demo): **0 maps** — the
+  empty-dashboard state.
+- `clerk@fenmarsh-dc.example` — **editor**, Fenmarsh District Council (demo): **1 map** (March).
+- `coordinator@oakfield-ctt.example` — **editor**, Oakfield Community Transport Trust (demo): **the
+  rest** — St Ives (area), the High Wycombe Aldi place map, and the requested St Ives Waitrose map.
+  Each editor sees only their own organisation's maps.
 
 As an **editor**, open a map to recolour routes, tick/untick landmarks, choose which **outputs** it
 produces, and **Save new version** for print-ready SVG + JPG. Version **1.0 is the imported baseline**
@@ -140,7 +146,7 @@ To import a single map yourself (attaching it to a customer, created if new) —
 `--kind place` for a single point (a place `--src` is an `Areas/<Town>/Places/<Place>/S5-render/...` folder):
 
 ```bash
-node scripts/import-map.mjs --src "/path/to/Buses/Areas/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "March Town Council" --customer-type council
+node scripts/import-map.mjs --src "/path/to/Buses/Areas/March/S5-render/v2.0_..." --name "March" --slug march --kind area --customer "Fenmarsh District Council (demo)" --customer-type council
 node scripts/import-map.mjs --src "/path/to/Buses/Areas/High Wycombe/Places/High Wycombe Aldi/S5-render/v1.1_..." --name "High Wycombe Aldi" --slug highwycombe-aldi --kind place --customer "Aldi Stores Ltd"
 ```
 
