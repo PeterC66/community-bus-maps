@@ -1,7 +1,7 @@
-# engine/expert/ — the vendored EXPERT-STYLE engines (P7)
+﻿# engine/expert/ — the vendored EXPERT-STYLE engines (P7)
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=524ca25c -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-07 | sha=bd93509f -->
+**v1.1** · updated 7 August 2026
 
 The third and fourth outputs of a map — the **octolinear schematic** and the **tube-map
 diagram** — are produced here. Unlike the area generators (which travel with each map's
@@ -45,7 +45,7 @@ It is written by the portal's pin editor (`/app/maps/:id/diagram`, **admin-only*
 **carried forward** when a monthly refresh swaps in fresh data (`carryExpertTuning()` in
 `src/maps/engine.js`) — the engine re-resolves a pin by its stored lat/lon if a node key
 moved. Previews solve in a per-map sandbox; only Save touches the live map, and it then goes
-through the ordinary versioned render, so the result is a draft that still needs sign-off.
+through the ordinary versioned render, so the result is a draft that still needs review.
 
 ## Provenance & the gate
 

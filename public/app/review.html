@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -27,17 +27,17 @@
       <span class="spacer"></span>
       <button class="btn btn-ghost btn-sm" id="refreshBtn" type="button">Refresh</button>
     </div>
-    <p class="hint-line">Sign off submitted map versions before they become the official, print-ready public version. Every item on the checklist must be confirmed — it is public transit information people rely on.</p>
+    <p class="hint-line">Review submitted map versions before they become the official, print-ready public version. This is a reasonableness check — does it look right — not an independent re-verification against timetables. Every item on the checklist must still be confirmed: it is public transit information people rely on.</p>
 
     <div class="notice" id="banner"></div>
 
     <div class="review-layout">
       <aside class="review-queue">
-        <h2 class="review-h">Awaiting sign-off <span class="count-badge" id="queueCount"></span></h2>
+        <h2 class="review-h">Awaiting review <span class="count-badge" id="queueCount"></span></h2>
         <div id="queue" aria-live="polite"><div class="empty">Loading…</div></div>
 
         <h2 class="review-h" style="margin-top:22px">Published maps</h2>
-        <p class="hint-line">Roll one back to an earlier signed-off version if a published map turns out to be wrong.</p>
+        <p class="hint-line">Roll one back to an earlier reviewed version if a published map turns out to be wrong.</p>
         <div id="published" aria-live="polite"><div class="empty">Loading…</div></div>
       </aside>
       <section class="review-detail" id="detail">

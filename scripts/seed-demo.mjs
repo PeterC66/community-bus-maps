@@ -1,4 +1,4 @@
-// Seed a multi-customer demo: an admin (you), a few demo organisations each with
+﻿// Seed a multi-customer demo: an admin (you), a few demo organisations each with
 // an editor user, and their maps imported from the separate Buses repo. Safe to
 // re-run — existing customers/users/maps are reused, not duplicated.
 //
@@ -156,11 +156,11 @@ if (stIves && !getMapBySlug('st-ives-waitrose')) {
   console.log('· seeded a requested place map: St Ives Waitrose (awaiting admin approval)');
 } else console.log('· demo map request already present (or St Ives not seeded)');
 
-// --- P4: publish gate — a published example + a real pending sign-off ---
+// --- P4: publish gate — a published example + a real pending review ---
 function fullChecklist() { const c = {}; for (const item of CHECKLIST) c[item.id] = true; return c; }
 
 // Publish a map's baseline v1.0 as its first official version — a real trip
-// through the P4 gate (submit → sign-off → pointer + audit), so the demo has
+// through the P4 gate (submit → review → pointer + audit), so the demo has
 // published maps and, with P6, live public pages for both map kinds.
 function publishBaseline(slug, editorEmail) {
   const m = getMapBySlug(slug);
@@ -188,7 +188,7 @@ publishBaseline('march', 'clerk@march-tc.example');
 publishBaseline('highwycombe-aldi', 'manager@tannery-road-traders.example');
 
 // St Ives: a real customer edit (recolour a route) saved as v1.1 and submitted
-// for sign-off, so the review queue is non-empty with a genuine change.
+// for review, so the review queue is non-empty with a genuine change.
 const stMap = getMapBySlug('st-ives');
 const stFresh = stMap && stMap.current_version_id && !getOpenRequestForMap(stMap.id)
   && nextVersion(stMap.id).major === 1 && nextVersion(stMap.id).minor === 1; // only the baseline exists
@@ -201,7 +201,7 @@ if (stFresh) {
     const overrides = { routeColors: { [routeId]: newColor } };
     const { major, minor } = nextVersion(stMap.id);
     const key = `v${major}.${minor}`;
-    console.log(`· rendering St Ives ${key} (recolour route ${routeId}) for a demo sign-off…`);
+    console.log(`· rendering St Ives ${key} (recolour route ${routeId}) for a demo review…`);
     await renderVersion(stMap.id, overrides, key, defaultOutputs());
     const vid = insertVersion({ map_id: stMap.id, major, minor, note: `Recoloured route ${routeId} (demo)`, overrides, storage_key: key });
     setCurrentVersion(stMap.id, vid);
@@ -210,9 +210,9 @@ if (stFresh) {
     recordAudit({ actorId: editors['st-ives'], actorEmail: 'clerk@st-ives-tc.example', action: 'version.submit', mapId: stMap.id, versionId: vid, detail: { version: key } });
     console.log(`· St Ives ${key} submitted for publication (demo pending review)`);
   } catch (e) {
-    console.warn('· ⚠ could not seed the St Ives pending sign-off:', e.message);
+    console.warn('· ⚠ could not seed the St Ives pending review:', e.message);
   }
-} else console.log('· St Ives sign-off demo already present (or St Ives not seeded)');
+} else console.log('· St Ives review demo already present (or St Ives not seeded)');
 
 // --- P5: stage a demo monthly refresh so the accept/decline flow is demoable ---
 // Build a lightly-mutated copy of a built map's data (as if the central pipeline

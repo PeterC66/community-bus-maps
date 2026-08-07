@@ -1,4 +1,4 @@
-// Admin console (P3): review applications, run the map-request lifecycle, and
+﻿// Admin console (P3): review applications, run the map-request lifecycle, and
 // manage customers/quotas. Admin-only — the page redirects non-admins; the API
 // independently enforces the admin role on every route.
 
@@ -346,7 +346,7 @@ LOADERS.ops = async () => {
         <p class="sub">Reclaimable by <code>npm run prune:staged</code>: <strong>${mb(reclaimable)}</strong> (staged ${mb(s.totals.stagedBytes)} + archived ${mb(s.totals.archivedBytes)}).</p>
         <p class="sub">${esc(s.dataDir)}</p></div>
       <div class="card"><h3>Activity</h3>
-        <p>${a.publishedMaps} published · ${a.pendingPublishRequests} awaiting sign-off · ${a.pendingProposedUpdates} update(s) pending · ${a.sessions} active session(s)</p>
+        <p>${a.publishedMaps} published · ${a.pendingPublishRequests} awaiting review · ${a.pendingProposedUpdates} update(s) pending · ${a.sessions} active session(s)</p>
         <p class="sub">last version ${esc(fmtDate(a.lastVersionAt) || '—')} · last publish ${esc(fmtDate(a.lastPublishAt) || '—')} · ${a.auditEvents} audit event(s)</p></div>
     </div>
     <div class="table-wrap" style="margin-top:14px"><table class="grid"><thead><tr>

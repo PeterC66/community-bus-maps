@@ -1,24 +1,30 @@
-// Publish-gate domain logic (P4) — pure, deterministic, no I/O.
+﻿// Publish-gate domain logic (P4) — pure, deterministic, no I/O.
 //
-// Two pieces of "red-team evidence" back a sign-off:
+// Two pieces of evidence back a review:
 //   1. changeSummary() — exactly what this version changes versus the currently
 //      published version (or the baseline, if nothing is published yet). Because
 //      the safe subset only permits route recolours + POI show/hide, the diff is
 //      bounded and complete: the approver can be sure nothing else moved.
-//   2. the sign-off CHECKLIST — a fixed set of transit-safety confirmations the
+//   2. the review CHECKLIST — a fixed set of reasonableness confirmations the
 //      approver must ALL tick; validateChecklist() enforces completeness on the
 //      server so a map can't be published without recorded human confirmation.
+//
+// The checklist is deliberately scoped to what a person can confirm by eye in a
+// few minutes: does this look right. It is not a claim that routes, stops or
+// timetables were independently re-verified against source data — see
+// docs/LICENSING.md §5 and docs/OPERATIONS-HANDBOOK.md for what review does and
+// doesn't cover.
 
 // Bump when the checklist wording/ids change so stored evidence stays interpretable.
-export const CHECKLIST_VERSION = 1;
+export const CHECKLIST_VERSION = 2;
 
-// Every item is required — publishing is a deliberate, complete sign-off.
+// Every item is required — publishing is a deliberate, complete review.
 export const CHECKLIST = [
-  { id: 'services',  label: 'Every bus service that should appear is shown, with the correct number and destination.' },
+  { id: 'services',  label: 'At a glance, the services shown look right — no obviously wrong route numbers or destinations.' },
   { id: 'colours',   label: 'Route colours are distinct and remain colour-blind friendly.' },
-  { id: 'pois',      label: 'The points of interest shown or hidden are correct; nothing important is missing.' },
+  { id: 'pois',      label: 'At a glance, the points of interest shown or hidden look right and nothing obvious is missing.' },
   { id: 'legible',   label: 'I have viewed the full-size print (JPG) and all text is legible.' },
-  { id: 'accurate',  label: 'To the best of our knowledge the information is accurate and current.' },
+  { id: 'accurate',  label: 'This is a visual check, not an independent verification against timetables — nothing here looks wrong or out of date.' },
 ];
 
 const CHECKLIST_IDS = CHECKLIST.map((c) => c.id);
@@ -58,7 +64,7 @@ export function chooseRevertTarget(history, wantedId = null) {
     : rows.find((h) => h.revertable);           // history is newest-first ⇒ the previous one
   if (!target) {
     return wantedId != null
-      ? { code: 400, error: 'That version is not one this map previously published — only signed-off versions can be reverted to.' }
+      ? { code: 400, error: 'That version is not one this map previously published — only reviewed versions can be reverted to.' }
       : { code: 400, error: 'There is no earlier published version to revert to. Publish a corrected version through the gate instead.' };
   }
   if (target.isCurrent) return { code: 409, error: `${target.version} is already the published version.` };

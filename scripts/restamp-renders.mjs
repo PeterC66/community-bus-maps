@@ -1,10 +1,10 @@
-// PILOT: whole file. Delete when the pilot ends — see docs/PILOT.md.
+﻿// PILOT: whole file. Delete when the pilot ends — see docs/PILOT.md.
 //
 // Applies (or removes) the pilot band on renders that already exist in the
 // object store.
 //
 // The band is added at render time (src/render/renderMap.js), so anything
-// rendered BEFORE the pilot landed — including versions already signed off and
+// rendered BEFORE the pilot landed — including versions already reviewed and
 // published — still carries none. Those are exactly the sheets a member of the
 // public can download, so they are the ones that most need it.
 //

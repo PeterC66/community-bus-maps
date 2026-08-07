@@ -1,16 +1,16 @@
-// BusMaps.uk — portal server.
+﻿// BusMaps.uk — portal server.
 //   P0: public shopfront (apply / contact / health).
 //   P1: safe-subset editor (object store, versioned save→render→download).
 //   P2: passwordless auth, multi-customer tenant isolation, per-map output toggles.
 //   P3: application approval, map-request lifecycle + quota, admin console.
-//   P4: publish gate (draft/published, approver sign-off, audit).
+//   P4: publish gate (draft/published, approver review, audit).
 //   P5: monthly change acceptance (proposed updates, old-vs-new, accept/decline).
 //   P6: public front — published maps get public pages (/maps, /m/:slug, /o/:slug),
 //       per-customer branding, map feedback, sitemap.
 //   P7: the two expert styles + ops (readiness, metrics, backup/prune).
 //   0.8.1: the two lifecycle seams — an approved map request is BUILT IN PLACE by
 //       the importer (admin console shows the build queue), and an approver can
-//       revert the published pointer to an earlier signed-off version.
+//       revert the published pointer to an earlier reviewed version.
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
@@ -188,7 +188,7 @@ app.post('/api/contact', async (req, reply) => {
 // Everything below is UNAUTHENTICATED and read-only, and it can only ever reach
 // a map that (a) has a published version, (b) belongs to an active customer and
 // (c) the customer has left listed — enforced in the SQL (src/db/index.js), not
-// here. The files served are the very bytes an approver signed off, because
+// here. The files served are the very bytes an approver reviewed, because
 // publishing never re-renders (P4).
 // ===========================================================================
 
@@ -223,7 +223,7 @@ app.get('/api/public/maps/:slug', async (req, reply) => {
   return { ok: true, map: publicMap(row) };
 });
 
-// The published artefacts, straight from the signed-off version's render folder.
+// The published artefacts, straight from the reviewed version's render folder.
 // The version key comes from the DB (never the URL), so there is no version to
 // probe and no path to traverse.
 app.get('/api/public/maps/:slug/:file', async (req, reply) => {
@@ -524,7 +524,7 @@ function requireAdmin(req, reply) {
   return req.user;
 }
 
-// Publishing is a platform sign-off (separation of duties from the customer who
+// Publishing is a platform review (separation of duties from the customer who
 // edits): approvers and admins may review + publish; editors may only submit.
 function requireApprover(req, reply) {
   if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
@@ -547,7 +547,7 @@ function loadOwnedMap(id, user) {
 
 // Load a map the user may READ (view detail / download rendered files). Same as
 // edit scope PLUS platform approvers, who must inspect any submitted map's
-// print-ready files to sign it off — but cannot edit it.
+// print-ready files to review it — but cannot edit it.
 function loadReadableMap(id, user) {
   const m = getMap(id);
   if (!m) return { code: 404, error: 'No such map.' };
@@ -642,7 +642,7 @@ function mapDetail(m) {
     publishedVersion: m.pub_key || null,
     publishedDownloads: m.pub_key ? downloadsForVersion(id, m.pub_key) : [],
     pendingRequest: pending,
-    editable: !pending, // locked while a publish request awaits sign-off
+    editable: !pending, // locked while a publish request awaits review
     changeSummary: summary,
     publishHistory: listPublishRequestsForMap(id),
     // --- monthly change acceptance (P5) ---
@@ -764,10 +764,10 @@ app.post('/api/maps/:id/save', async (req, reply) => {
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
   const id = map.id;
-  // Editing is frozen while a version awaits publication sign-off — withdraw the
+  // Editing is frozen while a version awaits publication review — withdraw the
   // request first, so the version an approver reviews is always the head.
   if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication sign-off. Withdraw the request to make further changes.' });
+    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw the request to make further changes.' });
   }
   const meta = readRoutesMeta(id);
   const poiKeys = enumeratePois(id).map((p) => p.key);
@@ -791,7 +791,7 @@ app.post('/api/maps/:id/save', async (req, reply) => {
   }
 });
 
-// --- publish gate: the editor submits the current head for sign-off, or
+// --- publish gate: the editor submits the current head for review, or
 //     withdraws a pending request to resume editing. Approvers/admins decide
 //     (below, under /api/review). Editors never publish their own maps.
 app.post('/api/maps/:id/publish-request', async (req, reply) => {
@@ -803,7 +803,7 @@ app.post('/api/maps/:id/publish-request', async (req, reply) => {
     return reply.code(400).send({ ok: false, error: 'This map has no rendered version to publish yet.' });
   }
   if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is already awaiting publication sign-off.' });
+    return reply.code(409).send({ ok: false, error: 'This map is already awaiting publication review.' });
   }
   if (map.published_version_id === map.current_version_id) {
     return reply.code(409).send({ ok: false, error: 'The current version is already the published one.' });
@@ -878,7 +878,7 @@ app.post('/api/maps/:id/diagram-request', async (req, reply) => {
 
 // Whether the map's PUBLISHED version appears on the public site (P6). This is
 // the customer's own choice and is independent of the publish gate: un-listing
-// takes the page down without touching the signed-off version or its pointer.
+// takes the page down without touching the reviewed version or its pointer.
 app.patch('/api/maps/:id/public', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
@@ -957,7 +957,7 @@ app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
 // Accept the refresh: render the new major version FROM the staged data first
 // (so a failure leaves the live map untouched), then swap the data in, re-apply
 // the overrides, and record the new draft head + audit. The published pointer is
-// unchanged — the new version must be signed off (P4) before it goes public.
+// unchanged — the new version must be reviewed (P4) before it goes public.
 app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
@@ -968,9 +968,9 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
   if (!map.current_version_id || !map.cur_key) {
     return reply.code(400).send({ ok: false, error: 'This map has no current version to update.' });
   }
-  // Accepting moves the head — not allowed while a publication awaits sign-off.
+  // Accepting moves the head — not allowed while a publication awaits review.
   if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication sign-off. Withdraw that request before accepting an update.' });
+    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw that request before accepting an update.' });
   }
 
   const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
@@ -1044,7 +1044,7 @@ app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
 // ADMIN-only (`requireAdmin`) — the expert is us. Previews solve in a per-map
 // sandbox and never touch the live map; saving writes the map's
 // `diagram-layout.json` and then goes through the ordinary versioned render, so
-// the result is a draft that still needs an approver's sign-off (P4).
+// the result is a draft that still needs an approver's review (P4).
 // ===========================================================================
 
 app.get('/app/maps/:id/diagram', async (req, reply) => {
@@ -1108,7 +1108,7 @@ app.post('/api/expert/maps/:id/diagram/save', async (req, reply) => {
   const map = loadDiagramMap(req, reply); if (!map) return;
   const id = map.id;
   if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication sign-off. Withdraw the request before changing the diagram.' });
+    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw the request before changing the diagram.' });
   }
   const pins = sanitizePins((req.body || {}).pins);
   const note = str((req.body || {}).note, 500);
@@ -1178,9 +1178,9 @@ function sanitizePins(input) {
 }
 
 // ===========================================================================
-// Review & publish gate (P4) — approvers/admins sign off a submitted version.
+// Review & publish gate (P4) — approvers/admins review a submitted version.
 // The customer who edits never publishes (separation of duties). Publishing
-// requires a completed sign-off checklist, records the change-summary evidence,
+// requires a completed review checklist, records the change-summary evidence,
 // advances the map's public-current pointer, and writes the audit trail.
 // ===========================================================================
 
@@ -1227,10 +1227,10 @@ app.post('/api/review/:id/approve', async (req, reply) => {
   if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
   if (pr.status !== 'pending') return reply.code(409).send({ ok: false, error: `This request was already ${pr.status}.` });
 
-  // The sign-off gate: every checklist item must be confirmed. No exceptions —
+  // The review gate: every checklist item must be confirmed. No exceptions —
   // it is public transit information people rely on.
   const { ok, missing, checklist } = validateChecklist((req.body || {}).checklist);
-  if (!ok) return reply.code(400).send({ ok: false, error: 'Please confirm every item on the sign-off checklist before publishing.', missing });
+  if (!ok) return reply.code(400).send({ ok: false, error: 'Please confirm every item on the review checklist before publishing.', missing });
 
   const meta = readRoutesMeta(pr.map_id);
   const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
@@ -1280,7 +1280,7 @@ app.post('/api/review/:id/reject', async (req, reply) => {
 //   POST /api/review/maps/:id/revert           → move the pointer back to one
 //
 // It is deliberately NOT a general "publish anything" button: the only versions
-// on offer are ones an approver already signed off (they have an approved
+// on offer are ones an approver already reviewed (they have an approved
 // publish_request), and whose rendered files are still on disk. So reverting can
 // never serve bytes that never passed the gate. A reason is required and the whole
 // thing is audited.
@@ -1351,7 +1351,7 @@ app.post('/api/review/maps/:id/revert', async (req, reply) => {
   // pointer moves under them; make the order explicit rather than racing it.
   const open = getOpenRequestForMap(m.id);
   if (open) {
-    return reply.code(409).send({ ok: false, error: 'A version of this map is awaiting sign-off. Decide that request first, then revert.' });
+    return reply.code(409).send({ ok: false, error: 'A version of this map is awaiting review. Decide that request first, then revert.' });
   }
 
   // Which version to serve again (default: the one published before this). The
@@ -1566,7 +1566,7 @@ app.get('/api/admin/ops', async (req, reply) => {
   return { ok: true, ops: await opsSnapshot(VERSION) };
 });
 
-// Append-only governance audit trail (publish sign-offs + P3 actions).
+// Append-only governance audit trail (publish reviews + P3 actions).
 app.get('/api/admin/audit', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   const limit = Math.max(1, Math.min(1000, Number((req.query || {}).limit) || 200));

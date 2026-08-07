@@ -1,4 +1,4 @@
-// Backup the portal's state (P7 ops).
+﻿// Backup the portal's state (P7 ops).
 //
 //   node scripts/backup.mjs [--out <dir>] [--keep 7] [--no-renders] [--quiet]
 //
@@ -10,7 +10,7 @@
 //     torn database plus a stale -wal; this cannot.
 //   • the object store: each map's `data/` (its payload + generators + expert
 //     layout) and, unless --no-renders, its `renders/` (the print-ready
-//     artefacts, including the bytes an approver signed off).
+//     artefacts, including the bytes an approver reviewed).
 //
 // Deliberately NOT backed up: `proposed/` (a staged monthly refresh — it can be
 // re-staged centrally) and `archive/` (superseded data). They are the bulk, and

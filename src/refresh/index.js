@@ -1,4 +1,4 @@
-// Monthly-refresh domain logic (P5) — the deterministic data diff.
+﻿// Monthly-refresh domain logic (P5) — the deterministic data diff.
 //
 // When the central pipeline restages a map's data, the customer needs to see, in
 // plain terms, WHAT the refresh changed before accepting it. This module diffs
@@ -13,7 +13,7 @@
 // The core diff (diffRouteData) is a PURE function over already-parsed objects so
 // it is trivially unit-testable; readMapData is the thin file-reading wrapper.
 // Geometry (stop positions, road/river shapes) is deliberately NOT diffed here —
-// it is not a service fact a customer signs off, and it changes on every refresh.
+// it is not a service fact a customer reviews, and it changes on every refresh.
 
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';

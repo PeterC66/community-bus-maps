@@ -1,4 +1,4 @@
-// SQLite via Node's built-in node:sqlite (no native build step).
+﻿// SQLite via Node's built-in node:sqlite (no native build step).
 // The DB file lives under DATA_DIR (git-ignored) — never in the repo.
 
 import { DatabaseSync } from 'node:sqlite';
@@ -355,7 +355,7 @@ export function getVersionById(id) {
 
 // ---------------------------------------------------------------------------
 // Publish gate (P4): per-version review state, the public-current pointer,
-// publish requests (sign-off workflow), and the append-only audit log.
+// publish requests (review workflow), and the append-only audit log.
 // ---------------------------------------------------------------------------
 
 export function setVersionState(versionId, state) {
@@ -748,7 +748,7 @@ export function authCounts() {
 // ---------------------------------------------------------------------------
 // The public front (P6). These are the ONLY queries the unauthenticated site
 // runs, and each one hard-codes the three conditions that make a map public:
-//   • it has a published_version_id (the P4 sign-off happened),
+//   • it has a published_version_id (the P4 review happened),
 //   • its customer is 'active' (a suspended organisation disappears), and
 //   • the customer has not un-listed it (map.public_listed).
 // Drafts, pending versions, requested maps and every scrap of customer PII are

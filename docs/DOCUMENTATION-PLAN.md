@@ -1,15 +1,11 @@
-# Documentation development plan — the operator layer
+﻿# Documentation development plan — the operator layer
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=ec6a0413 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=61c4c77a -->
+**v1.2** · updated 7 August 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
-This is the plan for building the documentation Peter needs for **his part** in the portal:
-generating new town/place maps, accepting new customers, maintaining the system and the
-marketing site, and managing the monthly updates. It is deliberately scoped to the
-**operator process layer** — the technical/reference docs already in the repo are strong and
-are *pointed to*, not rewritten.
+This is the plan for building the documentation Peter needs for **his part** in the portal: generating new town/place maps, accepting new customers, maintaining the system and the marketing site, and managing the monthly updates. It is deliberately scoped to the **operator process layer** — the technical/reference docs already in the repo are strong and are *pointed to*, not rewritten.
 
 ---
 
@@ -24,30 +20,23 @@ are *pointed to*, not rewritten.
 
 **Standing conventions that follow from these:**
 
-- **Markdown**, consistent with the repo (and the "md-only" house style). Customer-facing and
-  legal pieces get an HTML page under `public/` as well when they must be *served*.
-- **Handover-capable runbook shape:** every runbook has *Purpose · Prerequisites · Steps
-  (exact commands + paths) · Verification · What-if / rollback*, with **"Claude-assisted
-  shortcut"** call-outs where a step is normally driven through a skill or Claude.
+- **Markdown**, consistent with the repo (and the "md-only" house style). Customer-facing and legal pieces get an HTML page under `public/` as well when they must be *served*.
+- **Handover-capable runbook shape:** every runbook has *Purpose · Prerequisites · Steps (exact commands + paths) · Verification · What-if / rollback*, with **"Claude-assisted shortcut"** call-outs where a step is normally driven through a skill or Claude.
 - **Non-lawyer caveat** stamped on every governance draft (as `LICENSING.md` already does).
-- **No PII, no secrets, no customer names** in the public repo — those live only in the
-  local-only ops folder (§5).
+- **No PII, no secrets, no customer names** in the public repo — those live only in the local-only ops folder (§5).
 
 ---
 
 ## 2. Current-state review — what already exists
 
-Checked on disk at `0.8.0-P7`. This is the correction to the first-pass plan, which assumed a
-P4 codebase with little technical documentation. Reality: **P0–P7 are built** (place maps,
-monthly-change acceptance, public front, expert styles, ops hardening) and the reference docs
-below already exist.
+Checked on disk at `0.8.0-P7`. This is the correction to the first-pass plan, which assumed a P4 codebase with little technical documentation. Reality: **P0–P7 are built** (place maps, monthly-change acceptance, public front, expert styles, ops hardening) and the reference docs below already exist.
 
 | Existing doc | Covers | Verdict for this plan |
 |---|---|---|
 | `README.md` | dev overview, quick start, demo, layout | Keep — current (says P0–P7) |
 | `docs/ROADMAP.md` | architecture, phases, safe subset, continuation notes | Keep — current (phase table shows P5–P7 ✅) |
 | `docs/DEPLOY.md` | deploy, env, health, **backup + restore drill**, prune, upgrade/verify gate | **Strong — this is the maintenance reference.** No separate maintenance runbook needed; the Handbook's rhythm section points here |
-| `docs/LICENSING.md` | attribution matrix (OSM/BODS/bustimes), where credits appear, **sign-off table**, the **bustimes.org open question** | **This is the licensing doc.** Not "write" but **act**: fill the sign-off + resolve bustimes.org (→ G1) |
+| `docs/LICENSING.md` | attribution matrix (OSM/BODS/bustimes), where credits appear, **review table**, the **bustimes.org open question** | **This is the licensing doc.** Not "write" but **act**: fill the review + resolve bustimes.org (→ G1) |
 | `public/legal.html` | privacy notice + attribution + map reuse (customer-facing) | **This is the privacy notice.** Working draft → **review + date** (→ G2) |
 | `public/faq.html` | public FAQ | Keep; maintained via the marketing runbook (R5) |
 | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the deterministic renderer + place + expert styles | Keep; developer reference |
@@ -55,24 +44,15 @@ below already exist.
 | `CLAUDE.md` | repo orientation auto-loaded by Claude Code: pilot status, determinism + the three gates, the vendored-engine trap | Added 2026-07-26 |
 | `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | Added 2026-07-26, after this plan was written. Retire it when the pilot ends |
 
-**Headline finding:** the **technical and reference documentation is largely complete**. What is
-missing is the **operator's process layer** — the step-by-step "how I actually do this recurring
-job" runbooks for the four roles — plus a **customer-facing user guide**, one **legal gap**
-(a customer agreement / terms of use, distinct from the privacy+attribution already written), and
-the **private registers** that record real customers and incidents.
+**Headline finding:** the **technical and reference documentation is largely complete**. What is missing is the **operator's process layer** — the step-by-step "how I actually do this recurring job" runbooks for the four roles — plus a **customer-facing user guide**, one **legal gap** (a customer agreement / terms of use, distinct from the privacy+attribution already written), and the **private registers** that record real customers and incidents.
 
-**Housekeeping (verified 2026-07-25):** `README.md` and `docs/ROADMAP.md` were already brought up to
-P7 by the P5–P7 sessions — current, nothing to bump. The project **memory file**
-`project_bus_portal_planning.md` still lags at P4 vs the P7 index; the repo docs are authoritative.
-P5–P7 landed in other sessions, so treat this repo as **actively worked**.
+**Housekeeping (verified 2026-07-25):** `README.md` and `docs/ROADMAP.md` were already brought up to P7 by the P5–P7 sessions — current, nothing to bump. The project **memory file** `project_bus_portal_planning.md` still lags at P4 vs the P7 index; the repo docs are authoritative. P5–P7 landed in other sessions, so treat this repo as **actively worked**.
 
 ---
 
 ## 3. The documentation set to develop
 
-Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm an existing doc ·
-`TEMPLATE` = create an empty structured register to populate in operation.
-Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = local-only private folder (§5).
+Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm an existing doc · `TEMPLATE` = create an empty structured register to populate in operation. Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = local-only private folder (§5).
 
 ### Foundation
 
@@ -84,7 +64,7 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 
 | ID | Document | Purpose | Home | Kind |
 |---|---|---|---|---|
-| **G1** | Licensing sign-off + bustimes.org resolution | Fill the sign-off table in `LICENSING.md`; resolve the bustimes.org terms question (read terms / ask owner / drop dependency) and record it. **Launch gate.** | `docs/LICENSING.md` | ACTION |
+| **G1** | Licensing review + bustimes.org resolution | Fill the review table in `LICENSING.md`; resolve the bustimes.org terms question (read terms / ask owner / drop dependency) and record it. **Launch gate.** | `docs/LICENSING.md` | ACTION |
 | **G2** | Privacy notice review | Confirm the `legal.html` wording, add a **"last reviewed" date**, keep an internal note of what was checked. | `public/legal.html` + `ops/` note | ACTION |
 | **G3** | Terms of use / customer agreement | The **reciprocal** side `legal.html` doesn't cover: what an approved organisation agrees to — acceptable use, "you must have authority over the area you request," no implying operator/council endorsement, service is free with no SLA, we may suspend. Accuracy disclaimer already lives in `legal.html`. | `public/` page + `docs/` source | NEW |
 
@@ -92,9 +72,9 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 
 | ID | Document | Role it serves | Purpose | Home | Kind |
 |---|---|---|---|---|---|
-| **R1** | Create a new area/place map | generating maps | End to end: choose area vs place → run `make-bus-leaflet` / `make-place-bus-leaflet` → stage → `import-map.mjs` (attach to customer) → **verify byte-identical baseline** → set outputs/expert styles → hand to sign-off. Place maps **are** supported now. | `docs/` | NEW |
+| **R1** | Create a new area/place map | generating maps | End to end: choose area vs place → run `make-bus-leaflet` / `make-place-bus-leaflet` → stage → `import-map.mjs` (attach to customer) → **verify byte-identical baseline** → set outputs/expert styles → hand to review. Place maps **are** supported now. | `docs/` | NEW |
 | **R2** | Customer onboarding | accepting customers | Application arrives → **vet** (against the policy) → approve in `/app/admin` (set area/place quota + first editor) → invite link (console today; email when `EMAIL_PROVIDER` set) → optional branding → welcome + hand over the user guide (C1). | `docs/` | NEW |
-| **R3** | Review & publish (approver sign-off) | managing updates | What each **checklist item actually means** to verify, how to inspect the print JPGs, publish vs send-back, and **why editor ≠ approver** (separation of duties). The judgement layer over the P4 mechanics in ROADMAP. | `docs/` | NEW |
+| **R3** | Review & publish (approver review) | managing updates | What each **checklist item actually means** to verify, how to inspect the print JPGs, publish vs send-back, and **why editor ≠ approver** (separation of duties). The judgement layer over the P4 mechanics in ROADMAP. | `docs/` | NEW |
 | **R4** | Monthly update cycle | managing updates | The **P5** flow, now built: central refresh → `propose-update.mjs` → `proposed_update` → customer **accept/decline** (re-applies overrides) → re-render → notify. Includes the upcoming-changes mining and `prune:staged` housekeeping. | `docs/` | NEW |
 | **R5** | Marketing site, public front & messages | maintaining website | Edit shopfront pages; **add a gallery example** (downscale + attribution); the per-map **public-listing** toggle and per-customer **branding**; `/o/<org>` pages; work the **contact + report-a-problem** message queues; keep the FAQ current. | `docs/` | NEW |
 | **R6** | Incident response | managing updates | High-stakes, time-sensitive: a **published map is wrong in the wild** (retire/repair the published pointer), a sign-in/access failure, a data-source outage — who you tell, what you do, what you record (→ P3). | `docs/` | NEW |
@@ -119,16 +99,10 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 
 ## 4. Homes & conventions
 
-- **`docs/` (public repo):** H1, R1–R6, C1, Pol1, and the `docs/` source of G3. These are *generic
-  process* docs — they also help anyone self-hosting the open-source portal, and carry no PII.
-- **`public/` (served, public):** G3 as a Terms page alongside `legal.html`; C1 optionally surfaced
-  as a served page linked from the dashboard.
-- **`ops/` — local-only private folder** (recommended: `C:\Claude\community-bus-maps-ops\`, a
-  **sibling** of the public repo, **not** the public repo, **no git remote** — optionally
-  `git init` with no remote for local history): P1–P4 and the G2 internal note. Nothing here ever
-  syncs to GitHub.
-- **This plan** lives at `docs/DOCUMENTATION-PLAN.md` — it is meta, carries no PII, and doubles as
-  the tracker for the effort (tick items off as they land).
+- **`docs/` (public repo):** H1, R1–R6, C1, Pol1, and the `docs/` source of G3. These are *generic process* docs — they also help anyone self-hosting the open-source portal, and carry no PII.
+- **`public/` (served, public):** G3 as a Terms page alongside `legal.html`; C1 optionally surfaced as a served page linked from the dashboard.
+- **`ops/` — local-only private folder** (recommended: `C:\Claude\community-bus-maps-ops\`, a **sibling** of the public repo, **not** the public repo, **no git remote** — optionally `git init` with no remote for local history): P1–P4 and the G2 internal note. Nothing here ever syncs to GitHub.
+- **This plan** lives at `docs/DOCUMENTATION-PLAN.md` — it is meta, carries no PII, and doubles as the tracker for the effort (tick items off as they land).
 
 ---
 
@@ -137,10 +111,8 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 "Complete reference set, dependency order" → foundational/vocabulary first, dependents after.
 
 **Tier 0 — Foundation & workspace** ✅ *done 2026-07-25*
-1. ✅ **H1 Operations Handbook** — skeleton written at [`OPERATIONS-HANDBOOK.md`](OPERATIONS-HANDBOOK.md)
-   (vocabulary + role map + rhythm + systems map + doc index + continuity). Grows as docs land.
-2. ✅ **`ops/` folder** created at `C:\Claude\community-bus-maps-ops\` (local-only, no cloud) with a
-   README + **P1–P4** stubbed templates (customer register, vetting log, incident log, business notes).
+1. ✅ **H1 Operations Handbook** — skeleton written at [`OPERATIONS-HANDBOOK.md`](OPERATIONS-HANDBOOK.md) (vocabulary + role map + rhythm + systems map + doc index + continuity). Grows as docs land.
+2. ✅ **`ops/` folder** created at `C:\Claude\community-bus-maps-ops\` (local-only, no cloud) with a README + **P1–P4** stubbed templates (customer register, vetting log, incident log, business notes).
 
 **Tier 1 — Governance (defines the relationship the runbooks operate within)** ✅ *done 2026-07-25 — what remains is yours, noted below*
 3. ✅ **G1** — `LICENSING.md`: web attribution **verified** on all public pages; bustimes.org **researched** (its data is OGL v3.0, no stated reuse restriction) + a ready-to-send enquiry drafted. *Yours:* the printed-sheet paper checks and the bustimes.org go/no-go decision.
@@ -148,7 +120,7 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. *Yours:* confirm governing law + a review before launch; propagate the footer Terms link to the other shopfront pages.
 
 **Tier 2 — Core operator runbooks** ✅ *done 2026-07-25*
-6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to sign-off. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
+6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to review. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
 7. ✅ **Pol1** [`vetting-and-quota-policy.md`](vetting-and-quota-policy.md) + **R2** [`runbook-onboarding.md`](runbook-onboarding.md) — vet → approve (customer + editor + invite) → record → their maps.
 8. ✅ **R3** [`runbook-review-and-publish.md`](runbook-review-and-publish.md) — submit → review (change summary + JPGs) → 5-item checklist → publish / send-back; the two pointers.
 
@@ -157,7 +129,7 @@ Home: `docs/` = public repo · `public/` = served shopfront page · `ops/` = loc
 10. ✅ **R5** [`runbook-marketing-and-messages.md`](runbook-marketing-and-messages.md) — shopfront pages, adding an example, the self-generating public front (publish≠public), the branding whitelist, the two message queues.
 
 **Tier 4 — Cyclical & exceptional** ✅ *done 2026-07-25*
-11. ✅ **R4** [`runbook-update-cycle.md`](runbook-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → sign off → prune.
+11. ✅ **R4** [`runbook-update-cycle.md`](runbook-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → review → prune.
 12. ✅ **R6** [`runbook-incident-response.md`](runbook-incident-response.md) — severity; a wrong published map (unlist fast → re-publish fix); access / health / byte-parity / source-outage / PII; log it.
 
 Registers **P1–P4** are stubbed in Tier 0 and **populated continuously** as you operate.
@@ -168,18 +140,13 @@ Registers **P1–P4** are stubbed in Tier 0 and **populated continuously** as yo
 
 The point of the effort is durability, so the docs must not rot:
 
-- **Single index.** The **Operations Handbook (H1)** is the canonical "what docs exist and where."
-  Every new doc is added to its index; nothing is discoverable only by memory.
+- **Single index.** The **Operations Handbook (H1)** is the canonical "what docs exist and where." Every new doc is added to its index; nothing is discoverable only by memory.
 - **Last-reviewed date + owner** at the top of every operator/governance doc.
 - **Change-triggers (a release-gate discipline):**
-  - When a **build phase changes behaviour**, the affected runbook is updated in the same change
-    — the same rule as "update the skill + README," extended to the operator docs.
-  - After any **incident**, update the incident log (P3) *and* the runbook that should have
-    prevented or handled it (R6 / the relevant runbook).
-  - When a **customer changes** (new, quota, status), update the register (P1) — it is the
-    operational truth, not the DB alone.
-- **Keep the code docs in step:** `README.md`/`ROADMAP.md` status lines track the current phase
-  (both currently lag at P4 → P7 — a housekeeping fix to fold in early).
+  - When a **build phase changes behaviour**, the affected runbook is updated in the same change — the same rule as "update the skill + README," extended to the operator docs.
+  - After any **incident**, update the incident log (P3) *and* the runbook that should have prevented or handled it (R6 / the relevant runbook).
+  - When a **customer changes** (new, quota, status), update the register (P1) — it is the operational truth, not the DB alone.
+- **Keep the code docs in step:** `README.md`/`ROADMAP.md` status lines track the current phase (both currently lag at P4 → P7 — a housekeeping fix to fold in early).
 
 ---
 
@@ -187,22 +154,14 @@ The point of the effort is durability, so the docs must not rot:
 
 Stated so you can veto rather than block:
 
-1. **Forward-looking content:** everything above documents features that **now exist** (P5 monthly
-   updates, place maps, expert styles, public front). No doc is speculative. If a future phase adds
-   a feature, its runbook is extended then.
-2. **No separate maintenance runbook** — `DEPLOY.md` already covers deploy/backup/restore/upgrade;
-   the Handbook's rhythm section links to it rather than duplicating it. Say if you'd prefer a
-   thin standalone "operator maintenance checklist" anyway.
-3. **Legal drafts are starting points**, not legal advice; G1–G3 are for your review and, where you
-   judge it worth it, a professional check before the public site is announced.
+1. **Forward-looking content:** everything above documents features that **now exist** (P5 monthly updates, place maps, expert styles, public front). No doc is speculative. If a future phase adds a feature, its runbook is extended then.
+2. **No separate maintenance runbook** — `DEPLOY.md` already covers deploy/backup/restore/upgrade; the Handbook's rhythm section links to it rather than duplicating it. Say if you'd prefer a thin standalone "operator maintenance checklist" anyway.
+3. **Legal drafts are starting points**, not legal advice; G1–G3 are for your review and, where you judge it worth it, a professional check before the public site is announced.
 4. **`ops/` path** `C:\Claude\community-bus-maps-ops\` is a suggestion; name/place it wherever suits.
-5. This repo is **actively developed** (P5–P7 landed today). This plan file is a new doc and left
-   **uncommitted** for your review; the README/ROADMAP/memory staleness may already be in hand in
-   another session.
+5. This repo is **actively developed** (P5–P7 landed today). This plan file is a new doc and left **uncommitted** for your review; the README/ROADMAP/memory staleness may already be in hand in another session.
 
 ---
 
 ### Suggested first move
 
-Draft **H1 (the Operations Handbook skeleton)** — it frames everything and is immediately useful —
-then work down Tier 1. Or point me at any single runbook to draft first.
+Draft **H1 (the Operations Handbook skeleton)** — it frames everything and is immediately useful — then work down Tier 1. Or point me at any single runbook to draft first.

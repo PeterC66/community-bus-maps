@@ -1,4 +1,4 @@
-// Expert side (P7): the tube-map DIAGRAM pin editor, re-homed into the portal.
+﻿// Expert side (P7): the tube-map DIAGRAM pin editor, re-homed into the portal.
 //
 // The diagram engine solves a junction layout automatically, then lets an expert
 // nudge junctions by hand; each nudge is a **pin** (a strong solver spring) stored
@@ -14,7 +14,7 @@
 //     preview runs in a per-map SANDBOX (a copy of the map's data). Only Save
 //     writes `diagram-layout.json` into the live data — and then goes through the
 //     normal versioned render, so the result is a draft that still needs the P4
-//     sign-off like any other change.
+//     review like any other change.
 //
 //  2. **What the expert sees is what the map is.** The solve is passed the same
 //     merged overrides the real render uses (the map's expert framing plus the

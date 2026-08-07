@@ -1,4 +1,4 @@
-// Diagram pin editor (client) — the expert half of the editing story (P7).
+﻿// Diagram pin editor (client) — the expert half of the editing story (P7).
 //
 // Adapted from the desktop tool that shipped with the map-making skill
 // (assets/diagram_edit.js): same interaction — drag a junction to pin it, drop to
@@ -160,7 +160,7 @@ $('saveBtn').addEventListener('click', async () => {
     $('saveNote').value = '';
     notice('ok', `Saved as <strong>${esc(b.version)}</strong> with ${b.pins} pin${b.pins === 1 ? '' : 's'}.`
       + (b.enabledDiagramOutput ? ' The diagram output was switched on for this map.' : '')
-      + ` It is a draft — submit it for sign-off on the <a href="/app/maps/${MAP_ID}">map page</a> when you are happy.`);
+      + ` It is a draft — submit it for review on the <a href="/app/maps/${MAP_ID}">map page</a> when you are happy.`);
     state('clean', `saved ${b.version}`);
   } catch {
     notice('err', 'Network error while saving.'); state('dirty', 'unsaved pins');
@@ -200,7 +200,7 @@ $('logoutBtn').addEventListener('click', async () => {
     pins = b.pins || {}; nodes = b.nodes || {}; frame = b.frame || null; editable = b.editable !== false;
     setSvg(b.svg); drawHandles(); showNotes(b.notes);
     if (!editable) {
-      notice('warn', 'This map is awaiting publication sign-off, so the layout is read-only. Withdraw the request on the map page to tune it.');
+      notice('warn', 'This map is awaiting publication review, so the layout is read-only. Withdraw the request on the map page to tune it.');
       $('clearBtn').disabled = true;
     } else if (!b.diagramEnabled) {
       notice('warn', 'The diagram output is currently switched off for this map — saving a layout will switch it on.');
