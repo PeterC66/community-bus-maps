@@ -1,11 +1,26 @@
 # Changelog
 
-<!-- docstamp v1.14 | 2026-08-07 | sha=0af4ac55 -->
-**v1.14** · updated 7 August 2026
+<!-- docstamp v1.16 | 2026-08-07 | sha=d0367da3 -->
+**v1.16** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — place engine: re-vendored `gen_external_places.js` (tick draw-order + legend collision) — 2026-08-07
+
+`engine/place/gen_external_places.js` had drifted since the 2026-08-06 ellipse-fit hub-edge
+upgrade — the vendored copy was still the pre-upgrade version. Re-vendored from the skill, which
+also carries two bugfixes discovered while filling `minutesToDestination`/`stops[]` on all 5
+shipped places: (1) intermediate-stop ticks were drawn *before* their spoke line, so the line
+painted over them — every place's ticks were invisible; fixed by drawing the line first, ticks on
+top (matches the town engine's order). (2) the auto legend-placement search only treated
+destination/hub node boxes as a hard no-go, never tick-label text, so the panel could land
+directly on top of tick labels (St Neots Town Centre's "Huntingdon / St Ives dir" spoke); fixed by
+adding each tick label's bounding box to the same hard-constraint list. Re-ran `npm run verify` /
+`test:p7` / `test` (all pass), regenerated the `High Wycombe Aldi` portal fixture reference through
+the fixed engine, and re-synced `ci-reference/` for all 5 places via `sync_ci_reference.js`. See
+`make-place-bus-leaflet` skill `references/gotchas.md` (2026-08-07 section) for the full write-up.
 
 ### Fixed — admin/review consoles: replaced `<table>` with CSS Grid rows — 2026-08-07
 
