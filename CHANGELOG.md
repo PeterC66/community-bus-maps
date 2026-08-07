@@ -1,11 +1,22 @@
 # Changelog
 
-<!-- docstamp v1.22 | 2026-08-07 | sha=2b4cbe0a -->
-**v1.22** · updated 7 August 2026
+<!-- docstamp v1.23 | 2026-08-07 | sha=3b90f75d -->
+**v1.23** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — click-to-sort columns on every admin console table — 2026-08-07
+
+Every grid-table column header across all eight admin tabs (Applications, Map requests,
+Customers, Users, Messages, Refreshes, Audit, Ops) is now clickable: click toggles
+ascending/descending (▲/▼) and re-renders client-side from the already-fetched rows, no
+extra request. Implemented as a generic `renderSortable()` helper in `public/app/admin.js`
+that replaces the old static `gtOpen()` calls; columns without a sensible sort key (free-text
+notes, action buttons) stay plain, unclickable headers. The Users tab additionally defaults
+to being grouped by customer then role (`sortRowsMulti`) before any column is clicked, so
+platform users and users of the same customer sit together on first load.
 
 ### Added — signed-in status and sign out on every public page — 2026-08-07
 

@@ -184,6 +184,10 @@ dialog.dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .grid-table .gt-row { display: contents; }
 .grid-table .gt-cell { padding: 11px 12px; border-bottom: 1px solid var(--border); align-self: start; }
 .grid-table .gt-head .gt-cell { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 12px; background: var(--surface); white-space: nowrap; }
+.grid-table .gt-head .gt-cell.gt-sortable { cursor: pointer; user-select: none; }
+.grid-table .gt-head .gt-cell.gt-sortable:hover { color: var(--text); }
+.grid-table .gt-head .gt-cell.gt-sortable:focus-visible { outline: 2px solid var(--accent, #4a90d9); outline-offset: -2px; }
+.grid-table .gt-head .gt-cell .gt-sort-arrow { margin-left: 3px; opacity: .6; }
 .grid-table .gt-row:last-child .gt-cell { border-bottom: 0; }
 .grid-table .gt-cell.wrap { white-space: pre-wrap; overflow-wrap: break-word; }
 .grid-table .sub { color: var(--muted); font-size: .8rem; margin-top: 2px; }
