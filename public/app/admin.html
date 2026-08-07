@@ -32,6 +32,7 @@
       <button class="tab active" data-tab="applications" role="tab">Applications <span class="count-badge" id="badge-applications"></span></button>
       <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
       <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
+      <button class="tab" data-tab="users" role="tab">Users</button>
       <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
       <button class="tab" data-tab="refreshes" role="tab">Refreshes <span class="count-badge" id="badge-refreshes"></span></button>
       <button class="tab" data-tab="audit" role="tab">Audit</button>
@@ -57,6 +58,14 @@
     <section class="admin-section" id="sec-customers" hidden>
       <p class="hint-line">Quotas cap how many area / place maps a customer may hold. Plan/billing is dormant (no payments yet).</p>
       <div class="table-wrap"><div id="customers">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-users" hidden>
+      <div class="app-sub" style="margin:0 0 10px 0"><span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" id="inviteUserBtn" type="button">Invite user</button>
+      </div>
+      <p class="hint-line">Role controls what a user may do: <strong>editor</strong> submits map edits, <strong>approver</strong> reviews + publishes, <strong>admin</strong> has full platform access. Disabling an account (rather than deleting it) keeps its history meaningful — sessions and audit rows still refer to it.</p>
+      <div class="table-wrap"><div id="users">Loading…</div></div>
     </section>
 
     <section class="admin-section" id="sec-messages" hidden>
@@ -94,6 +103,34 @@
         <button class="btn btn-ghost btn-sm" type="button" id="approveCancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-primary btn-sm" type="submit" id="approveSubmit">Approve &amp; invite</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Invite-user dialog -->
+  <dialog id="inviteDialog" class="dialog">
+    <form id="inviteForm" method="dialog">
+      <h2 class="mt-0">Invite user</h2>
+      <p class="hint-line">Issues a passwordless sign-in invite, the same as an application approval.</p>
+      <div class="field"><label for="invEmail">Email</label><input id="invEmail" name="email" type="email" required maxlength="200"></div>
+      <div class="field"><label for="invName">Name</label><input id="invName" name="name" type="text" maxlength="120"></div>
+      <div class="field-row">
+        <div class="field"><label for="invRole">Role</label>
+          <select id="invRole" name="role">
+            <option value="editor" selected>editor</option>
+            <option value="approver">approver</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div class="field"><label for="invCustomer">Customer</label>
+          <select id="invCustomer" name="customerId"><option value="">— platform admin, no customer —</option></select>
+        </div>
+      </div>
+      <div class="notice" id="inviteMsg"></div>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="inviteCancel">Cancel</button>
+        <span class="grow"></span>
+        <button class="btn btn-primary btn-sm" type="submit" id="inviteSubmit">Invite</button>
       </div>
     </form>
   </dialog>

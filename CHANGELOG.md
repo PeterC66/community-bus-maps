@@ -1,11 +1,21 @@
 # Changelog
 
-<!-- docstamp v1.20 | 2026-08-07 | sha=c57dbe55 -->
-**v1.20** · updated 7 August 2026
+<!-- docstamp v1.21 | 2026-08-07 | sha=60e73b39 -->
+**v1.21** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — admin console UI for user CRUD — 2026-08-07
+
+A **Users** tab in `/app/admin` (`public/app/admin.html`, `public/app/admin.js`) fronting the
+`/api/admin/users` endpoints below: a table of every user (name/role/status editable in place, a Save
+per row — matching the existing Customers tab's pattern) plus an "Invite user" dialog (email, name,
+role, and a customer picker with "platform admin, no customer" as the blank option) that shows the
+dev invite link the same way application approval does. An admin's own row has its status select
+disabled client-side so they can't lock themselves out (the API already refuses it server-side).
+Saving an invite or a status/role change also refreshes the Customers tab's per-customer user count.
 
 ### Added — admin user CRUD (`/api/admin/users`) — 2026-08-07
 
