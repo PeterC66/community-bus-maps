@@ -20,8 +20,11 @@ The bus maps produced and displayed by this software are derived from:
     UK Bus Open Data Service (BODS), published under the Open Government
     Licence v3.0 (OGL): https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data
 
-  * Live timetable cross-checks reference bustimes.org. Confirm any
-    reproduction at service scale against that site's terms of use.
+  * Live timetable cross-checks reference bustimes.org during map-making
+    (routes it covers that BODS doesn't, stop coordinates OpenStreetMap
+    lacks, and sanity-checking BODS-derived data against it). The site
+    owner confirmed on 7 August 2026 that this use is acceptable and that
+    no attribution is required.
 
 Any example images distributed with this repository (under public/examples/)
 are the project's own rendered bus leaflets and are provided for demonstration;

@@ -1,7 +1,7 @@
 ﻿# Roadmap & architecture
 
-<!-- docstamp v1.4 | 2026-08-07 | sha=13ef994b -->
-**v1.4** · updated 7 August 2026
+<!-- docstamp v1.5 | 2026-08-07 | sha=98ecb7e2 -->
+**v1.5** · updated 7 August 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
@@ -55,7 +55,7 @@ Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI
 ## Known follow-ups (not blocking a phase)
 
 - **Place maps.** ✅ **Done (0.6.0-place, 2026-07-25).** The place engine is vendored in `engine/place/` and copied into each place map's `data/` at import, so **both** kinds render, edit, publish and refresh in the portal. A place's expert framing (river-hide / frozen viewport) rides a `data/base-overrides.json` merged **under** the customer's safe-subset overrides. Proven byte-identical by `npm run verify:place`. See the `[0.6.0-place]` changelog entry and `engine/place/README.md`.
-- **`/legal.html` needs a final read before launch (P6).** The privacy notice is accurate about what the code actually collects, but it is written as a working draft and says so on the page; confirm the wording (and add a "last reviewed" date) before the site goes public. The **bustimes.org terms check** and the OSM/ODbL attribution wording remain the launch go/no-go from the planning docs.
+- **`/legal.html` needs a final read before launch (P6).** The privacy notice is accurate about what the code actually collects, but it is written as a working draft and says so on the page; confirm the wording (and add a "last reviewed" date) before the site goes public. The OSM/ODbL attribution wording remains a launch go/no-go from the planning docs; the **bustimes.org terms check is resolved** — the site owner confirmed on 2026-08-07 the use is acceptable with no attribution required (`docs/LICENSING.md` §3).
 - **Branding on the printed sheet — still deferred, deliberately.** P7 did *not* add it. A logo or an organisation's colours *inside* the SVG needs a new generator knob, and the area generators travel **per map**, so the knob would only exist in newly imported maps unless every map's payload is re-vendored — and it re-opens the byte-identical gate for all six outputs. It is a self-contained piece of engine work with its own gate, best done on its own rather than folded into a phase. Branding therefore decorates the public *page* (P6) only.
 - **Importer ↔ map-request seam.** ✅ **Done (0.8.1, 2026-07-25).** `import-map.mjs --request <id>` builds an **approved request into its own row** — the placeholder *becomes* the built map, so quota is counted once and there is no placeholder to archive. `--list-requests` (and the admin console's "Approved — awaiting a build" table, with the command per row) is the build queue; the fulfilment is audited as `maprequest.fulfil`. Approval remains the gate: an un-approved request cannot be built.
 - **Revert to the previous published version.** ✅ **Done (0.8.1, 2026-07-25).** `/app/review` → "Published maps" → publication history → **Revert to this** (approver/admin, reason required, audited as `version.revert`). It moves only the public-current pointer, offers **only** versions that already passed the gate and still have their rendered files, and leaves the editor's head alone. Un-listing remains the faster mitigation; this is the fix. See R6.

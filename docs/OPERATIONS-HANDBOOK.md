@@ -1,7 +1,7 @@
 ﻿# Operations Handbook — BusMaps.uk portal
 
-<!-- docstamp v1.6 | 2026-08-07 | sha=4754ff0b -->
-**v1.6** · updated 7 August 2026
+<!-- docstamp v1.7 | 2026-08-07 | sha=682f9940 -->
+**v1.7** · updated 7 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -118,7 +118,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Roadmap & architecture | `docs/ROADMAP.md` | phases, safe subset, continuation | ✅ |
 | **Developing (change the code)** | `docs/DEVELOPING.md` | determinism contract, the 3 approval gates, vendored-engine hand-off, generator env contract, which gates to run | ✅ added 2026-07-25 |
 | Deploy & run | `docs/DEPLOY.md` | deploy, env, **backup/restore**, upgrade gate | ✅ **maintenance reference** |
-| Licensing & attribution | `docs/LICENSING.md` | attribution + **review** + bustimes.org question | ✅ doc; ◑ web attribution verified + bustimes.org researched 2026-07-25; **paper checks + decision pending (G1)** |
+| Licensing & attribution | `docs/LICENSING.md` | attribution + **review** + bustimes.org question | ✅ doc; ✅ web attribution verified 2026-07-25; ✅ bustimes.org resolved 2026-08-07 (no attribution required); **printed-sheet paper checks pending (G1)** |
 | Privacy & attribution (public) | `public/legal.html` | customer-facing privacy notice | ✅ reviewed + dated 2026-07-25 (G2); controller identity to add |
 | Public FAQ | `public/faq.html` | public questions | ✅ |
 | Engine references | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the renderer + place + expert styles | ✅ |

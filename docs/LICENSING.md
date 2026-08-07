@@ -1,7 +1,7 @@
 ﻿# Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.2 | 2026-08-07 | sha=0e884e53 -->
-**v1.2** · updated 7 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=22ef7487 -->
+**v1.3** · updated 7 August 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
@@ -32,35 +32,25 @@ A licence obligation is only met if a reader sees it. Today:
 
 **Check before launch:** print one A4 sheet of each of the four outputs (geographic, schematic, diagram, external) and confirm the attribution is legible on paper, not just on screen. The two expert styles arrived in P7 and re-run the same generator, so they inherit the credit line — but "inherits" is a claim to verify with a printout, once.
 
-## 3. The open question: bustimes.org
+## 3. bustimes.org — resolved (2026-08-07)
 
 Cross-checking against bustimes.org is part of *central* map-making (the expert tier), not something a customer's browser or the portal server does. The volume is a handful of pages per town per month, read by a person or with a person reviewing the result.
 
-That is very likely fine, and it is deliberately **not** scaled into the self-serve tier — but it has never been confirmed against the site's terms. Before launch, either:
+The site owner, Josh Goodwin, was written to directly describing this use (per-town, roughly monthly, a handful of pages, human-reviewed, not from any website users) and asked (a) whether the use is acceptable and (b) what attribution wording, if any, was wanted. His reply, received 7 August 2026:
 
-1. read the current terms and record the conclusion below, or
-2. write to the site owner describing the use (per-town, monthly, human-reviewed, credited) and record the reply, or
-3. drop the dependency: the same check can be made against operator timetables and the BODS feed alone (slower, and it loses a genuinely useful sanity check).
+> "That sounds very acceptable to me; I have no attribution requirements."
 
-Until one of those is recorded, treat "any UK town, automated" as **out of scope** — the present scale (a few towns, monthly, expert-run) is what the assessment covers.
+**Outcome:**
 
-### Findings (2026-07-25)
+- Our use of bustimes.org (central, human-in-the-loop, a handful of pages per town per month, to sanity-check a route already built from BODS, and to fill gaps BODS doesn't cover) is **confirmed acceptable** by the site owner.
+- **No attribution to bustimes.org is required** on printed sheets, public pages, `NOTICE`, or anywhere else. The footer/legal-page mentions of bustimes.org as a place to check live times are a courtesy link, not a data credit, and may stay or go at the operator's discretion.
+- The correspondence is kept at `bustimes.org OK our use.txt` (outside this repo, operator's local files) as the record of consent.
 
-A read of bustimes.org's own `/data` page records:
+This closes the item that was previously an open launch-gate question. Widening the scope beyond the pilot (any UK town, automated/bulk use) was not what was described or approved, and would be worth a fresh note to the site owner if it happens.
 
-- Its timetable/route data is drawn from **NPTG, NaPTAN, NOC, TNDS, BODS and TfL** and is **"licensed under the Open Government Licence v3.0"** — i.e. the facts we cross-check are the same open data we already use directly, not a proprietary dataset.
-- It publishes an **API** for structured access — programmatic reuse is an intended path.
-- The page states **no explicit restriction** on reusing or cross-referencing what it shows.
+### Findings (2026-07-25, superseded by the direct reply above)
 
-This *supports* the assessment that our use (central, human-in-the-loop, a handful of pages per town per month, to sanity-check a route already built from BODS) is proportionate and low-risk. It does **not** by itself formally close the question — there is no published terms-of-use granting or denying HTML-page reuse — so the go/no-go is still a judgement for the operator to **record**. Pick one and sign §5:
-
-- **Accept at current scale** — record this finding as sufficient for the few-towns, monthly, expert-run use, and keep automated any-UK-town use out of scope.
-- **Ask** — send the courtesy enquiry below to `bustimes.org/contact` and record the reply.
-- **Drop** — cross-check against operator timetables + the BODS feed alone.
-
-**Draft enquiry (the "Ask" option):**
-
-> Subject: Cross-checking a route against your site — community bus maps Hello — I run a small non-commercial project that makes printable bus maps for local organisations (community-bus-maps, Apache-2.0). The maps are built from BODS and OpenStreetMap; during map-making I sometimes open a few of your pages by hand to sanity-check a route against an operator's timetable — a handful of pages per town, about once a month, always reviewed by a person, never bulk or automated. I credit OSM and BODS on every sheet. Is that use welcome, and is there anything you'd like me to do or avoid? Happy to add a bustimes.org credit if that helps. Thank you for the site. — [name]
+A read of bustimes.org's own `/data` page recorded: its timetable/route data is drawn from NPTG, NaPTAN, NOC, TNDS, BODS and TfL and is licensed under the Open Government Licence v3.0; it publishes an API for structured access; and the page stated no explicit restriction on reusing or cross-referencing what it shows. This research is superseded by the direct confirmation above but is kept here as background.
 
 ## 4. Other launch-gate items
 
@@ -79,7 +69,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | BODS (OGL) credit — on **web** | ✅ present on all public pages | Claude | 2026-07-25 |
 | OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
 | Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
-| bustimes.org terms | ◑ researched (§3 findings); **decision to record** (operator) | | |
+| bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
 
 **To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic, diagram, external) from a reviewed map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.

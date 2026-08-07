@@ -7,6 +7,14 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Docs — bustimes.org licensing question resolved — 2026-08-07
+
+The site owner (Josh Goodwin, bustimes.org) confirmed by email that our use — central,
+human-in-the-loop, a handful of pages per town per month — is acceptable and that no attribution
+is required. This closes the item that `docs/LICENSING.md` §3 had flagged as an open launch-gate
+question. Updated `docs/LICENSING.md`, `NOTICE`, `docs/ROADMAP.md`, `docs/DOCUMENTATION-PLAN.md`
+and `docs/OPERATIONS-HANDBOOK.md` to record the outcome; no attribution text was added anywhere.
+
 ### Fixed — place engine: re-vendored `gen_external_places.js` (tick draw-order + legend collision) — 2026-08-07
 
 `engine/place/gen_external_places.js` had drifted since the 2026-08-06 ellipse-fit hub-edge

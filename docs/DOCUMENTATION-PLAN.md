@@ -1,7 +1,7 @@
 ﻿# Documentation development plan — the operator layer
 
-<!-- docstamp v1.2 | 2026-08-07 | sha=61c4c77a -->
-**v1.2** · updated 7 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=c938175f -->
+**v1.3** · updated 7 August 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
@@ -115,7 +115,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 2. ✅ **`ops/` folder** created at `C:\Claude\community-bus-maps-ops\` (local-only, no cloud) with a README + **P1–P4** stubbed templates (customer register, vetting log, incident log, business notes).
 
 **Tier 1 — Governance (defines the relationship the runbooks operate within)** ✅ *done 2026-07-25 — what remains is yours, noted below*
-3. ✅ **G1** — `LICENSING.md`: web attribution **verified** on all public pages; bustimes.org **researched** (its data is OGL v3.0, no stated reuse restriction) + a ready-to-send enquiry drafted. *Yours:* the printed-sheet paper checks and the bustimes.org go/no-go decision.
+3. ✅ **G1** — `LICENSING.md`: web attribution **verified** on all public pages; bustimes.org **resolved** — site owner confirmed 2026-08-07 the use is acceptable with no attribution required. *Yours:* the printed-sheet paper checks.
 4. ✅ **G2** — `legal.html` reviewed against the actual system, **dated**, ICO right added; internal cross-check note in `ops/`. *Yours:* add the data-controller identity before launch.
 5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. *Yours:* confirm governing law + a review before launch; propagate the footer Terms link to the other shopfront pages.
 
