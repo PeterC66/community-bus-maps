@@ -1,11 +1,42 @@
 # Changelog
 
-<!-- docstamp v1.23 | 2026-08-07 | sha=3b90f75d -->
-**v1.23** · updated 7 August 2026
+<!-- docstamp v1.24 | 2026-08-07 | sha=4e0310af -->
+**v1.24** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — one ranked To-do list, and `/api/admin/worklist` behind it — 2026-08-07
+
+The admin console had eight tabs and no answer to "what should I do next?". Every queue lived
+somewhere — applications, map requests, awaiting-build, refresh flags, proposed updates, the review
+queue — but working out the order meant visiting all of them, and then opening a runbook to recall
+which script and which flags. The **To do** tab is now the console's landing view: every one of those
+queues in a single list, ranked by *who is blocked* rather than by which tab it came from —
+**Broken → Someone is blocked → Your move → Waiting on others**.
+
+The ranking lives in one place, `src/worklist/index.js`, served at `GET /api/admin/worklist`. That
+matters because there are two consumers: the console renders it, and the operator's `bus-work` skill
+consumes the identical shape — importing the module directly when it runs beside the portal, GETting
+the endpoint when the portal is remote. Neither can drift into showing a different list. The skill
+adds the things a server cannot know (engine-stale renders, missing S6 verification, failing
+byte-identical gates) at ranks the server deliberately leaves free.
+
+Two judgements worth knowing about, both covered by `scripts/test-worklist.mjs` (new, in `npm test`):
+
+- **When a refresh item disappears.** Nothing in the codebase ever updates `message.status`, so a
+  refresh flag has no read/unread state. "Still open" is derived from whether a proposed update has
+  been staged for that map *since* the flag — so the item clears when the work is done, not when
+  someone remembers to tick it off, and a later flag re-opens it.
+- **The commands it hands out are PowerShell.** `npm run verify` skips silently without a fixture
+  dir, and bash's `VAR=x cmd` prefix does not set one on Windows — so the documented bash form
+  yields a byte-identical check that never runs and looks like it passed. The build item emits
+  `$env:FIXTURE_DIR = "…"; npm run verify:area`, and a test asserts no bash env prefix ever
+  reappears. `docs/R1-create-map.md` has been corrected to match.
+
+Copy buttons on the To-do tab fall back to selecting the command when the clipboard write is refused
+(unfocused window, or plain http from another machine) rather than silently doing nothing.
 
 ### Added — click-to-sort columns on every admin console table — 2026-08-07
 

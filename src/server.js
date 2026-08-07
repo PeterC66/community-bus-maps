@@ -33,6 +33,7 @@ import {
   listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug,
   setCustomerBranding, setMapPublicListed, publicCounts,
 } from './db/index.js';
+import { buildWorklist } from './worklist/index.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
 import {
   publicMap, publicMaps, publicOrg, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
@@ -1395,6 +1396,20 @@ app.post('/api/review/maps/:id/revert', async (req, reply) => {
 app.get('/api/admin/summary', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   return { ok: true, summary: { ...adminSummary(), ...publicCounts() } };
+});
+
+// The To-do list: every queue above, ranked by who is blocked, in one response.
+// The admin console's landing tab renders this, and the operator's bus-work
+// skill consumes the same shape (importing src/worklist/index.js directly when
+// it runs beside the portal, GETting this when the portal is remote) — so the
+// console and the laptop can never show two different lists.
+//
+// Links are absolute against the request's own origin so they stay clickable
+// when the caller is a terminal on another machine.
+app.get('/api/admin/worklist', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const baseUrl = `${req.protocol}://${req.headers.host}`;
+  return { ok: true, worklist: buildWorklist({ baseUrl }) };
 });
 
 app.get('/api/admin/applications', async (req, reply) => {

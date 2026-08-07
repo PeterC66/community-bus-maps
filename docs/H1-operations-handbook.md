@@ -7,6 +7,8 @@
 
 This is the spine: the shared vocabulary, who does what, the operating rhythm, a map of where everything lives, and the **single index** of every document. It links to the detailed runbooks rather than repeating them — all are written (see [`DOCUMENTATION-PLAN.md`](DOCUMENTATION-PLAN.md) and §7's index). Start here when you pick the service up.
 
+> **Doing the routine week or month? Don't start here — start with the work.** `/app/admin` opens on the **To do** tab: every queue in one list, ranked by who is blocked, each row carrying the exact next command (`GET /api/admin/worklist` is the same list for tooling). On the operator's machine the **`bus-work` skill** prints that list plus what only the laptop can see — engine-stale renders, missing S6 verification, failing byte-identical gates — and carries an item through to done. These runbooks are the *why* behind each step; you should not need to open one to do an ordinary month.
+
 ---
 
 ## 1. What the service is

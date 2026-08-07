@@ -61,11 +61,13 @@ What it does: copies the generators + JSON inputs into the git-ignored object st
 
 The whole system rests on v1.0 == the shipped leaflet. Confirm it:
 
-```bash
-FIXTURE_DIR="<the S5-render dir>" npm run verify:area      # or verify:place for a place map
+```powershell
+$env:FIXTURE_DIR = "<the S5-render dir>"; npm run verify:area   # or PLACE_FIXTURE_DIR + verify:place
 ```
 
-Green = the portal reproduces the desktop bytes exactly. **If it fails, stop** — check the `sharp`/libvips version against the desktop pipeline before anything else (see [DEPLOY.md §7](DEPLOY.md)).
+**The shell matters here.** This was written as bash (`FIXTURE_DIR="…" npm run …`) until 2026-08-07, and PowerShell has no inline env-var prefix: run that way on Windows the variable is never set, `npm run verify` **skips silently**, and the check reports nothing while looking like it passed. In bash the original form is still correct.
+
+Green = the portal reproduces the desktop bytes exactly — insist on **PASS with byte counts**, not merely a zero exit. **If it fails, stop** — check the `sharp`/libvips version against the desktop pipeline before anything else (see [DEPLOY.md §7](DEPLOY.md)).
 
 ## Step 4 — Choose outputs, then hand to review
 

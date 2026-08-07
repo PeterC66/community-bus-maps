@@ -29,7 +29,8 @@
     </div>
 
     <div class="tabs admin-tabs" role="tablist" id="tabs">
-      <button class="tab active" data-tab="applications" role="tab">Applications <span class="count-badge" id="badge-applications"></span></button>
+      <button class="tab active" data-tab="todo" role="tab">To do <span class="count-badge" id="badge-todo"></span></button>
+      <button class="tab" data-tab="applications" role="tab">Applications <span class="count-badge" id="badge-applications"></span></button>
       <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
       <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
       <button class="tab" data-tab="users" role="tab">Users</button>
@@ -41,7 +42,12 @@
 
     <div class="notice" id="banner"></div>
 
-    <section class="admin-section" id="sec-applications">
+    <section class="admin-section" id="sec-todo">
+      <p class="hint-line">Everything the portal is waiting on, ranked by who is blocked — the other tabs are where each one gets done. Items where the next step happens on the operator's machine carry the exact command; the <code>bus-work</code> skill reads this same list.</p>
+      <div id="todo">Loading…</div>
+    </section>
+
+    <section class="admin-section" id="sec-applications" hidden>
       <label class="check-inline"><input type="checkbox" id="showReviewed"> Show reviewed</label>
       <div class="table-wrap"><div id="applications">Loading…</div></div>
     </section>

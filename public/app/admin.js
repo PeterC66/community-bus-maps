@@ -86,7 +86,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['applications', 'requests', 'customers', 'users', 'messages', 'refreshes', 'audit', 'ops'];
+const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -108,6 +108,63 @@ async function loadSummary() {
   set('badge-messages', s.newMessages, false);
   set('badge-refreshes', s.pendingProposedUpdates, true);
 }
+
+// ---- to do ------------------------------------------------------------------
+// The landing tab: every queue on this page, ranked by who is blocked, from
+// /api/admin/worklist. The ranking lives server-side (src/worklist/index.js) so
+// this view and the operator's bus-work skill cannot drift apart. Nothing is
+// actionable from here by design — an approval gate is decided on its own tab,
+// with its own evidence in front of you; this list only tells you where to go.
+LOADERS.todo = async () => {
+  const box = $('todo');
+  const { body } = await jget('/api/admin/worklist');
+  if (!body.ok) { box.innerHTML = '<div class="empty">Could not load the worklist.</div>'; return; }
+  const { items, meta } = body.worklist;
+  const badge = $('badge-todo');
+  badge.textContent = meta.actionable || '';
+  badge.classList.toggle('warn', meta.actionable > 0);
+  if (!items.length) {
+    box.innerHTML = '<div class="empty">Nothing is waiting. 🎉<div class="sub" style="margin-top:6px">Engine staleness and verification runs live on the operator\'s machine — <code>bus-work</code> shows those alongside this list.</div></div>';
+    return;
+  }
+  let html = '';
+  let band = null;
+  for (const it of items) {
+    if (it.band !== band) { band = it.band; html += `<h3 class="todo-band">${esc(band)}</h3>`; }
+    html += `<div class="todo-item r${it.rank}">
+      <div class="todo-head">
+        <span class="status-pill ${it.rank <= 3 ? 'rej' : it.rank <= 8 ? 'req' : 'prep'}">${esc(it.type)}</span>
+        <strong>${esc(it.title)}</strong>
+        <span class="grow"></span>
+        ${it.ageDays == null ? '' : `<span class="muted">${it.ageDays}d</span>`}
+      </div>
+      <p class="sub wrap">${esc(it.why)}</p>
+      ${it.detail ? `<pre class="todo-detail">${esc(it.detail)}</pre>` : ''}
+      ${it.do.map((d) => {
+        if (d.kind === 'shell') {
+          return `<div class="todo-step"><code class="cmd">${esc(d.cmd)}</code>
+            <button class="btn btn-ghost btn-xs" data-copy-cmd="${esc(d.cmd)}">Copy</button>
+            ${d.note ? `<span class="sub">${esc(d.note)}</span>` : ''}</div>`;
+        }
+        if (d.kind === 'portal-ui') return `<div class="todo-step">→ ${esc(d.what)} <a class="btn btn-ghost btn-xs" href="${esc(d.url)}">Open</a></div>`;
+        return `<div class="todo-step">→ ${esc(d.what)}</div>`;
+      }).join('')}
+    </div>`;
+  }
+  box.innerHTML = html + `<p class="hint-line" style="margin-top:14px">${meta.actionable} of ${meta.total} waiting on you. Runbook references: R1 build · R2 onboarding · R3 review · R4 refresh.</p>`;
+  box.querySelectorAll('button[data-copy-cmd]').forEach((btn) => btn.addEventListener('click', () => {
+    const done = (label) => { btn.textContent = label; setTimeout(() => { btn.textContent = 'Copy'; }, 2500); };
+    // The clipboard write can be refused (window not focused, or served over
+    // plain http from another machine — it needs a secure context). A Copy
+    // button that silently does nothing is worse than no button, so fall back
+    // to selecting the command so Ctrl+C still works.
+    navigator.clipboard.writeText(btn.dataset.copyCmd).then(() => done('Copied')).catch(() => {
+      const code = btn.parentElement.querySelector('code.cmd');
+      if (code) { const r = document.createRange(); r.selectNodeContents(code); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      done('Selected — Ctrl+C');
+    });
+  }));
+};
 
 // ---- applications -----------------------------------------------------------
 LOADERS.applications = async () => {
@@ -512,5 +569,7 @@ $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/lo
   $('whoami').textContent = `${me.email} · admin`;
   $('logoutBtn').style.display = '';
   await loadSummary();
-  showTab('applications');
+  // The first thing an admin sees should be the work, not a queue they then
+  // have to cross-reference against five other queues.
+  showTab('todo');
 })();
