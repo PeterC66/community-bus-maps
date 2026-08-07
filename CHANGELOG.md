@@ -1,11 +1,23 @@
 # Changelog
 
-<!-- docstamp v1.18 | 2026-08-07 | sha=bae5fef2 -->
-**v1.18** · updated 7 August 2026
+<!-- docstamp v1.20 | 2026-08-07 | sha=c57dbe55 -->
+**v1.20** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — admin user CRUD (`/api/admin/users`) — 2026-08-07
+
+Roles (`editor|approver|admin`) and per-customer tenancy already existed in the schema, but the only
+way a `user` row was ever created was the one-off invite baked into application approval — there was
+no way to add a second person to an existing customer, change anyone's role, or turn an account off.
+Added `GET/POST /api/admin/users` (list, optionally `?customerId=`; invite via the existing
+passwordless magic-link flow) and `PATCH /api/admin/users/:id` (name/role/status — `status: 'disabled'`
+is how an account is switched off; there's no delete, since disabling is the reversible,
+audit-preserving equivalent and keeps sessions/audit rows meaningful). Admin-only
+(`requireAdmin`), and an admin can't disable their own account. `listUsersAdmin`/`updateUserAdmin`
+added to `src/db/index.js` alongside the existing (previously unused) `listUsers`.
 
 ### Changed — demo organisations restructured to a 0/1/rest split — 2026-08-07
 
