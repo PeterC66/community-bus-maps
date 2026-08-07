@@ -72,7 +72,7 @@ const ORG_TYPES = [
 // What the PUBLIC contact form may set. 'diagram-request' is a fourth kind in the
 // message table, but only the server writes it (see /api/maps/:id/diagram-request),
 // so it is deliberately not in this list.
-const MSG_KINDS = ['enquiry', 'question', 'feedback'];
+const MSG_KINDS = ['enquiry', 'question', 'feedback', 'issue'];
 const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
 // so the whole apply→approve→sign-in loop is demoable without a mailbox.

@@ -1,11 +1,21 @@
 # Changelog
 
-<!-- docstamp v1.16 | 2026-08-07 | sha=d0367da3 -->
-**v1.16** · updated 7 August 2026
+<!-- docstamp v1.17 | 2026-08-07 | sha=b6b00473 -->
+**v1.17** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — "Report an issue" link on every public page — 2026-08-07
+
+Printed leaflets deliberately carry no contact detail on the sheet itself, so the portal needed to
+be the obvious place to report a problem with one. Added a "Report an issue" link to the header nav
+and footer of all 12 public pages, routing to the existing contact form at
+`/contact.html?kind=issue` with a new `issue` message kind (alongside `enquiry`, `question`,
+`feedback` in `MSG_KINDS`, `src/server.js`). The contact form now reads the `?kind=` query param to
+preselect "Report an issue with a map" and swaps in a relevant placeholder. Not pilot-gated — this
+is a permanent feature, so no entry was needed in `docs/PILOT.md`'s removal checklist.
 
 ### Docs — bustimes.org licensing question resolved — 2026-08-07
 
