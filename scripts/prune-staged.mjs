@@ -1,4 +1,4 @@
-// Reclaim space from settled monthly refreshes (P7 ops).
+﻿// Reclaim space from settled monthly refreshes (P7 ops).
 //
 //   node scripts/prune-staged.mjs [--days 90] [--dry-run] [--quiet]
 //
@@ -13,7 +13,7 @@
 //
 // What it NEVER touches: pending updates (a customer still has to decide), the
 // live `data/` of any map, and `renders/` — every rendered version stays, because
-// a published version's bytes are the thing an approver signed off.
+// a published version's bytes are the thing an approver reviewed.
 
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';

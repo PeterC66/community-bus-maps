@@ -1,7 +1,7 @@
-# BusMaps.uk — portal
+﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.4 | 2026-08-02 | sha=1d5836a7 -->
-**v1.4** · updated 2 August 2026
+<!-- docstamp v1.5 | 2026-08-07 | sha=e49670c3 -->
+**v1.5** · updated 7 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
@@ -42,11 +42,11 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > acceptance** (P5). An admin reviews applications and approves one into a customer + editor + invite;
 > customers **request maps within a quota**, sign in passwordlessly, see only their own maps, recolour
 > routes / toggle landmarks / choose outputs, and save numbered versions. Each version stays a private
-> **draft** until a platform **approver** signs it off (with a required checklist + a deterministic change
+> **draft** until a platform **approver** reviews it (with a required checklist + a deterministic change
 > summary as evidence); publishing sets the **official public version** and everything is **audited**. Each
 > month the central pipeline stages a **proposed data update** (`scripts/propose-update.mjs`); the customer
 > reviews a change summary + old-vs-new preview and **accepts** (their edits re-applied onto the fresh data
-> as a new major draft) or **declines**. Once a version is signed off it gets a **public page** anyone can
+> as a new major draft) or **declines**. Once a version is reviewed it gets a **public page** anyone can
 > visit — the sheets to view and download, the publishing organisation's branding, and a "something looks
 > wrong" form — listed in a public **gallery** (P6). **All four outputs render** — the octolinear
 > schematic and the tube-map diagram arrived in P7, with an **admin-only pin editor** for the
@@ -54,7 +54,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 > job, a container and a deploy runbook (P7). Both **lifecycle seams** are now closed (0.8.1): an
 > approved map request is **built into its own row** by `import-map.mjs --request <id>` (so quota counts
 > it once and no placeholder is left behind), and an approver can **revert a published map** to an
-> earlier signed-off version in one click, with a recorded reason. See
+> earlier reviewed version in one click, with a recorded reason. See
 > [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How it fits together
@@ -67,7 +67,7 @@ The system splits cleanly, which is what makes self-serve safe:
   re-render, download).
 - **Central pipeline (kept expert-gated, elsewhere).** Fetching bus + map data, onboarding a new
   area/place, and the monthly "what changed?" refresh involve judgement and live sources; they run
-  centrally and produce *proposed updates* a customer accepts. Every map is **signed off by a human
+  centrally and produce *proposed updates* a customer accepts. Every map is **reviewed by a human
   before it can be printed.**
 
 **New to git/Node, or just want the short version?** See
@@ -101,7 +101,7 @@ which gates to run.
 
 Seed an admin, a platform **approver**, two demo councils (each with an editor user) and their maps, plus
 a **pending application**, a **requested map**, **two published maps with live public pages** (March v1.0
-and the High Wycombe Aldi place map), a version **submitted for sign-off** (St Ives v1.1), **pending monthly
+and the High Wycombe Aldi place map), a version **submitted for review** (St Ives v1.1), **pending monthly
 updates**, public **branding** for each organisation and a piece of public **feedback**, so the P3/P4/P5/P6
 queues and the public gallery aren't empty. **Stop the dev server first** — the seed and the server share the SQLite file, and it's one
 writer at a time for now:
@@ -115,7 +115,7 @@ one of the seeded emails and the one-time link is **printed to the server consol
 in dev):
 
 - `peter@pcooper.me.uk` — **admin**: sees every customer's maps, plus the **Admin** console and **Review**.
-- `approver@busmaps.example` — **approver**: a platform reviewer who signs off submissions at
+- `approver@busmaps.example` — **approver**: a platform reviewer who reviews submissions at
   **/app/review** (can inspect any map's print files, but not edit them).
 - `clerk@st-ives-tc.example` / `clerk@march-tc.example` — **editors**: see only their own council's maps.
 
@@ -124,9 +124,9 @@ produces, and **Save new version** for print-ready SVG + JPG. Version **1.0 is t
 (empty overrides ⇒ byte-identical to the shipped leaflet); each save bumps the minor and keeps every
 earlier version. Use **Request a map** to ask for a new area/place map within your quota.
 
-Each version stays a private **draft** until it is signed off. In the editor's **Publish** panel, hit
+Each version stays a private **draft** until it is reviewed. In the editor's **Publish** panel, hit
 **Submit for publication** (editing then freezes) — then, as the **approver** or **admin**, open
-**/app/review**, check the change summary, inspect the print-ready JPGs, complete the **sign-off
+**/app/review**, check the change summary, inspect the print-ready JPGs, complete the **review
 checklist** and **Publish**. Publishing sets the map's **official public version** (retiring the previous
 one) and records the whole thing in the admin **Audit** tab. The editor who makes a change never
 publishes it — that's a deliberate separation of duties.
@@ -154,20 +154,20 @@ node scripts/propose-update.mjs --map march --src "/path/to/Buses/Areas/March/S5
 
 Accepting re-applies the customer's colours/landmark choices onto the fresh data as a new **major** draft
 version (`vN.0`) — which still goes through the publish gate before it is public. The outgoing data is
-archived, never deleted; the byte-identical published files keep serving until the new version is signed off.
+archived, never deleted; the byte-identical published files keep serving until the new version is reviewed.
 
 Three boundaries are **enforced on the server**, not just hidden in the UI: the editor is locked to a
 **safe subset** (recolour + POI toggle; layout/geometry/diagram-pins stay expert-only); every map is
 **tenant-isolated** — a customer can never list, open, preview, download or re-configure another
 customer's map; and the **publish gate** — a version can only become the official public one via an
-approver's completed sign-off checklist, and editors can never publish their own maps. **Both map kinds
+approver's completed review checklist, and editors can never publish their own maps. **Both map kinds
 are supported** — area maps carry their generators per-map; place maps are rendered by the vendored place
 engine (`engine/place/`), copied into each place map's data at import. Everything above (edit, version,
 publish, monthly refresh) works identically for a place.
 
 ## The public front (P6)
 
-Everything a signed-off map produces is public, and nothing else is:
+Everything a reviewed map produces is public, and nothing else is:
 
 | Page | What it shows |
 |---|---|
@@ -181,12 +181,12 @@ Three conditions make a map public, and they are enforced **in SQL**, not at the
 **published version**, its customer is **active**, and the customer has left it **listed**. So drafts,
 pending versions, archived maps, suspended organisations and all customer PII are unreachable by
 construction — and because publishing never re-renders, a public page serves the exact bytes an approver
-signed off. Gallery images are screen-sized copies **derived from** the published print JPG on first
+reviewed. Gallery images are screen-sized copies **derived from** the published print JPG on first
 request (cached beside it), so nothing about the render path changes.
 
-**Publish ≠ public.** Sign-off decides what is *official*; the customer's own **Public page** switch in the
+**Publish ≠ public.** Review decides what is *official*; the customer's own **Public page** switch in the
 editor decides what is *shown*. Un-listing takes the page, its files and the gallery entry down at once,
-without touching the signed-off version or its pointer; re-listing restores them.
+without touching the reviewed version or its pointer; re-listing restores them.
 
 Customers set their public identity at **/app/branding** — public name, one-line blurb, website, badge
 (emoji or initials) and an accent colour from a fixed list. It is server-validated by a whitelist
@@ -221,7 +221,7 @@ junction to pin it, drop to re-solve and see the real sheet, right-click to unpi
 image of the customer safe subset — dragging changes *layout*, which customers may not do — so every
 `/api/expert/*` route is admin-only. Previews solve in a sandbox; **Save** writes the map's
 `diagram-layout.json` and renders a new version through the ordinary path, so expert work is a draft
-that still needs sign-off, and it is audited. Pins carry across a monthly refresh (they re-resolve by
+that still needs review, and it is audited. Pins carry across a monthly refresh (they re-resolve by
 stored lat/lon if a junction's key moves).
 
 ## Running it in production (P7)
@@ -268,7 +268,7 @@ engine/     the deterministic renderer (vendored reference: render.js, icons.js 
 src/
   db/       node:sqlite schema + helpers (customers, users, sessions, maps, versions, publish requests, proposed updates, audit, messages)
   auth/     magic-link + server-side sessions + hand-rolled cookies (no deps)
-  publish/  the publish gate: deterministic changeSummary() + the enforced sign-off checklist (pure)
+  publish/  the publish gate: deterministic changeSummary() + the enforced review checklist (pure)
   refresh/  monthly change acceptance: pure diffRouteData() over the service facts (routes/stops/desc/validity)
   branding/ per-customer public identity — the server-enforced whitelist (pure)
   expert/   the diagram pin editor's engine: sandboxed solves, pin read/write (admin-only API)

@@ -1,7 +1,7 @@
-# Pilot mode — what it claims, and how to switch it off
+﻿# Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.1 | 2026-08-02 | sha=567b521c -->
-**v1.1** · updated 2 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=2bd4b210 -->
+**v1.3** · updated 7 August 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -13,7 +13,7 @@ Pilot mode is the correction. It is deliberately loud, and deliberately easy to 
 
 Considered and rejected: *experimental* (reads as "may break your data" — wrong signal for a deterministic print product), *beta* (software jargon; means little to a parish clerk), *prototype* (undersells finished sheets), *preview* (vague).
 
-**Pilot** is the word a council understands: real work, real output, early stage, small scale, no promises yet. What is *not* provisional — and the wording is careful about this — is the care taken over the maps themselves. They are built from official open data, cross-checked, and signed off by a person. The pilot label is about the **service around them**.
+**Pilot** is the word a council understands: real work, real output, early stage, small scale, no promises yet. What is *not* provisional — and the wording is careful about this — is that every map is built from official open data and reviewed by a person before publication. That review is a check that it looks right, not an independent verification against timetables — see [`LICENSING.md`](LICENSING.md) §5 for what it does and doesn't cover. The pilot label is about the **service around them**.
 
 ## What it does
 
@@ -37,7 +37,7 @@ PILOT_MODE=0
 That is the whole switch — restart and every item in the table above is gone. Then, in this order:
 
 1. **Set `PILOT_MODE=0`** in the deployment environment (and `.env`).
-2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already signed off and published:
+2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already reviewed and published:
    ```bash
    node scripts/restamp-renders.mjs --apply
    ```

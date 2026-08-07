@@ -1,4 +1,4 @@
-// Safe-subset map editor (client).
+﻿// Safe-subset map editor (client).
 //
 // Two content edits (recolour a route, show/hide a POI) staged into an overrides
 // object and previewed through the real generator, plus a map-level control:
@@ -67,7 +67,7 @@ const isDirty = () => sig(staged) !== savedSig;
 
 const enabledOutputs = () => detail.outputs.filter((o) => o.available && o.enabled);
 const labelForBase = (base) => (detail.outputs.find((o) => o.base === base) || {}).label || base;
-const isLocked = () => detail && detail.editable === false; // frozen while awaiting sign-off
+const isLocked = () => detail && detail.editable === false; // frozen while awaiting review
 const DL_LABELS = {
   'internal.svg': 'Within · SVG', 'internal.jpg': 'Within · JPG (print)',
   'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)',
@@ -86,7 +86,7 @@ function refreshState() {
   $('resetBtn').disabled = locked || (staged.hide.size === 0 && staged.hiddenOps.size === 0 && Object.keys(staged.colors).length === 0);
 }
 
-// Disable the editing controls while a version awaits publication sign-off.
+// Disable the editing controls while a version awaits publication review.
 // `data-fixed` marks a control that is disabled for its OWN reason (an output this
 // map cannot produce, or the request-only diagram) — unlocking must not hand it back.
 function applyLock() {
@@ -365,14 +365,14 @@ function buildPublish() {
   const head = detail.currentVersion, pub = detail.publishedVersion, pending = detail.pendingRequest;
   const stateEl = $('publishState'), body = $('publishBody');
 
-  if (pending) stateEl.innerHTML = '<span class="status-pill req">Awaiting sign-off</span>';
+  if (pending) stateEl.innerHTML = '<span class="status-pill req">Awaiting review</span>';
   else if (pub && pub === head) stateEl.innerHTML = `<span class="status-pill pub">Published ${esc(pub)}</span>`;
   else if (pub) stateEl.innerHTML = `<span class="status-pill pub">Published ${esc(pub)}</span> <span class="muted">· draft ${esc(head)}</span>`;
   else stateEl.innerHTML = '<span class="status-pill">Not yet published</span>';
 
   if (pending) {
     body.innerHTML = `<div class="publish-note-box">
-        <p><strong>Version ${esc(pending.versionKey || head)}</strong> has been submitted for an approver's sign-off.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
+        <p><strong>Version ${esc(pending.versionKey || head)}</strong> has been submitted for an approver's review.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
         <p class="hint-line">Editing is paused while we review. Withdraw the request if you need to make more changes.</p>
         <button class="btn btn-ghost btn-sm" id="withdrawBtn" type="button">Withdraw request</button>
       </div>`;
@@ -405,7 +405,7 @@ function buildExpertLinks() {
 // ---- public page (P6) --------------------------------------------------------
 // Whether the PUBLISHED version appears on the public site is the customer's own
 // switch, separate from the publish gate: un-listing takes the page down without
-// touching the signed-off version. `publicUrl` is only set by the server when the
+// touching the reviewed version. `publicUrl` is only set by the server when the
 // map is genuinely reachable by the public.
 function buildPublic() {
   const panel = $('publicPanel');
@@ -421,7 +421,7 @@ function buildPublic() {
     ? `<p><a href="${esc(detail.publicUrl)}" target="_blank" rel="noopener">${esc(location.origin + detail.publicUrl)}</a> — showing published version ${esc(detail.publishedVersion)}.</p>`
     : (detail.publishedVersion
       ? '<p class="hint-line">Your published version is not on the public site at the moment.</p>'
-      : '<p class="hint-line">Nothing is public yet — a version has to be signed off first.</p>');
+      : '<p class="hint-line">Nothing is public yet — a version has to be reviewed first.</p>');
 
   $('publicBody').innerHTML = `${link}
     <label class="poi-row" style="margin-top:6px">
@@ -470,7 +470,7 @@ async function submitPublish() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
     });
     const b = await res.json().catch(() => ({}));
-    if (res.ok && b.ok) { notice('ok', 'Submitted for publication — an approver will review it and sign it off.'); await reloadPublish(); }
+    if (res.ok && b.ok) { notice('ok', 'Submitted for publication — an approver will review it and review it.'); await reloadPublish(); }
     else { notice('err', (b && b.error) || 'Could not submit for publication.'); btn.disabled = false; btn.textContent = `Submit ${esc(detail.currentVersion)} for publication`; }
   } catch { notice('err', 'Network error while submitting.'); btn.disabled = false; }
 }
@@ -514,7 +514,7 @@ function buildUpdatePanel() {
         <div class="update-title">🔄 A monthly update is ready for this map</div>
         <p class="update-src">${esc(pu.sourceNote || 'A refreshed timetable is available for this map.')}</p>
         ${renderDataSummary(pu.summary)}
-        <p class="hint-line">Accepting creates a new draft version with your colours and landmark choices re-applied. You then submit it for publication as usual — nothing goes public until it's signed off.</p>
+        <p class="hint-line">Accepting creates a new draft version with your colours and landmark choices re-applied. You then submit it for publication as usual — nothing goes public until it's reviewed.</p>
       </div>
       <div class="update-actions">
         <button class="btn btn-ghost btn-sm" id="cmpBtn" type="button">Preview changes</button>

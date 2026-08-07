@@ -1,7 +1,7 @@
-# The Dummy's Guide — developing, testing, and demonstrating the portal
+﻿# The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=8a0c83cf -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=7568020b -->
+**v1.2** · updated 7 August 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
@@ -198,7 +198,7 @@ For anything beyond a demo — a real public site on your own domain, running co
 | [`docs/DEVELOPING.md`](DEVELOPING.md) | **before changing any code** — the determinism rule, the three approval gates, which test commands to run and why `verify` can lie to you |
 | [`docs/DEPLOY.md`](DEPLOY.md) | you're moving from "demo" to "real production hosting somewhere" — persistence, backups, the restore drill, upgrading |
 | [`docs/OPERATIONS-HANDBOOK.md`](OPERATIONS-HANDBOOK.md) + `runbook-*.md` | the service is live and you're running day-to-day: onboarding a customer, publishing, handling an incident |
-| [`docs/LICENSING.md`](LICENSING.md) | before announcing anything publicly — the OSM/BODS attribution and terms sign-off |
+| [`docs/LICENSING.md`](LICENSING.md) | before announcing anything publicly — the OSM/BODS attribution and terms review |
 | [`CHANGELOG.md`](../CHANGELOG.md) | "what changed and when" |
 
 ---

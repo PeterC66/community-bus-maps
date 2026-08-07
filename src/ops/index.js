@@ -1,4 +1,4 @@
-// Ops instrumentation (P7).
+﻿// Ops instrumentation (P7).
 //
 // Everything an operator needs to answer "is this healthy, and what is it using?"
 // without shelling into the box: a readiness probe that actually exercises the
@@ -169,7 +169,7 @@ export async function metricsText(version) {
   push('cbm_store_bytes', 'Object-store bytes in use.', 'gauge', s.totals.bytes);
   push('cbm_store_render_bytes', 'Object-store bytes held by rendered versions.', 'gauge', s.totals.renderBytes);
   push('cbm_store_reclaimable_bytes', 'Staged + archived bytes a prune could reclaim.', 'gauge', s.totals.stagedBytes + s.totals.archivedBytes);
-  push('cbm_publish_requests_pending', 'Versions awaiting sign-off.', 'gauge', a.pendingPublishRequests);
+  push('cbm_publish_requests_pending', 'Versions awaiting review.', 'gauge', a.pendingPublishRequests);
   push('cbm_proposed_updates_pending', 'Monthly updates awaiting a customer decision.', 'gauge', a.pendingProposedUpdates);
   push('cbm_sessions_active', 'Unexpired sign-in sessions.', 'gauge', a.sessions);
   for (const [name, c] of Object.entries(r.checks)) {

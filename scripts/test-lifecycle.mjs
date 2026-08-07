@@ -1,4 +1,4 @@
-// Lifecycle-seam checks — the two rough edges closed in 0.8.1.
+﻿// Lifecycle-seam checks — the two rough edges closed in 0.8.1.
 //
 //   node scripts/test-lifecycle.mjs        (or: npm run test:lifecycle)
 //
@@ -11,7 +11,7 @@
 //   2. rollback. `chooseRevertTarget()` decides which version a revert serves; the
 //      only candidates are versions this map already published whose renders are
 //      still on disk. Plus listPublishedHistory(), which is where "was it ever
-//      signed off?" is answered from.
+//      reviewed?" is answered from.
 //
 // Runs against a throwaway DATA_DIR — it never touches the real portal data.
 
@@ -166,7 +166,7 @@ db.setCurrentVersion(mapId, versions['v1.2']);
 
 function publish(versionId) {
   const prId = db.insertPublishRequest({ map_id: mapId, version_id: versionId, requested_by: userId, note: 'please publish' });
-  db.decidePublishRequest(prId, { status: 'approved', reviewedBy: userId, decisionNote: `signed off ${versionId}`, evidence: {} });
+  db.decidePublishRequest(prId, { status: 'approved', reviewedBy: userId, decisionNote: `reviewed ${versionId}`, evidence: {} });
   const cur = db.getMap(mapId).published_version_id;
   if (cur && cur !== versionId) db.setVersionState(cur, 'superseded');
   db.setVersionState(versionId, 'published');
@@ -180,7 +180,7 @@ const history = db.listPublishedHistory(mapId);
 eq('history lists every published version, newest first', history.map((h) => h.storage_key), ['v1.1', 'v1.0']);
 eq('the current pointer is flagged', history.filter((h) => h.is_current).map((h) => h.storage_key), ['v1.1']);
 check('a never-published version is absent', !history.some((h) => h.storage_key === 'v1.2'));
-eq('the approver and their note are recorded', history[0].decision_note, `signed off ${versions['v1.1']}`);
+eq('the approver and their note are recorded', history[0].decision_note, `reviewed ${versions['v1.1']}`);
 
 // A withdrawn/rejected request must NOT make its version look publishable.
 const rejected = db.insertPublishRequest({ map_id: mapId, version_id: versions['v1.2'], requested_by: userId, note: 'x' });
@@ -206,8 +206,8 @@ eq('the version already published is refused',
   chooseRevertTarget(shaped, versions['v1.1']).code, 409);
 eq('a version that was never published is refused',
   chooseRevertTarget(shaped, versions['v1.2']).code, 400);
-check('…with a message that says only signed-off versions qualify',
-  /only signed-off versions/.test(chooseRevertTarget(shaped, versions['v1.2']).error));
+check('…with a message that says only reviewed versions qualify',
+  /only reviewed versions/.test(chooseRevertTarget(shaped, versions['v1.2']).error));
 eq('a first-ever publication has nothing to revert to',
   chooseRevertTarget([shaped[0]]).code, 400);
 eq('a version whose renders are gone cannot be served',
@@ -238,7 +238,7 @@ console.log('\nroute guards');
   const src = await import('node:fs').then((fs) => fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8'));
   check('revert is approver-gated', /revert', async \(req, reply\) => \{\s*const user = requireApprover/.test(src));
   check('a reason is required', /Please record why you are reverting/.test(src));
-  check('an open publish request blocks a revert', /awaiting sign-off\. Decide that request first/.test(src));
+  check('an open publish request blocks a revert', /awaiting review\. Decide that request first/.test(src));
   check('the revert is audited', /'version\.revert'/.test(src));
   check('the pure chooser is used, not an inline copy', /chooseRevertTarget\(publishedHistoryFor\(m\)/.test(src));
 }

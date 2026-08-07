@@ -1,11 +1,30 @@
 # Changelog
 
-<!-- docstamp v1.12 | 2026-08-06 | sha=9bd2b7ad -->
-**v1.12** · updated 6 August 2026
+<!-- docstamp v1.13 | 2026-08-07 | sha=042ba592 -->
+**v1.13** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Changed — reworded "sign-off" as "review", re-scoped what review claims — 2026-08-07
+
+Public copy, the app UI, the checklist and the docs all said a person "signs off" every map, and
+several places layered on extra rigor words ("cross-checked", "check it carefully", "transit-safety
+promise", "red-team evidence") that overstated what happens in practice. What the approver actually
+does today is a reasonableness check — does this look right — not an independent re-verification of
+routes or timetables against source data. Two changes, everywhere the claim was made:
+
+1. **Terminology**: "sign-off"/"signed off" → "review"/"reviewed" throughout (public pages, app UI,
+   `src/publish/index.js`, `src/server.js`, docs, runbooks). `CHANGELOG.md`'s own history is
+   untouched — it's a record of what was said at the time, not current copy.
+2. **Scope**: the `CHECKLIST` items in `src/publish/index.js` (bumped to `CHECKLIST_VERSION = 2`)
+   and every public/doc description of review now say plainly that it's a visual check, not
+   verification against timetables. See `docs/PILOT.md`, `docs/LICENSING.md` §5,
+   `docs/runbook-review-and-publish.md`, and the FAQ/legal/terms pages.
+
+If the review process becomes more rigorous later (e.g. routine timetable cross-checks), upgrade
+the checklist and the copy together rather than letting the words run ahead of the practice again.
 
 ### Fixed — re-vendored place external-map engine, refreshed the fixture — 2026-08-06
 

@@ -1,7 +1,7 @@
-# Runbook R6 — Incident response
+﻿# Runbook R6 — Incident response
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=4dea7a58 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=03ec7344 -->
+**v1.2** · updated 7 August 2026
 
 **Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -20,7 +20,7 @@
 The published bytes are the promise, so act on **visibility**, not the file.
 
 1. **Take it down fast.** As admin, **unlist** the map (the public listing toggle) → it leaves `/maps` and `/m/<slug>` immediately, deleting nothing. For a whole-customer problem, **suspend the customer** — that pulls *all* their maps (the public front requires an *active* customer).
-2. **Fix.** If an earlier published version was correct, **revert to it** (below — one click). If none was, push a **corrected version** through sign-off (**R3**).
+2. **Fix.** If an earlier published version was correct, **revert to it** (below — one click). If none was, push a **corrected version** through review (**R3**).
 3. **Re-list** once the correct version is published.
 4. **Record** it in the incident log and tell the publishing organisation.
 
@@ -28,15 +28,15 @@ The published bytes are the promise, so act on **visibility**, not the file.
 
 ### Revert to the previous published version
 
-As **approver or admin**: **`/app/review` → "Published maps"** → pick the map → its **publication history** (every version ever signed off, newest first, each with its approver, note and print files) → **Revert to this**. A **reason is required**; it goes in the audit trail (`version.revert`) — paste the same line into the incident log.
+As **approver or admin**: **`/app/review` → "Published maps"** → pick the map → its **publication history** (every version ever reviewed, newest first, each with its approver, note and print files) → **Revert to this**. A **reason is required**; it goes in the audit trail (`version.revert`) — paste the same line into the incident log.
 
 What it does and does not do:
 
 - It moves only the **public-current pointer**. Nothing is re-rendered, and the customer's working version is untouched — they can carry on preparing the correction.
-- The only versions on offer are ones that **already passed the publish gate** and whose rendered files are still on disk. A revert can never serve bytes nobody signed off. (If the files have been pruned, it says so and you must publish a correction instead.)
+- The only versions on offer are ones that **already passed the publish gate** and whose rendered files are still on disk. A revert can never serve bytes nobody reviewed. (If the files have been pruned, it says so and you must publish a correction instead.)
 - The version you reverted **away from** stays in the history, so you can roll forward again once it is fixed, or revert again.
 - Reverting does **not** re-list an unlisted map. If you unlisted it in step 1, re-list it in step 3.
-- If a version is awaiting sign-off, decide that request first — the revert refuses while one is open, so an approver is never reviewing against a pointer that moves under them.
+- If a version is awaiting review, decide that request first — the revert refuses while one is open, so an approver is never reviewing against a pointer that moves under them.
 
 ## Sign-in / access failure
 
@@ -49,7 +49,7 @@ What it does and does not do:
 
 ## Byte-parity break after a deploy
 
-- If `npm run verify` fails after an upgrade, the bytes served may differ from what an approver signed off — **roll the deploy back** / re-pin `sharp` and re-verify before serving ([DEPLOY.md §7](DEPLOY.md)). Treat it as **high** even if nothing looks visibly wrong: it breaks "the file we serve is the file that was approved."
+- If `npm run verify` fails after an upgrade, the bytes served may differ from what an approver reviewed — **roll the deploy back** / re-pin `sharp` and re-verify before serving ([DEPLOY.md §7](DEPLOY.md)). Treat it as **high** even if nothing looks visibly wrong: it breaks "the file we serve is the file that was approved."
 
 ## Data-source outage (BODS / OSM / bustimes)
 

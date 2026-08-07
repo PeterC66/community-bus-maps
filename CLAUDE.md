@@ -1,7 +1,7 @@
-# BusMaps.uk — portal
+﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.2 | 2026-08-02 | sha=0acae351 -->
-**v1.2** · updated 2 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=04fc5ba1 -->
+**v1.3** · updated 7 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Public repo, Apache-2.0. Node + Fastify + `node:sqlite`, no template engine, no framework.
@@ -36,7 +36,7 @@ Read [`docs/DEVELOPING.md`](docs/DEVELOPING.md). The two things that must not br
 
 - **Determinism.** Same inputs ⇒ byte-identical output, no network, no AI at render time. Absent
   config ⇒ previous behaviour.
-- **The three approval gates.** Organisation approval, map request + quota, publish sign-off. Don't
+- **The three approval gates.** Organisation approval, map request + quota, publish review. Don't
   add a path around them. Note `publish ≠ public`.
 
 Two structural facts that catch people out:

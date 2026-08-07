@@ -1,7 +1,7 @@
-# Operations Handbook — BusMaps.uk portal
+﻿# Operations Handbook — BusMaps.uk portal
 
-<!-- docstamp v1.4 | 2026-08-06 | sha=4024f8d2 -->
-**v1.4** · updated 6 August 2026
+<!-- docstamp v1.6 | 2026-08-07 | sha=4754ff0b -->
+**v1.6** · updated 7 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -18,7 +18,7 @@ A self-serve portal that lets **approved organisations** (councils first, then s
 **The load-bearing split** (this is what makes self-serve safe):
 
 - **Deterministic tier (the portal).** Given a map's prepared data + a customer's overrides, the engine renders SVG/JPG with **no AI and no external calls** — same input, same output. This is what customers self-serve against, and what the byte-identical `verify` gate protects.
-- **Central pipeline (expert, run by you).** Fetching bus/map data, onboarding a new area/place, and the monthly "what changed?" refresh use judgement and live sources. They run centrally and produce *proposed updates* a customer accepts. **Every map is signed off by a human before it can be printed.**
+- **Central pipeline (expert, run by you).** Fetching bus/map data, onboarding a new area/place, and the monthly "what changed?" refresh use judgement and live sources. They run centrally and produce *proposed updates* a customer accepts. **Every map is reviewed by a human before it can be printed** — a reasonableness check against the checklist, not a routine re-verification of routes/timings against source data.
 
 ## 2. Vocabulary
 
@@ -26,7 +26,7 @@ A self-serve portal that lets **approved organisations** (councils first, then s
 |---|---|
 | **Customer** | An approved organisation. Has a `type` (council/shop/school/…), a `status`, and a `quota`. |
 | **Editor** | A customer's user. Signs in, edits the safe subset, saves versions, submits for publication. **Cannot publish.** |
-| **Approver** | A *platform* reviewer. Signs off submissions at `/app/review`. Can **read/inspect any** map but **never edit** one. |
+| **Approver** | A *platform* reviewer. Reviews submissions at `/app/review`. Can **read/inspect any** map but **never edit** one. |
 | **Admin** | The *platform* operator (you). Approves applications + map requests, sets quotas, runs the console, and can do everything. |
 | **Area map** | A whole town / parish / part of a town (e.g. *St Ives*, *March*). |
 | **Place map** | Centred on a single point — a shop, school, station, centre (e.g. *High Wycombe Aldi*). |
@@ -34,7 +34,7 @@ A self-serve portal that lets **approved organisations** (councils first, then s
 | **Overrides / safe subset** | The *only* edits a customer can make: **recolour a route** (from the palette) and **toggle a POI** on/off. Rebuilt from scratch and validated on every save — server-enforced in `safeSubset.js`, not just hidden in the UI. Everything else (geometry, pins, straightening, curation) is expert-only. |
 | **Baseline (v1.0)** | The imported version with **empty overrides** ⇒ **byte-identical** to the shipped desktop leaflet. The guarantee the whole system rests on. |
 | **Version review state** | `draft` → `pending` (submitted) → `published`; a superseded public version becomes `superseded`; a sent-back one `rejected`. |
-| **Two pointers** | `current_version_id` = the **working head** (moves on every save). `published_version_id` = the **public-current** official version (moves only on sign-off). They are deliberately separate. |
+| **Two pointers** | `current_version_id` = the **working head** (moves on every save). `published_version_id` = the **public-current** official version (moves only on review). They are deliberately separate. |
 | **Proposed update** | A staged monthly refresh (`propose-update.mjs`) a customer **accepts** (re-applies their overrides onto fresh data as a new major draft) or **declines**. |
 | **Quota** | How many area + place maps a customer may hold (default 1 area + a few places; per-customer, editable). |
 | **Magic link** | Passwordless sign-in: a one-time link (printed to the **server console** in dev; needs `EMAIL_PROVIDER` in production) → an httpOnly session cookie. No passwords are ever held. |
@@ -49,18 +49,18 @@ At launch **you wear three hats** — Admin, Approver, and central map-maker. Th
 | Approve/decline applications, set quotas, run the console | **Admin** | `/app/admin` |
 | Approve/decline map requests (queue for central build) | **Admin** | `/app/admin` → Map requests |
 | **Make** a new area/place map centrally, import it | **Admin / map-maker** (you + Claude + the skills) | scripts + `make-bus-leaflet` / `make-place-bus-leaflet` |
-| Sign off a submitted version → publish | **Approver** | `/app/review` |
+| Review a submitted version → publish | **Approver** | `/app/review` |
 | Recolour/toggle, choose outputs, save, submit, download | **Editor** (the customer) | `/app`, `/app/maps/:id` |
 | Per-customer branding of public pages | Customer (or you) | `/app/branding` |
 | Expert diagram pin editing | **Admin** | `/app/maps/:id/diagram` |
 
-**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and sign off — the audit trail depends on it.
+**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it.
 
 ## 4. The three approval gates
 
 1. **Organisation** — a public application → **admin approves** → a customer + first editor + invite.
 2. **Map request** — an approved customer requests an area/place map (within quota) → **admin approves** → queued for central build.
-3. **Publish** — a rendered version stays a **draft** until an **approver signs it off** (a required checklist + the deterministic change summary as evidence) → the public-current pointer advances.
+3. **Publish** — a rendered version stays a **draft** until an **approver reviews it** (a required checklist + the deterministic change summary as evidence) → the public-current pointer advances.
 
 ### 4b. The tube-map diagram is request-only
 
@@ -69,7 +69,7 @@ The other three outputs are generated: the same data always draws the same sheet
 - A customer sees it in the editor's Outputs panel, **locked**, with an **Ask us** button.
 - Pressing it writes a `diagram-request` message (with the map attached) into **Messages** in the admin console. It switches nothing on. Reply with what it would involve.
 - The lock is **server-enforced** in `chooseOutputs()` (`src/maps/engine.js`); a non-admin PATCH to `/api/maps/:id/outputs` asking for `internal_diagram` gets **403** and the stored set is unchanged. Hiding the checkbox is only the UX of it. Once granted, a customer cannot switch it *off* either.
-- **To grant it:** as admin, open the map's editor and tick it (admins are not subject to the lock), or simply save a layout in `/app/maps/:id/diagram` — the pin editor switches the output on itself. Either way the result is a new draft version that still needs the P4 sign-off.
+- **To grant it:** as admin, open the map's editor and tick it (admins are not subject to the lock), or simply save a layout in `/app/maps/:id/diagram` — the pin editor switches the output on itself. Either way the result is a new draft version that still needs the P4 review.
 - It is only *available* at all when the map's `routes.json` carries an `internalDiagram` config, which is set when the map is built.
 
 ## 5. The operating rhythm
@@ -80,13 +80,13 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 |---|---|---|---|
 | **Daily** (mostly automated) | Backup runs; glance at readiness | cron `npm run backup`; `curl /health?deep=1` | [DEPLOY.md §5](DEPLOY.md), [§4](DEPLOY.md) |
 | **Daily/weekly** | Clear the queues | `/app/admin` badges: **Applications**, **Messages** (contact + report-a-problem + diagram requests, §4b) | R2, R5 |
-| **Weekly** | Sign off submitted maps | `/app/review` | R3 |
+| **Weekly** | Review submitted maps | `/app/review` | R3 |
 | **Monthly** | Run the update cycle after the BODS refresh; then prune | `propose-update.mjs` per map; `npm run prune:staged` | R4, [DEPLOY.md §6](DEPLOY.md) |
 | **Per-event** | Onboard a customer | application arrives → vet → approve | R2, Pol1 |
-| **Per-event** | Create a map | request approved → make → import → verify → hand to sign-off | R1 |
+| **Per-event** | Create a map | request approved → make → import → verify → hand to review | R1 |
 | **Per-event** | Handle an incident | a published map is wrong / access fails / a source outage | R6 |
 | **On upgrade** | Release gate | `npm test` **and** `npm run verify` (byte-identical) before deploy | [DEPLOY.md §7](DEPLOY.md) |
-| **Before launch** | Close the licensing gate | fill the sign-off, resolve bustimes.org | [LICENSING.md](LICENSING.md) → G1 |
+| **Before launch** | Close the licensing gate | fill the review, resolve bustimes.org | [LICENSING.md](LICENSING.md) → G1 |
 
 **One-writer rule (operational gotcha):** the SQLite file has a single writer. **Stop the server** before any script that writes it — `seed-demo.mjs`, `import-map.mjs`, `propose-update.mjs`, and before a restore.
 
@@ -94,7 +94,7 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 
 **Public site** (no sign-in): `/` shopfront · `/apply.html` · `/faq.html` · `/contact.html` · `/examples.html` · `/pricing.html` · **`/maps`** gallery · **`/m/<slug>`** a published map · **`/o/<slug>`** an org page · `/opportunity.html` the CIC hand-over pitch ("Take this on", footer link only, not in the nav) · `/legal.html` privacy & attribution · `/terms.html`.
 
-**App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle, outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests · Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver sign-off · **`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
+**App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle, outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests · Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver review · **`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
 
 **Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session).
 
@@ -118,7 +118,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Roadmap & architecture | `docs/ROADMAP.md` | phases, safe subset, continuation | ✅ |
 | **Developing (change the code)** | `docs/DEVELOPING.md` | determinism contract, the 3 approval gates, vendored-engine hand-off, generator env contract, which gates to run | ✅ added 2026-07-25 |
 | Deploy & run | `docs/DEPLOY.md` | deploy, env, **backup/restore**, upgrade gate | ✅ **maintenance reference** |
-| Licensing & attribution | `docs/LICENSING.md` | attribution + **sign-off** + bustimes.org question | ✅ doc; ◑ web attribution verified + bustimes.org researched 2026-07-25; **paper checks + decision pending (G1)** |
+| Licensing & attribution | `docs/LICENSING.md` | attribution + **review** + bustimes.org question | ✅ doc; ◑ web attribution verified + bustimes.org researched 2026-07-25; **paper checks + decision pending (G1)** |
 | Privacy & attribution (public) | `public/legal.html` | customer-facing privacy notice | ✅ reviewed + dated 2026-07-25 (G2); controller identity to add |
 | Public FAQ | `public/faq.html` | public questions | ✅ |
 | Engine references | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the renderer + place + expert styles | ✅ |
@@ -126,7 +126,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | **Terms of use / customer agreement** | `public/terms.html` | the customer's side of the deal | ✅ draft (G3); governing law + review to confirm |
 | **R1** create a new area/place map | `docs/runbook-create-map.md` | generating maps | ✅ |
 | **R2** customer onboarding | `docs/runbook-onboarding.md` | accepting customers | ✅ |
-| **R3** review & publish | `docs/runbook-review-and-publish.md` | approver sign-off | ✅ |
+| **R3** review & publish | `docs/runbook-review-and-publish.md` | approver review | ✅ |
 | **R4** monthly update cycle | `docs/runbook-update-cycle.md` | managing updates | ✅ |
 | **R5** marketing site & messages | `docs/runbook-marketing-and-messages.md` | maintaining the website | ✅ |
 | **R6** incident response | `docs/runbook-incident-response.md` | when a live map is wrong | ✅ |

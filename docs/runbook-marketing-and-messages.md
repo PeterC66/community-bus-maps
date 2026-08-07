@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.1 | 2026-08-02 | sha=6938b27f -->
-**v1.1** · updated 2 August 2026
+<!-- docstamp v1.2 | 2026-08-06 | sha=cd447d68 -->
+**v1.2** · updated 6 August 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 

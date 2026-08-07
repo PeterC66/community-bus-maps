@@ -1,7 +1,7 @@
-# Documentation development plan — the operator layer
+﻿# Documentation development plan — the operator layer
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=ec6a0413 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=61c4c77a -->
+**v1.2** · updated 7 August 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
@@ -36,7 +36,7 @@ Checked on disk at `0.8.0-P7`. This is the correction to the first-pass plan, wh
 | `README.md` | dev overview, quick start, demo, layout | Keep — current (says P0–P7) |
 | `docs/ROADMAP.md` | architecture, phases, safe subset, continuation notes | Keep — current (phase table shows P5–P7 ✅) |
 | `docs/DEPLOY.md` | deploy, env, health, **backup + restore drill**, prune, upgrade/verify gate | **Strong — this is the maintenance reference.** No separate maintenance runbook needed; the Handbook's rhythm section points here |
-| `docs/LICENSING.md` | attribution matrix (OSM/BODS/bustimes), where credits appear, **sign-off table**, the **bustimes.org open question** | **This is the licensing doc.** Not "write" but **act**: fill the sign-off + resolve bustimes.org (→ G1) |
+| `docs/LICENSING.md` | attribution matrix (OSM/BODS/bustimes), where credits appear, **review table**, the **bustimes.org open question** | **This is the licensing doc.** Not "write" but **act**: fill the review + resolve bustimes.org (→ G1) |
 | `public/legal.html` | privacy notice + attribution + map reuse (customer-facing) | **This is the privacy notice.** Working draft → **review + date** (→ G2) |
 | `public/faq.html` | public FAQ | Keep; maintained via the marketing runbook (R5) |
 | `engine/README.md`, `engine/place/README.md`, `engine/expert/README.md` | the deterministic renderer + place + expert styles | Keep; developer reference |
@@ -64,7 +64,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 
 | ID | Document | Purpose | Home | Kind |
 |---|---|---|---|---|
-| **G1** | Licensing sign-off + bustimes.org resolution | Fill the sign-off table in `LICENSING.md`; resolve the bustimes.org terms question (read terms / ask owner / drop dependency) and record it. **Launch gate.** | `docs/LICENSING.md` | ACTION |
+| **G1** | Licensing review + bustimes.org resolution | Fill the review table in `LICENSING.md`; resolve the bustimes.org terms question (read terms / ask owner / drop dependency) and record it. **Launch gate.** | `docs/LICENSING.md` | ACTION |
 | **G2** | Privacy notice review | Confirm the `legal.html` wording, add a **"last reviewed" date**, keep an internal note of what was checked. | `public/legal.html` + `ops/` note | ACTION |
 | **G3** | Terms of use / customer agreement | The **reciprocal** side `legal.html` doesn't cover: what an approved organisation agrees to — acceptable use, "you must have authority over the area you request," no implying operator/council endorsement, service is free with no SLA, we may suspend. Accuracy disclaimer already lives in `legal.html`. | `public/` page + `docs/` source | NEW |
 
@@ -72,9 +72,9 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 
 | ID | Document | Role it serves | Purpose | Home | Kind |
 |---|---|---|---|---|---|
-| **R1** | Create a new area/place map | generating maps | End to end: choose area vs place → run `make-bus-leaflet` / `make-place-bus-leaflet` → stage → `import-map.mjs` (attach to customer) → **verify byte-identical baseline** → set outputs/expert styles → hand to sign-off. Place maps **are** supported now. | `docs/` | NEW |
+| **R1** | Create a new area/place map | generating maps | End to end: choose area vs place → run `make-bus-leaflet` / `make-place-bus-leaflet` → stage → `import-map.mjs` (attach to customer) → **verify byte-identical baseline** → set outputs/expert styles → hand to review. Place maps **are** supported now. | `docs/` | NEW |
 | **R2** | Customer onboarding | accepting customers | Application arrives → **vet** (against the policy) → approve in `/app/admin` (set area/place quota + first editor) → invite link (console today; email when `EMAIL_PROVIDER` set) → optional branding → welcome + hand over the user guide (C1). | `docs/` | NEW |
-| **R3** | Review & publish (approver sign-off) | managing updates | What each **checklist item actually means** to verify, how to inspect the print JPGs, publish vs send-back, and **why editor ≠ approver** (separation of duties). The judgement layer over the P4 mechanics in ROADMAP. | `docs/` | NEW |
+| **R3** | Review & publish (approver review) | managing updates | What each **checklist item actually means** to verify, how to inspect the print JPGs, publish vs send-back, and **why editor ≠ approver** (separation of duties). The judgement layer over the P4 mechanics in ROADMAP. | `docs/` | NEW |
 | **R4** | Monthly update cycle | managing updates | The **P5** flow, now built: central refresh → `propose-update.mjs` → `proposed_update` → customer **accept/decline** (re-applies overrides) → re-render → notify. Includes the upcoming-changes mining and `prune:staged` housekeeping. | `docs/` | NEW |
 | **R5** | Marketing site, public front & messages | maintaining website | Edit shopfront pages; **add a gallery example** (downscale + attribution); the per-map **public-listing** toggle and per-customer **branding**; `/o/<org>` pages; work the **contact + report-a-problem** message queues; keep the FAQ current. | `docs/` | NEW |
 | **R6** | Incident response | managing updates | High-stakes, time-sensitive: a **published map is wrong in the wild** (retire/repair the published pointer), a sign-in/access failure, a data-source outage — who you tell, what you do, what you record (→ P3). | `docs/` | NEW |
@@ -120,7 +120,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. *Yours:* confirm governing law + a review before launch; propagate the footer Terms link to the other shopfront pages.
 
 **Tier 2 — Core operator runbooks** ✅ *done 2026-07-25*
-6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to sign-off. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
+6. ✅ **R1** [`runbook-create-map.md`](runbook-create-map.md) — make → import → verify byte-identical → attach → hand to review. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
 7. ✅ **Pol1** [`vetting-and-quota-policy.md`](vetting-and-quota-policy.md) + **R2** [`runbook-onboarding.md`](runbook-onboarding.md) — vet → approve (customer + editor + invite) → record → their maps.
 8. ✅ **R3** [`runbook-review-and-publish.md`](runbook-review-and-publish.md) — submit → review (change summary + JPGs) → 5-item checklist → publish / send-back; the two pointers.
 
@@ -129,7 +129,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 10. ✅ **R5** [`runbook-marketing-and-messages.md`](runbook-marketing-and-messages.md) — shopfront pages, adding an example, the self-generating public front (publish≠public), the branding whitelist, the two message queues.
 
 **Tier 4 — Cyclical & exceptional** ✅ *done 2026-07-25*
-11. ✅ **R4** [`runbook-update-cycle.md`](runbook-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → sign off → prune.
+11. ✅ **R4** [`runbook-update-cycle.md`](runbook-update-cycle.md) — mine upcoming changes → regenerate → `propose-update.mjs` (service-facts diff) → customer accept → review → prune.
 12. ✅ **R6** [`runbook-incident-response.md`](runbook-incident-response.md) — severity; a wrong published map (unlist fast → re-publish fix); access / health / byte-parity / source-outage / PII; log it.
 
 Registers **P1–P4** are stubbed in Tier 0 and **populated continuously** as you operate.

@@ -1,4 +1,4 @@
-// The public read model (P6).
+﻿// The public read model (P6).
 //
 // Everything the unauthenticated site shows is derived here, from the rows the
 // P6 queries in src/db/index.js already restricted to *published, listed maps of
@@ -10,7 +10,7 @@
 //   • only outputs whose files actually exist on disk.
 //
 // Publishing never re-renders (P4), so a public page always serves exactly the
-// bytes an approver signed off.
+// bytes an approver reviewed.
 
 import path from 'node:path';
 import { existsSync, statSync } from 'node:fs';
@@ -22,7 +22,7 @@ import { brandingForPublic } from '../branding/index.js';
 export const PUBLIC_BASES = Object.values(OUTPUTS).map((o) => o.base);
 
 // A print JPG is A4 at 300 dpi (~1 MB) — far too heavy for a gallery page. The
-// screen copy is DERIVED from that signed-off print file on first request and
+// screen copy is DERIVED from that reviewed print file on first request and
 // cached beside it, so no extra work happens at render time, versions published
 // before P6 get previews too, and the print bytes are never touched.
 const WEB_WIDTH = 1400;

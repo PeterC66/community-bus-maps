@@ -1,8 +1,8 @@
-// Repair unreadable route-number badges on renders that already exist.
+﻿// Repair unreadable route-number badges on renders that already exist.
 //
 // src/render/badgeContrast.js fixes this at render time, so every sheet produced
 // from now on is fine. Anything rendered BEFORE it landed still carries the fault
-// — including versions already signed off and published, which are exactly the
+// — including versions already reviewed and published, which are exactly the
 // sheets the public can download — and would only be corrected the next time the
 // customer happens to save a new version.
 //

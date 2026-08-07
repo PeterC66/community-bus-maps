@@ -1,7 +1,7 @@
-# Deploying and running the portal (P7)
+﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.1 | 2026-08-02 | sha=f5693068 -->
-**v1.1** · updated 2 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=0d2caf87 -->
+**v1.3** · updated 7 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -16,7 +16,7 @@ Everything below assumes the decisions already locked in the planning docs: buil
 | `portal.sqlite` (+ `-wal`, `-shm`) | customers, users, maps, versions, publish requests, proposed updates, audit | **yes** |
 | `maps/<id>/data/` | the map's payload + generators + expert `diagram-layout.json` | **yes** |
 | `maps/<id>/overrides.json` | the customer's canonical safe-subset edits | **yes** |
-| `maps/<id>/renders/v*/` | every rendered version, **including the bytes an approver signed off** | **yes** |
+| `maps/<id>/renders/v*/` | every rendered version, **including the bytes an approver reviewed** | **yes** |
 | `maps/<id>/proposed/<pid>/` | a staged monthly refresh | no — re-stageable centrally |
 | `maps/<id>/archive/` | data replaced by an accepted refresh | no — superseded |
 
@@ -118,4 +118,4 @@ Sessions expire themselves (the server purges hourly). Nothing else grows unboun
 
 ## 8. Licensing gate
 
-`docs/LICENSING.md` lists the data sources, what must be credited, and the open **bustimes.org terms** question. It is a launch go/no-go, not a footnote: the sign-off lines at the bottom of that file are meant to be filled in before the public site is announced.
+`docs/LICENSING.md` lists the data sources, what must be credited, and the open **bustimes.org terms** question. It is a launch go/no-go, not a footnote: the review lines at the bottom of that file are meant to be filled in before the public site is announced.

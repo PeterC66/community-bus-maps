@@ -1,4 +1,4 @@
-// Public details (P6): a customer edits its own public identity. The server
+﻿// Public details (P6): a customer edits its own public identity. The server
 // whitelist (src/branding/index.js) is the real gate — it rebuilds the stored
 // object and reports anything it dropped, which we surface here.
 
@@ -45,7 +45,7 @@ function initials(name) {
 function paintPublicList(maps) {
   const box = $('publicList');
   if (!maps || !maps.length) {
-    box.innerHTML = '<p class="hint-line">None of your maps are on the public site yet. A map appears here once a version has been signed off and you have left it listed.</p>';
+    box.innerHTML = '<p class="hint-line">None of your maps are on the public site yet. A map appears here once a version has been reviewed and you have left it listed.</p>';
     return;
   }
   box.innerHTML = `<ul class="plain-list">${maps.map((m) => `

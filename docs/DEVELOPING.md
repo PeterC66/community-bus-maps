@@ -1,7 +1,7 @@
-# Developing the portal — how to change it safely
+﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.2 | 2026-08-03 | sha=3c49da0c -->
-**v1.2** · updated 3 August 2026
+<!-- docstamp v1.4 | 2026-08-07 | sha=49a3fbf4 -->
+**v1.4** · updated 7 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](OPERATIONS-HANDBOOK.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -33,7 +33,7 @@ Nothing reaches the public without a human. Don't add a code path that routes ar
 |---|---|---|
 | **Organisation approval** | application → pending account → admin approve | only vetted orgs get in |
 | **Map request + quota** | `src/db` map-request lifecycle, server-enforced quota | a customer can't mint unlimited maps |
-| **Publish sign-off** | `src/publish` — draft/published two-pointer, approver checklist, audit | no draft becomes a published/printable map without a signed-off approver |
+| **Publish review** | `src/publish` — draft/published two-pointer, approver checklist, audit | no draft becomes a published/printable map without a reviewed approver |
 
 Note also that **publish ≠ public**. A published map only appears on the public front when the customer's own `map.public_listed` switch is on, the customer is active, and the map is published — all three enforced in SQL in `src/public/`.
 
@@ -106,7 +106,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | How a map is rendered / which outputs exist | `src/render/renderMap.js`, `src/maps/store.js` (`resolveGen`, `engine:` tags) |
 | What a customer is allowed to edit | `src/maps/engine.js` + the safe-subset validation — **server-enforced; never trust the client** |
 | Which outputs a customer may switch | `chooseOutputs()` in `src/maps/engine.js` — pure, so `test-p7.mjs` asserts the rules without a server. The tube-map diagram is `requestOnly` (hand-pinned, priced separately): a non-admin PATCH asking for it is **403**, not a silent no-op |
-| The publish gate / sign-off checklist | `src/publish/` (pure functions — unit-testable) |
+| The publish gate / review checklist | `src/publish/` (pure functions — unit-testable) |
 | Monthly change acceptance (accept/decline a proposed update) | `src/refresh/` + `scripts/propose-update.mjs` |
 | Auth / sessions | `src/auth/` (magic link, server-side sessions, hand-rolled cookies, no deps) |
 | Public pages and listings | `src/public/` — a **read model** over the publish gate, PII-free by construction |

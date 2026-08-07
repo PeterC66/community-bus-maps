@@ -1,7 +1,7 @@
-# Runbook R3 — Review & publish (approver sign-off)
+﻿# Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=179f9485 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=5d89e014 -->
+**v1.2** · updated 7 August 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -25,17 +25,17 @@ As approver/admin, open **`/app/review`** (the queue). Each submission gives you
   + **POI show/hide**, this diff is **complete** — nothing else can have moved. It lists: routes whose colour changed (from → to), POIs newly hidden, and POIs newly shown.
 - **The print files** — inspect the full-size JPGs inline.
 
-## Step 3 — Complete the sign-off checklist
+## Step 3 — Complete the review checklist
 
 All five are **required** and **server-enforced** — you cannot publish with any unticked:
 
-1. **services** — every bus service that should appear is shown, with the correct number and destination.
+1. **services** — at a glance, the services shown look right: no obviously wrong route numbers or destinations.
 2. **colours** — route colours are distinct and remain colour-blind friendly.
-3. **pois** — the points of interest shown or hidden are correct; nothing important is missing.
+3. **pois** — at a glance, the points of interest shown or hidden look right and nothing obvious is missing.
 4. **legible** — you have **viewed the full-size print (JPG)** and all text is legible.
-5. **accurate** — to the best of our knowledge the information is accurate and current.
+5. **accurate** — this is a visual check, not an independent verification against timetables; nothing here looks wrong or out of date.
 
-These aren't box-ticking; they're the transit-safety promise. Item 4 especially means **actually opening the JPG**, not trusting the on-screen preview.
+This is a reasonableness check, not a re-derivation of the routes from source data — we don't routinely re-verify services or timings against BODS/operator timetables at this step. It still isn't box-ticking: item 4 means **actually opening the JPG**, not trusting the on-screen preview, and anything that looks off should be sent back rather than waved through.
 
 ## Step 4 — Decide
 
@@ -47,9 +47,9 @@ Both outcomes land in the append-only **audit log** (admin → **Audit**) with w
 ## Two pointers — don't confuse them
 
 - `current_version_id` = the **working head** (moves on every editor save).
-- `published_version_id` = the **public-current** official version (moves **only** here, on sign-off).
+- `published_version_id` = the **public-current** official version (moves **only** here, on review).
 
-The public site serves the **published** pointer; edits in flight never reach the public until signed off.
+The public site serves the **published** pointer; edits in flight never reach the public until reviewed.
 
 ## What-if
 

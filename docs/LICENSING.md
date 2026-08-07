@@ -1,13 +1,13 @@
-# Licensing & attribution sign-off (launch gate)
+﻿# Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=9e948b44 -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.2 | 2026-08-07 | sha=0e884e53 -->
+**v1.2** · updated 7 August 2026
 
-This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **signed off before the public site is announced** — not discovered afterwards.
+This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
-> **Pilot.** The scope this assessment covers is deliberately small — a few towns, monthly, expert-run, no customers, not indexed by search engines (`robots.txt` `Disallow: /` while `PILOT_MODE` is on). **Ending the pilot widens the scope**, so the sign-off below should be revisited at the same time, not inherited. See [`PILOT.md`](PILOT.md).
+> **Pilot.** The scope this assessment covers is deliberately small — a few towns, monthly, expert-run, no customers, not indexed by search engines (`robots.txt` `Disallow: /` while `PILOT_MODE` is on). **Ending the pilot widens the scope**, so the review below should be revisited at the same time, not inherited. See [`PILOT.md`](PILOT.md).
 
-`NOTICE` carries the short attribution statement; this file is the working detail and the sign-off record.
+`NOTICE` carries the short attribution statement; this file is the working detail and the review record.
 
 ---
 
@@ -69,7 +69,7 @@ This *supports* the assessment that our use (central, human-in-the-loop, a handf
 - **Print-safety wording** — every public page and sheet says to confirm live times with the operator. Keep it: it is the honest limit of a printed map, and it is what makes "the map is a guide" defensible.
 - **Sheet branding** — a customer's logo/colours are deliberately *not* printed on the sheet (P6/P7 decision). If that changes, re-check that a customer cannot imply an endorsement by an operator or a council they don't represent.
 
-## 5. Sign-off
+## 5. Review
 
 Progress recorded 2026-07-25. The **web-attribution** rows were verified by Claude: the OSM + BODS credit string is present in the footer of **every** public page (all 9 templates — shopfront, `/maps`, `/m/`, `/o/`, `legal`, `faq`, `examples`, `apply`, `contact`). The **printed-sheet** checks and the **final launch go/no-go** remain the operator's — a screen credit is not a paper credit, and this is a legal gate, not a code test.
 
@@ -82,6 +82,6 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | bustimes.org terms | ◑ researched (§3 findings); **decision to record** (operator) | | |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
 
-**To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic, diagram, external) from a signed-off map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.
+**To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic, diagram, external) from a reviewed map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.
 
 Nothing here is legal advice; it is the operator's checklist. Record the outcome in this file (it is versioned) so the decision and its date survive.

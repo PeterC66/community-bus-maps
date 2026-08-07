@@ -1,11 +1,11 @@
-# Runbook R1 — Create a new area or place map
+﻿# Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.2 | 2026-08-02 | sha=b1c87b4a -->
-**v1.2** · updated 2 August 2026
+<!-- docstamp v1.4 | 2026-08-07 | sha=eca42c84 -->
+**v1.4** · updated 7 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
-**Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned by the right customer and ready for editing + sign-off.
+**Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned by the right customer and ready for editing + review.
 
 Two halves, and the split is the point (see the Handbook): **making** the map (stages S1–S6 — live data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic, no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
 
@@ -67,18 +67,18 @@ FIXTURE_DIR="<the S5-render dir>" npm run verify:area      # or verify:place for
 
 Green = the portal reproduces the desktop bytes exactly. **If it fails, stop** — check the `sharp`/libvips version against the desktop pipeline before anything else (see [DEPLOY.md §7](DEPLOY.md)).
 
-## Step 4 — Choose outputs, then hand to sign-off
+## Step 4 — Choose outputs, then hand to review
 
 - Sign in as admin, open `/app/maps/<id>`, set which of the four **outputs** this map offers (v1.0 renders internal-geographic + external by default; the two expert styles are opt-in).
-- The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer edits + submits, an approver signs off.
+- The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer edits + submits, an approver reviews.
 
 ## Demo and example maps (for demos, docs and screenshots)
 
-Same runbook — **do not "just leave off `--customer`"**. Without an owner the map is *unowned*, and unowned means admin-only: the public front's queries all `JOIN customer`, so an unowned map can never appear on `/maps`, `/m/<slug>` or `/o/<org-slug>` no matter how far it gets through the publish gate. There is also no editor account, so the edit → submit → sign-off loop — the thing most worth demonstrating — can't be shown at all. Owner also carries the branding, the org credit and the **Sample** badge.
+Same runbook — **do not "just leave off `--customer`"**. Without an owner the map is *unowned*, and unowned means admin-only: the public front's queries all `JOIN customer`, so an unowned map can never appear on `/maps`, `/m/<slug>` or `/o/<org-slug>` no matter how far it gets through the publish gate. There is also no editor account, so the edit → submit → review loop — the thing most worth demonstrating — can't be shown at all. Owner also carries the branding, the org credit and the **Sample** badge.
 
 Give every example map a **seeded demo organisation** instead, flagged `is_demo` so it is labelled "Sample" on every public surface:
 
-- **Preferred — add it to `DEMO[]` in [`scripts/seed-demo.mjs`](../scripts/seed-demo.mjs)** and re-run the script. It is idempotent (existing customers, users and maps are reused, not duplicated), it creates the customer with `is_demo: true` plus an editor user and public branding, it calls `import-map.mjs` with the right flags, and `publishBaseline()` takes the map through a real P4 sign-off so it has a live public page. The point is reproducibility: `data/` is git-ignored, so a map that exists only in your local `DATA_DIR` is lost on a fresh checkout — a map in the seed script is not.
+- **Preferred — add it to `DEMO[]` in [`scripts/seed-demo.mjs`](../scripts/seed-demo.mjs)** and re-run the script. It is idempotent (existing customers, users and maps are reused, not duplicated), it creates the customer with `is_demo: true` plus an editor user and public branding, it calls `import-map.mjs` with the right flags, and `publishBaseline()` takes the map through a real P4 review so it has a live public page. The point is reproducibility: `data/` is git-ignored, so a map that exists only in your local `DATA_DIR` is lost on a fresh checkout — a map in the seed script is not.
 - **Ad hoc** — run Step 2 with `--customer "<Demo Org>" --customer-type …`, then set the flag (`setCustomerDemo(id, true)`). Skip that and the organisation renders publicly as if it were a real customer, which contradicts the pilot's "there are no customers" claim ([`CLAUDE.md`](../CLAUDE.md), [`PILOT.md`](PILOT.md)).
 
 Two standing rules for demo material:

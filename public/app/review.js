@@ -1,4 +1,4 @@
-// Review console (P4). Approvers/admins sign off a submitted map version before
+﻿// Review console (P4). Approvers/admins review a submitted map version before
 // it becomes the official public version. Gated to approver/admin; the server
 // independently enforces the role and the completed-checklist requirement.
 
@@ -32,7 +32,7 @@ async function loadQueue(keepId) {
   $('queueCount').textContent = queue.length || '';
   const box = $('queue');
   if (!queue.length) {
-    box.innerHTML = '<div class="empty">Nothing awaiting sign-off. 🎉</div>';
+    box.innerHTML = '<div class="empty">Nothing awaiting review. 🎉</div>';
     // Don't clobber a rollback view the approver is working in.
     if (!keepId && !currentPublished) $('detail').innerHTML = '<div class="empty">Nothing to review right now. Pick a published map to see its history.</div>';
     return;
@@ -95,7 +95,7 @@ async function openReview(id) {
     </div>
 
     <div class="rd-section">
-      <h3>Changes to sign off</h3>
+      <h3>Changes to review</h3>
       ${changeHtml(sum, r.publishedVersion)}
     </div>
 
@@ -107,12 +107,12 @@ async function openReview(id) {
 
     ${decided ? renderDecided(r) : `
     <div class="rd-section">
-      <h3>Sign-off checklist</h3>
+      <h3>Review checklist</h3>
       <div class="checklist" id="checklist">
         ${checklist.map((c) => `<label class="check-item"><input type="checkbox" data-cid="${esc(c.id)}"> <span>${esc(c.label)}</span></label>`).join('')}
       </div>
       <label class="hint-line" for="decisionNote" style="display:block;margin-top:12px">Notes <span class="hint">— required if rejecting; recorded either way</span></label>
-      <textarea class="field" id="decisionNote" maxlength="2000" placeholder="Any notes on this sign-off, or the reason for sending it back…"></textarea>
+      <textarea class="field" id="decisionNote" maxlength="2000" placeholder="Any notes on this review, or the reason for sending it back…"></textarea>
       <div class="notice" id="reviewMsg"></div>
       <div class="rd-actions">
         <button class="btn btn-ghost btn-sm" id="rejectBtn" type="button">Send back to editor</button>
@@ -133,7 +133,7 @@ function renderDecided(r) {
     <h3>Decision ${pill}</h3>
     <div class="rd-meta">${esc(r.reviewedBy || '—')} · ${fmtDate(r.reviewedAt)}</div>
     ${r.decisionNote ? `<p class="rd-note">“${esc(r.decisionNote)}”</p>` : ''}
-    ${ev ? `<p class="hint-line">Sign-off checklist recorded (${ev} item${ev === 1 ? '' : 's'}).</p>` : ''}
+    ${ev ? `<p class="hint-line">Review checklist recorded (${ev} item${ev === 1 ? '' : 's'}).</p>` : ''}
   </div>`;
 }
 
@@ -175,7 +175,7 @@ function wireDecision(id, version) {
 // ---- rollback (incident response) -------------------------------------------
 // Reverting moves the PUBLIC pointer back to a version an approver already signed
 // off; it never publishes anything new and never touches the editor's head. The
-// server re-checks both (signed-off + files on disk) before it moves anything.
+// server re-checks both (reviewed + files on disk) before it moves anything.
 
 async function loadPublished(keepId) {
   const { body } = await jget('/api/review/published');
@@ -186,7 +186,7 @@ async function loadPublished(keepId) {
     <button class="queue-item ${m.id === keepId ? 'active' : ''}" data-map="${m.id}" type="button">
       <div class="qi-title">${esc(m.name)} <span class="tag ${m.kind === 'place' ? 'place' : 'area'}">${m.kind === 'place' ? 'Place' : 'Area'}</span></div>
       <div class="qi-sub">${esc(m.customer ? m.customer.name : '—')} · published ${esc(m.publishedVersion)}</div>
-      <div class="qi-meta">${m.canRevert ? `${m.publishedVersions} signed-off versions` : 'first published version'}${m.publicListed ? '' : ' · un-listed'}${m.customerSuspended ? ' · customer suspended' : ''}</div>
+      <div class="qi-meta">${m.canRevert ? `${m.publishedVersions} reviewed versions` : 'first published version'}${m.publicListed ? '' : ' · un-listed'}${m.customerSuspended ? ' · customer suspended' : ''}</div>
     </button>`).join('');
   box.querySelectorAll('.queue-item').forEach((b) => b.addEventListener('click', () => openPublished(Number(b.dataset.map))));
 }
@@ -228,9 +228,9 @@ async function openPublished(mapId) {
 
     <div class="rd-section">
       <h3>Publication history</h3>
-      <p class="hint-line">Reverting changes only what the public is served. It does not undo the customer's edits, and only versions that already passed sign-off are offered.</p>
+      <p class="hint-line">Reverting changes only what the public is served. It does not undo the customer's edits, and only versions that already passed review are offered.</p>
       <div class="table-wrap"><table class="grid"><thead><tr>
-        <th>Version</th><th>Signed off</th><th>Approver's note</th><th></th>
+        <th>Version</th><th>Reviewed</th><th>Approver's note</th><th></th>
       </tr></thead><tbody>${rows}</tbody></table></div>
     </div>
 

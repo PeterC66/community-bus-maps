@@ -1,7 +1,7 @@
-# Using your bus maps — a guide for customers
+﻿# Using your bus maps — a guide for customers
 
-<!-- docstamp v1.1 | 2026-08-02 | sha=d08685df -->
-**v1.1** · updated 2 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=1df1c65d -->
+**v1.3** · updated 7 August 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
@@ -54,7 +54,7 @@ For any version you can download the **print-ready files** — an SVG and a 300 
 
 ## Monthly updates
 
-Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed. You get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual sign-off), or **Decline** to keep what you have. You stay in control of what gets published.
+Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed. You get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual review), or **Decline** to keep what you have. You stay in control of what gets published.
 
 ## If something looks wrong
 

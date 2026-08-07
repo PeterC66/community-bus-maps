@@ -1,7 +1,7 @@
-# Runbook R4 — Monthly update cycle
+﻿# Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.1 | 2026-08-03 | sha=4fad48de -->
-**v1.1** · updated 3 August 2026
+<!-- docstamp v1.3 | 2026-08-07 | sha=5da9768e -->
+**v1.3** · updated 7 August 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -35,15 +35,15 @@ node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" --no
 
 ## Step 3 — The customer reviews + accepts
 
-The customer sees it on their dashboard: an **old-vs-new preview** plus the diff. They **Accept** — their colours + POI toggles are **re-applied onto the fresh data as a new major version** (which then goes through the normal **sign-off**, R3) — or **Decline**.
+The customer sees it on their dashboard: an **old-vs-new preview** plus the diff. They **Accept** — their colours + POI toggles are **re-applied onto the fresh data as a new major version** (which then goes through the normal **review**, R3) — or **Decline**.
 
 - You can watch the queue at **`/app/admin` → Proposed updates**.
-- Accepting is **blocked while a publication awaits sign-off** (withdraw that first).
+- Accepting is **blocked while a publication awaits review** (withdraw that first).
 - **Nudge** customers who don't act — an unaccepted update means their published map is going stale.
 
-## Step 4 — Sign off + housekeeping
+## Step 4 — Review + housekeeping
 
-- An accepted update is a new **draft** → sign it off (**R3**) so the public map advances.
+- An accepted update is a new **draft** → review it (**R3**) so the public map advances.
 - Periodically clear settled staging: `npm run prune:staged -- --days 90 --dry-run`, then without `--dry-run` ([DEPLOY.md §6](DEPLOY.md)). It never touches a pending update, live data, or a rendered version.
 
 ## What-if

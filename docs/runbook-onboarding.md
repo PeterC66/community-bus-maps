@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.0 | 2026-07-27 | sha=a41ccf1c -->
-**v1.0** · updated 27 July 2026
+<!-- docstamp v1.1 | 2026-08-06 | sha=5352e99b -->
+**v1.1** · updated 6 August 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 

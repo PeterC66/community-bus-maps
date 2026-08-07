@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -105,9 +105,9 @@
         : `You can request ${Math.max(0, c.quotaAreas - c.usedAreas)} more area and ${Math.max(0, c.quotaPlaces - c.usedPlaces)} more place map${(c.quotaPlaces - c.usedPlaces) === 1 ? '' : 's'}.`;
     }
 
-    // A publish-state pill for a built map (draft / awaiting sign-off / published).
+    // A publish-state pill for a built map (draft / awaiting review / published).
     function publishPill(m) {
-      if (m.pendingReview) return '<span class="status-pill req">Awaiting sign-off</span>';
+      if (m.pendingReview) return '<span class="status-pill req">Awaiting review</span>';
       if (m.publishedVersion && m.publishedVersion === m.currentVersion) return `<span class="status-pill pub">Published ${escapeHtml(m.publishedVersion)}</span>`;
       if (m.publishedVersion) return `<span class="status-pill pub">Published ${escapeHtml(m.publishedVersion)}</span> <span class="status-pill">draft ahead</span>`;
       return '<span class="status-pill">Draft</span>';
@@ -185,7 +185,7 @@
         $('dashIntro').textContent = 'Admin view — every customer’s maps. Open one to edit, or switch outputs. Layout/geometry edits remain expert-only.';
       } else if (me.role === 'approver') {
         $('dashTitle').textContent = 'Review & publish';
-        $('dashIntro').innerHTML = 'You are a platform approver. Head to <a href="/app/review">Review</a> to sign off submitted map versions.';
+        $('dashIntro').innerHTML = 'You are a platform approver. Head to <a href="/app/review">Review</a> to review submitted map versions.';
       }
       if (me.customer) { $('requestBtn').style.display = ''; $('brandingLink').style.display = ''; renderQuota(); }
 
