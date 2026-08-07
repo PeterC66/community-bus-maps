@@ -1,11 +1,21 @@
 # Changelog
 
-<!-- docstamp v1.21 | 2026-08-07 | sha=60e73b39 -->
-**v1.21** · updated 7 August 2026
+<!-- docstamp v1.22 | 2026-08-07 | sha=2b4cbe0a -->
+**v1.22** · updated 7 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — signed-in status and sign out on every public page — 2026-08-07
+
+Previously the only way to see you were signed in, or to sign out, was `/app` itself — there was no
+way back once you'd followed a link out to `/examples.html` or any other public page. A new shared
+script, `public/js/auth-status.js`, checks `/api/me` and, if signed in, appends "My maps", "Signed in
+as …" and a "Sign out" button to the header nav. Wired into the `<head>` of all twelve public pages
+(`index`, `apply`, `contact`, `examples`, `faq`, `legal`, `map`, `maps`, `opportunity`, `org`,
+`pricing`, `terms`). Signed-out visitors see no change. `/app/*` pages keep their existing bespoke
+whoami/logout wiring, which also handles role-based admin/review link visibility.
 
 ### Added — admin console UI for user CRUD — 2026-08-07
 
