@@ -110,10 +110,19 @@ export function ensureProposedDirs(id, pid) {
 // separately rather than being a tick-box. The editor shows it locked with an
 // "Ask us" button; the lock itself is enforced in chooseOutputs() (engine.js) —
 // hiding a checkbox is UX, not security.
+//
+// `buildAlways` marks an output that is RENDERED whenever the map's data
+// supports it (config key present), independent of the `enabled` flag a
+// customer switches: the schematic is cheap and deterministic to produce, so it
+// is kept ready in every version's files, but it is still hidden from the
+// customer's tabs/downloads and the public page until they tick the box —
+// `enabled` there is a pure VISIBILITY gate, not a build gate. See
+// effectiveOutputs() (engine.js, what gets rendered) vs outputsForClient() /
+// visibleDownloadsForVersion() (server.js, what the customer is shown).
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', portal: true },
   external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', portal: true },
-  internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Octolinear schematic', portal: true },
+  internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Octolinear schematic', portal: true, buildAlways: true },
   internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
 };
 

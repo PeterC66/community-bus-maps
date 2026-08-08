@@ -61,17 +61,22 @@ writeFileSync(path.join(plain, 'routes.json'), JSON.stringify({ palette: { 1: '#
 check('a falsy config key does not enable the style', resolveGen(OUTPUTS.internal_schematic, plain) === null);
 
 console.log('\ndefault + effective enablement');
-eq('expert styles are OFF by default', defaultOutputs(), {
+eq('expert styles are OFF by default (visibility, not build)', defaultOutputs(), {
   internal_geographic: true, external: true, internal_schematic: false, internal_diagram: false,
 });
-eq('a pre-P7 map (no keys at all) renders only the geographic pair',
-  effectiveOutputs({}, styled).map((o) => o.key), ['internal_geographic', 'external']);
-eq('an expert style renders only when explicitly true',
+eq('the schematic is a buildAlways output — it renders once the config is present, before any enablement',
+  effectiveOutputs({}, styled).map((o) => o.key), ['internal_geographic', 'external', 'internal_schematic']);
+eq('a plain map (no expert config at all) renders only the geographic pair',
+  effectiveOutputs({}, plain).map((o) => o.key), ['internal_geographic', 'external']);
+eq('the diagram (not buildAlways) still renders only when explicitly true',
   effectiveOutputs({ internal_diagram: true }, styled).map((o) => o.key),
-  ['internal_geographic', 'external', 'internal_diagram']);
+  ['internal_geographic', 'external', 'internal_schematic', 'internal_diagram']);
+eq('an explicit false does not stop a buildAlways output from rendering — it only hides it from the customer',
+  effectiveOutputs({ internal_schematic: false }, styled).map((o) => o.key),
+  ['internal_geographic', 'external', 'internal_schematic']);
 eq('geographic outputs can still be switched off',
-  effectiveOutputs({ external: false }, styled).map((o) => o.key), ['internal_geographic']);
-eq('an opted-in style stays off for a map without the config',
+  effectiveOutputs({ external: false }, styled).map((o) => o.key), ['internal_geographic', 'internal_schematic']);
+eq('the diagram opt-in stays off for a map without the config; buildAlways does not apply to it',
   effectiveOutputs({ internal_schematic: true, internal_diagram: true }, plain).map((o) => o.key),
   ['internal_geographic', 'external']);
 

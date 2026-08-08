@@ -7,6 +7,28 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Changed — the octolinear schematic now builds every save, hidden until the customer switches it on — 2026-08-08
+
+Previously "enabled" was one flag doing two jobs: whether an expert style got RENDERED and whether
+the customer could SEE/download it. That meant ticking the schematic's visibility box in the editor
+produced nothing until the next save. `internal_schematic` is now a `buildAlways` output
+(`src/maps/store.js` `OUTPUTS`): `effectiveOutputs()` (`src/maps/engine.js`) renders it into every
+version whenever a map's `routes.json` carries `internalSchematic`, regardless of the enabled flag —
+so the files are already sitting in the version folder the moment a customer ticks the box, with
+nothing to rebuild. Visibility stays a separate, still-off-by-default gate: new
+`visibleDownloadsForVersion()` (`src/server.js`) filters the customer-facing `downloads` /
+`publishedDownloads` lists (and the save/accept responses) down to only the outputs the map has
+switched on; the public map page (`src/public/index.js`) already worked this way independently and
+needed no change. Admin-only views (publish review, revert history, the diagram pin editor) keep
+using the raw file list, since an admin should see everything that exists. The tube-map diagram is
+unaffected — it stays request-only and gated behind its own `enabled` flag, since it still needs
+hand-pinning before it is fit to exist at all. `scripts/test-p7.mjs`'s effective-outputs checks
+rewritten for the new split; `npm test` and `npm run verify` (byte-identical, area + place) both
+still PASS. Verified live on a scratch DATA_DIR: saved a St Ives version with the schematic
+disabled, confirmed `internal-schematic.svg/.jpg` existed on disk but were absent from
+`downloads`, then PATCHed `internal_schematic: true` and confirmed the same files appeared in
+`downloads` immediately, with no re-render.
+
 ### Added — pushed engine/S6/gate staleness on the To-do list — 2026-08-08
 
 Item 3 of the fool-proofing plan. The To-do tab's ranks 0 (failing gates) and 8 (engine-stale /
