@@ -13,6 +13,10 @@
 // and remembers which of those towns have portal maps" into a queued flag —
 // reusing the existing admin Messages inbox, no new UI.
 //
+// It also (P8) auto-suggests each hit map's public "changes coming" banner —
+// see setMapBannerNoteAuto in src/db/index.js, which refuses to overwrite a
+// note an admin/customer has since edited by hand.
+//
 //   node scripts/check-upcoming-refreshes.mjs [--report "<path to upcoming-report_*.md>"]
 //
 // Without --report, the newest upcoming-report_<date>.md under
@@ -21,42 +25,22 @@
 // for a given report date is not flagged again (checked against existing
 // 'refresh-flag' messages).
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import path from 'node:path';
-import { listMaps, listMessages, insertMessage } from '../src/db/index.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { listMaps, listMessages, insertMessage, setMapBannerNoteAuto } from '../src/db/index.js';
+import { newestReportPath, reportDateOf, parseSections, bannerNoteFor } from './lib/upcoming-report.mjs';
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
 }
 
-const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
-const UPCOMING_DIR = path.join(BUSES_DIR, '_gtfs', 'upcoming');
-
-function newestReport() {
-  if (!existsSync(UPCOMING_DIR)) return null;
-  const files = readdirSync(UPCOMING_DIR).filter((f) => /^upcoming-report_\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort();
-  return files.length ? path.join(UPCOMING_DIR, files[files.length - 1]) : null;
-}
-
-const reportPath = arg('report') || newestReport();
+const reportPath = arg('report') || newestReportPath();
 if (!reportPath || !existsSync(reportPath)) {
-  console.error(`✗ no upcoming-report_*.md found (looked in ${UPCOMING_DIR}; pass --report to point at one explicitly).`);
+  console.error(`✗ no upcoming-report_*.md found (looked under BUSES_DIR/_gtfs/upcoming/; pass --report to point at one explicitly).`);
   process.exit(1);
 }
-const reportDate = (path.basename(reportPath).match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || path.basename(reportPath);
-const md = readFileSync(reportPath, 'utf8');
-
-// One section per town: "## <Town> — N upcoming[, M to verify]" followed by
-// its "_region ..._" line and bullet items, up to the next "## " or EOF.
-// Split on the heading marker rather than a lookahead-bounded regex — CRLF
-// line endings make `$`/`\n?$` match at every line end in multiline mode, not
-// just EOF, so a lookahead-based "stop before the next heading or EOF" silently
-// stopped after the section's FIRST line every time.
-const sections = md.split(/^## /m).slice(1).map((part) => {
-  const m = part.match(/^(.+?) — (\d+) upcoming(?:, (\d+) to verify)?\r?\n([\s\S]*)$/);
-  return m && [null, m[1], m[2], m[3], m[4]];
-}).filter(Boolean);
+const reportDate = reportDateOf(reportPath);
+const sections = parseSections(readFileSync(reportPath, 'utf8'));
 if (!sections.length) {
   console.log(`No town sections found in ${reportPath} — nothing to check.`);
   process.exit(0);
@@ -79,23 +63,25 @@ function mapsForTown(town) {
   ));
 }
 
-let flagged = 0, skippedNoMap = 0, skippedDuplicate = 0;
-for (const [, town, upcoming, toVerify, body] of sections) {
-  const hits = mapsForTown(town.trim());
+let flagged = 0, skippedNoMap = 0, skippedDuplicate = 0, bannered = 0;
+for (const { town, upcoming, toVerify, bullets } of sections) {
+  const hits = mapsForTown(town);
   if (!hits.length) { skippedNoMap++; continue; }
-  const bullets = body.split('\n').map((l) => l.replace(/\r$/, '')).filter((l) => l.trim().startsWith('- ')).join('\n');
+  const bulletsText = bullets.join('\n');
   const verify = toVerify ? `, ${toVerify} to verify` : '';
+  const banner = bannerNoteFor(bullets);
   for (const m of hits) {
+    if (banner && setMapBannerNoteAuto(m.id, banner)) bannered++;
     if (alreadyFlagged(m.id)) { skippedDuplicate++; continue; }
-    const text = `Upcoming bus changes for ${town.trim()} (report ${reportDate}): ${upcoming} upcoming${verify}.\n\n${bullets}\n\n` +
+    const text = `Upcoming bus changes for ${town} (report ${reportDate}): ${upcoming} upcoming${verify}.\n\n${bulletsText}\n\n` +
       `This map ("${m.name}", ${m.customer_name || 'unowned'}) may need a refresh. Re-run the ` +
-      `make-bus-leaflet skill for ${town.trim()} to produce a fresh render, then:\n` +
+      `make-bus-leaflet skill for ${town} to produce a fresh render, then:\n` +
       `  node scripts/propose-update.mjs --map ${m.slug} --src "<fresh S5-render dir>"`;
     insertMessage({ kind: 'refresh-flag', body: text, map_id: m.id });
     flagged++;
-    console.log(`· flagged map "${m.slug}" (#${m.id}, ${m.customer_name || 'unowned'}) — ${town.trim()}: ${upcoming} upcoming${verify}`);
+    console.log(`· flagged map "${m.slug}" (#${m.id}, ${m.customer_name || 'unowned'}) — ${town}: ${upcoming} upcoming${verify}`);
   }
 }
 
-console.log(`\n${flagged} flag(s) queued in the admin Messages inbox, ${skippedDuplicate} already flagged for this report, ${skippedNoMap} town(s) with no matching portal map.`);
+console.log(`\n${flagged} flag(s) queued in the admin Messages inbox, ${skippedDuplicate} already flagged for this report, ${skippedNoMap} town(s) with no matching portal map, ${bannered} public banner(s) set/refreshed.`);
 if (flagged) console.log('Review at /app/admin (Messages tab) — each entry names the map and the propose-update.mjs command to run once a fresh render exists.');

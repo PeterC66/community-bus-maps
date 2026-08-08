@@ -34,10 +34,11 @@ import { fileURLToPath } from 'node:url';
 import {
   getMapBySlug, insertMap, setMapDataDir, insertVersion, setCurrentVersion,
   getCustomerByName, insertCustomer, getMap, getCustomer, setMapStatus, setMapOutputs,
-  listAwaitingBuild, updateMapIdentity, listVersions, recordAudit,
+  listAwaitingBuild, updateMapIdentity, listVersions, recordAudit, setMapBannerNoteAuto,
 } from '../src/db/index.js';
 import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
+import { newestReportPath, parseSections, sectionsForTown, bannerNoteFor } from './lib/upcoming-report.mjs';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 
@@ -273,6 +274,24 @@ console.log('· rendering baseline v1.0 (this runs both generators + rasterises)
 const r = await renderVersion(id, {}, storageKey, defaultOutputs());
 const versionId = insertVersion({ map_id: id, major: 1, minor: 0, note: 'Imported baseline', overrides: {}, storage_key: storageKey });
 setCurrentVersion(id, versionId);
+
+// P8: if we already know of an upcoming change this brand-new map doesn't
+// reflect (e.g. this build itself is a fresh S1 scrape that predates a service
+// change registered for next month), seed the public "changes coming" banner
+// straight away rather than waiting for the next scheduled scan.
+try {
+  const reportPath = newestReportPath();
+  if (reportPath) {
+    const sections = sectionsForTown(parseSections(readFileSync(reportPath, 'utf8')), subject || name);
+    const banner = sections.length ? bannerNoteFor(sections.flatMap((s) => s.bullets)) : null;
+    if (banner) {
+      setMapBannerNoteAuto(id, banner);
+      console.log(`· seeded "changes coming" banner from ${path.basename(reportPath)}: ${banner}`);
+    }
+  }
+} catch (e) {
+  console.warn(`· note: could not check for upcoming changes to seed a banner (${e.message})`);
+}
 
 // A fulfilled request leaves 'approved' and becomes an ordinary DRAFT map: the
 // customer can edit it and it reaches the public only through the publish gate.

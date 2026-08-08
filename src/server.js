@@ -32,6 +32,7 @@ import {
   listProposedForMap, listPendingProposedUpdates,
   listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug,
   setCustomerBranding, setMapPublicListed, publicCounts,
+  setMapBannerNote, clearMapBannerNote,
 } from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
@@ -722,6 +723,9 @@ function mapDetail(m) {
     publicListed: !!m.public_listed,
     publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
     org: m.customer_id ? brandingForPublic(getCustomer(m.customer_id)) : null,
+    // --- P8: "changes coming" banner ---
+    bannerNote: m.banner_note || null,
+    bannerNoteSource: m.banner_note_source || 'auto',
   };
 }
 
@@ -956,6 +960,21 @@ app.patch('/api/maps/:id/public', async (req, reply) => {
   req.log.info({ mapId: map.id, listed }, 'public listing updated');
   logAudit(req, listed ? 'public.list' : 'public.unlist', { mapId: map.id, detail: { name: map.name } });
   return { ok: true, publicListed: listed, publicUrl: getPublicMapBySlug(map.slug) ? mapPageUrl(map.slug) : null };
+});
+
+// P8: the "changes coming" banner shown above the public map image. Auto-
+// suggested by scripts/check-upcoming-refreshes.mjs from the GTFS upcoming-
+// changes scan; the owning customer or an admin may overwrite the wording here
+// (marking it 'manual' so the next scan won't clobber it), or clear it entirely.
+app.patch('/api/maps/:id/banner-note', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const note = str((req.body || {}).note, 500);
+  setMapBannerNote(map.id, note || null, 'manual');
+  req.log.info({ mapId: map.id, by: user.email }, 'banner note updated');
+  logAudit(req, 'banner.update', { mapId: map.id, detail: { note } });
+  return { ok: true, bannerNote: note || null };
 });
 
 app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
@@ -1315,6 +1334,9 @@ app.post('/api/review/:id/approve', async (req, reply) => {
   setVersionState(pr.version_id, 'published');
   setPublishedVersion(pr.map_id, pr.version_id);
   setMapStatus(pr.map_id, 'published');
+  // The newly-published data is presumed to reflect any change the banner warned
+  // about — clear it. (If it still applies, the GTFS scan or an admin re-sets it.)
+  clearMapBannerNote(pr.map_id);
 
   req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
   logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote } });

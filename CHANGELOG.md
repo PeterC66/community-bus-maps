@@ -7,6 +7,20 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — "changes coming" banner on the public map page (P8) — 2026-08-08
+
+A map whose town has a known upcoming service change it doesn't yet reflect can now say so:
+a short banner above the map image on its public `/m/<slug>` page. Wording is auto-suggested
+by `scripts/check-upcoming-refreshes.mjs` from the same GTFS upcoming-changes scan that already
+flags maps for refresh, and can be edited or cleared by the owning customer or an admin in the
+editor (new `PATCH /api/maps/:id/banner-note`) — an edit is marked `manual` so the next scan
+won't overwrite it. `scripts/import-map.mjs` also checks the newest upcoming-changes report at
+build time, so a brand-new map can carry the banner from its very first publish if the change
+is already known. The banner clears itself automatically the next time the map is published
+(`src/server.js`, the publish-approve handler), since the fresh data is presumed to reflect it.
+New `map.banner_note` / `banner_note_source` / `banner_note_set_at` columns
+(`src/db/schema.sql`, migrated in `src/db/index.js`).
+
 ### Changed — full engine rollout: all 8 areas + 5 places re-rendered and published on the current template — 2026-08-08
 
 Every town and place map was re-rendered against the current engine template (the same

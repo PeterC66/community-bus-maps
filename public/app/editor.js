@@ -446,6 +446,37 @@ function buildPublic() {
   });
 }
 
+// ---- "changes coming" banner (P8) --------------------------------------------
+function buildBanner() {
+  const panel = $('bannerPanel');
+  if (!detail.currentVersion) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $('bannerSourceTag').textContent = detail.bannerNote
+    ? (detail.bannerNoteSource === 'manual' ? 'edited' : 'auto-suggested')
+    : '';
+  $('bannerNoteText').value = detail.bannerNote || '';
+}
+
+async function saveBannerNote(note) {
+  const saveBtn = $('bannerSaveBtn'), clearBtn = $('bannerClearBtn');
+  saveBtn.disabled = true; clearBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/banner-note`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
+    });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) {
+      detail.bannerNote = b.bannerNote; detail.bannerNoteSource = 'manual';
+      notice('ok', b.bannerNote ? 'Banner wording saved.' : 'Banner cleared.');
+      buildBanner();
+    } else { notice('err', (b && b.error) || 'Could not update the banner.'); }
+  } catch { notice('err', 'Network error updating the banner.'); }
+  finally { saveBtn.disabled = false; clearBtn.disabled = false; }
+}
+
+$('bannerSaveBtn').addEventListener('click', () => saveBannerNote(($('bannerNoteText').value || '').trim()));
+$('bannerClearBtn').addEventListener('click', () => { $('bannerNoteText').value = ''; saveBannerNote(''); });
+
 async function reloadPublish() {
   try {
     const res = await fetch(`/api/maps/${MAP_ID}`);
@@ -457,8 +488,9 @@ async function reloadPublish() {
       publishedDownloads: d.publishedDownloads, pendingRequest: d.pendingRequest, editable: d.editable,
       currentVersion: d.currentVersion, downloads: d.downloads, versions: d.versions, status: d.status,
       publicListed: d.publicListed, publicUrl: d.publicUrl,
+      bannerNote: d.bannerNote, bannerNoteSource: d.bannerNoteSource,
     });
-    applyLock(); buildPublish(); buildPublic(); buildDownloads();
+    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDownloads();
   } catch { /* leave as-is */ }
 }
 
@@ -675,7 +707,7 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildUpdatePanel(); applyLock();
+    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); applyLock();
     buildExpertLinks();
 
     await loadSavedSvg();

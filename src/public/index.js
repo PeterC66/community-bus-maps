@@ -107,6 +107,7 @@ export function publicMap(row) {
     subject: row.subject || '',
     version: row.pub_key,
     publishedAt: row.published_at,
+    bannerNote: row.banner_note || null,
     url: mapPageUrl(row.slug),
     org: brandingForPublic({
       name: row.customer_name, slug: row.customer_slug, branding_json: row.branding_json,

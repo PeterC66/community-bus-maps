@@ -64,6 +64,11 @@
     </div>
     ${map.org.blurb ? `<p class="section-intro">${esc(map.org.blurb)}</p>` : ''}`;
 
+  if (map.bannerNote) {
+    $('bannerNote').innerHTML = `⚠ <strong>Changes coming:</strong> ${esc(map.bannerNote)}`;
+    $('bannerNote').hidden = false;
+  }
+
   $('fbSlug').value = map.slug;
   const about = map.subject
     ? `This ${map.kind === 'place' ? 'place' : 'area'} map covers ${map.subject}. It is drawn from official open bus data and checked by a person before each publication.`

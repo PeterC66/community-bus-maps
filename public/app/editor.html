@@ -124,6 +124,19 @@
             <div id="publicBody"></div>
           </div>
         </div>
+
+        <!-- ---------------- "changes coming" banner (P8) ---------------- -->
+        <div class="panel" id="bannerPanel" style="margin-top:16px" hidden>
+          <header>“Changes coming” banner <span class="count" id="bannerSourceTag"></span></header>
+          <div class="body">
+            <p class="hint-line">Shown above the map image on the public page, to warn readers of a known upcoming change this map doesn't reflect yet. We suggest wording automatically from upcoming service changes; edit it if it reads oddly, or clear it. It clears itself once this map is next published.</p>
+            <textarea class="field" id="bannerNoteText" maxlength="500" rows="2" placeholder="e.g. Route 33 is changing from 1 September — this map will be updated before then."></textarea>
+            <div class="control-actions" style="margin-top:8px">
+              <button class="btn btn-primary btn-sm" id="bannerSaveBtn" type="button">Save wording</button>
+              <button class="btn btn-ghost btn-sm" id="bannerClearBtn" type="button">Clear banner</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>

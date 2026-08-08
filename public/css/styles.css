@@ -350,6 +350,14 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   background: color-mix(in srgb, var(--err) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--err) 32%, transparent);
 }
+.banner-note {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: .95rem;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
 
 /* ---------- PILOT: pilot banner ----------
    Injected into every page by /js/site-banner.js. Delete this block and the
