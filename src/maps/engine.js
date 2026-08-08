@@ -73,10 +73,12 @@ export function readBaseOverrides(dataDir) {
 }
 
 /**
- * Default output enablement: the two geographic outputs on; the **expert styles
- * off** (P7). They render fine, but a schematic or diagram is an editorial choice
- * (and the diagram usually wants pin-tuning first), so a map opts in deliberately
- * rather than every save quietly producing four sheets.
+ * Default output ENABLEMENT — i.e. visibility to the customer: the two
+ * geographic outputs on; the **expert styles off** (P7). A schematic or diagram
+ * showing up in a customer's tabs/downloads is an editorial choice (and the
+ * diagram usually wants pin-tuning first), so a map opts in deliberately. This
+ * is independent of whether an output is actually RENDERED — see
+ * effectiveOutputs()'s `buildAlways` handling below.
  */
 export function defaultOutputs() {
   const o = {};
@@ -85,9 +87,17 @@ export function defaultOutputs() {
 }
 
 /**
- * The outputs to actually render for a map: enabled AND portal-supported AND the
- * generator is present. An empty/absent config means "portal defaults on" — so a
- * map imported before output toggles existed still renders both.
+ * The outputs to actually RENDER for a map: portal-supported, the generator is
+ * present, and — for most outputs — enabled. An empty/absent config means
+ * "portal defaults on" — so a map imported before output toggles existed still
+ * renders both geographic outputs.
+ *
+ * `buildAlways` outputs (the schematic) are the one exception: they render
+ * whenever the map's data supports them, REGARDLESS of the enabled flag. This
+ * keeps the files ready the moment a customer ticks the visibility box, instead
+ * of them landing on the next save — enablement there is purely what
+ * outputsForClient()/visibleDownloadsForVersion() (server.js) and the public
+ * page (src/public/index.js) show, not what gets built.
  * @returns {{ key:string, gen:string, base:string, label:string }[]}
  */
 export function effectiveOutputs(config, dataDir) {
@@ -95,10 +105,12 @@ export function effectiveOutputs(config, dataDir) {
   const out = [];
   for (const [key, meta] of Object.entries(OUTPUTS)) {
     if (!meta.portal) continue;
-    // Geographic outputs: undefined => on (a map imported before output toggles
-    // existed still renders both). Expert styles: opt-in only, so a map imported
-    // before P7 doesn't silently start producing two more sheets.
-    if (meta.expert ? cfg[key] !== true : cfg[key] === false) continue;
+    if (!meta.buildAlways) {
+      // Geographic outputs: undefined => on (a map imported before output toggles
+      // existed still renders both). Expert styles: opt-in only, so a map imported
+      // before P7 doesn't silently start producing two more sheets.
+      if (meta.expert ? cfg[key] !== true : cfg[key] === false) continue;
+    }
     const gen = resolveGen(meta, dataDir);
     if (!gen) continue; // no candidate generator present/configured for this map
     out.push({ key, base: meta.base, label: meta.label, gen, expert: !!meta.expert });

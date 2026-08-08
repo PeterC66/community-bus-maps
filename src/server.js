@@ -598,6 +598,23 @@ function downloadsForVersion(id, storageKey) {
     .map((f) => ({ file: f, url: `/api/maps/${id}/versions/${storageKey}/${f}` }));
 }
 
+// Customer-facing download list: same as downloadsForVersion() but additionally
+// hides any `buildAlways` output (the schematic) the map hasn't switched on for
+// itself yet. It is rendered into every version regardless (see effectiveOutputs
+// in maps/engine.js), so the raw file list would otherwise leak it before the
+// customer ticks the visibility box. Non-output files (disagreements.pdf) always
+// pass through. Admin-only views (review, revert, the diagram pin editor) use
+// the raw downloadsForVersion() — an admin should see everything that exists.
+function visibleDownloadsForVersion(id, storageKey, outputsConfig) {
+  const visibleBases = new Set(
+    outputsForClient(outputsConfig, id).filter((o) => o.enabled).map((o) => o.base),
+  );
+  return downloadsForVersion(id, storageKey).filter((d) => {
+    const m = d.file.match(/^(.*)\.(svg|jpg)$/);
+    return !m || visibleBases.has(m[1]);
+  });
+}
+
 const parseJson = (s) => { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } };
 
 // Load a map's PENDING proposed update, scoped to that map. Returns { pu } or { code, error }.
@@ -663,11 +680,11 @@ function mapDetail(m) {
     town: meta.town, currentVersion: m.cur_key || null, overrides: saved,
     routes, pois, hideOperatorsEnabled, operators, outputs: outputsForClient(parseOutputs(m.outputs), id),
     versions: listVersions(id),
-    downloads: m.cur_key ? downloadsForVersion(id, m.cur_key) : [],
+    downloads: m.cur_key ? visibleDownloadsForVersion(id, m.cur_key, parseOutputs(m.outputs)) : [],
     // --- publish gate ---
     headState: m.cur_state || null,
     publishedVersion: m.pub_key || null,
-    publishedDownloads: m.pub_key ? downloadsForVersion(id, m.pub_key) : [],
+    publishedDownloads: m.pub_key ? visibleDownloadsForVersion(id, m.pub_key, parseOutputs(m.outputs)) : [],
     pendingRequest: pending,
     editable: !pending, // locked while a publish request awaits review
     changeSummary: summary,
@@ -811,7 +828,7 @@ app.post('/api/maps/:id/save', async (req, reply) => {
     setCurrentVersion(id, versionId);
     req.log.info({ mapId: id, version: storageKey, by: user.email }, 'saved new map version');
     logAudit(req, 'version.save', { mapId: id, versionId, detail: { version: storageKey, note: str(b.note, 500) } });
-    return { ok: true, version: storageKey, rejected: s.rejected, files: r.files, downloads: downloadsForVersion(id, storageKey) };
+    return { ok: true, version: storageKey, rejected: s.rejected, files: r.files, downloads: visibleDownloadsForVersion(id, storageKey, parseOutputs(map.outputs)) };
   } catch (e) {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Render failed: ' + e.message });
@@ -1040,7 +1057,7 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
     logAudit(req, 'refresh.accept', { mapId: id, versionId, detail: { proposedId: pu.id, version: storageKey, changeSummary: summary, droppedOverrides: applied.dropped, note: decisionNote } });
     return {
       ok: true, version: storageKey, dropped: applied.dropped,
-      files: applied.rend.files, downloads: downloadsForVersion(id, storageKey),
+      files: applied.rend.files, downloads: visibleDownloadsForVersion(id, storageKey, outputs),
     };
   } catch (e) {
     req.log.error(e);
