@@ -1,7 +1,7 @@
 ﻿# engine/expert/ — the vendored EXPERT-STYLE engines (P7)
 
-<!-- docstamp v1.1 | 2026-08-07 | sha=bd93509f -->
-**v1.1** · updated 7 August 2026
+<!-- docstamp v1.2 | 2026-08-08 | sha=0c37a400 -->
+**v1.2** · updated 8 August 2026
 
 The third and fourth outputs of a map — the **octolinear schematic** and the **tube-map
 diagram** — are produced here. Unlike the area generators (which travel with each map's
