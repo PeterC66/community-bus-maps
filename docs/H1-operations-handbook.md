@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.10 | 2026-08-08 | sha=0b00d783 -->
-**v1.10** · updated 8 August 2026
+<!-- docstamp v1.11 | 2026-08-08 | sha=73cccf80 -->
+**v1.11** · updated 8 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -113,6 +113,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Doc | Home | What it's for | Status |
 |---|---|---|---|
 | **This handbook** | `docs/H1-operations-handbook.md` | the operator spine | ✅ |
+| **Daily To-do quickstart** | `docs/H2-todo-quickstart.md` | steps-only guide for working the `/app/admin` To-do tab, day to day | ✅ added 2026-08-08 |
 | **Repo orientation for a new session** | `CLAUDE.md` | pilot status + the non-negotiables, loaded automatically by Claude Code | ✅ added 2026-07-26 |
 | **Pilot mode** | `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | ✅ added 2026-07-26 |
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
