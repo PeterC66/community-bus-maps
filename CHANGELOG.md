@@ -1,11 +1,32 @@
 # Changelog
 
-<!-- docstamp v1.26 | 2026-08-08 | sha=4e4ff501 -->
-**v1.26** · updated 8 August 2026
+<!-- docstamp v1.27 | 2026-08-08 | sha=7da50368 -->
+**v1.27** · updated 8 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — schematic/diagram now title/version-stamp PLACE maps correctly — 2026-08-08
+
+The two expert-style pre-stages (`engine/expert/schematize_internal.js` / `diagram_internal.js`)
+always ran a map's raw `gen_internal.js` in their geometry workspace, never the place engine's
+`gen_internal_place.js` wrapper — so a place map's schematic/diagram, had one ever been enabled,
+would have rendered with the area-shaped title ("Buses within `<town>`" instead of "Buses serving
+`<place>`") and an unstripped `vv1.x` version stamp. No place map had opted into either output yet
+(this was a latent gap, not a live bug), found while answering whether place maps can produce all
+four outputs. Both pre-stages now detect a place map (`gen_internal_place.js` present beside
+`routes.json`) and reproduce that wrapper's two fixes directly on the workspace output — `LEAFLET_VERSION`
+set before the run, the title token swapped on the copied SVG afterwards — rather than running
+`gen_internal_place.js` itself, since it resolves paths relative to `DIR`/`cwd`, assumptions the
+workspace subfolder breaks. Fixed at the source (`make-bus-leaflet` skill, `claude-skills` commit
+`715f16b`) and re-vendored here verbatim, same as every other change to this pair. **Availability is
+unchanged** — both outputs are still opt-in per map (`internalSchematic`/`internalDiagram` in
+`routes.json`) and the schematic still defaults to hidden from the customer (see the entry below);
+this only fixes what gets rendered once a place map opts in, not whether it does by default.
+Verified against the High Wycombe Aldi place fixture directly (title/version now correct); the
+area byte-identical gate (`npm run verify`) still passes unchanged, since no town carries
+`gen_internal_place.js` so the new branch never runs for one.
 
 ### Changed — the octolinear schematic now builds every save, hidden until the customer switches it on — 2026-08-08
 

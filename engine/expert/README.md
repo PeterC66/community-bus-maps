@@ -36,6 +36,22 @@ Three small things, all of which would otherwise bite:
    (`SKILL_ASSETS` for icons, `OVERRIDES_FILE` for the customer's recolours/POI hides)
    straight through — which is why a customer's safe-subset edits show up on these sheets too.
 
+## Place-map support (2026-08-08)
+
+Both pre-stages work for a **place** map too, not just area: they detect one by checking
+for `gen_internal_place.js` beside the map's `routes.json` (present because the place
+engine vendors it — see `engine/place/README.md`), and if found, reproduce that wrapper's
+two place-specific fixes directly on the workspace output, rather than running
+`gen_internal_place.js` itself (which resolves `gen_internal.js`/`internal.svg` relative to
+`DIR`/`cwd` — assumptions the workspace subfolder breaks): the **version stamp** via
+`LEAFLET_VERSION` set before the run, and the **title** token ("Buses within `<town>`" →
+"Buses serving `<place>`") swapped on the copied SVG afterwards. Before this fix, a place's
+schematic/diagram — had one ever been enabled — would have rendered with the wrong,
+area-shaped title and an unstripped `vv1.x` version stamp; no place map had opted into
+either output yet, so nothing shipped with the bug. An area map is unaffected (no
+`gen_internal_place.js` in its data folder, so the place branch never runs) — proved by the
+byte-identical gate below still passing unchanged.
+
 ## The pin editor
 
 `diagram-layout.json` in a map's data folder holds the expert's hand-placed junction pins.
