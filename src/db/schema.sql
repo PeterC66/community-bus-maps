@@ -58,7 +58,9 @@ CREATE TABLE IF NOT EXISTS customer (
   branding_json TEXT NOT NULL DEFAULT '{}',      -- P6: public-facing branding (public name, website, blurb, emoji, accent)
   slug          TEXT,                             -- P6: url-safe id for the public organisation page /o/<slug>
   is_demo       INTEGER NOT NULL DEFAULT 0,       -- seeded demo organisation, not a real customer (labelled everywhere)
-  hide_operators_enabled INTEGER NOT NULL DEFAULT 0  -- opt-in: may this customer hide an operator's routes in Map Tuning? default off
+  hide_operators_enabled INTEGER NOT NULL DEFAULT 0,  -- opt-in: may this customer hide an operator's routes in Map Tuning? default off
+  watermark_enabled INTEGER NOT NULL DEFAULT 1     -- opt-out: stamp a "BusMaps.uk" watermark on JPG downloads by anyone who
+                                                    -- is not this customer (or an admin)? default ON, admin may switch off per customer
 );
 
 CREATE TABLE IF NOT EXISTS user (
@@ -107,7 +109,10 @@ CREATE TABLE IF NOT EXISTS map (
   status              TEXT NOT NULL DEFAULT 'draft', -- requested|approved|building|draft|published|archived (P1: draft)
   current_version_id  INTEGER REFERENCES map_version(id),  -- latest rendered version (the working head shown in the editor)
   published_version_id INTEGER REFERENCES map_version(id),  -- P4: the public-current pointer (the signed-off version); NULL until first publish
-  public_listed       INTEGER NOT NULL DEFAULT 1     -- P6: show the published version on the public site (customer's choice)
+  public_listed       INTEGER NOT NULL DEFAULT 1,    -- P6: show the published version on the public site (customer's choice)
+  banner_note         TEXT,                          -- P8: "changes coming" banner shown above the public map image; NULL = no banner
+  banner_note_source  TEXT NOT NULL DEFAULT 'auto',   -- auto (from the GTFS upcoming-changes scan) | manual (admin/customer edited the wording)
+  banner_note_set_at  TEXT                            -- when the current banner_note was set
 );
 
 CREATE TABLE IF NOT EXISTS map_version (

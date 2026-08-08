@@ -30,5 +30,17 @@ Any example images distributed with this repository (under public/examples/)
 are the project's own rendered bus leaflets and are provided for demonstration;
 they carry the OpenStreetMap and BODS attributions above.
 
+--------------------------------------------------------------------------------
+Ownership of published maps
+--------------------------------------------------------------------------------
+
+(C) BusMaps.uk. A map produced by this software for a commissioning organisation
+is licensed, not sold: that organisation may reproduce and display it without
+limit for as long as it remains accurate. BusMaps.uk retains ownership and may
+reuse the underlying data and design elsewhere. Redistribution by third parties
+(other than the commissioning organisation) requires permission. This is
+separate from, and does not affect, the Apache-2.0 licence on the portal
+software itself (see LICENSE) or the OpenStreetMap/BODS attributions above.
+
 This NOTICE file is provided for attribution purposes and does not modify the
 License.

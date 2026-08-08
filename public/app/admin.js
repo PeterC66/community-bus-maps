@@ -307,8 +307,8 @@ LOADERS.customers = async () => {
   const box = $('customers');
   const custs = (body && body.customers) || [];
   if (!custs.length) { box.innerHTML = '<div class="empty">No customers yet.</div>'; return; }
-  const columns = [{ label: 'Customer', key: 'name' }, { label: 'Users', key: 'users' }, { label: 'Area maps', key: 'usedAreas' }, { label: 'Place maps', key: 'usedPlaces' }, { label: 'Status', key: 'status' }, { label: 'Plan', key: 'plan' }, { label: 'Operator filter' }, { label: '' }];
-  renderSortable('customers', box, [20, 8, 12, 12, 10, 14, 14, 10], columns, custs, rowCust, (b) => {
+  const columns = [{ label: 'Customer', key: 'name' }, { label: 'Users', key: 'users' }, { label: 'Area maps', key: 'usedAreas' }, { label: 'Place maps', key: 'usedPlaces' }, { label: 'Status', key: 'status' }, { label: 'Plan', key: 'plan' }, { label: 'Operator filter' }, { label: 'Watermark downloads' }, { label: '' }];
+  renderSortable('customers', box, [17, 7, 11, 11, 9, 12, 12, 12, 9], columns, custs, rowCust, (b) => {
     b.querySelectorAll('button[data-save]').forEach((b2) => b2.addEventListener('click', () => saveCust(b2.dataset.save)));
   });
 };
@@ -322,13 +322,14 @@ function rowCust(c) {
     <div class="gt-cell" role="cell"><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></div>
     <div class="gt-cell" role="cell"><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></div>
     <div class="gt-cell" role="cell"><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners"${c.watermarkEnabled ? ' checked' : ''}></div>
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></div>
   </div>`;
 }
 async function saveCust(id) {
   const tr = $('customers').querySelector(`[data-cust="${id}"]`);
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);
-  const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked };
+  const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked, watermarkEnabled: g('watermark').checked };
   const { body } = await jsend(`/api/admin/customers/${id}`, 'PATCH', data);
   if (body.ok) banner('ok', `Saved changes to ${esc(body.customer.name)}.`);
   else banner('err', body.error || 'Save failed.');

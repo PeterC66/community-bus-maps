@@ -67,6 +67,17 @@ function tableColumns(table) {
   // an admin turns it on per customer, same pattern as quota_areas/plan.
   if (!custCols.includes('hide_operators_enabled')) db.exec('ALTER TABLE customer ADD COLUMN hide_operators_enabled INTEGER NOT NULL DEFAULT 0');
 
+  // Opt-out per-customer toggle: watermark this customer's JPG downloads for
+  // anyone who isn't them (or an admin)? On for everyone by default — an admin
+  // turns it off per customer, same pattern as hide_operators_enabled above.
+  if (!custCols.includes('watermark_enabled')) db.exec('ALTER TABLE customer ADD COLUMN watermark_enabled INTEGER NOT NULL DEFAULT 1');
+
+  // P8: "changes coming" banner shown above the public map image. auto-suggested
+  // from the GTFS upcoming-changes scan; admin/customer may overwrite the wording.
+  if (!mapCols.includes('banner_note')) db.exec('ALTER TABLE map ADD COLUMN banner_note TEXT');
+  if (!mapCols.includes('banner_note_source')) db.exec("ALTER TABLE map ADD COLUMN banner_note_source TEXT NOT NULL DEFAULT 'auto'");
+  if (!mapCols.includes('banner_note_set_at')) db.exec('ALTER TABLE map ADD COLUMN banner_note_set_at TEXT');
+
   // Every customer needs a public slug for /o/<slug>; backfill the ones created
   // before P6 (and any created by a script that predates ensureCustomerSlug).
   for (const c of db.prepare("SELECT id, name FROM customer WHERE slug IS NULL OR slug = ''").all()) {
@@ -285,6 +296,33 @@ export function quotaUsage(customerId) {
 
 export function setMapOutputs(mapId, outputs) {
   db.prepare('UPDATE map SET outputs = ? WHERE id = ?').run(JSON.stringify(outputs || {}), Number(mapId));
+}
+
+/**
+ * P8: the "changes coming" banner shown above the public map image.
+ * source is 'auto' (scripts/check-upcoming-refreshes.mjs, from the GTFS upcoming-
+ * changes scan) or 'manual' (admin/customer edited the wording). An auto write
+ * never overwrites an existing manual note — see setMapBannerNoteAuto.
+ */
+export function setMapBannerNote(mapId, note, source = 'manual') {
+  db.prepare(
+    "UPDATE map SET banner_note = ?, banner_note_source = ?, banner_note_set_at = datetime('now') WHERE id = ?",
+  ).run(note ? String(note) : null, source === 'auto' ? 'auto' : 'manual', Number(mapId));
+}
+
+/** Auto-suggest from the GTFS scan: skip maps whose current note was manually edited. */
+export function setMapBannerNoteAuto(mapId, note) {
+  const row = db.prepare('SELECT banner_note_source FROM map WHERE id = ?').get(Number(mapId));
+  if (row && row.banner_note_source === 'manual') return false;
+  setMapBannerNote(mapId, note, 'auto');
+  return true;
+}
+
+/** Cleared once a rebuild is presumed to reflect the change the banner warned about. */
+export function clearMapBannerNote(mapId) {
+  db.prepare(
+    "UPDATE map SET banner_note = NULL, banner_note_source = 'auto', banner_note_set_at = NULL WHERE id = ?",
+  ).run(Number(mapId));
 }
 
 export function countMapsByKind(customerId) {
@@ -662,6 +700,7 @@ export function updateCustomerAdmin(id, f) {
   if (f.status && ['active', 'suspended'].includes(f.status)) { sets.push('status = ?'); args.push(f.status); }
   if (f.plan) { sets.push('plan = ?'); args.push(String(f.plan).slice(0, 40)); }
   if (f.hide_operators_enabled != null) { sets.push('hide_operators_enabled = ?'); args.push(f.hide_operators_enabled ? 1 : 0); }
+  if (f.watermark_enabled != null) { sets.push('watermark_enabled = ?'); args.push(f.watermark_enabled ? 1 : 0); }
   if (!sets.length) return false;
   args.push(Number(id));
   db.prepare(`UPDATE customer SET ${sets.join(', ')} WHERE id = ?`).run(...args);
@@ -783,8 +822,9 @@ const PUBLIC_WHERE = `m.published_version_id IS NOT NULL
        AND c.status = 'active'`;
 
 const PUBLIC_COLUMNS = `m.id, m.slug, m.name, m.kind, m.subject, m.outputs,
+              m.banner_note,
               c.id AS customer_id, c.name AS customer_name, c.type AS customer_type,
-              c.slug AS customer_slug, c.branding_json, c.is_demo,
+              c.slug AS customer_slug, c.branding_json, c.is_demo, c.watermark_enabled,
               pv.storage_key AS pub_key, pv.created_at AS published_at,
               pv.major AS pub_major, pv.minor AS pub_minor`;
 
