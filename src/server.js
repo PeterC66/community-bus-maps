@@ -34,6 +34,7 @@ import {
   setCustomerBranding, setMapPublicListed, publicCounts,
 } from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
+import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
 import {
   publicMap, publicMaps, publicOrg, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
@@ -135,6 +136,31 @@ app.get('/metrics', async (req, reply) => {
   }
   reply.type('text/plain; version=0.0.4');
   return metricsText(VERSION);
+});
+
+// Pushed by the laptop's push-status.mjs (fool-proofing plan item 3): the
+// byte-identical gate (status.js) plus the engine/S6 staleness it reports
+// alongside it. The server cannot compute any of this itself — it needs the
+// operator's private map tree, which is deliberately never synced (see
+// CLAUDE.md) — so it stores whatever was pushed most recently and the
+// worklist trusts it. Same gate as /metrics: a token or an admin session, and
+// an absent token 404s so the endpoint doesn't advertise itself.
+app.post('/api/admin/status', async (req, reply) => {
+  const token = process.env.STATUS_TOKEN;
+  const bearer = String((req.headers.authorization || '')).replace(/^Bearer\s+/i, '');
+  const viaToken = token && (bearer === token || (req.query && req.query.token === token));
+  const viaAdmin = req.user && req.user.role === 'admin';
+  if (!viaToken && !viaAdmin) return reply.code(404).send({ ok: false });
+
+  const b = req.body || {};
+  if (!Array.isArray(b.towns)) return reply.code(400).send({ ok: false, error: 'towns[] required (status.js --json output)' });
+  saveStatusSnapshot({
+    engine: b.engine || null,
+    towns: b.towns,
+    places: Array.isArray(b.places) ? b.places : [],
+    portalDrift: Array.isArray(b.portalDrift) ? b.portalDrift : [],
+  });
+  return { ok: true };
 });
 
 // ===========================================================================

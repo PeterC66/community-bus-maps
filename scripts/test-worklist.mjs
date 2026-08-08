@@ -37,6 +37,7 @@ const eq = (name, got, want) =>
 
 const db = await import('../src/db/index.js');
 const { buildWorklist } = await import('../src/worklist/index.js');
+const { saveStatusSnapshot } = await import('../src/status-snapshot.js');
 
 const keys = () => buildWorklist().items.map((i) => i.key);
 const byKey = (k) => buildWorklist().items.find((i) => i.key === k);
@@ -123,6 +124,38 @@ check('a flag raised after the last staging re-opens', keys().includes('refresh-
 const linked = buildWorklist({ baseUrl: 'https://busmaps.uk/' });
 check('baseUrl is applied without doubling the slash', linked.items.every((i) => !i.where || /^https:\/\/busmaps\.uk\/[a-z]/.test(i.where)),
   linked.items.map((i) => i.where).join(' '));
+
+// --- pushed status snapshot (item 3: ranks 0 / 8) ---------------------------
+// Nobody has pushed yet ⇒ no rank 0/8 items — the server guesses nothing.
+check('no snapshot ⇒ no gate items', !keys().some((k) => k.startsWith('gate-')));
+check('no snapshot ⇒ no housekeeping items', !keys().some((k) => ['nobuild', 'engine-stale', 's6-stale'].includes(k)));
+
+saveStatusSnapshot({
+  engine: 'e-current',
+  towns: [
+    { name: 'Broken Town', version: '6.1', engine: 'e-current', engineCurrent: true, internal: 'DIFF', external: 'PASS' },
+    { name: 'Old Engine Town', version: '6.0', engine: 'e-old', engineCurrent: false, internal: 'PASS', external: 'PASS' },
+    { name: 'Stale S6 Town', version: '6.1', engine: 'e-current', engineCurrent: true, internal: 'PASS', external: 'PASS', s6: 'run-1', s6Age: 40, s6Stale: true },
+    { name: 'Unbuilt Town', internal: 'NO-BUILD', external: '-' },
+    { name: 'Healthy Town', version: '6.1', engine: 'e-current', engineCurrent: true, internal: 'PASS', external: 'PASS', s6: 'run-2', s6Stale: false },
+  ],
+  places: [{ name: 'Broken Place', town: 'Broken Town', internal: 'FAIL', external: 'PASS' }],
+  portalDrift: [{ file: 'render.js -> engine/render.js', same: false }, { file: 'icons.js -> engine/icons.js', same: true }],
+});
+
+check('a DIFF town becomes a rank-0 gate item', byKey('gate-town Broken Town')?.rank === 0);
+check('a FAIL place becomes a rank-0 gate item', byKey('gate-place Broken Place')?.rank === 0);
+check('drifted vendoring becomes a rank-0 gate item', byKey('gate-portal vendoring render.js -> engine/render.js')?.rank === 0);
+check('in-sync vendoring is not flagged', !keys().includes('gate-portal vendoring icons.js -> engine/icons.js'));
+check('a town that only differs in engine version is not a gate item', !keys().includes('gate-town Old Engine Town'));
+
+check('an unbuilt town becomes its own rank-8 housekeeping item', byKey('nobuild-Unbuilt Town')?.rank === 8);
+check('… naming the town in the title', /Unbuilt Town/.test(byKey('nobuild-Unbuilt Town')?.title || ''));
+check('an engine-stale town becomes rank-8 housekeeping', byKey('engine-stale')?.rank === 8);
+check('… naming the live template', /e-current/.test(byKey('engine-stale')?.why || ''));
+check('an S6-stale town becomes rank-8 housekeeping', byKey('s6-stale')?.rank === 8);
+check('a healthy, current town raises no housekeeping item for itself',
+  !keys().includes('nobuild-Healthy Town') && !['engine-stale', 's6-stale'].some((k) => (byKey(k)?.towns || []).includes('Healthy Town')));
 
 console.log(`\n${failures ? `✗ ${failures} check(s) failed` : '✓ all worklist checks passed'}\n`);
 process.exit(failures ? 1 : 0);

@@ -7,6 +7,21 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — pushed engine/S6/gate staleness on the To-do list — 2026-08-08
+
+Item 3 of the fool-proofing plan. The To-do tab's ranks 0 (failing gates) and 8 (engine-stale /
+S6-stale / unbuilt towns) previously existed only in the `bus-work` skill's own terminal output —
+the server has no way to compute them itself, since they need the operator's private map tree
+(never synced; determinism forbids the portal from generating maps). Now the laptop's
+`push-status.mjs` runs `status.js --json` (the byte-identical regenerate-and-diff) and POSTs it to
+new `POST /api/admin/status`, gated the same way as `/metrics` (`STATUS_TOKEN` or an admin session,
+absent token ⇒ 404). The portal stores the latest snapshot under `DATA_DIR` and
+`src/worklist/index.js` folds it into ranks 0/8 — so a failing gate or a stale engine now shows on
+the admin console and to a remote reader, not only to whoever last ran `worklist.mjs --gates`. It is
+a snapshot, not a stream: stale until the next push, and silently absent (not an error) until the
+first one ever arrives. Rank 7 (a BODS-flagged town with no portal map) stays laptop-only — it needs
+`_gtfs/upcoming`, which nothing pushes yet. Covered by new cases in `scripts/test-worklist.mjs`.
+
 ### Added — one ranked To-do list, and `/api/admin/worklist` behind it — 2026-08-07
 
 The admin console had eight tabs and no answer to "what should I do next?". Every queue lived

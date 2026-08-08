@@ -13,16 +13,21 @@
 // nothing, and never bypasses an approval gate — an item that represents a
 // gate says "you decide", it does not offer to decide.
 //
-// Items the SERVER cannot see are not here: whether the local engine template
-// has moved on, whether S6 has run, whether a byte-identical gate passes. Those
-// are the laptop's own map tree, and the skill adds them to this list at ranks
-// 0, 7 and 8. If the portal ever learns them it will be because the laptop
-// pushes them up, not because this module guesses.
+// Items the SERVER cannot see by itself are not computed here: whether the
+// local engine template has moved on, whether S6 has run, whether a
+// byte-identical gate passes. Those live in the laptop's own map tree.
+//
+// Ranks 0 and 8 CAN appear below, but only from a snapshot `push-status.mjs`
+// has pushed via POST /api/admin/status (item 3 of the fool-proofing plan) —
+// this module still guesses nothing itself, it just trusts the last push.
+// Rank 7 (a BODS-flagged town with no portal map at all) is not pushed yet and
+// stays laptop-only; the skill still adds it locally.
 
 import {
   listPendingPublishRequests, listApplications, listMapsByStatus, listAwaitingBuild,
   listPendingProposedUpdates, listMessages, listProposedForMap,
 } from '../db/index.js';
+import { loadStatusSnapshot } from '../status-snapshot.js';
 
 // Ranks are "who is blocked", not "which queue". Lower acts first.
 // 0 is reserved for the skill's failing-gate items — nothing the portal knows
@@ -180,6 +185,57 @@ export function buildWorklist({ baseUrl = process.env.PUBLIC_BASE_URL || '' } = 
       where: url('/app/admin'), runbook: 'R4',
       do: [{ kind: 'portal-ui', what: 'Admin → Refreshes. Nudge by email if it has sat.', url: url('/app/admin') }],
     });
+  }
+
+  // 0 / 8 — whatever push-status.mjs last sent: the byte-identical gate
+  // (status.js), and the cheap engine/S6 staleness it reports alongside it.
+  // Absent a snapshot these two ranks are simply empty, exactly as before
+  // item 3 existed.
+  const snap = loadStatusSnapshot();
+  if (snap) {
+    const snapAge = daysSince(snap.receivedAt);
+    const gateItem = (what) => add({
+      key: `gate-${what}`, rank: 0, type: 'gate',
+      title: `Gate FAILS: ${what}`,
+      why: 'Regenerating from the current engine does not reproduce the committed output. Investigate before shipping anything.',
+      who: '—', ageDays: snapAge,
+      runbook: 'engine',
+      do: [{ kind: 'shell', cwd: '<make-bus-leaflet skill assets>', cmd: 'node status.js' }],
+    });
+    for (const t of (snap.towns || [])) {
+      if (t.internal === 'DIFF' || t.internal === 'FAIL' || /^(DIFF|FAIL)/.test(String(t.external || ''))) gateItem(`town ${t.name}`);
+    }
+    for (const p of (snap.places || [])) {
+      if (p.internal === 'DIFF' || p.internal === 'FAIL' || p.external === 'DIFF' || p.external === 'FAIL') gateItem(`place ${p.name}`);
+    }
+    for (const d of (snap.portalDrift || [])) {
+      if (d.same === false) gateItem(`portal vendoring ${d.file}`);
+    }
+
+    const housekeeping = (key, title, why, towns) => add({
+      key, rank: 8, type: 'housekeeping', title, why, who: '—', ageDays: snapAge, runbook: key === 'engine-stale' ? 'engine' : key === 's6-stale' ? 'S6' : 'R1', towns,
+      do: [{ kind: 'skill', what: 'Run the relevant make-bus-leaflet stage(s) for the town(s) listed.' }],
+    });
+    // Not grouped, unlike engine-stale/s6-stale below: each is its own manifest
+    // in its own state, so one row per town (matching the laptop skill's local
+    // computation of the same signal).
+    for (const t of (snap.towns || []).filter((t) => t.internal === 'NO-BUILD')) {
+      housekeeping(`nobuild-${t.name}`, `${t.name} has a manifest but no S4 build`,
+        'Started and never finished, or migrated without a build.', [t.name]);
+    }
+    const engineStale = (snap.towns || []).filter((t) => t.engine && t.engine !== '(none)' && t.engineCurrent === false);
+    if (engineStale.length) {
+      housekeeping('engine-stale', `${engineStale.length} town${engineStale.length === 1 ? ' was' : 's were'} drawn by an older engine`,
+        `${engineStale.map((t) => `${t.name} (v${t.version || '?'}, ${t.engine})`).join(', ')}${snap.engine ? ` — the live template is ${snap.engine}` : ''}. Harmless until you want the current look; the re-render is mechanical.`,
+        engineStale.map((t) => t.name));
+    }
+    const s6Stale = (snap.towns || []).filter((t) => t.s6Stale);
+    if (s6Stale.length) {
+      housekeeping('s6-stale', `${s6Stale.length} town${s6Stale.length === 1 ? '' : 's'} need an independent (S6) verification pass`,
+        s6Stale.map((t) => `${t.name} (${t.s6 && t.s6 !== 'NEVER' ? `${t.s6Age}d old, pre-dates the current data` : 'never run'})`).join(', ')
+          + '. S6 is the cross-model red-team — it is what catches a route we draw that no longer runs.',
+        s6Stale.map((t) => t.name));
+    }
   }
 
   items.sort((a, b) => a.rank - b.rank || (b.ageDays || 0) - (a.ageDays || 0) || a.key.localeCompare(b.key));
