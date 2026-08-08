@@ -1,7 +1,7 @@
 ﻿# Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.6 | 2026-08-07 | sha=b075321e -->
-**v1.6** · updated 7 August 2026
+<!-- docstamp v1.7 | 2026-08-08 | sha=662b98b9 -->
+**v1.7** · updated 8 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
