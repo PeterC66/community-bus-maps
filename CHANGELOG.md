@@ -7,6 +7,64 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Changed — full engine rollout: all 8 areas + 5 places re-rendered and published on the current template — 2026-08-08
+
+Every town and place map was re-rendered against the current engine template (the same
+`footer.js`-branded, BusMaps.uk-attributed sheet the entries below describe) and loaded
+into the portal in place of the previous demo/example content, per Peter's plan
+(`buses-data` `Development Docs/full-rollout-and-portal-refresh-plan_2026-08-08.md`).
+The place engine (`engine/place/gen_internal.js`, `gen_external_places.js`) was
+re-vendored first, since it had drifted behind the skill's current templates ([PR
+#9](https://github.com/PeterC66/community-bus-maps/pull/9)) — that also surfaced that
+`footer.js` itself, a new shared module, had never been vendored at all; both places'
+`gen_internal_place.js` wrapper needed it too, added at the top level (`engine/footer.js`)
+alongside `icons.js` so the existing `SKILL_ASSETS` fallback picks it up unchanged.
+9 previously-unimported maps (Beaconsfield, High Wycombe, Huntingdon, St Neots, Wisbech
+areas; Beaconsfield Simpson Centre/Waitrose, St Neots Tesco Extra/Town Centre places) were
+imported via `import-map.mjs`; the 3 already-imported maps (St Ives, March, High Wycombe
+Aldi) were refreshed via `propose-update.mjs` and accepted through the portal's own
+editor UI. All 12 were then submitted, reviewed against the P4 5-item checklist and
+published — each now has a live `/m/<slug>` page. **Ramsey is deliberately excluded**:
+its S6 verification (run for the first time as part of this rollout) came back BLOCKED on
+a pre-documented gap (reverse-geocoded, unverified termini) rather than a rollout defect,
+and it needs a real S1 pass before it is trustworthy enough to publish. All curation
+carries forward unchanged — this was a mechanical re-render against current data/engine,
+not a re-curation pass; open service-inclusion questions are untouched.
+
+### Fixed — CI fixtures caught a real content regression in the rolled-out place schematic — 2026-08-08
+
+Refreshing the two byte-identical CI fixtures (`FIXTURE_DIR` → St Ives `v6.21`,
+`PLACE_FIXTURE_DIR` → High Wycombe Aldi `v1.3`, both re-pinned in `buses-data`'s
+`retention-pins.json`) to the rollout's current builds is what proved the rollout above
+was clean — and, for High Wycombe Aldi specifically, caught a genuine regression rather
+than confirming a refresh. Its `internal-schematic.svg` (the first place map ever to use
+`internalSchematic`) had silently lost both its place-title fix ("Buses within High
+Wycombe" instead of "Buses serving Aldi, Tannery Road") and its forced-POI label overrides
+during the manual place re-render: the town skill's `schematize_internal.js` needs a
+`gen_internal_place.js` sentinel file in the run directory to detect it's building a place
+at all, which the skill (unlike the portal) never shipped, and the schematic build runs in
+a `schematic/` workspace subfolder that isn't where `overrides.json` lives, so
+`OVERRIDES_FILE` must be passed explicitly or POI-forcing overrides are silently dropped.
+Root-caused and fixed at the source (`make-place-bus-leaflet` skill, `claude-skills`
+commit `9ff7767`) and the fixture regenerated correctly before shipping. `npm run verify`
+now passes byte-identical across every area and place target, expert styles included.
+
+### Changed — marketing pages brought back in step with the rolled-out engine — 2026-08-08
+
+The example gallery's 8 JPGs (`public/examples/*.jpg`, used on `examples.html` and
+`index.html`) predated the rollout above and still showed the old inline attribution
+footer instead of the new BusMaps.uk-branded band — a visible inconsistency against every
+live published map. Regenerated all 8 from the current rollout builds at the existing
+1400×990 convention; doing so for St Neots Town Centre surfaced that it also needed the
+rollout (it had been marked "already current" earlier, correctly for route/service labels
+but not for the footer or for the same S3-vs-published data gap fixed elsewhere in the
+places wave — backfilled and rebuilt, `buses-data` commit `7e824e9`). Also corrected
+`opportunity.html`'s "Seven towns and five places have been built with it": an eighth
+town (Ramsey) has been drafted since that copy was written, but per the entry above it
+is not yet verified or published, so — Peter's call — the count stays at seven with a
+note that an eighth is in progress, rather than overclaiming or silently dropping it.
+[PR #11](https://github.com/PeterC66/community-bus-maps/pull/11).
+
 ### Added — the place byte-identical gate now covers the schematic, proven on a real place — 2026-08-08
 
 Extended `scripts/verify-reproduce-place.mjs` with the same opt-in auto-detection
