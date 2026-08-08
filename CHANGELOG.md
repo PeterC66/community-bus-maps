@@ -7,6 +7,24 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — the place byte-identical gate now covers the schematic, proven on a real place — 2026-08-08
+
+Extended `scripts/verify-reproduce-place.mjs` with the same opt-in auto-detection
+`scripts/verify-reproduce.mjs` already had for area fixtures: when the place fixture's
+`routes.json` carries `internalSchematic`/`internalDiagram`, that output is regenerated and
+checked byte-identical too. Until now the place gate only ever proved geographic + external,
+so the previous entry's place-title fix had no real regression coverage. High Wycombe
+Aldi — the portal's canonical place fixture — has now opted into `internalSchematic` for
+real (`buses-data` commit `dbc0a57`; new S3-config run records the decision, the S4/S5
+build gains the schematic artefact, the fixture copy here does too), so `npm run
+verify:place` now genuinely regenerates and gates it: `— gen_internal_schematic.js SVG
+107,563 B BYTE-IDENTICAL, JPG pixel-identical`. Availability is unchanged elsewhere — this
+is the one real place map with the config; the schematic still defaults to hidden from the
+customer everywhere, per the entry below. Verified live in a scratch portal instance:
+imported the updated payload, confirmed the schematic rendered (buildAlways) but was absent
+from downloads, then toggled it on in the real editor UI and confirmed it appeared
+immediately — title "Buses serving Aldi, Tannery Road", "Map v1.2" — with no re-render.
+
 ### Fixed — schematic/diagram now title/version-stamp PLACE maps correctly — 2026-08-08
 
 The two expert-style pre-stages (`engine/expert/schematize_internal.js` / `diagram_internal.js`)

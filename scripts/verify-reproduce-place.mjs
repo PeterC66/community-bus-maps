@@ -100,6 +100,24 @@ const targets = [
   ['gen_external_places.js', 'external.svg', 'external.jpg'],
 ];
 
+// P7 expert styles, place-aware (2026-08-08 fix). Portal-owned (engine/expert/,
+// passed as an absolute path) and opt-in per map — checked here only when this
+// fixture's routes.json asks for them, same as verify-reproduce.mjs's area
+// version. schematize_internal.js/diagram_internal.js detect the place case
+// themselves (gen_internal_place.js present in the payload, vendored above) and
+// apply the place's title/version-stamp fix, so this is also the regression
+// gate for that fix — DIFFERS here would mean the place branch broke.
+const routesJson = (() => {
+  try { return JSON.parse(readFileSync(path.join(FIXTURE, 'routes.json'), 'utf8')); } catch { return {}; }
+})();
+const EXPERT = path.join(ENGINE_DIR, 'expert');
+if (routesJson.internalSchematic) {
+  targets.push([path.join(EXPERT, 'gen_internal_schematic.js'), 'internal-schematic.svg', 'internal-schematic.jpg']);
+}
+if (routesJson.internalDiagram) {
+  targets.push([path.join(EXPERT, 'gen_internal_diagram.js'), 'internal-diagram.svg', 'internal-diagram.jpg']);
+}
+
 let headlineOK = true;
 let ran = 0;
 for (const [gen, svg, jpg] of targets) {
