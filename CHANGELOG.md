@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.29 | 2026-08-08 | sha=2372bb15 -->
-**v1.29** · updated 8 August 2026
+<!-- docstamp v1.30 | 2026-08-08 | sha=f85120a7 -->
+**v1.30** · updated 8 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 

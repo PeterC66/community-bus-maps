@@ -46,6 +46,7 @@ import {
 } from './maps/engine.js';
 import { sanitizeOverrides } from './maps/safeSubset.js';
 import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES } from './maps/store.js';
+import { ensureWatermarked } from './render/watermark.js';
 import {
   diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes,
 } from './expert/index.js';
@@ -260,10 +261,33 @@ app.get('/api/public/maps/:slug/:file', async (req, reply) => {
   if (!Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
     return reply.code(400).send({ ok: false, error: 'Bad file.' });
   }
-  const p = path.join(versionDir(row.id, row.pub_key), file);
+  let p = path.join(versionDir(row.id, row.pub_key), file);
   if (!existsSync(p)) return reply.code(404).send({ ok: false, error: 'Not found.' });
+
+  // Watermark JPGs for anyone who isn't the owning customer or an admin — this
+  // is the one fully public, unauthenticated download route, so it's the path a
+  // forwarded/shared copy would have come through. req.user is already resolved
+  // for every /api/ request (see the preHandler above) from the session cookie,
+  // so an anonymous visitor and a signed-in stranger are both treated as
+  // "not the owner". The owning customer's own downloads, and any admin
+  // download (from either route), are never watermarked.
+  const isOwnerOrAdmin = !!req.user && (req.user.role === 'admin' || req.user.customer_id === row.customer_id);
+  const watermarked = !isOwnerOrAdmin && file.endsWith('.jpg') && !!row.watermark_enabled;
+  if (watermarked) {
+    try {
+      const wp = await ensureWatermarked(p);
+      if (wp) p = wp;
+    } catch (e) {
+      req.log.error(e, 'watermark generation failed; serving the original file');
+    }
+  }
+
   reply.header('Content-Type', OUTPUT_FILES[file]);
-  reply.header('Cache-Control', 'public, max-age=300');
+  // The watermarked/unwatermarked choice depends on who's asking (session
+  // cookie), so a shared cache must not reuse one visitor's response for
+  // another — only cache the response when it can't vary (JPGs where
+  // watermarking doesn't apply, and every non-JPG file).
+  reply.header('Cache-Control', file.endsWith('.jpg') ? 'private, max-age=60' : 'public, max-age=300');
   if (req.query && 'download' in req.query) {
     reply.header('Content-Disposition', `attachment; filename="${row.slug}-${row.pub_key}-${file}"`);
   }
@@ -1579,6 +1603,7 @@ app.get('/api/admin/customers', async (req, reply) => {
     slug: c.slug || null, publicUrl: c.slug ? orgPageUrl(c.slug) : null,
     branding: parseJson(c.branding_json),
     hideOperatorsEnabled: !!c.hide_operators_enabled,
+    watermarkEnabled: !!c.watermark_enabled,
   }));
   return { ok: true, customers: rows };
 });
@@ -1590,13 +1615,13 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
   const b = req.body || {};
   const ok = updateCustomerAdmin(cust.id, {
     quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
-    hide_operators_enabled: b.hideOperatorsEnabled,
+    hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
   });
   if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
   req.log.info({ customerId: cust.id }, 'customer updated by admin');
   const c = getCustomer(cust.id);
-  logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled } });
-  return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled } };
+  logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } });
+  return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } };
 });
 
 // User CRUD (admin-only). Invite adds another person to an existing customer
