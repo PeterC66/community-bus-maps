@@ -1,11 +1,57 @@
 # Changelog
 
-<!-- docstamp v1.23 | 2026-08-07 | sha=3b90f75d -->
-**v1.23** · updated 7 August 2026
+<!-- docstamp v1.26 | 2026-08-08 | sha=4e4ff501 -->
+**v1.26** · updated 8 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — pushed engine/S6/gate staleness on the To-do list — 2026-08-08
+
+Item 3 of the fool-proofing plan. The To-do tab's ranks 0 (failing gates) and 8 (engine-stale /
+S6-stale / unbuilt towns) previously existed only in the `bus-work` skill's own terminal output —
+the server has no way to compute them itself, since they need the operator's private map tree
+(never synced; determinism forbids the portal from generating maps). Now the laptop's
+`push-status.mjs` runs `status.js --json` (the byte-identical regenerate-and-diff) and POSTs it to
+new `POST /api/admin/status`, gated the same way as `/metrics` (`STATUS_TOKEN` or an admin session,
+absent token ⇒ 404). The portal stores the latest snapshot under `DATA_DIR` and
+`src/worklist/index.js` folds it into ranks 0/8 — so a failing gate or a stale engine now shows on
+the admin console and to a remote reader, not only to whoever last ran `worklist.mjs --gates`. It is
+a snapshot, not a stream: stale until the next push, and silently absent (not an error) until the
+first one ever arrives. Rank 7 (a BODS-flagged town with no portal map) stays laptop-only — it needs
+`_gtfs/upcoming`, which nothing pushes yet. Covered by new cases in `scripts/test-worklist.mjs`.
+
+### Added — one ranked To-do list, and `/api/admin/worklist` behind it — 2026-08-07
+
+The admin console had eight tabs and no answer to "what should I do next?". Every queue lived
+somewhere — applications, map requests, awaiting-build, refresh flags, proposed updates, the review
+queue — but working out the order meant visiting all of them, and then opening a runbook to recall
+which script and which flags. The **To do** tab is now the console's landing view: every one of those
+queues in a single list, ranked by *who is blocked* rather than by which tab it came from —
+**Broken → Someone is blocked → Your move → Waiting on others**.
+
+The ranking lives in one place, `src/worklist/index.js`, served at `GET /api/admin/worklist`. That
+matters because there are two consumers: the console renders it, and the operator's `bus-work` skill
+consumes the identical shape — importing the module directly when it runs beside the portal, GETting
+the endpoint when the portal is remote. Neither can drift into showing a different list. The skill
+adds the things a server cannot know (engine-stale renders, missing S6 verification, failing
+byte-identical gates) at ranks the server deliberately leaves free.
+
+Two judgements worth knowing about, both covered by `scripts/test-worklist.mjs` (new, in `npm test`):
+
+- **When a refresh item disappears.** Nothing in the codebase ever updates `message.status`, so a
+  refresh flag has no read/unread state. "Still open" is derived from whether a proposed update has
+  been staged for that map *since* the flag — so the item clears when the work is done, not when
+  someone remembers to tick it off, and a later flag re-opens it.
+- **The commands it hands out are PowerShell.** `npm run verify` skips silently without a fixture
+  dir, and bash's `VAR=x cmd` prefix does not set one on Windows — so the documented bash form
+  yields a byte-identical check that never runs and looks like it passed. The build item emits
+  `$env:FIXTURE_DIR = "…"; npm run verify:area`, and a test asserts no bash env prefix ever
+  reappears. `docs/R1-create-map.md` has been corrected to match.
+
+Copy buttons on the To-do tab fall back to selecting the command when the clipboard write is refused
+(unfocused window, or plain http from another machine) rather than silently doing nothing.
 
 ### Added — click-to-sort columns on every admin console table — 2026-08-07
 

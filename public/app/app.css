@@ -331,3 +331,19 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 @media (max-width: 900px) { .ops-grid { grid-template-columns: 1fr; } }
 .ops-grid .card p { margin: 6px 0 0; }
 .ops-grid .card .sub { color: var(--muted); font-size: .85rem; word-break: break-word; }
+
+/* ---------- admin To-do tab (the ranked worklist) ---------- */
+/* Deliberately a list of cards, not a grid table: the rows are heterogeneous
+   (some carry a command, some a link, some neither) and the reading order is a
+   priority order, which a sortable table would invite you to destroy. */
+.todo-band { margin: 18px 0 8px; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.todo-band:first-child { margin-top: 4px; }
+.todo-item { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; background: var(--surface); }
+.todo-item.r0, .todo-item.r1, .todo-item.r2, .todo-item.r3 { border-left-color: var(--err); }
+.todo-item.r4, .todo-item.r5, .todo-item.r6, .todo-item.r7, .todo-item.r8 { border-left-color: var(--accent); }
+.todo-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.todo-head .grow { flex: 1; }
+.todo-item .sub { color: var(--muted); font-size: .86rem; margin: 6px 0 0; }
+.todo-detail { margin: 8px 0 0; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; font-size: .78rem; white-space: pre-wrap; word-break: break-word; color: var(--muted); }
+.todo-step { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: .86rem; }
+.todo-step .sub { margin: 0; }

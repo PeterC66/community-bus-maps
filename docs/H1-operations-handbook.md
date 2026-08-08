@@ -1,11 +1,13 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.8 | 2026-08-07 | sha=004b2e49 -->
-**v1.8** · updated 7 August 2026
+<!-- docstamp v1.10 | 2026-08-08 | sha=0b00d783 -->
+**v1.10** · updated 8 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
 This is the spine: the shared vocabulary, who does what, the operating rhythm, a map of where everything lives, and the **single index** of every document. It links to the detailed runbooks rather than repeating them — all are written (see [`DOCUMENTATION-PLAN.md`](DOCUMENTATION-PLAN.md) and §7's index). Start here when you pick the service up.
+
+> **Doing the routine week or month? Don't start here — start with the work.** `/app/admin` opens on the **To do** tab: every queue in one list, ranked by who is blocked, each row carrying the exact next command (`GET /api/admin/worklist` is the same list for tooling). On the operator's machine the **`bus-work` skill** prints that list plus what only the laptop can see — engine-stale renders, missing S6 verification, failing byte-identical gates — and carries an item through to done. These runbooks are the *why* behind each step; you should not need to open one to do an ordinary month.
 
 ---
 
@@ -96,11 +98,11 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 
 **App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle, outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests · Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver review · **`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
 
-**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session).
+**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session) · **`POST /api/admin/status`** the laptop's `push-status.mjs` sends status.js's byte-identical gate + engine/S6 staleness here, gated by `STATUS_TOKEN` or an admin session — it then shows up at ranks 0/8 of the To-do tab / `/api/admin/worklist` alongside the portal's own queues.
 
 **Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) · `fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already stored — a one-off catch-up; renders made now are fixed as they are produced) · `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` / `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
-**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
+**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
 
 **Private ops folder** (local-only, no cloud): **`C:\Claude\community-bus-maps-ops\`** — the customer register, vetting log, incident log and business notes. **Never** synced to GitHub. Back it up yourself.
 

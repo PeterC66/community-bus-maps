@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.3 | 2026-08-07 | sha=0d2caf87 -->
-**v1.3** · updated 7 August 2026
+<!-- docstamp v1.4 | 2026-08-08 | sha=0e63207f -->
+**v1.4** · updated 8 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -33,6 +33,7 @@ Copy `.env.example`. The ones that matter in production:
 | `PUBLIC_BASE_URL` | the public origin, used by `robots.txt` + `sitemap.xml` (P6) |
 | `EMAIL_PROVIDER` / `EMAIL_FROM` | magic-link delivery. **Unset means sign-in links are printed to the log** — fine in dev, not in production |
 | `METRICS_TOKEN` | set to expose `/metrics`; unset and the endpoint 404s |
+| `STATUS_TOKEN` | set to accept `POST /api/admin/status` (the laptop's `push-status.mjs`); unset and it 404s |
 | `PILOT_MODE` | **defaults ON.** Banner on every page, band on every rendered sheet, `Disallow: /` in robots.txt. Set to `0` to switch all of it off — see [`PILOT.md`](PILOT.md) |
 
 ## 3. Run it
