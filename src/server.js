@@ -58,12 +58,13 @@ import {
 import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
 import { logAudit } from './audit/index.js';
 import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
+import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
-const VERSION = '0.9.0-pilot';
+const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
 
 // The five pain-point classes the shopfront is organised around, plus 'other'.
 // The trailing seven are the original organisation-type values: no longer offered
@@ -119,7 +120,7 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
 // dependency is unhealthy, which is what a load balancer or uptime check wants.
 app.get('/health', async (req, reply) => {
   const base = {
-    status: 'ok', service: 'community-bus-maps', version: VERSION,
+    status: 'ok', service: 'community-bus-maps', version: VERSION, gitSha: GIT_SHA, builtAt: BUILT_AT, pilotMode: PILOT.on,
     time: new Date().toISOString(), ...counts(), ...authCounts(), ...publicCounts(),
   };
   if (!req.query || !('deep' in req.query)) return base;
@@ -344,15 +345,19 @@ app.post('/api/public/feedback', async (req, reply) => {
   return { ok: true, id };
 });
 
-// PILOT: the whole banner mechanism — delete this block, and the one <script>
-// tag in each public/**/*.html, to remove it. See docs/PILOT.md.
+// PILOT: this part of the banner mechanism — delete this const, and the one
+// <script> tag in each public/**/*.html, to remove it. See docs/PILOT.md.
+// NOT pilot-gated: VERSION_BADGE_JS below, appended into the same script, must
+// survive PILOT_MODE=0 — GO-LIVE.md §5 wants the build visible for the life of
+// the site, not just during the pilot.
 //
 // There is no template engine here (every page is a hand-written static file
-// with a copy-pasted header), so the banner is injected client-side from ONE
-// generated script instead of being pasted into seventeen files. When the pilot
-// ends the script serves nothing, so PILOT_MODE=0 alone is a complete off
-// switch; the leftover <script> tags then cost one empty request each.
-const SITE_BANNER_JS = !PILOT.on ? '/* pilot mode off */\n' : `(function () {
+// with a copy-pasted header), so both the banner and the version badge are
+// injected client-side from ONE generated script instead of being pasted into
+// seventeen files. When the pilot ends the banner half serves nothing, so
+// PILOT_MODE=0 alone is a complete off switch for it; the leftover <script>
+// tags then cost one empty request each.
+const PILOT_BANNER_JS = !PILOT.on ? '' : `(function () {
   var d = document;
   function mount() {
     if (d.getElementById('pilotBanner')) return;
@@ -388,6 +393,35 @@ const SITE_BANNER_JS = !PILOT.on ? '/* pilot mode off */\n' : `(function () {
   else go();
 })();
 `;
+
+// GO-LIVE.md §5, surfaces 3 and 4: a muted footer line and a machine-readable
+// <meta> tag, both from this one generated script so a screenshot — or a
+// script run against a deployed page — can say which build served it.
+const VERSION_BADGE_JS = `(function () {
+  var d = document;
+  function go() {
+    var m = d.createElement('meta');
+    m.name = 'app-version';
+    m.content = '${jsStr(APP_VERSION)}+${jsStr(GIT_SHA)}';
+    d.head.appendChild(m);
+    var footers = d.getElementsByTagName('footer');
+    if (!footers.length) return;
+    var footer = footers[footers.length - 1];
+    // Nest inside .container so the line inherits the same padding as the rest
+    // of the footer, instead of sitting flush against the page edge.
+    var host = footer.querySelector('.container') || footer;
+    var line = d.createElement('div');
+    line.className = 'muted';
+    line.style.marginTop = '4px';
+    line.textContent = 'v${jsStr(APP_VERSION)} \\u00b7 ${jsStr(GIT_SHA)}';
+    host.appendChild(line);
+  }
+  if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', go);
+  else go();
+})();
+`;
+
+const SITE_BANNER_JS = PILOT_BANNER_JS + VERSION_BADGE_JS;
 
 // Single-quoted JS string literal contents (the banner script builds HTML).
 function jsStr(s) {

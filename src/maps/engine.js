@@ -15,6 +15,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
 import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT } from './store.js';
+import { APP_VERSION, GIT_SHA } from '../version.js';
 
 const GEN_INTERNAL = 'gen_internal.js';
 /** Portal-owned expert-style generators (P7): the schematic + diagram pre-stages. */
@@ -348,7 +349,10 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
   writeFileSync(overridesPath(id), JSON.stringify(overrides || {}, null, 2) + '\n');
   writeFileSync(
     path.join(outDir, 'meta.json'),
-    JSON.stringify({ storageKey, created: new Date().toISOString(), overrides: overrides || {}, files }, null, 2),
+    // GO-LIVE.md §5: the product is byte-identical output, so "which app build
+    // rendered this sheet" needs to be recoverable from the sheet's own version
+    // directory, not just from whichever deploy happened to be live at the time.
+    JSON.stringify({ storageKey, created: new Date().toISOString(), overrides: overrides || {}, files, appVersion: APP_VERSION, gitSha: GIT_SHA }, null, 2),
   );
   return { storageKey, files, log };
 }

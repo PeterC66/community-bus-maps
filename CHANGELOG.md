@@ -7,6 +7,20 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — version stamping, GO-LIVE.md §5 — 2026-08-09
+
+- `src/version.js` — single source of truth for `APP_VERSION` (from `package.json`), `GIT_SHA`
+  (Docker `ARG`/`ENV`, falling back to reading `.git/HEAD` directly when running locally) and
+  `BUILT_AT`. Deleted the hardcoded `VERSION` literal in `src/server.js`.
+- `/health` now reports `version`, `gitSha`, `builtAt` and `pilotMode`.
+- A muted `v0.9.0-pilot · <sha>` line in the site footer and a `<meta name="app-version">` tag on
+  every page, generated into the existing `/js/site-banner.js` script — unconditionally, unlike the
+  pilot banner half of that script, since the build identity must survive `PILOT_MODE=0`.
+- `renders/<v>/meta.json` now records `appVersion`/`gitSha`, so a published sheet's own version
+  folder says which app build produced it.
+- `Dockerfile`/`compose.yaml`/`DEPLOY.md` — `GIT_SHA`/`BUILT_AT` build args, sourced from the shell
+  at `docker compose up -d --build` time.
+
 ### Added — go-live code blockers, GO-LIVE.md §2.2/§2.4/§2.6 — 2026-08-09
 
 - `scripts/create-admin.mjs` (`npm run create-admin -- --email … [--name …]`) — creates exactly

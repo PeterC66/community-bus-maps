@@ -39,8 +39,12 @@ Copy `.env.example`. The ones that matter in production:
 ## 3. Run it
 
 ```bash
+export GIT_SHA=$(git rev-parse --short HEAD) BUILT_AT=$(date -u +%FT%TZ)
 docker compose up -d --build
 ```
+
+The two exports stamp the build into `/health`, the site footer and every render's `meta.json`
+(GO-LIVE.md §5) — harmless to skip, but then those fields all read `unknown`/blank.
 
 Or without containers (systemd on a plain VM):
 

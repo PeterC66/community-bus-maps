@@ -3,7 +3,15 @@
 
 services:
   portal:
-    build: .
+    build:
+      context: .
+      # GO-LIVE.md §5 release loop step 3-4: export these in the shell before
+      # `docker compose up -d --build` (e.g. `export GIT_SHA=$(git rev-parse
+      # --short HEAD) BUILT_AT=$(date -u +%FT%TZ)`), or they default to
+      # "unknown" — see the Dockerfile ARG comment.
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILT_AT: ${BUILT_AT:-}
     image: community-bus-maps:local
     restart: unless-stopped
     # Bound to loopback: TLS + the public hostname belong to the reverse proxy.

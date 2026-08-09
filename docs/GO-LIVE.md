@@ -169,15 +169,15 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 
 | | Item | Notes |
 |---|---|---|
-| ☐ | `create-admin.mjs` | §2.2 |
+| ☑ | ~~`create-admin.mjs`~~ | done 2026-08-09; §2.2 |
 | ☐ | Email provider module | §2.3 |
-| ☐ | `trustProxy: true` | §2.4 |
-| ☐ | Version stamping | §5 |
+| ☑ | ~~`trustProxy: true`~~ | done 2026-08-09; §2.4 |
+| ☑ | ~~Version stamping~~ | done 2026-08-09; §5 |
 | ☐ | `ssh` delivery script on the laptop | §2.1 — settle the Linux JPEG question (§2.5) first |
-| ☐ | Re-render the place fixture's schematic reference | §2.6 — `verify:place` is red until this is done |
-| ☐ | Make fixture staleness visible to the verify scripts | §2.6 |
+| ☑ | ~~Re-render the place fixture's schematic reference~~ | done 2026-08-09; §2.6 — `verify:place` green |
+| ☑ | ~~Make fixture staleness visible to the verify scripts~~ | done 2026-08-09; §2.6 |
 | ☑ | ~~`.env` repointed at the current area fixture~~ | done 2026-08-09; `verify:area` green |
-| ☐ | CSRF tokens on state-changing POSTs | Listed as a follow-up in `ROADMAP.md`. `SameSite=Lax` already blocks cross-site POST, so this is **defensible to defer for a pilot with a handful of known users** — but record it as an accepted risk rather than forgetting it. |
+| ☑ | ~~CSRF tokens on state-changing POSTs~~ | recorded as an accepted risk, `LICENSING.md` §5, 2026-08-09 |
 
 ### Operator — legal and paper
 

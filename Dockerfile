@@ -37,6 +37,15 @@ ENV NODE_ENV=production \
     PORT=5180 \
     DATA_DIR=/data
 
+# GO-LIVE.md §5: the image doesn't carry .git (see COPY list below), so the
+# build must pass these explicitly — `docker build --build-arg GIT_SHA=$(git
+# rev-parse --short HEAD) --build-arg BUILT_AT=$(date -u +%FT%TZ) ...` — or
+# /health and the footer/meta version badge fall back to "unknown".
+ARG GIT_SHA=unknown
+ARG BUILT_AT
+ENV GIT_SHA=${GIT_SHA} \
+    BUILT_AT=${BUILT_AT}
+
 WORKDIR /app
 
 # Dependencies first, so a code change doesn't re-resolve the tree.
