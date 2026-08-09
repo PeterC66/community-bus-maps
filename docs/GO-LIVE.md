@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.3 | 2026-08-09 | sha=728beac5 -->
-**v1.3** · updated 9 August 2026
+<!-- docstamp v1.4 | 2026-08-09 | sha=8258b316 -->
+**v1.4** · updated 9 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 
@@ -138,7 +138,17 @@ It did **not** close the gap with the laptop, and was never going to:
 
 Liberation Sans matches Arial's advance widths but not its glyph outlines, so layout is preserved while the pixels differ. What this buys is that **the host is now self-consistent and metrically correct** — which an image resolving Arial to an arbitrary fallback could never be. (The bare runner still disagrees with the image because its fontconfig has many fonts to choose from and need not pick Liberation. It is not the deployment target; its job was to prove the cause was fonts, and it has.)
 
-**The open question this leaves.** `import-map.mjs` *re-renders* on import (`ROADMAP.md`: "renders **v1.0 = the byte-identical baseline**"). If that holds on the host, then every sheet the portal stores is host-rendered and internally consistent — which is the outcome we want — but the laptop's shipped JPG and the portal's v1.0 will no longer match byte-for-byte, and any check comparing the two will report a difference forever. **Confirm that before building the §2.1 delivery script**, because it decides whether that script should compare renders at all.
+**Checked 2026-08-09: the import re-renders, and that turns out to be the good outcome.**
+
+`scripts/import-map.mjs` copies only the *inputs* into the map's `data/` — the filter is `/^gen_.*\.js$/` or `*.json` (excluding `.bak`), so **the laptop's `internal.svg` and `internal.jpg` are not copied at all**; they match neither pattern. It then calls `renderVersion()` (`src/maps/engine.js:309`), which for every output runs `generateSvg()` and `rasterise()` afresh into `renders/v1.0/`.
+
+So the portal never ingests the laptop's rendered bytes — it ingests the generators and the data, and renders them itself. Three consequences, and none of them is a problem:
+
+- **The host is internally consistent.** v1.0 comes from the import, every later version from the editor, all rendered on the host with the same fonts. There is no mixed-provenance map.
+- **The SVGs still match the laptop exactly.** SVG generation is pure JavaScript and the sheet carries `font-family="Arial"` as a *string* — fonts are resolved at rasterisation, not generation. So a host-rendered `internal.svg` is byte-identical to the laptop's, Liberation Sans or not. Only the JPG differs.
+- **`ROADMAP.md`'s "v1.0 = the byte-identical baseline" is a claim about the generator, not the file** — and it still holds on Linux.
+
+**What this settles for §2.1:** the delivery script *should* verify, and it should compare **SVGs, never JPGs**. That is exactly the split `verify-reproduce.mjs` already draws — SVG gates the exit code, JPG is informational — so the existing design was right and needs no change. A JPG comparison in the delivery path would have produced a permanent false alarm.
 
 ### 2.6 Keep the fixtures fresh — the gate goes red on its own
 
