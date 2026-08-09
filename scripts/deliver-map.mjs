@@ -19,7 +19,8 @@
 // own header for the full set.
 //
 // Sequence, matching GO-LIVE.md §2.1/§2.5:
-//   1. rsync --src up to a scratch dir on the host.
+//   1. scp --src up to a scratch dir on the host (rsync isn't reliably
+//      available on Windows/Git Bash laptops, so this uses scp instead).
 //   2. PRE-FLIGHT VERIFY there, inside a throwaway container, BEFORE touching
 //      the running service — compares SVGs only (never JPGs), reusing
 //      scripts/verify-reproduce(.mjs|-place.mjs) exactly as `npm run verify`
@@ -50,12 +51,10 @@
 // C:/Users/.../Git/opt/community-bus-maps). Reading it from .env via
 // --env-file-if-exists sidesteps that entirely.
 //
-// Zero npm dependencies (Node core + the system `ssh`/`rsync` binaries),
+// Zero npm dependencies (Node core + the system `ssh`/`scp` binaries),
 // matching the other laptop-side scripts (push-status.mjs, worklist.mjs).
 
-import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 function arg(name, def = undefined) {
@@ -117,17 +116,21 @@ console.log(`  host   : ${HOST}`);
 console.log(`  appDir : ${APP_DIR}`);
 console.log('');
 
-// 1. rsync the render dir to a timestamped scratch dir on the host.
+// 1. Copy the render dir to a timestamped scratch dir on the host.
+// scp, not rsync: this repo's laptop side is Windows/Git Bash, which doesn't
+// ship rsync (confirmed 2026-08-09 — same reason pull-backups.ps1 uses scp).
+// IMPORTANT: remoteStage must NOT already exist when scp -r runs, or SRC lands
+// nested one level down (remoteStage/<basename of SRC>/...) instead of
+// remoteStage/* — scp -r's target-doesn't-exist-yet form is what makes the
+// destination directory itself the copy of SRC's contents.
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const remoteStage = `/tmp/deliver-map-${stamp}`;
-console.log(`-- 1. rsync -> ${HOST}:${remoteStage}`);
+console.log(`-- 1. scp -> ${HOST}:${remoteStage}`);
 if (!DRY_RUN) {
-  sshRun(`mkdir -p ${remoteStage}`);
-  const rsyncArgs = ['-az', '--delete'];
-  if (SSH_KEY) rsyncArgs.push('-e', `ssh -i ${SSH_KEY} -o BatchMode=yes`);
-  rsyncArgs.push(SRC.endsWith('/') ? SRC : SRC + '/', `${HOST}:${remoteStage}/`);
-  const rc = run('rsync', rsyncArgs);
-  if (rc !== 0) { console.error('✗ rsync failed — aborting, nothing on the host was touched.'); process.exit(1); }
+  const scpArgs = SSH_KEY ? ['-i', SSH_KEY, '-o', 'BatchMode=yes'] : ['-o', 'BatchMode=yes'];
+  scpArgs.push('-r', SRC, `${HOST}:${remoteStage}`);
+  const rc = run('scp', scpArgs);
+  if (rc !== 0) { console.error('✗ scp failed — aborting, nothing on the host was touched.'); process.exit(1); }
 }
 
 // 2. Pre-flight verify, in a throwaway container, service untouched.

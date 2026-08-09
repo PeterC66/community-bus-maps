@@ -7,6 +7,20 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — first real delivery run crashed on a Docker-mounted fixture — 2026-08-09
+
+`scripts/deliver-map.mjs`'s first live run (St Ives, real host) crashed at the pre-flight verify
+step: `warnIfStaleSibling` (added in the fixture-freshness work) scans `FIXTURE_DIR`'s *parent* for
+newer siblings, and when the fixture is bind-mounted at `/fixture` inside the container its parent
+is `/` itself — whose other children include things like `/root`, unreadable by the container's
+non-root user, so `readdirSync` threw `EACCES` and killed the whole pre-flight check. Fixed
+`newestMtime()` in `scripts/lib/fixture-freshness.mjs` to never throw: a permission-denied sibling
+is now "can't tell", not a crash — consistent with the function already being advisory-only.
+
+Also switched `deliver-map.mjs`'s copy step from `rsync` to `scp -r`: this laptop's Git Bash doesn't
+ship `rsync` at all, so the first real run would have failed there next regardless. Removed unused
+imports left over from the initial draft.
+
 ### Deployed — Caddy installed on the host, GO-LIVE.md §11 — 2026-08-09
 
 Caddy 2.11.4 installed from the official apt repo, `Caddyfile` added to the repo (`busmaps.uk` /

@@ -10,13 +10,21 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+// Never throws — permission-denied children (real case, 2026-08-09: FIXTURE_DIR
+// mounted at /fixture inside a container means its "parent" is / itself, whose
+// siblings include things like /root that the container's non-root user can't
+// read) are treated as "can't tell", not as a fatal error in what is only ever
+// an advisory warning.
 function newestMtime(dir) {
-  let max = statSync(dir).mtimeMs;
-  for (const f of readdirSync(dir)) {
+  let max;
+  try { max = statSync(dir).mtimeMs; } catch { return null; }
+  let entries;
+  try { entries = readdirSync(dir); } catch { return max; }
+  for (const f of entries) {
     try {
       const m = statSync(path.join(dir, f)).mtimeMs;
       if (m > max) max = m;
-    } catch { /* transient entry, ignore */ }
+    } catch { /* transient entry or permission-denied child, ignore */ }
   }
   return max;
 }
@@ -31,14 +39,16 @@ export function warnIfStaleSibling(fixtureDir) {
   let entries;
   try { entries = readdirSync(parent); } catch { return; }
   const fixtureMtime = newestMtime(fixtureDir);
+  if (fixtureMtime == null) return;
   const newer = entries
     .filter((name) => name !== self)
     .map((name) => path.join(parent, name))
     .filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } })
-    .filter((p) => newestMtime(p) > fixtureMtime)
-    .sort((a, b) => newestMtime(b) - newestMtime(a));
+    .map((p) => ({ p, m: newestMtime(p) }))
+    .filter(({ m }) => m != null && m > fixtureMtime)
+    .sort((a, b) => b.m - a.m);
   if (newer.length) {
-    console.log(`⚠ FIXTURE_DIR is not the newest render in ${parent} — ${path.basename(newer[0])} is newer.`);
+    console.log(`⚠ FIXTURE_DIR is not the newest render in ${parent} — ${path.basename(newer[0].p)} is newer.`);
     console.log('  A DIFFERS result below may just mean the fixture needs repointing, not a real regression.');
     console.log('');
   }
