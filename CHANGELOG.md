@@ -1,11 +1,25 @@
 # Changelog
 
-<!-- docstamp v1.35 | 2026-08-09 | sha=f63d1f9b -->
-**v1.35** · updated 9 August 2026
+<!-- docstamp v1.36 | 2026-08-09 | sha=b0355ef7 -->
+**v1.36** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Deployed — Caddy installed on the host, GO-LIVE.md §11 — 2026-08-09
+
+Caddy 2.11.4 installed from the official apt repo, `Caddyfile` added to the repo (`busmaps.uk` /
+`www.busmaps.uk` → `127.0.0.1:5180`, no manual `header_up` needed — Caddy forwards
+`X-Forwarded-For`/`-Proto`/`-Host` by default). Deployed to `/etc/caddy/Caddyfile`, config validated,
+service enabled and running.
+
+**Not yet live**: with no DNS pointing at the host, Let's Encrypt can't complete the ACME challenge,
+so Caddy falls back to an HTTP-only skeleton that doesn't actually route requests — confirmed via
+`curl -H "Host: busmaps.uk" http://<ip>/` returning a bare `404` from Caddy, and `ss -tlnp` showing
+only `:80` bound, not `:443`. This is Caddy's own resilience behavior, not a config bug. Once DNS
+(§12) is added, `sudo systemctl reload caddy` forces an immediate retry instead of waiting on
+Caddy's backoff.
 
 ### Deployed — first live host, GO-LIVE.md §3/§6 steps 3 and 5 — 2026-08-09
 

@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.7 | 2026-08-09 | sha=6c14926b -->
-**v1.7** · updated 9 August 2026
+<!-- docstamp v1.8 | 2026-08-09 | sha=16f8e730 -->
+**v1.8** · updated 9 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 
@@ -196,8 +196,8 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 |---|---|
 | ☑ | ~~VPS provisioned; non-root user; SSH keys only; `ufw` to 22/80/443; `unattended-upgrades`~~ | done 2026-08-09 — OVHcloud, Ubuntu 26.04, `ubuntu` user, password auth + root login disabled, `ufw` active (22/80/443 only), `unattended-upgrades` already running |
 | ☑ | ~~Docker + compose; `docker compose up -d --build`; verify `/health?deep=1`~~ | done 2026-08-09 — repo cloned via a read-only GitHub deploy key, image built, `/health?deep=1` green with `gitSha`/`builtAt` matching the deployed commit |
-| ☐ | Caddy in front — automatic TLS, forwards `X-Forwarded-Proto`, does not strip `/api/` or `/m/` | next |
-| ☐ | DNS at 20i: A (+ AAAA) for `busmaps.uk` and `www` → host IP; SPF/DKIM for the mail sender | deferred by operator choice, 2026-08-09 |
+| ☑ | ~~Caddy in front — automatic TLS, forwards `X-Forwarded-Proto`, does not strip `/api/` or `/m/`~~ | installed + configured 2026-08-09 (tracked `Caddyfile`, `caddy validate` passes, service running). **Not yet actually serving the site**: with no DNS pointing at the host, Let's Encrypt can't issue a cert, so Caddy falls back to an HTTP-only skeleton on :80 that doesn't route (confirmed: `curl -H "Host: busmaps.uk"` → 404 from Caddy itself, port 443 not bound). Self-heals once DNS is live — run `sudo systemctl reload caddy` on the host afterwards to force an immediate retry rather than waiting for Caddy's own backoff. |
+| ☐ | DNS at 20i: A (+ AAAA) for `busmaps.uk` and `www` → host IP; SPF/DKIM for the mail sender | deferred by operator choice, 2026-08-09 — this is what unblocks the Caddy row above |
 | ☑ | ~~Env set: `DATA_DIR`, `PUBLIC_BASE_URL=https://busmaps.uk`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`, `PILOT_MODE=1`~~ | done 2026-08-09 (`EMAIL_PROVIDER` left blank — Resend account not yet created, magic links print to the container log meanwhile) |
 | ☑ | ~~Daily cron: `npm run backup -- --out /backups --keep 14`~~ | done 2026-08-09 — host cron runs `docker compose run --rm backup` at 03:15 |
 | ☑ | ~~Backups pulled **off the box** — rsync to the laptop, into the SyncBack set~~ | done 2026-08-09 — `scp` (no `rsync` on this Windows box), `C:\Claude\community-bus-maps-ops\pull-backups.ps1`, Windows scheduled task daily at 08:00 |
