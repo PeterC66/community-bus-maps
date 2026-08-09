@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.8 | 2026-08-09 | sha=16f8e730 -->
-**v1.8** · updated 9 August 2026
+<!-- docstamp v1.9 | 2026-08-09 | sha=46959f32 -->
+**v1.9** · updated 9 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 
@@ -210,6 +210,12 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 Don't lift the local `data/` up wholesale — it carries three invented organisations and a deliberately messy demo state (pending applications, a submitted review, staged refreshes).
 
 **Recommendation:** fresh database on the host; create one genuine organisation — *BusMaps.uk (pilot)* — and import the real towns into it. That is honest and matches what `PILOT.md` already says out loud: every map on the site is one we made ourselves. It also keeps `/maps` from being an empty shopfront on day one.
+
+**Done 2026-08-09.** Fresh database (no demo seed run), *BusMaps.uk (pilot)* created as customer #1,
+all 8 built towns + 5 built places delivered via `scripts/deliver-map.mjs` and published via the new
+`scripts/publish-baseline.mjs` (a real submit → review → publish trip, not a shortcut around the P4
+gate). `/health` confirms `publicMaps: 13, publicOrgs: 1`. `/maps` will show them the moment DNS +
+Caddy make the site reachable — nothing further needed on the content side.
 
 ---
 
