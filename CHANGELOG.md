@@ -1,11 +1,21 @@
 # Changelog
 
-<!-- docstamp v1.38 | 2026-08-09 | sha=b12ae1c0 -->
-**v1.38** · updated 9 August 2026
+<!-- docstamp v1.39 | 2026-08-09 | sha=1dcc332e -->
+**v1.39** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Docs — P9 plan: header cleanup + place-name search — 2026-08-09
+
+`docs/P9-header-and-place-search.md` — a plan, nothing built. Two changes with a per-item status table so a later session can resume mid-flight.
+
+**Part A, the header.** Decided *against* a drop-down grouping Contact / Report an issue / Apply: they are three different jobs, and one of them shouldn't be in the header at all. The header's "Report an issue" link (`/contact.html?kind=issue`) only preselects a `<select>` and swaps a placeholder — it loses which map the reader was looking at, unlike the per-map "Spotted a problem?" form that posts the slug. So it leaves the header and stays in the footer. Also: a fixed `#navAuth` slot, because `auth-status.js` currently appends three items past the primary CTA. The nav and footer are copy-pasted into 12 `public/*.html` files, so the plan's first step is a canonical `site-chrome.mjs` + a `check-chrome.mjs` test + an `apply-chrome.mjs` writer, *before* any content change — and explicitly **not** JS-injected nav, which would be invisible to crawlers once `robots.txt` opens up.
+
+**Part B, place-name search.** Not site search (13 cards, 20 FAQ items — Ctrl-F wins). The answerable question is "does any map cover my village?", and each map's vendored `routes.json` already names every place its buses reach (`external[].stops[]` for area maps, `destinations[]` for place maps, plus `pois.json`). The load-bearing constraint: index from a `places.json` sidecar written into the **published version dir** at publish time, never from the live data dir — the data dir runs ahead of what was reviewed, so indexing it could claim coverage the published sheet doesn't show. A sidecar, not a re-render, so P4's guarantee holds. A no-match routes to `/apply.html`.
+
+Two questions answered on the day and written in as dated decisions: in-town stop names (`atco2name.json`, 464 street-level names for St Ives alone) stay **out** of the index; and search queries are **not logged** — which keeps `/legal.html` off this work's critical path. Still open by design: whether the header gets a magnifier, decided after Part A ships.
 
 ### Added — publish-baseline.mjs, real trip through the P4 gate — 2026-08-09
 
