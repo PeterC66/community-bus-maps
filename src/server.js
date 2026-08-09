@@ -59,6 +59,7 @@ import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseR
 import { logAudit } from './audit/index.js';
 import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
+import { sendMagicLink } from './email/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
@@ -507,9 +508,20 @@ app.post('/api/auth/request', async (req, reply) => {
   const token = requestMagicLink(email);
   if (token) {
     const link = `${req.protocol}://${req.headers.host}/auth/verify?token=${token}`;
-    // DEV: no email provider yet — print the link to the SERVER CONSOLE.
-    console.log(`\n🔗  Sign-in link for ${email}:\n    ${link}\n`);
-    req.log.info({ email }, 'magic link issued (see console)');
+    try {
+      const r = await sendMagicLink({ to: email, link, kind: 'signin' });
+      if (r.sent) {
+        req.log.info({ email }, 'magic link emailed');
+      } else {
+        // DEV_LINKS: no email provider configured — print the link to the SERVER CONSOLE.
+        console.log(`\n🔗  Sign-in link for ${email}:\n    ${link}\n`);
+        req.log.info({ email }, 'magic link issued (see console)');
+      }
+    } catch (e) {
+      // A broken provider must not tell an unauthenticated caller anything
+      // beyond the generic message below — log it and move on.
+      req.log.error({ email, err: e.message }, 'magic link email failed to send');
+    }
   } else {
     req.log.info({ email }, 'magic link requested for unknown/inactive email (no-op)');
   }
@@ -1591,7 +1603,14 @@ app.post('/api/admin/applications/:id/approve', async (req, reply) => {
 
   const token = requestMagicLink(email);
   const link = token ? authLink(req, token) : null;
-  if (link) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+  if (link) {
+    try {
+      const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+      if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+    } catch (e) {
+      req.log.error({ email, err: e.message }, 'invite email failed to send');
+    }
+  }
   req.log.info({ applicationId: appn.id, customerId, email }, 'application approved → customer + editor created');
   logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places } });
 
@@ -1739,7 +1758,14 @@ app.post('/api/admin/users', async (req, reply) => {
   const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
   const token = requestMagicLink(email);
   const link = token ? authLink(req, token) : null;
-  if (link) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+  if (link) {
+    try {
+      const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+      if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+    } catch (e) {
+      req.log.error({ email, err: e.message }, 'invite email failed to send');
+    }
+  }
   req.log.info({ userId, customerId, email, role }, 'user invited by admin');
   logAudit(req, 'user.invite', { detail: { userId, customerId, email, role } });
   return { ok: true, user: userShape(getUser(userId)), inviteLink: DEV_LINKS ? link : undefined };

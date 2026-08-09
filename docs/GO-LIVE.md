@@ -170,7 +170,7 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 | | Item | Notes |
 |---|---|---|
 | ☑ | ~~`create-admin.mjs`~~ | done 2026-08-09; §2.2 |
-| ☐ | Email provider module | §2.3 |
+| ☑ | ~~Email provider module~~ | done 2026-08-09; §2.3 — Resend wired up (`src/email/resend.js`); needs `RESEND_API_KEY` + SPF/DKIM at 20i before it does anything live |
 | ☑ | ~~`trustProxy: true`~~ | done 2026-08-09; §2.4 |
 | ☑ | ~~Version stamping~~ | done 2026-08-09; §5 |
 | ☐ | `ssh` delivery script on the laptop | §2.1 — settle the Linux JPEG question (§2.5) first |

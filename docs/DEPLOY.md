@@ -31,7 +31,7 @@ Copy `.env.example`. The ones that matter in production:
 | `DATA_DIR` | the volume above. **Set it explicitly** — the default is `./data` inside the app dir |
 | `HOST` / `PORT` | bind address; behind a proxy, `127.0.0.1:5180` |
 | `PUBLIC_BASE_URL` | the public origin, used by `robots.txt` + `sitemap.xml` (P6) |
-| `EMAIL_PROVIDER` / `EMAIL_FROM` | magic-link delivery. **Unset means sign-in links are printed to the log** — fine in dev, not in production |
+| `EMAIL_PROVIDER` / `EMAIL_FROM` / `RESEND_API_KEY` | magic-link delivery via Resend (`src/email/resend.js`, the only provider wired up). **Unset `EMAIL_PROVIDER` means sign-in links are printed to the log** — fine in dev, not in production. Needs SPF/DKIM at 20i for `EMAIL_FROM`'s domain. |
 | `METRICS_TOKEN` | set to expose `/metrics`; unset and the endpoint 404s |
 | `STATUS_TOKEN` | set to accept `POST /api/admin/status` (the laptop's `push-status.mjs`); unset and it 404s |
 | `PILOT_MODE` | **defaults ON.** Banner on every page, band on every rendered sheet, `Disallow: /` in robots.txt. Set to `0` to switch all of it off — see [`PILOT.md`](PILOT.md) |

@@ -25,6 +25,7 @@ services:
       # Magic-link email. Unset = links are printed to the container log (dev only).
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
       # Set to expose /metrics to a scraper (unset = /metrics is hidden).
       METRICS_TOKEN: ${METRICS_TOKEN:-}
     volumes:

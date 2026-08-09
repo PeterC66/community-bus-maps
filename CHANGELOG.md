@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — email provider module (Resend), GO-LIVE.md §2.3 — 2026-08-09
+
+`src/email/index.js` (`sendMagicLink`) + `src/email/resend.js` — before this, `EMAIL_PROVIDER` had
+no send path at all: setting it would have silently stopped sign-in/invite links reaching anyone,
+since the server only ever printed them to its own console. `EMAIL_PROVIDER` unset (the default)
+is unchanged — `sendMagicLink` returns `{sent:false}` and the caller's existing console-log path
+carries on working. Wired into `/api/auth/request` and both admin invite routes
+(`applications/:id/approve`, `admin/users` POST); a provider failure is logged and swallowed rather
+than surfaced to the caller, matching the existing no-enumeration behaviour on sign-in. Needs
+`RESEND_API_KEY` + SPF/DKIM at 20i for `EMAIL_FROM`'s domain before it sends anything for real —
+verified so far only via the console/no-provider path and the two error paths (unknown provider,
+missing API key), live in a throwaway server instance.
+
 ### Added — version stamping, GO-LIVE.md §5 — 2026-08-09
 
 - `src/version.js` — single source of truth for `APP_VERSION` (from `package.json`), `GIT_SHA`
