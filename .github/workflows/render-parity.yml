@@ -51,6 +51,14 @@ jobs:
       - name: Build the production image
         run: docker build -t cbm-parity .
 
+      # What Arial actually resolves to is the whole question, so record the
+      # font inventory rather than inferring it from the pixel hashes.
+      - name: What fonts does the image have?
+        run: |
+          docker run --rm --entrypoint sh cbm-parity -c \
+            'find / \( -name "*.ttf" -o -name "*.otf" \) 2>/dev/null | sort' | tee fonts-image.txt
+          echo "count: $(wc -l < fonts-image.txt)"
+
       - name: Rasterise the probes inside the image
         run: docker run --rm cbm-parity node scripts/render-parity-probe.mjs | tee probe-image.txt
 
@@ -65,6 +73,14 @@ jobs:
             echo '```'
             cat probe-image.txt
             echo '```'
+            echo
+            echo "<details><summary>Fonts present in the image ($(wc -l < fonts-image.txt))</summary>"
+            echo
+            echo '```'
+            cat fonts-image.txt
+            echo '```'
+            echo
+            echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
 
   runner:
