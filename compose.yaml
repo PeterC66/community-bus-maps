@@ -28,6 +28,11 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       # Set to expose /metrics to a scraper (unset = /metrics is hidden).
       METRICS_TOKEN: ${METRICS_TOKEN:-}
+      # Set to accept POST /api/admin/status (the laptop's push-status.mjs).
+      STATUS_TOKEN: ${STATUS_TOKEN:-}
+      # Defaults ON in src/config.js if truly unset, but be explicit here so a
+      # blank .env value doesn't accidentally fall through to that default.
+      PILOT_MODE: ${PILOT_MODE:-1}
     volumes:
       - portal-data:/data
       # Backups written outside DATA_DIR so a backup is never inside the next one.

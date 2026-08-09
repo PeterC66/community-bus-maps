@@ -1,11 +1,18 @@
 # Changelog
 
-<!-- docstamp v1.34 | 2026-08-09 | sha=547f8d38 -->
-**v1.34** · updated 9 August 2026
+<!-- docstamp v1.35 | 2026-08-09 | sha=f63d1f9b -->
+**v1.35** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — compose.yaml wasn't passing STATUS_TOKEN/PILOT_MODE into the container — 2026-08-09
+
+Found while building the real host's `.env` during first deploy: `src/server.js` reads
+`STATUS_TOKEN` and `src/config.js` reads `PILOT_MODE`, but `compose.yaml`'s `environment:` block
+never forwarded either from the host into the container — so setting them in the host's `.env`
+would have silently done nothing.
 
 ### Added — laptop→host delivery script (Phase 1), GO-LIVE.md §2.1 — 2026-08-09
 
