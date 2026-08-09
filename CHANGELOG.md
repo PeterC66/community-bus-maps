@@ -7,6 +7,28 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Deployed — first live host, GO-LIVE.md §3/§6 steps 3 and 5 — 2026-08-09
+
+VPS provisioned (OVHcloud, Ubuntu 26.04), hardened (SSH keys only, `ufw` 22/80/443, confirmed
+`unattended-upgrades`), Docker + compose installed. Repo cloned via a read-only GitHub deploy key
+into `/opt/community-bus-maps`, built and started — `/health?deep=1` green with `gitSha`/`builtAt`
+matching the deployed commit, all four readiness checks passing. One real admin user created via
+`create-admin.mjs` on the clean database.
+
+Found and fixed on first deploy: the named Docker volume defaults to `root:root`, but the container
+runs as the unprivileged `node` user — `portal.sqlite` couldn't be created until the volume was
+chowned. Worth carrying as a note for the next fresh deploy.
+
+Daily backup cron installed on the host (`docker compose run --rm backup`, 03:15) and a matching
+Windows scheduled task pulls snapshots down to `community-bus-maps-ops\backups\` for the off-box
+copy. **Restore drill performed for real**, not just rehearsed: destroyed `portal.sqlite` on the
+live volume and restored it from that day's backup — see `docs/DEPLOY.md` §5, which was also
+corrected to match the actual named-volume deployment (it previously described a bind-mount path
+that was never what `compose.yaml` does).
+
+Not yet done: Caddy/TLS, DNS at 20i (deferred by choice), and importing any real map data — the
+site isn't reachable from the internet yet.
+
 ### Fixed — compose.yaml wasn't passing STATUS_TOKEN/PILOT_MODE into the container — 2026-08-09
 
 Found while building the real host's `.env` during first deploy: `src/server.js` reads

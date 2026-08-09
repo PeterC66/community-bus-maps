@@ -91,8 +91,32 @@ The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent*
 
 ### Restore drill (do it once, before you need it)
 
+If running under `compose.yaml` as written (a named volume, not a bind mount at `/var/lib/cbm` —
+that path was this section's original assumption; performed for real 2026-08-09 and corrected to
+match what's actually deployed):
+
 ```bash
-systemctl stop cbm-portal            # or: docker compose stop portal
+docker compose stop portal
+
+# Snapshot the live volume for diagnosis before touching it, then restore from a backup.
+# (DATA_DIR is /data inside the container; the volume name is <project>_portal-data.)
+docker run --rm -v community-bus-maps_portal-data:/data \
+  -v /opt/community-bus-maps/backups:/backups:ro alpine sh -c '
+    mkdir -p /tmp/broken && cp -a /data/portal.sqlite* /tmp/broken/ 2>/dev/null
+    rm -f /data/portal.sqlite /data/portal.sqlite-wal /data/portal.sqlite-shm
+    cp -a /backups/<timestamp>/portal.sqlite /data/
+    cp -a /backups/<timestamp>/maps /data/ 2>/dev/null || true
+    chown -R 1000:1000 /data
+  '
+
+docker compose up -d portal
+curl -fsS localhost:5180/health?deep=1
+```
+
+If running under a plain bind mount instead (`DATA_DIR=/var/lib/cbm`, systemd unit, no Docker):
+
+```bash
+systemctl stop cbm-portal
 mv /var/lib/cbm /var/lib/cbm.broken  # keep the bad state for diagnosis
 mkdir -p /var/lib/cbm
 cp -a /backups/<timestamp>/portal.sqlite /var/lib/cbm/
@@ -102,6 +126,12 @@ curl -fsS localhost:5180/health?deep=1
 ```
 
 Then check a published map's public page still serves the same file sizes as before — the published bytes are the promise, so that is the real "restore succeeded" test. There is **one writer**: stop the server before any script that writes SQLite (`seed-demo`, `import-map`, `propose-update`) and before restoring.
+
+**Drilled for real 2026-08-09** against the live host (at that point carrying only one admin user,
+so a safe moment to actually destroy and restore rather than merely rehearse): stopped the portal,
+deleted `portal.sqlite` from the running volume, restored from that day's `docker compose run --rm
+backup` snapshot, restarted, and `/health?deep=1`'s `users: 1` confirmed the admin account survived
+the round trip.
 
 ## 6. Housekeeping
 
