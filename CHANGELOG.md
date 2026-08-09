@@ -1,11 +1,31 @@
 # Changelog
 
-<!-- docstamp v1.33 | 2026-08-09 | sha=b2a9c0b9 -->
-**v1.33** · updated 9 August 2026
+<!-- docstamp v1.34 | 2026-08-09 | sha=547f8d38 -->
+**v1.34** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — laptop→host delivery script (Phase 1), GO-LIVE.md §2.1 — 2026-08-09
+
+`scripts/deliver-map.mjs` (`npm run deliver -- --src … --name … --kind area|place …`) — rsyncs a
+built map up to the host, runs a pre-flight `verify-reproduce(.mjs|-place.mjs)` inside a throwaway
+container against the staged dir (SVG-only, per §2.5 — the live service is untouched if this fails),
+then `docker compose stop portal`, runs `import-map.mjs` inside a throwaway container, `docker
+compose up -d portal`, and confirms `/health?deep=1`. All `import-map.mjs` flags forward through
+unchanged. On an import failure the portal is left stopped deliberately (a down site is a louder,
+safer failure than one silently serving a half-written import).
+
+Config comes from `.env` (`DEPLOY_HOST`/`DEPLOY_SSH_KEY`/`DEPLOY_APP_DIR`), not inline shell env-var
+assignment — Windows Git Bash's MSYS layer silently mangles a leading `/` in an inline-assigned env
+var into a Windows path (reproduced: `DEPLOY_APP_DIR=/opt/community-bus-maps node …` arrived at the
+script as `C:/Users/.../Git/opt/community-bus-maps`).
+
+Dry-run tested locally against real St Ives (area) and High Wycombe Aldi (place) data — correct
+step sequencing, argument forwarding and verify-script selection. **Not yet tested against a live
+host**: the VPS exists (OVHcloud, provisioned 2026-08-09) but Docker/compose isn't running there
+yet — that's next.
 
 ### Added — email provider module (Resend), GO-LIVE.md §2.3 — 2026-08-09
 

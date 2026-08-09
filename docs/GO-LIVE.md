@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.5 | 2026-08-09 | sha=85984b15 -->
-**v1.5** · updated 9 August 2026
+<!-- docstamp v1.6 | 2026-08-09 | sha=99c82849 -->
+**v1.6** · updated 9 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 
@@ -173,7 +173,7 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 | ☑ | ~~Email provider module~~ | done 2026-08-09; §2.3 — Resend wired up (`src/email/resend.js`); needs `RESEND_API_KEY` + SPF/DKIM at 20i before it does anything live |
 | ☑ | ~~`trustProxy: true`~~ | done 2026-08-09; §2.4 |
 | ☑ | ~~Version stamping~~ | done 2026-08-09; §5 |
-| ☐ | `ssh` delivery script on the laptop | §2.1 — settle the Linux JPEG question (§2.5) first |
+| ☑ | ~~`ssh` delivery script on the laptop~~ | written 2026-08-09 (`scripts/deliver-map.mjs`, `npm run deliver`); dry-run tested locally, **not yet live-tested end to end** — needs the VPS's Docker/compose stack up first |
 | ☑ | ~~Re-render the place fixture's schematic reference~~ | done 2026-08-09; §2.6 — `verify:place` green |
 | ☑ | ~~Make fixture staleness visible to the verify scripts~~ | done 2026-08-09; §2.6 |
 | ☑ | ~~`.env` repointed at the current area fixture~~ | done 2026-08-09; `verify:area` green |
