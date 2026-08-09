@@ -4,6 +4,10 @@
   try {
     const nav = document.querySelector('.site-header .nav');
     if (!nav) return;
+    // The fixed slot after "Apply to join" (P9 A3) - falls back to appending
+    // straight onto nav so a stale cached page (old markup, no slot) still works.
+    const slot = nav.querySelector('#navAuth');
+    const target = slot || nav;
 
     const r = await fetch('/api/me', { credentials: 'same-origin' });
     const user = r.ok ? (await r.json()).user : null;
@@ -33,14 +37,17 @@
         location.href = '/';
       });
 
-      nav.append(who, appLink, signOut);
+      if (slot) slot.replaceChildren(who, appLink, signOut);
+      else target.append(who, appLink, signOut);
     } else if (r.status === 401) {
       const signIn = document.createElement('a');
       signIn.className = 'navlink';
       signIn.id = 'authSignin';
       signIn.href = '/app/login.html';
       signIn.textContent = 'Sign in';
-      nav.appendChild(signIn);
+
+      if (slot) slot.replaceChildren(signIn);
+      else target.appendChild(signIn);
     }
     // Any other /api/me failure (network error etc.) — leave the header as-is.
   } catch {

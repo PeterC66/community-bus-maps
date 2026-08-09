@@ -18,4 +18,5 @@ export const NAV_HTML = `  <header class="site-header"><div class="container"><n
     <a class="navlink" href="/faq.html">FAQ</a>
     <a class="navlink" href="/contact.html">Contact</a>
     <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+    <span class="nav-auth" id="navAuth"></span>
   </nav></div></header>`;
