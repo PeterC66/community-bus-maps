@@ -1,11 +1,26 @@
 # Changelog
 
-<!-- docstamp v1.30 | 2026-08-08 | sha=f85120a7 -->
-**v1.30** · updated 8 August 2026
+<!-- docstamp v1.32 | 2026-08-09 | sha=af02a23b -->
+**v1.32** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Changed — repo made private, licence switched from Apache-2.0 to BUSL 1.1 — 2026-08-09
+
+Peter's call, made to protect the commercial advantage of the portal against a competitor cloning
+the public Apache-2.0 repo and self-hosting a rival service — Apache-2.0 permitted exactly that.
+`github.com/PeterC66/community-bus-maps` flipped to private. `LICENSE` replaced with Business
+Source License 1.1: free for non-commercial/personal/internal/evaluation use and self-hosting;
+commercial use competing with BusMaps.uk needs a separate licence from the Licensor until the
+Change Date (2030-08-09), after which it converts to Apache-2.0 as before. Updated `NOTICE`,
+`README.md`, `docs/LICENSING.md`, `CLAUDE.md`, `package.json` (`license` field), and every public
+page's footer (removed the now-dead public GitHub link and "Open-source (Apache-2.0)" claim,
+replaced with a plain copyright line) and `legal.html`'s "The software" section.
+`public/opportunity.html`'s pitch card was also rewritten (Peter's choice): "Open source,
+publicly" (Apache-2.0-on-GitHub as the succession asset) became "Source-available, with a path
+to open" (BUSL now, converts to Apache-2.0 in 2030).
 
 ### Added — "changes coming" banner on the public map page (P8) — 2026-08-08
 

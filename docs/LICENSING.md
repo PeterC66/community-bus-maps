@@ -1,7 +1,7 @@
 ﻿# Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.3 | 2026-08-07 | sha=22ef7487 -->
-**v1.3** · updated 7 August 2026
+<!-- docstamp v1.4 | 2026-08-09 | sha=a306dedb -->
+**v1.4** · updated 9 August 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
@@ -19,7 +19,7 @@ This is the launch go/no-go the planning documents named: the maps are built fro
 | **UK Bus Open Data Service (BODS)** | routes, stops, operators, days of operation, validity dates | **Open Government Licence v3.0** | Attribute the source. No share-alike. |
 | **bustimes.org** | cross-checking a route against an operator's own timetable during central map-making | **site terms — OPEN QUESTION** | See §3. Central, low-volume, human-in-the-loop use only. |
 | **sharp / libvips, Fastify, Node.js** | the software stack | Apache-2.0 / MIT-family | Preserve their notices (bundled in `node_modules`, not redistributed by us). |
-| **This portal's code** | — | **Apache-2.0** (`LICENSE`) | Keep `LICENSE` + `NOTICE` with any redistribution. |
+| **This portal's code** | — | **Business Source License 1.1** (`LICENSE`) | Non-commercial/internal use is free; competing commercial use needs a separate licence from the Licensor until the Change Date (2030-08-09), after which it converts to Apache-2.0. Keep `LICENSE` + `NOTICE` with any redistribution. |
 
 ## 2. Where the credits actually appear
 

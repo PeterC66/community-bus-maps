@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.7 | 2026-08-07 | sha=edd8d4f2 -->
-**v1.7** · updated 7 August 2026
+<!-- docstamp v1.8 | 2026-08-09 | sha=d708f8ae -->
+**v1.8** · updated 9 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
@@ -260,7 +260,9 @@ different bytes for the same SVG, which would break "the file we serve is the fi
 
 ## Licence & attribution
 
-Code is licensed under the **Apache License 2.0** — see [LICENSE](LICENSE).
+Code is licensed under the **Business Source License 1.1** — see [LICENSE](LICENSE). Free for
+non-commercial, personal, internal, and evaluation use; commercial use that competes with
+BusMaps.uk requires a separate licence. Converts to Apache-2.0 on 2030-08-09.
 
 Maps are derived from **OpenStreetMap** (© OpenStreetMap contributors, ODbL) and UK **bus open data**
 via **BODS** (Open Government Licence). See [NOTICE](NOTICE) for full attribution.
