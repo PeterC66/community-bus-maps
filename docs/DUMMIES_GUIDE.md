@@ -1,7 +1,7 @@
 ﻿# The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.4 | 2026-08-08 | sha=186829cd -->
-**v1.4** · updated 8 August 2026
+<!-- docstamp v1.5 | 2026-08-09 | sha=899aa55e -->
+**v1.5** · updated 9 August 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
@@ -216,7 +216,59 @@ For anything beyond a demo — a real public site on your own domain, running co
 
 ---
 
-## 7. Map of the other docs — read them when you need to go deeper
+## 8. Managing a change across laptop, GitHub, and the live site
+
+This section exists because the portal now has a **real live site** (the actual BusMaps.uk, on a
+VPS, with 13 real published maps) as well as your laptop. Before that existed, "commit and push"
+was the whole story. Now there are three separate copies of the code, and it matters which one
+you're changing. See [`docs/DEVELOPING.md`](DEVELOPING.md#three-separate-copies-of-the-code--none-of-them-update-each-other-automatically)
+for the full table; here's what it means for what you actually do, day to day.
+
+**The one fact that makes everything else make sense: pushing to GitHub never touches the live
+site.** The live VPS only updates when someone deliberately logs into it and runs a pull + rebuild
+(`docs/DEPLOY.md` §9) — a manual step, done on purpose, not a side-effect of `git push`. So almost
+everything in Parts 1–5 of this guide is safe by default: it only ever reaches your laptop and
+GitHub, never the public.
+
+**The pattern this project actually uses is a branch + a Pull Request, not committing straight to
+`main`** — every merged change so far (`gh pr list --state all`) came in this way. So for a piece of
+work like a plan document's Part A/B items:
+
+```powershell
+cd C:\Claude\community-bus-maps
+git checkout -b my-change-name     # once, at the start of the work
+# ... edit, test locally with npm run dev ...
+git add <files>
+git commit -m "..."                # as many small commits as you like, this only touches your laptop
+git push -u origin my-change-name  # sends the BRANCH to GitHub — main is untouched, live site is untouched
+```
+
+Answers to the two things you asked directly:
+
+- **"Should I commit but not push?"** Commit as often as you like — a commit only ever touches your
+  laptop, so there's no reason to hold back. Pushing the *branch* is also safe (it can't reach the
+  live site and doesn't change `main`), and it's the only way to get the work backed up off your
+  laptop or opened as a PR, so there's little reason to delay that either. The one step worth
+  treating as a deliberate decision is **merging the branch into `main`** — not because it's
+  dangerous (it still doesn't touch the live site), but because `main` is the shared, canonical
+  history and once a PR is merged, un-merging it is more friction than not merging yet. In this
+  session, Claude will open the PR but check with you before merging.
+- **"Can I view a portal on a branch before merging?"** Yes — and it's the normal way to check work,
+  not a special trick. `git checkout my-change-name` then `npm run dev` runs that branch's code as a
+  complete local portal at `127.0.0.1:5180`, using your own local database. There's no separate
+  "preview URL" per branch (that would need a hosting setup this project doesn't have) — the
+  laptop *is* the preview environment. It's fully isolated: nothing you do there can affect the live
+  site, GitHub, or any other branch.
+
+What never happens without you explicitly asking for it, in this or any session:
+
+- **Deploying to the live VPS** (`docs/DEPLOY.md` §9's `git pull && docker compose up -d --build`
+  on the actual server) — that's the step that reaches real visitors and real published maps.
+- **Force-pushing, or anything that rewrites history already on GitHub.**
+- **Merging a PR into `main`** without confirming with you first, for the "shared history" reason
+  above — even though it's technically reversible and doesn't deploy anything.
+
+## 9. Map of the other docs — read them when you need to go deeper
 
 | Doc | Read it when... |
 |---|---|

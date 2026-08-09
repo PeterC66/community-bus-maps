@@ -1,11 +1,27 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.7 | 2026-08-09 | sha=0235074d -->
-**v1.7** · updated 9 August 2026
+<!-- docstamp v1.8 | 2026-08-09 | sha=84599d3e -->
+**v1.8** · updated 9 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
 `README.md` covers architecture and quick start — read that first. Start here when you are about to edit code.
+
+## Three separate copies of the code — none of them update each other automatically
+
+This section didn't exist in earlier drafts of this doc, written before there was a live host. There now are **three distinct places** code can be, and moving between them is always a deliberate, manual step — never automatic:
+
+| Copy | Where | Who can see it | How it gets updated |
+|---|---|---|---|
+| **Your working copy** | `C:\Claude\community-bus-maps` on the laptop | only you, and only while `npm run dev` is running (`127.0.0.1:5180`) | you edit files directly |
+| **GitHub `main`** (+ other branches) | `github.com/PeterC66/community-bus-maps` | anyone with repo access; it's the shared history | `git push` from the laptop, or merging a PR on GitHub |
+| **The live VPS** | OVHcloud, serves the real public site with 13 real published maps (`docs/DEPLOY.md` §9) | the public, once DNS/Caddy is pointed at it | someone runs `git pull && docker compose up -d --build` **on the VPS itself**, by hand |
+
+The important consequence: **`git push` does not deploy anything.** Pushing a branch, or even merging a PR into `main`, only changes what's stored on GitHub. The live VPS keeps running whatever was last pulled onto it until a person logs in and pulls again — there is no CI/CD hook, no webhook, no auto-deploy. That gap is deliberate at this stage (pilot, one operator, no customers depending on zero-downtime rollout) but it means you cannot reason about the live site from `git log` alone — check `docs/DEPLOY.md` §9 for what's actually been pulled onto the VPS, or ask before assuming a merged change is live.
+
+Practically, this makes ordinary git operations lower-risk than they'd otherwise be: pushing a branch, or opening/merging a PR, cannot break the public site by itself — that only happens at the separate, manual VPS deploy step. It also means **there is no "preview URL per branch."** To see what a branch looks like running, `git checkout` it on the laptop and `npm run dev` — that's a full working portal, just local to you, using your own local `data/portal.sqlite` (empty until you seed it, see `DUMMIES_GUIDE.md` Part 3). It cannot affect the live site or anyone else's laptop.
+
+See [`docs/DUMMIES_GUIDE.md`](DUMMIES_GUIDE.md#8-managing-a-change-across-laptop-github-and-the-live-site) for the plain-language walkthrough of what to commit, push, and merge when, and what never happens without being asked.
 
 > **The system is a PILOT.** It is feature-complete but has **no customers** — every organisation in the database is seeded demo data and every published map is one of ours. Every page carries a banner and every rendered sheet a band saying so, gated on one env var. Two consequences for you: the render path has a post-generation step you need to know about (see *The gates you must run*), and **you must not write copy that claims customers, uptime or response times**. Read [`PILOT.md`](PILOT.md) before touching the render path, the public copy or the seed script.
 
