@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.5 | 2026-08-09 | sha=5b6d5b94 -->
-**v1.5** · updated 9 August 2026
+<!-- docstamp v1.6 | 2026-08-09 | sha=549c46ee -->
+**v1.6** · updated 9 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -154,3 +154,35 @@ Sessions expire themselves (the server purges hourly). Nothing else grows unboun
 ## 8. Licensing gate
 
 `docs/LICENSING.md` lists the data sources, what must be credited, and the open **bustimes.org terms** question. It is a launch go/no-go, not a footnote: the review lines at the bottom of that file are meant to be filled in before the public site is announced.
+
+## 9. The live host, as built (2026-08-09)
+
+Everything above is the general recipe. This is the as-built record of the one host that actually
+exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIVE.md`, this is just
+"how do I get back in and what state is it in".
+
+- **Host:** OVHcloud VPS, Ubuntu 26.04, IP + access details in `Buses/OVHCloud settings.txt`
+  (outside this repo — operator-only). User `ubuntu`, password auth and root login disabled.
+- **SSH key:** a dedicated keypair at `~/.ssh/busmaps_vps` on the laptop (not the default identity —
+  pass `-i` explicitly, or rely on `.env`'s `DEPLOY_SSH_KEY` for `scripts/deliver-map.mjs`).
+- **App directory:** `/opt/community-bus-maps`, a plain `git clone` (not a deploy artifact) —
+  `git pull && export GIT_SHA=$(git rev-parse --short HEAD) BUILT_AT=$(date -u +%FT%TZ) && docker
+  compose build portal && docker compose up -d portal` is the whole upgrade.
+- **GitHub access from the host:** a dedicated, read-only Deploy Key
+  (`~/.ssh/id_ed25519_deploy` on the VPS, registered against this GitHub repo only — see repo
+  Settings → Deploy keys). Not the laptop's key, and not write-capable.
+- **Firewall:** `ufw` allows only 22/80/443.
+- **Reverse proxy:** Caddy (`Caddyfile` in this repo, deployed to `/etc/caddy/Caddyfile`) —
+  see §3/§11 of `GO-LIVE.md` for why it isn't serving the public site yet (DNS).
+- **Backups:** host cron (`crontab -l` as `ubuntu`) runs `docker compose run --rm backup` daily at
+  03:15. A Windows scheduled task on the laptop (`BusMaps-PullBackups`, `schtasks /Query`) runs
+  `C:\Claude\community-bus-maps-ops\pull-backups.ps1` daily at 08:00 to pull them off-box into
+  `community-bus-maps-ops\backups\` (that folder is local-only, not this repo, not synced anywhere
+  public — see that repo's own notes).
+- **Content:** fresh database, one real customer (*BusMaps.uk (pilot)*), all 8 built towns + 5 built
+  places imported via `scripts/deliver-map.mjs` and published via `scripts/publish-baseline.mjs` —
+  see `GO-LIVE.md` §3 "Content on the live site".
+- **Known gotcha if you ever recreate the data volume:** it defaults to `root:root`, but the
+  container runs as the unprivileged `node` user (uid 1000, same as the host's `ubuntu` user, that's
+  not a coincidence worth relying on elsewhere) — `chown -R node:node` on `/data` and `/backups`
+  before the first start, or the container crash-loops on `EACCES` opening `portal.sqlite`.
