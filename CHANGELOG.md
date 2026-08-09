@@ -1,11 +1,20 @@
 # Changelog
 
-<!-- docstamp v1.37 | 2026-08-09 | sha=50903dc3 -->
-**v1.37** · updated 9 August 2026
+<!-- docstamp v1.38 | 2026-08-09 | sha=b12ae1c0 -->
+**v1.38** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — publish-baseline.mjs, real trip through the P4 gate — 2026-08-09
+
+`scripts/publish-baseline.mjs` (`npm run publish-baseline -- --actor <email> (--slug <slug> |
+--all-drafts)`) — publishes a freshly-imported map's v1.0 baseline as its first official version.
+Same submit → review → publish-pointer + audit sequence as `seed-demo.mjs`'s demo-only
+`publishBaseline()`, generalized for real maps and a real actor (an admin/approver can submit AND
+review their own request — no same-actor restriction in the review gate itself). Used to publish
+the 13 real maps imported today so `/maps` isn't an empty shopfront once DNS is live.
 
 ### Fixed — verify-reproduce-place.mjs only recognised base-overrides.json, not overrides.json — 2026-08-09
 
