@@ -1,0 +1,26 @@
+{
+  "platform": "win32-x64",
+  "node": "v24.14.0",
+  "sharp": "0.34.5",
+  "vips": "8.17.3",
+  "probes": {
+    "geometry": {
+      "svgSha": "75c147f733222d08e740b4aa1caa4552122b32080427c8e4e591973749c05031",
+      "svgBytes": 25829,
+      "jpgSha": "e5e2439b4fe5836557385d4542f9e7bf0e66c880cc398d7971a7aa8d40a816bc",
+      "jpgBytes": 418761,
+      "pixelSha": "4567e6d9725a72b2864b9bfc256909d4b677e0c40be5f07b934ff6b4e61ce877",
+      "dims": "3508x2480",
+      "density": 300
+    },
+    "text": {
+      "svgSha": "1aad074cd14bf25364a2c1b6c6246dd79d6b75d946d4d1c916ede37faf5bec00",
+      "svgBytes": 27020,
+      "jpgSha": "3da12ce5f71c4a154d7901195b3e89327fbe7029e6b93b98862c05184368b03b",
+      "jpgBytes": 688424,
+      "pixelSha": "77568c6ac9c17b2d04553039efb61c9f798c3d5684bad2a41632a3ce95753144",
+      "dims": "3508x2480",
+      "density": 300
+    }
+  }
+}
