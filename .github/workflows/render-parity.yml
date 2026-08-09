@@ -1,0 +1,116 @@
+# Does Linux rasterise a sheet to the same bytes as the Windows laptop?
+#
+# `npm run verify` cannot answer this: it fails only on the SVG comparison, and
+# SVG generation is pure JavaScript. See the header of scripts/render-parity-probe.mjs.
+#
+# The probe builds its own SVGs in code, so NO map data, fixtures or customer
+# data are involved and this is safe to run in public CI.
+#
+# Two jobs on purpose:
+#   image  — the real deployment target (node:24-slim via the Dockerfile).
+#   runner — plain Ubuntu, which has system fonts installed.
+# If `geometry` matches in both but `text` only matches on the runner, the
+# problem is fonts missing from the image, not libvips — a one-line Dockerfile
+# fix rather than a platform problem.
+#
+# Advisory by design: it reports, it does not block. Add --strict once the
+# baseline is trusted and you want a red X on a regression.
+
+name: render parity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/render-parity-probe.mjs'
+      - 'scripts/render-parity-baseline.json'
+      - 'src/render/**'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.github/workflows/render-parity.yml'
+  pull_request:
+    paths:
+      - 'scripts/render-parity-probe.mjs'
+      - 'scripts/render-parity-baseline.json'
+      - 'src/render/**'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.github/workflows/render-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: node:24-slim (deployment target)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the production image
+        run: docker build -t cbm-parity .
+
+      # What Arial actually resolves to is the whole question, so record the
+      # font inventory rather than inferring it from the pixel hashes.
+      - name: What fonts does the image have?
+        run: |
+          docker run --rm --entrypoint sh cbm-parity -c \
+            'find / \( -name "*.ttf" -o -name "*.otf" \) 2>/dev/null | sort' | tee fonts-image.txt
+          echo "count: $(wc -l < fonts-image.txt)"
+
+      - name: Rasterise the probes inside the image
+        run: docker run --rm cbm-parity node scripts/render-parity-probe.mjs | tee probe-image.txt
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo '## Deployment image — `node:24-slim`'
+            echo
+            echo 'The image the VPS will actually run.'
+            echo
+            echo '```'
+            cat probe-image.txt
+            echo '```'
+            echo
+            echo "<details><summary>Fonts present in the image ($(wc -l < fonts-image.txt))</summary>"
+            echo
+            echo '```'
+            cat fonts-image.txt
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  runner:
+    name: ubuntu-latest (system fonts present)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Respect the lockfile: a different sharp build is exactly the variable
+      # under test, so it must not float.
+      - name: Install dependencies
+        run: npm ci --omit=dev
+
+      - name: Rasterise the probes on the bare runner
+        run: node scripts/render-parity-probe.mjs | tee probe-runner.txt
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo '## Bare runner — `ubuntu-latest`'
+            echo
+            echo 'Linux with system fonts installed. Compare against the image job:'
+            echo 'if `text` passes here but fails there, it is fonts in the image.'
+            echo
+            echo '```'
+            cat probe-runner.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

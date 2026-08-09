@@ -11,9 +11,25 @@
 # The base image is pinned by digest-able tag for the same reason.
 FROM node:24-slim
 
-# libvips is bundled with sharp's prebuilt binary; only CA certs + tini are added.
+# libvips is bundled with sharp's prebuilt binary; CA certs + tini are the only
+# other infrastructure.
+#
+# fonts-liberation is NOT optional and must not be tidied away. Every sheet is
+# set in Arial -- 120 times in the St Ives internal sheet alone -- and Arial is
+# a Microsoft font that is not present on Linux. The render-parity probe
+# (.github/workflows/render-parity.yml) measured the consequence: with no font
+# to resolve Arial to, this image rendered the text probe differently from both
+# the Windows laptop AND a bare Ubuntu runner. Because customers re-render on
+# the host through the safe-subset editor, that means customer-rendered sheets
+# would not match the ones built centrally.
+#
+# Liberation Sans is METRICALLY COMPATIBLE with Arial -- identical advance
+# widths -- so labels keep their positions and nothing reflows or collides.
+# The glyph shapes still differ from real Arial, so this makes the host
+# self-consistent; it does not make it pixel-identical to the laptop. See
+# docs/GO-LIVE.md 2.5 for the options that would.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates tini \
+ && apt-get install -y --no-install-recommends ca-certificates tini fonts-liberation \
  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
