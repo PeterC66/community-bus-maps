@@ -106,7 +106,26 @@ The only code path that creates an admin user is `scripts/seed-demo.mjs`, which 
 - Migrating existing renders would have been exposed — but §3 already decided on a fresh database and fresh imports, so there is nothing to migrate.
 - What *is* exposed is the **laptop → host delivery flow** (§2.1) and `push-status.mjs`'s byte-identical gate. If either ever compares a laptop-rendered JPG against a host-rendered one, a platform difference shows up as a spurious DIFF and you would chase a bug that isn't there.
 
-So: **know the answer before building the delivery script**, not before buying the VPS. Three ways to settle it, cheapest first — a GitHub Actions job on `ubuntu-latest` that rasterises a *synthetic* SVG generated inside the workflow (no private data leaves the machine) and prints its SHA-256 for comparison against the same SVG rasterised here; or WSL2 locally; or simply run it as the first task on the VPS once it exists.
+**Settled 2026-08-09** by `.github/workflows/render-parity.yml` + `scripts/render-parity-probe.mjs` (PR #13). The answer is in two halves, and only one of them is good news.
+
+| Probe | Windows (baseline) | `node:24-slim` (target) | `ubuntu-latest` |
+|---|---|---|---|
+| **geometry** | 418,761 B | **byte-identical ✓** | **byte-identical ✓** |
+| **text** | 688,424 B | 670,430 B ✗ | 683,501 B ✗ |
+
+**libvips is not the problem.** At sharp 0.34.5 / libvips 8.17.3, Linux rasterises and JPEG-encodes geometry to the *same bytes* as Windows — not merely the same pixels. The `DEPLOY.md` §7 warning about libvips builds is real in principle but does not bite at the versions in the lockfile.
+
+**Fonts are the problem, and it is worse than "the image lacks fonts".** All three environments disagree, including the two Linux ones with each other. Arial is a Microsoft font: present on Windows, absent everywhere else, so each environment falls back to whatever it happens to have. Every sheet is 100% Arial — 120 uses in the St Ives internal sheet alone.
+
+**Why this is now a launch blocker rather than a footnote.** The portal's whole self-serve premise is that a customer recolours a route and *re-renders on the host*. With no Arial there, every customer-rendered sheet gets different text from the ones you built on the laptop — different glyph shapes and different advance widths, so labels shift and can collide. It would also silently apply to any map re-rendered when a monthly refresh is accepted.
+
+Options, none free:
+
+1. **`fonts-liberation` in the Dockerfile.** Liberation Sans is *metrically compatible* with Arial — same advance widths, so nothing reflows or collides — but the glyph shapes differ, so sheets will not be pixel-identical to the laptop's. Makes the host self-consistent and deterministic. One line, and strictly better than the current state whatever else is decided.
+2. **Move the generators off Arial** onto a libre font both sides can install. True parity, but it re-opens the byte-identical gate for all six outputs and changes the appearance of every sheet already published.
+3. **Licensed Microsoft fonts in the image.** Genuine parity, but the redistribution terms need reading properly against a BUSL commercial product — not a decision to take casually.
+
+Whichever is chosen, the probe now guards it: re-run the workflow and the numbers either converge or they don't.
 
 ### 2.6 Keep the fixtures fresh — the gate goes red on its own
 
