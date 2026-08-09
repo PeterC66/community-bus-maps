@@ -1,11 +1,25 @@
 # Changelog
 
-<!-- docstamp v1.36 | 2026-08-09 | sha=b0355ef7 -->
-**v1.36** · updated 9 August 2026
+<!-- docstamp v1.37 | 2026-08-09 | sha=50903dc3 -->
+**v1.37** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — verify-reproduce-place.mjs only recognised base-overrides.json, not overrides.json — 2026-08-09
+
+Caught delivering the first real PLACE map (Beaconsfield Simpson Centre): the pre-flight verify
+reported a false `DIFFERS` because `verify-reproduce-place.mjs` only looked for
+`base-overrides.json`, while a fresh, not-yet-portal-staged skill payload ships the same expert
+framing as `overrides.json` — exactly what `import-map.mjs` already handles (its own comment: "a
+fresh skill payload carries it as overrides.json; a live-derived payload already has it split out
+as base-overrides.json. Accept either."). The verify script just hadn't been taught the same
+fallback. Fixed to check both names, and corrected the "framing:" log line to name whichever file
+it actually used instead of always printing "base-overrides.json".
+
+Confirmed against the real data: `PLACE_FIXTURE_DIR` pointed straight at Simpson Centre's S5-render
+now passes byte-identical, where it previously reported a 115-byte SVG diff on `gen_internal_place.js`.
 
 ### Fixed — first real delivery run crashed on a Docker-mounted fixture — 2026-08-09
 

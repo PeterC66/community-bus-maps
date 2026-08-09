@@ -85,15 +85,23 @@ writeFileSync(path.join(scratch, 'package.json'), '{ "type": "commonjs" }\n');
 // Baseline overrides = the expert framing (base-overrides.json) with an empty
 // customer layer merged on top — which is just the framing itself. Passing it as
 // OVERRIDES_FILE reproduces exactly what renderVersion(id, {}) does for v1.0.
-const baseOvPath = path.join(scratch, 'base-overrides.json');
-const base = existsSync(baseOvPath) ? JSON.parse(readFileSync(baseOvPath, 'utf8')) : {};
+//
+// Filename: accept either base-overrides.json OR overrides.json, matching
+// import-map.mjs's own fallback (its comment: "a fresh skill payload carries
+// it as overrides.json; a live-derived payload already has it split out as
+// base-overrides.json"). Checking only the split-out name meant this gate
+// reported a false DIFFERS on every fresh, not-yet-portal-staged place
+// fixture — caught 2026-08-09 on Beaconsfield Simpson Centre's first real
+// delivery, which ships overrides.json, not base-overrides.json.
+const baseOvPath = [path.join(scratch, 'base-overrides.json'), path.join(scratch, 'overrides.json')].find(existsSync);
+const base = baseOvPath ? JSON.parse(readFileSync(baseOvPath, 'utf8')) : {};
 const ovTmp = path.join(scratch, '_baseline-overrides.json');
 writeFileSync(ovTmp, JSON.stringify(base));
 
 console.log('Byte-identical reproduce test — PLACE engine');
 console.log('  fixture :', FIXTURE);
 console.log('  icons   :', ENGINE_DIR);
-console.log('  framing :', Object.keys(base).length ? 'base-overrides.json present (merged)' : 'none');
+console.log('  framing :', baseOvPath ? `${path.basename(baseOvPath)} present (merged)` : 'none');
 console.log('');
 
 const targets = [
