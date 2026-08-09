@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.8 | 2026-08-09 | sha=d708f8ae -->
-**v1.8** · updated 9 August 2026
+<!-- docstamp v1.9 | 2026-08-09 | sha=8470bf9b -->
+**v1.9** · updated 9 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then
 shops, businesses, schools, function organisers, the National Trust and others — generate,
@@ -248,7 +248,7 @@ licensing launch gate is [`docs/LICENSING.md`](docs/LICENSING.md).
 re-pass `npm run verify` on the target platform before it ships — a different encoder can produce
 different bytes for the same SVG, which would break "the file we serve is the file that was approved".
 
-## Data hygiene (important — this is a public repo)
+## Data hygiene (important — the deployed portal is a public-facing service)
 
 **No map data, customer data, or secrets ever go in git.**
 

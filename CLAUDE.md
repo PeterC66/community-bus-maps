@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.4 | 2026-08-09 | sha=750bafad -->
-**v1.4** · updated 9 August 2026
+<!-- docstamp v1.5 | 2026-08-09 | sha=27131643 -->
+**v1.5** · updated 9 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -61,7 +61,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 
 ## House rules
 
-- **No secrets, customer data or map data in git** — this is a public repo. `data/` is ignored.
+- **No secrets, customer data or map data in git** — the portal is a public-facing service. `data/` is ignored.
   So is `backups/`, and that one has bitten: **`npm run backup` writes to `<DATA_DIR>/../backups/`,
   which is *inside* the repo**, so a plain `git add -A` after a backup stages ~125 files of map
   payloads. `*.sqlite` was already ignored so the database never went in, but the JSON/SVG/JPG did.

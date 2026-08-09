@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.6 | 2026-08-07 | sha=5c43e3d4 -->
-**v1.6** · updated 7 August 2026
+<!-- docstamp v1.7 | 2026-08-09 | sha=0235074d -->
+**v1.7** · updated 9 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -121,7 +121,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 
 ## House rules
 
-- **No secrets or map/customer data in git.** This is a public repo — see README "Data hygiene". Configuration comes from `.env`.
+- **No secrets or map/customer data in git.** The portal is a public-facing service — see README "Data hygiene". Configuration comes from `.env`.
 - **Pure functions where the decisions are.** `publish/`, `refresh/`, `branding/` are deliberately side-effect-free so the rules can be tested directly. Keep them that way.
 - **Server-enforced, always.** Every safe-subset restriction, quota, and visibility condition is checked on the server (and in SQL where it's a visibility condition). Client-side checks are UX, not security.
 - **Attribution is not optional.** Maps derive from OpenStreetMap (ODbL) and BODS (OGL). See `NOTICE`. Don't ship an output path that drops the credit.
