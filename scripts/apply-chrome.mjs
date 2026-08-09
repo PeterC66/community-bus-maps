@@ -1,25 +1,34 @@
-// Rewrite the nav block in every public/*.html from the single source of
-// truth in scripts/lib/site-chrome.mjs. Idempotent: safe to run any time you
-// change NAV_HTML, or to add the markers to a page that doesn't have them yet.
+// Rewrite the nav and footer blocks in every public/*.html from the single
+// source of truth in scripts/lib/site-chrome.mjs. Idempotent: safe to run any
+// time you change NAV_HTML/FOOTER_HTML, or to add markers to a page that
+// doesn't have them yet.
 //
 //   npm run chrome:apply
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NAV_HTML } from './lib/site-chrome.mjs';
+import { NAV_HTML, FOOTER_HTML } from './lib/site-chrome.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
 
-const NAV_START = '  <!-- nav:start -->';
-const NAV_END = '  <!-- nav:end -->';
-const navBlock = `${NAV_START}\n${NAV_HTML}\n${NAV_END}`;
-
-// Matches either an already-marked block, or the raw <header class="site-header">…</header>
-// block from before markers existed — so a page never previously touched still converts.
-const MARKED_RE = /  <!-- nav:start -->[\s\S]*?  <!-- nav:end -->/;
-const RAW_HEADER_RE = /  <header class="site-header">[\s\S]*?<\/header>/;
+// Matches either an already-marked block, or the raw pre-marker element —
+// so a page never previously touched still converts on the first run.
+const BLOCKS = [
+  {
+    name: 'nav', html: NAV_HTML,
+    markedRe: /  <!-- nav:start -->[\s\S]*?  <!-- nav:end -->/,
+    rawRe: /  <header class="site-header">[\s\S]*?<\/header>/,
+    markers: ['  <!-- nav:start -->', '  <!-- nav:end -->'],
+  },
+  {
+    name: 'footer', html: FOOTER_HTML,
+    markedRe: /  <!-- footer:start -->[\s\S]*?  <!-- footer:end -->/,
+    rawRe: /  <footer class="site-footer">[\s\S]*?<\/footer>/,
+    markers: ['  <!-- footer:start -->', '  <!-- footer:end -->'],
+  },
+];
 
 let changed = 0;
 let unchanged = 0;
@@ -27,24 +36,27 @@ const files = readdirSync(publicDir).filter((f) => f.endsWith('.html'));
 
 for (const name of files) {
   const file = path.join(publicDir, name);
-  const original = readFileSync(file, 'utf8');
+  let content = readFileSync(file, 'utf8');
+  const original = content;
 
-  let updated;
-  if (MARKED_RE.test(original)) {
-    updated = original.replace(MARKED_RE, navBlock);
-  } else if (RAW_HEADER_RE.test(original)) {
-    updated = original.replace(RAW_HEADER_RE, navBlock);
-  } else {
-    console.error(`✗ ${name}: no nav marker and no recognisable <header class="site-header"> block — skipped`);
-    continue;
+  for (const block of BLOCKS) {
+    const [start, end] = block.markers;
+    const replacement = `${start}\n${block.html}\n${end}`;
+    if (block.markedRe.test(content)) {
+      content = content.replace(block.markedRe, replacement);
+    } else if (block.rawRe.test(content)) {
+      content = content.replace(block.rawRe, replacement);
+    } else {
+      console.error(`✗ ${name}: no ${block.name} marker and no recognisable raw block — skipped`);
+    }
   }
 
-  if (updated === original) {
+  if (content === original) {
     unchanged++;
   } else {
-    writeFileSync(file, updated, 'utf8');
+    writeFileSync(file, content, 'utf8');
     changed++;
-    console.log(`✓ ${name}: nav updated`);
+    console.log(`✓ ${name}: chrome updated`);
   }
 }
 
