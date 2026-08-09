@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
+import { warnIfFileSkew } from './lib/fixture-freshness.mjs';
 
 const FIXTURE = process.env.PLACE_FIXTURE_DIR;
 const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
@@ -117,6 +118,8 @@ if (routesJson.internalSchematic) {
 if (routesJson.internalDiagram) {
   targets.push([path.join(EXPERT, 'gen_internal_diagram.js'), 'internal-diagram.svg', 'internal-diagram.jpg']);
 }
+
+warnIfFileSkew(FIXTURE, targets.flatMap(([, svg, jpg]) => [svg, jpg]));
 
 let headlineOK = true;
 let ran = 0;

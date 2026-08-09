@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
+import { warnIfStaleSibling } from './lib/fixture-freshness.mjs';
 
 const FIXTURE = process.env.FIXTURE_DIR;
 const ICONS = process.env.SKILL_ASSETS || ENGINE_DIR;
@@ -84,6 +85,7 @@ console.log('Byte-identical reproduce test');
 console.log('  fixture :', FIXTURE);
 console.log('  icons   :', ICONS);
 console.log('');
+warnIfStaleSibling(FIXTURE);
 
 const targets = [
   ['gen_internal.js', 'internal.svg', 'internal.jpg'],

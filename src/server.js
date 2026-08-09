@@ -89,7 +89,10 @@ const parseOutputs = (json) => { try { return JSON.parse(json || '{}') || {}; } 
 const slugify = (s) => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const authLink = (req, token) => `${req.protocol}://${req.headers.host}/auth/verify?token=${token}`;
 
-const app = Fastify({ logger: true, bodyLimit: 256 * 1024 });
+// trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
+// otherwise the proxy's, not the client's — breaking authLink()'s https URLs
+// (GO-LIVE.md §2.4) and letting every visitor share one rate-limit bucket.
+const app = Fastify({ logger: true, bodyLimit: 256 * 1024, trustProxy: true });
 
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
 

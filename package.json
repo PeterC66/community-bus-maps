@@ -19,6 +19,7 @@
     "verify:area": "node --env-file-if-exists=.env scripts/verify-reproduce.mjs",
     "verify:place": "node --env-file-if-exists=.env scripts/verify-reproduce-place.mjs",
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "create-admin": "node --env-file-if-exists=.env scripts/create-admin.mjs",
     "prune:staged": "node --env-file-if-exists=.env scripts/prune-staged.mjs",
     "check-upcoming": "node --env-file-if-exists=.env scripts/check-upcoming-refreshes.mjs",
     "test:p7": "node scripts/test-p7.mjs",

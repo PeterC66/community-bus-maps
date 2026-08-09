@@ -7,6 +7,24 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — go-live code blockers, GO-LIVE.md §2.2/§2.4/§2.6 — 2026-08-09
+
+- `scripts/create-admin.mjs` (`npm run create-admin -- --email … [--name …]`) — creates exactly
+  one admin user on a clean database, no invented demo organisations. `seed-demo.mjs` remains the
+  local-dev path.
+- `trustProxy: true` on the Fastify instance — behind Caddy, `authLink()` now builds `https` URLs
+  from the real client protocol and the per-IP rate limiter keys on the real client IP, not the
+  proxy's.
+- `scripts/lib/fixture-freshness.mjs` — both verify gates now print a non-blocking WARNING when a
+  fixture reference is stale relative to its siblings (area: a newer sibling render exists) or
+  internally skewed (place: one reference file lags the rest). Fixes the "the gate cried wolf"
+  problem from GO-LIVE.md §2.6, where a stale `.env` pointer or partially re-staged place fixture
+  reported as a determinism failure.
+- Re-rendered `Places/_portal-fixture/High Wycombe Aldi/internal-schematic.{svg,jpg}` in the Buses
+  repo from the corrected 9 Aug data (the `OVERRIDES_FILE` fix) — `verify:place` is green again.
+- `docs/LICENSING.md` §5 — recorded the CSRF-token deferral as an accepted risk for the pilot,
+  rather than leaving it unrecorded.
+
 ### Added — self-service "no watermark for anyone" opt-out — 2026-08-09
 
 A customer can now let anyone (not just their own signed-in users) download their maps without

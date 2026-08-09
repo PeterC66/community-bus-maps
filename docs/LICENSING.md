@@ -71,6 +71,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
 | bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
+| CSRF tokens on state-changing POSTs | **Accepted risk for the pilot** — deferred, not fixed. `SameSite=Lax` already blocks cross-site POST from another origin; the residual risk is a same-site/XSS-chained attack, judged low for a handful of known pilot users. Revisit before opening self-serve signup to the public (`ROADMAP.md` follow-up). | GO-LIVE.md §3 | 2026-08-09 |
 
 **To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic, diagram, external) from a reviewed map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.
 
