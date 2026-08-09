@@ -92,6 +92,28 @@ function fill() {
 
 ['publicName', 'blurb', 'website', 'emoji'].forEach((id) => $(id).addEventListener('input', paintPreview));
 
+function settingsNote(kind, text) {
+  const m = $('settingsMsg');
+  m.className = 'notice ' + (kind ? kind + ' show' : '');
+  m.textContent = text || '';
+}
+
+$('settingsSaveBtn').addEventListener('click', async () => {
+  const btn = $('settingsSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/customer/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ watermarkEnabled: !$('watermarkFree').checked }),
+    });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) {
+      $('watermarkFree').checked = !b.watermarkEnabled;
+      settingsNote('ok', 'Saved.');
+    } else settingsNote('err', (b && b.error) || 'Could not save this setting.');
+  } catch { settingsNote('err', 'Network error while saving.'); }
+  finally { btn.disabled = false; btn.textContent = 'Save'; }
+});
+
 $('logoutBtn').addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   location.href = '/app/login.html';
@@ -116,6 +138,7 @@ $('logoutBtn').addEventListener('click', async () => {
     if (!res.ok || !b.ok) { note('err', (b && b.error) || 'Could not load your public details.'); return; }
     state = { branding: b.branding || {}, accents: b.accents || [], customer: b.customer, preview: b.preview };
     $('nameHint').textContent = `Leave blank to use “${b.customer.name}”.`;
+    $('watermarkFree').checked = !b.customer.watermarkEnabled;
     if (b.customer.publicUrl) {
       $('viewPublic').href = b.customer.publicUrl;
       $('viewPublic').style.display = (b.publicMaps && b.publicMaps.length) ? '' : 'none';

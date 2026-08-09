@@ -1,11 +1,21 @@
 # Changelog
 
-<!-- docstamp v1.32 | 2026-08-09 | sha=af02a23b -->
-**v1.32** · updated 9 August 2026
+<!-- docstamp v1.33 | 2026-08-09 | sha=b2a9c0b9 -->
+**v1.33** · updated 9 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — self-service "no watermark for anyone" opt-out — 2026-08-09
+
+A customer can now let anyone (not just their own signed-in users) download their maps without
+the "BusMaps.uk" watermark, from their own "Public details" page — this was previously an
+admin-only toggle (`customer.watermark_enabled`, unchanged) set on request. Added a scoped
+`PATCH /api/customer/settings` route (whitelists exactly `watermarkEnabled`; quota/plan/status
+remain admin-only via `/api/admin/customers/:id`) and a "Downloads" panel in
+`public/app/branding.html` / `branding.js`. `GET /api/customer/branding` now also returns the
+customer's current `watermarkEnabled`.
 
 ### Changed — repo made private, licence switched from Apache-2.0 to BUSL 1.1 — 2026-08-09
 

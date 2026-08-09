@@ -531,7 +531,10 @@ app.get('/api/customer/branding', async (req, reply) => {
   if (!cust) return reply.code(404).send({ ok: false, error: 'Your organisation record is missing — please contact us.' });
   return {
     ok: true,
-    customer: { id: cust.id, name: cust.name, slug: cust.slug || null, publicUrl: cust.slug ? orgPageUrl(cust.slug) : null },
+    customer: {
+      id: cust.id, name: cust.name, slug: cust.slug || null, publicUrl: cust.slug ? orgPageUrl(cust.slug) : null,
+      watermarkEnabled: !!cust.watermark_enabled,
+    },
     branding: parseJson(cust.branding_json),
     preview: brandingForPublic(cust),
     accents: Object.entries(ACCENTS).map(([key, a]) => ({ key, ...a })),
@@ -550,6 +553,24 @@ app.patch('/api/customer/branding', async (req, reply) => {
   logAudit(req, 'branding.update', { detail: { customerId: cust.id, branding, rejected } });
   const fresh = getCustomer(cust.id);
   return { ok: true, branding, rejected, preview: brandingForPublic(fresh) };
+});
+
+// Self-service download setting: a customer may opt their OWN maps out of the
+// non-owner watermark, so anyone can download a clean copy. Deliberately a
+// single whitelisted boolean — quota/plan/status stay admin-only, so this
+// route must never widen to pass the raw body through to updateCustomerAdmin.
+app.patch('/api/customer/settings', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  if (user.customer_id == null) return reply.code(400).send({ ok: false, error: 'Only a customer account has organisation settings.' });
+  const cust = getCustomer(user.customer_id);
+  if (!cust) return reply.code(404).send({ ok: false, error: 'Your organisation record is missing — please contact us.' });
+  const b = req.body || {};
+  if (b.watermarkEnabled == null) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
+  updateCustomerAdmin(cust.id, { watermark_enabled: !!b.watermarkEnabled });
+  req.log.info({ customerId: cust.id, watermarkEnabled: !!b.watermarkEnabled }, 'customer settings updated');
+  logAudit(req, 'customer.settings.update', { detail: { customerId: cust.id, watermarkEnabled: !!b.watermarkEnabled } });
+  const fresh = getCustomer(cust.id);
+  return { ok: true, watermarkEnabled: !!fresh.watermark_enabled };
 });
 
 // ===========================================================================
