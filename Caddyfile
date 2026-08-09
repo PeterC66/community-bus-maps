@@ -1,0 +1,26 @@
+# Reverse proxy for the portal (GO-LIVE.md §3 "Host setup" / §11).
+# The app is bound to 127.0.0.1:5180 (see compose.yaml) — TLS and the public
+# hostname belong here, not to the app.
+#
+# Deploy: sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# Automatic HTTPS needs busmaps.uk's DNS pointing at this host first (GO-LIVE.md
+# §3 "DNS at 20i") — until then Caddy keeps this site on the ACME retry path
+# and serves it over plain HTTP meanwhile; nothing else to do here once DNS is live.
+
+busmaps.uk, www.busmaps.uk {
+	reverse_proxy 127.0.0.1:5180
+
+	# Caddy forwards X-Forwarded-For/-Proto/-Host to the upstream by default,
+	# which is what src/server.js's trustProxy setting relies on — no manual
+	# header_up needed.
+
+	encode zstd gzip
+
+	# Don't let the reverse proxy handle 404s for /api/ or /m/ (GO-LIVE.md's
+	# reminder not to strip those paths) — there's no path rewriting above, so
+	# this is automatically satisfied; kept explicit as documentation.
+	log {
+		output file /var/log/caddy/busmaps.access.log
+	}
+}
