@@ -127,6 +127,19 @@ Options, none free:
 
 Whichever is chosen, the probe now guards it: re-run the workflow and the numbers either converge or they don't.
 
+**Option 1 is done (2026-08-09).** `fonts-liberation` is installed in the Dockerfile, with a comment explaining why so it is not later tidied away as an unused package. The image now carries 16 Liberation faces, and the text probe moved from 670,430 B to 676,537 B — proof that Arial is now resolving to Liberation Sans rather than to whatever the image happened to fall back on before.
+
+It did **not** close the gap with the laptop, and was never going to:
+
+| Probe | Windows | image *before* | image *after* | `ubuntu-latest` |
+|---|---|---|---|---|
+| geometry | 418,761 B | identical ✓ | identical ✓ | identical ✓ |
+| text | 688,424 B | 670,430 B | **676,537 B** | 683,501 B |
+
+Liberation Sans matches Arial's advance widths but not its glyph outlines, so layout is preserved while the pixels differ. What this buys is that **the host is now self-consistent and metrically correct** — which an image resolving Arial to an arbitrary fallback could never be. (The bare runner still disagrees with the image because its fontconfig has many fonts to choose from and need not pick Liberation. It is not the deployment target; its job was to prove the cause was fonts, and it has.)
+
+**The open question this leaves.** `import-map.mjs` *re-renders* on import (`ROADMAP.md`: "renders **v1.0 = the byte-identical baseline**"). If that holds on the host, then every sheet the portal stores is host-rendered and internally consistent — which is the outcome we want — but the laptop's shipped JPG and the portal's v1.0 will no longer match byte-for-byte, and any check comparing the two will report a difference forever. **Confirm that before building the §2.1 delivery script**, because it decides whether that script should compare renders at all.
+
 ### 2.6 Keep the fixtures fresh — the gate goes red on its own
 
 Both fixtures were stale when checked on 2026-08-09, and in both cases the gate reported a *determinism failure* for what was really a bookkeeping lapse. This will happen again.
