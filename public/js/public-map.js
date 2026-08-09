@@ -102,4 +102,18 @@
   });
   $('sheetBox').hidden = false;
   show(map.outputs[0]);
+
+  // The card was hidden when the page loaded, so a #report link (footer,
+  // contact.html) needs the browser's own anchor-jump redone now it's
+  // visible — and again once the sheet image's layout settles, since its
+  // height was still unknown (`.sheet img { height: auto }`) and reflows
+  // the page. The image may already be `complete` (cached) by now, in
+  // which case 'load' has already fired and never will again — rAF after
+  // a layout pass covers that case instead.
+  if (location.hash === '#report') {
+    const scrollToReport = () => { if (location.hash === '#report') $('report').scrollIntoView(); };
+    scrollToReport();
+    if ($('sheetImg').complete) requestAnimationFrame(scrollToReport);
+    else $('sheetImg').addEventListener('load', scrollToReport, { once: true });
+  }
 })();
