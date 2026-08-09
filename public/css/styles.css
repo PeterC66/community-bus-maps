@@ -88,6 +88,8 @@ a:hover { text-decoration: underline; }
 }
 .nav a.navlink:hover { color: var(--text); text-decoration: none; }
 .nav .btn { padding: 8px 14px; font-size: .92rem; }
+.nav-auth { display: inline-flex; align-items: center; gap: 12px; }
+.nav-auth:empty { display: none; }
 
 /* mobile nav: wrap links below on small screens */
 @media (max-width: 720px) {

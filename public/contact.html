@@ -12,6 +12,7 @@
   <script src="/js/auth-status.js" defer></script>
 </head>
 <body>
+  <!-- nav:start -->
   <header class="site-header"><div class="container"><nav class="nav">
     <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
@@ -20,14 +21,16 @@
     <a class="navlink" href="/pricing.html">Pricing</a>
     <a class="navlink" href="/faq.html">FAQ</a>
     <a class="navlink" href="/contact.html">Contact</a>
-    <a class="navlink" href="/contact.html?kind=issue">Report an issue</a>
     <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+    <span class="nav-auth" id="navAuth"></span>
   </nav></div></header>
+  <!-- nav:end -->
 
   <main>
     <section><div class="container">
       <h2 class="mt-0">Get in touch</h2>
       <p class="section-intro">A question, some feedback, or just curious? Send us a note — we’re a pilot and we’d genuinely like to hear what you think. If you’d like maps of your own, the <a href="/apply.html">interest form</a> is the quickest way in.</p>
+      <p class="form-note" id="issueNote" hidden>If it’s about a specific map, the form on that map’s page tells us which one — <a href="/maps">browse published maps</a>.</p>
 
       <form class="form-wrap" data-endpoint="/api/contact" data-success="Thanks for getting in touch — we’ve got your message and we’ll reply when we can.">
         <div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="website_hp" tabindex="-1" autocomplete="off"></label></div>
@@ -70,22 +73,26 @@
           if (kind === 'issue') {
             var body = document.getElementById('body');
             if (body && !body.value) body.placeholder = 'Which map, and what looks wrong? A link or a photo helps.';
+            var note = document.getElementById('issueNote');
+            if (note) note.hidden = false;
           }
         })();
       </script>
     </div></section>
   </main>
 
+  <!-- footer:start -->
   <footer class="site-footer"><div class="container"><div class="cols">
     <div class="attrib">
       <strong>BusMaps.uk</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
-      Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>).
+      Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>). Always check live times with the operator or at bustimes.org.
     </div>
     <div>
       <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/opportunity.html">Take this on</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a><br>
       <span class="muted">© BusMaps.uk</span>
     </div>
   </div></div></footer>
+  <!-- footer:end -->
 
   <script src="/js/app.js"></script>
 </body>

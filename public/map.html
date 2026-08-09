@@ -14,6 +14,7 @@
   <script src="/js/auth-status.js" defer></script>
 </head>
 <body>
+  <!-- nav:start -->
   <header class="site-header"><div class="container"><nav class="nav">
     <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
@@ -22,9 +23,10 @@
     <a class="navlink" href="/pricing.html">Pricing</a>
     <a class="navlink" href="/faq.html">FAQ</a>
     <a class="navlink" href="/contact.html">Contact</a>
-    <a class="navlink" href="/contact.html?kind=issue">Report an issue</a>
     <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+    <span class="nav-auth" id="navAuth"></span>
   </nav></div></header>
+  <!-- nav:end -->
 
   <main>
     <section class="map-page"><div class="container">
@@ -49,7 +51,7 @@
           <div class="pill-row" id="aboutPills"></div>
           <p id="reportLink" hidden></p>
         </div>
-        <div class="card">
+        <div class="card" id="report">
           <h3>Spotted a problem?</h3>
           <p>Bus services change, and mistakes happen. Tell us and we’ll pass it to whoever publishes this map. We’re a small pilot, so we can’t promise how quickly.</p>
           <form id="fbForm" data-endpoint="/api/public/feedback" data-success="Thank you — we’ve got this and we’ll look into it.">
@@ -78,6 +80,7 @@
     </div></section>
   </main>
 
+  <!-- footer:start -->
   <footer class="site-footer"><div class="container"><div class="cols">
     <div class="attrib">
       <strong>BusMaps.uk</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
@@ -88,6 +91,7 @@
       <span class="muted">© BusMaps.uk</span>
     </div>
   </div></div></footer>
+  <!-- footer:end -->
 
   <script src="/js/app.js"></script>
   <script src="/js/public-map.js"></script>
