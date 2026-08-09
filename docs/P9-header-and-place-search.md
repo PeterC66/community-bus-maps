@@ -1,7 +1,7 @@
 # P9 — header cleanup + place-name search
 
-<!-- docstamp v1.1 | 2026-08-09 | sha=9358aeac -->
-**v1.1** · updated 9 August 2026
+<!-- docstamp v1.2 | 2026-08-09 | sha=168f55a7 -->
+**v1.2** · updated 9 August 2026
 
 Plan only. Nothing here is built yet. Status is per item, so a later session can pick this up mid-flight — update the Status column as you go, don't just tick things off at the end.
 
