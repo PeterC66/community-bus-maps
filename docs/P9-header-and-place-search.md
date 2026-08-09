@@ -29,12 +29,12 @@ Signed in, the same slot holds: "Signed in as …" · My maps · [Sign out], and
 
 | # | Item | Status |
 |---|---|---|
-| A1 | Canonical chrome + a test that enforces it | — |
-| A2 | Apply the new nav to all 12 public pages | — |
-| A3 | Fixed auth slot; rework `auth-status.js` to fill it | — |
-| A4 | CSS for the auth slot and the narrower bar | — |
-| A5 | Footer canonicalised (keeps Report an issue + Take this on) | — |
-| A6 | Strengthen the contextual issue route on the map page | — |
+| A1 | Canonical chrome + a test that enforces it | ✅ |
+| A2 | Apply the new nav to all 12 public pages | ✅ |
+| A3 | Fixed auth slot; rework `auth-status.js` to fill it | ✅ |
+| A4 | CSS for the auth slot and the narrower bar | ✅ |
+| A5 | Footer canonicalised (keeps Report an issue + Take this on) | ✅ |
+| A6 | Strengthen the contextual issue route on the map page | ✅ |
 
 ### A1 — canonical chrome first, so nothing can drift
 
