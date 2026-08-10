@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.10 | 2026-08-09 | sha=c4354fb4 -->
-**v1.10** · updated 9 August 2026
+<!-- docstamp v1.12 | 2026-08-09 | sha=357cea1d -->
+**v1.12** · updated 9 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 
@@ -196,9 +196,10 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 |---|---|
 | ☑ | ~~VPS provisioned; non-root user; SSH keys only; `ufw` to 22/80/443; `unattended-upgrades`~~ | done 2026-08-09 — OVHcloud, Ubuntu 26.04, `ubuntu` user, password auth + root login disabled, `ufw` active (22/80/443 only), `unattended-upgrades` already running |
 | ☑ | ~~Docker + compose; `docker compose up -d --build`; verify `/health?deep=1`~~ | done 2026-08-09 — repo cloned via a read-only GitHub deploy key, image built, `/health?deep=1` green with `gitSha`/`builtAt` matching the deployed commit |
-| ☑ | ~~Caddy in front — automatic TLS, forwards `X-Forwarded-Proto`, does not strip `/api/` or `/m/`~~ | installed + configured 2026-08-09 (tracked `Caddyfile`, `caddy validate` passes, service running). **Not yet actually serving the site**: with no DNS pointing at the host, Let's Encrypt can't issue a cert, so Caddy falls back to an HTTP-only skeleton on :80 that doesn't route (confirmed: `curl -H "Host: busmaps.uk"` → 404 from Caddy itself, port 443 not bound). Self-heals once DNS is live — run `sudo systemctl reload caddy` on the host afterwards to force an immediate retry rather than waiting for Caddy's own backoff. |
-| ☐ | DNS at 20i: A (+ AAAA) for `busmaps.uk` and `www` → host IP; SPF/DKIM for the mail sender | deferred by operator choice, 2026-08-09 — this is what unblocks the Caddy row above |
-| ☑ | ~~Env set: `DATA_DIR`, `PUBLIC_BASE_URL=https://busmaps.uk`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`, `PILOT_MODE=1`~~ | done 2026-08-09 (`EMAIL_PROVIDER` left blank — Resend account not yet created, magic links print to the container log meanwhile) |
+| ☑ | ~~Caddy in front — automatic TLS, forwards `X-Forwarded-Proto`, does not strip `/api/` or `/m/`~~ | installed + configured 2026-08-09 (tracked `Caddyfile`, `caddy validate` passes, service running). **Live and serving** as of 2026-08-09 — once DNS resolved, `sudo systemctl reload caddy` triggered an immediate cert issuance for `busmaps.uk` and `www.busmaps.uk` (Let's Encrypt, http-01 challenge). One gotcha hit along the way: the first `reload` failed because `/var/log/caddy/busmaps.access.log` was owned `root:root` (600) while Caddy runs as user `caddy` — fixed with `chown caddy:caddy` + `chmod 644`. `curl -I https://busmaps.uk` now returns `200 OK` over HTTPS. |
+| ☑ | ~~DNS at 20i: A (+ AAAA) for `busmaps.uk` and `www` → host IP~~ | done 2026-08-09 — `busmaps.uk` and `*.busmaps.uk` A/AAAA repointed at the OVH VPS (`51.38.80.87` / `2001:41d0:801:2000::12cb`); mail CNAMEs (Stackmail) left untouched. |
+| ☑ | ~~SPF/DKIM for the mail sender~~ | done 2026-08-09 — Resend account created, `busmaps.uk` added as a sending domain. Three records added at 20i: DKIM `TXT` at `resend._domainkey.busmaps.uk`, SPF `MX` + `TXT` at `send.busmaps.uk` (`feedback-smtp.eu-west-1.amazonses.com`, `v=spf1 include:amazonses.com ~all`). Resend domain status confirmed `verified` via `GET /domains/{id}`. |
+| ☑ | ~~Env set: `DATA_DIR`, `PUBLIC_BASE_URL=https://busmaps.uk`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`, `PILOT_MODE=1`~~ | done 2026-08-09. `EMAIL_PROVIDER=resend`, `EMAIL_FROM=info@busmaps.uk`, `RESEND_API_KEY` set 2026-08-09 once the domain verified; portal container recreated, `/health?deep=1` green. **Real send confirmed end-to-end**: submitted the live `/app/login.html` sign-in form for `peter@pcooper.me.uk`, server log showed `"magic link emailed"` (not the dev-console fallback), email received. |
 | ☑ | ~~Daily cron: `npm run backup -- --out /backups --keep 14`~~ | done 2026-08-09 — host cron runs `docker compose run --rm backup` at 03:15 |
 | ☑ | ~~Backups pulled **off the box** — rsync to the laptop, into the SyncBack set~~ | done 2026-08-09 — `scp` (no `rsync` on this Windows box), `C:\Claude\community-bus-maps-ops\pull-backups.ps1`, Windows scheduled task daily at 08:00 |
 | ☑ | ~~**Restore drill actually performed** (`DEPLOY.md` §5)~~ | done for real 2026-08-09 — stopped the portal, deleted `portal.sqlite` from the live volume, restored from the day's backup, restarted, `/health?deep=1` confirmed the admin user survived |
