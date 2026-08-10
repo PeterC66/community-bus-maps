@@ -1,11 +1,46 @@
 # Changelog
 
-<!-- docstamp v1.40 | 2026-08-09 | sha=b4f71e6d -->
-**v1.40** · updated 9 August 2026
+<!-- docstamp v1.41 | 2026-08-10 | sha=a2bb23f7 -->
+**v1.41** · updated 10 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — P9 Part B: place-name search — 2026-08-10
+
+"Does any map cover my village?" `GET /api/public/search?q=` (`src/search/index.js`) answers it
+against place names *inside* the maps, not the 12 map titles — an area map's `external[].label`/
+`.stops[]`, a place map's `destinations[].name`/`.stops[]`, and `pois.json` where a map happens to
+carry one. Indexed from a `places.json` sidecar (`src/search/place-index.js`) written into the
+**published version's own render folder** the moment the publish pointer moves
+(`POST /api/review/:id/approve`), never re-derived from the live data dir — so search can never
+claim coverage a reviewer hasn't actually signed off. Backfilled the 12 already-published maps with
+`scripts/build-place-index.mjs` (`npm run places:build`). The in-memory index invalidates (a
+generation counter, rebuilt lazily) on publish, revert, un/re-listing a map, and a customer's status
+changing — the same four SQL conditions `listPublicMaps()` already enforces are what search is
+allowed to see.
+
+Turned up one thing the plan hadn't anticipated: `pois.json` exists for only 1 of the 12 real maps
+(a leftover vendored file, not something any generator writes) — the builder treats it as optional
+rather than trying to backfill it everywhere.
+
+Confirmed the query-logging trap called out in the plan was real: Fastify's default logger logs
+`req.url` **including the query string**, so a custom `req` serializer on the Fastify instance now
+strips it specifically for `/api/public/search` — every other route's request line is unchanged.
+
+UI: a labelled search box above the `/maps` grid (`id="search"`, so `/maps#search` is linkable) and
+in the homepage hero, submitting through to `/maps?q=…` — a real `<form method="get">` so it works
+without JS, with the JS path (`public/js/public-maps.js`) filtering in place and syncing the URL via
+`history.replaceState`. A zero-result search is the demand-capture moment the plan built this for:
+"No published map covers **X** yet… [ask for one](/apply.html)."
+
+Tests: `scripts/test-search.mjs` (`npm run test:search`, wired into `npm test`) — an unlisted map's
+places are unsearchable, an unpublished draft's are unsearchable, a known stop returns its map with
+the right "via" reason, reverting the publish pointer flips the index back to the reverted-to
+version's own sidecar, a demo org's result still carries `isDemo`.
+
+Version bumped `0.9.0-pilot` → `0.9.1-pilot`.
 
 ### Docs — P9 plan: header cleanup + place-name search — 2026-08-09
 

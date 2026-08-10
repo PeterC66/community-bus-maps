@@ -1,7 +1,7 @@
 # P9 — header cleanup + place-name search
 
-<!-- docstamp v1.2 | 2026-08-09 | sha=168f55a7 -->
-**v1.2** · updated 9 August 2026
+<!-- docstamp v1.3 | 2026-08-10 | sha=c42c8dc8 -->
+**v1.3** · updated 10 August 2026
 
 Plan only. Nothing here is built yet. Status is per item, so a later session can pick this up mid-flight — update the Status column as you go, don't just tick things off at the end.
 
@@ -95,14 +95,22 @@ Second, and for a pilot arguably worth more than the search itself: **a miss is 
 
 | # | Item | Status |
 |---|---|---|
-| B1 | `places.json` sidecar written at publish time | — |
-| B2 | Backfill script for the 13 already-published maps | — |
-| B3 | In-process index + `GET /api/public/search` | — |
-| B4 | Invalidation on publish, revert and unlist | — |
-| B5 | UI: search box on `/maps` and the homepage hero | — |
-| B6 | The no-match path (demand capture) | — |
-| B7 | Tests | — |
-| B8 | No query logging — keep `/legal.html` unchanged | — |
+| B1 | `places.json` sidecar written at publish time | ✅ |
+| B2 | Backfill script for the 13 already-published maps | ✅ |
+| B3 | In-process index + `GET /api/public/search` | ✅ |
+| B4 | Invalidation on publish, revert and unlist | ✅ |
+| B5 | UI: search box on `/maps` and the homepage hero | ✅ |
+| B6 | The no-match path (demand capture) | ✅ |
+| B7 | Tests | ✅ |
+| B8 | No query logging — keep `/legal.html` unchanged | ✅ |
+
+**Built 2026-08-10, branch `p9-part-b-place-search`.** Notes for whoever picks this up next:
+
+- Only **12** maps are currently published (not 13 — one fewer than when this doc was written). All 12 are backfilled.
+- **`pois.json` turned out to exist for only 1 of the 12 maps** (St Ives) — it isn't written by any generator, just a leftover vendored file. The builder (`src/search/place-index.js`) treats it as optional: present ⇒ indexed with `role:"poi"`, absent ⇒ that map simply contributes no POI entries. No re-render was added to backfill it for the other 11, matching B1's "no re-render" constraint.
+- B8's access-log trap was real: Fastify's default `logger:true` logs `req.url` **including the query string** on every request. Fixed with a custom `req` serializer on the Fastify instance (`src/server.js`) that strips the query specifically for `/api/public/search`; every other route's request line is unchanged.
+- Ranking is role-first, then match-quality second (exact > whole-word > prefix > substring) — i.e. a weak match on a higher-ranked role (e.g. a map's `subject` field) can outrank a strong match on a lower-ranked one (e.g. a `stop`). Read literally from the plan's own ordering; flagged here in case a real search log later suggests otherwise (there won't be one — see B8 — so this would come from anecdote, not data).
+- Tests: `scripts/test-search.mjs`, wired into `npm test` (also `npm run test:search`). Covers the B7 checklist verbatim, including a subprocess run of `check-chrome.mjs`.
 
 ### B1 — index from the *published version*, not the live data dir
 
