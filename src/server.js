@@ -57,6 +57,8 @@ import {
 } from './auth/index.js';
 import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
 import { logAudit } from './audit/index.js';
+import { writePlacesSidecar } from './search/place-index.js';
+import { searchPlaces, bumpSearchIndex } from './search/index.js';
 import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { sendMagicLink } from './email/index.js';
@@ -94,7 +96,22 @@ const authLink = (req, token) => `${req.protocol}://${req.headers.host}/auth/ver
 // trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
 // otherwise the proxy's, not the client's — breaking authLink()'s https URLs
 // (GO-LIVE.md §2.4) and letting every visitor share one rate-limit bucket.
-const app = Fastify({ logger: true, bodyLimit: 256 * 1024, trustProxy: true });
+const app = Fastify({
+  // P9 B8 — search queries are never logged, and an access log counts as a
+  // log: the default request serializer logs req.url including its query
+  // string, so strip `q` off this one route before it ever reaches the log.
+  // Every other route's request line is unchanged.
+  logger: {
+    serializers: {
+      req(req) {
+        const url = req.url && req.url.startsWith('/api/public/search') ? req.url.split('?')[0] : req.url;
+        return { method: req.method, url, host: req.host, remoteAddress: req.ip, remotePort: req.socket ? req.socket.remotePort : undefined };
+      },
+    },
+  },
+  bodyLimit: 256 * 1024,
+  trustProxy: true,
+});
 
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
 
@@ -250,6 +267,16 @@ app.get('/o/:slug', async (req, reply) => {
 });
 
 app.get('/api/public/maps', async () => ({ ok: true, maps: publicMaps(listPublicMaps()) }));
+
+// P9 Part B — "does any map cover my village?" See src/search/index.js.
+// Deliberately no per-query logging (B8): nothing here writes q anywhere but
+// the response. Fastify's own request log line is left as-is; it never
+// includes the query string for GET requests on this route.
+app.get('/api/public/search', async (req) => {
+  const q = str((req.query || {}).q, 100);
+  const { results, corrected } = searchPlaces(q);
+  return { ok: true, results, corrected };
+});
 
 app.get('/api/public/maps/:slug', async (req, reply) => {
   const row = getPublicMapBySlug(str(req.params.slug, 120));
@@ -1027,6 +1054,7 @@ app.patch('/api/maps/:id/public', async (req, reply) => {
   if (!map) return reply.code(code).send({ ok: false, error });
   const listed = !!(req.body || {}).listed;
   setMapPublicListed(map.id, listed);
+  bumpSearchIndex(); // P9 — an unlisted map's places must stop being searchable
   req.log.info({ mapId: map.id, listed }, 'public listing updated');
   logAudit(req, listed ? 'public.list' : 'public.unlist', { mapId: map.id, detail: { name: map.name } });
   return { ok: true, publicListed: listed, publicUrl: getPublicMapBySlug(map.slug) ? mapPageUrl(map.slug) : null };
@@ -1407,6 +1435,12 @@ app.post('/api/review/:id/approve', async (req, reply) => {
   // The newly-published data is presumed to reflect any change the banner warned
   // about — clear it. (If it still applies, the GTFS scan or an admin re-sets it.)
   clearMapBannerNote(pr.map_id);
+  // P9 — index the place names this version actually shows, from the live data
+  // dir at this exact moment (never re-read later, so it can't drift ahead of
+  // what was reviewed). See src/search/place-index.js.
+  const mapRow = getMap(pr.map_id);
+  writePlacesSidecar(pr.map_id, pr.version_key, { kind: mapRow.kind, subject: mapRow.subject });
+  bumpSearchIndex();
 
   req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
   logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote } });
@@ -1527,6 +1561,7 @@ app.post('/api/review/maps/:id/revert', async (req, reply) => {
   setVersionState(target.versionId, 'published');
   setPublishedVersion(m.id, target.versionId);
   setMapStatus(m.id, 'published');
+  bumpSearchIndex(); // P9 — the reverted-to version has its own places.json from when it was published
 
   req.log.warn({ mapId: m.id, from: from ? from.storage_key : null, to: target.version, by: user.email }, 'published version reverted');
   logAudit(req, 'version.revert', {
@@ -1717,6 +1752,7 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
     hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
   });
   if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
+  if (b.status !== undefined) bumpSearchIndex(); // P9 — a suspended org's maps must stop being searchable
   req.log.info({ customerId: cust.id }, 'customer updated by admin');
   const c = getCustomer(cust.id);
   logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } });

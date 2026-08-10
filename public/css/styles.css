@@ -260,6 +260,26 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .form-msg.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); color: var(--ok); }
 .form-msg.err { background: color-mix(in srgb, var(--err) 12%, transparent); border: 1px solid var(--err); color: var(--err); }
 
+/* ---------- place search (P9 Part B) ---------- */
+.search-block { margin-bottom: 22px; }
+.search-block .search-label { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 6px; }
+.search-form { display: flex; gap: 8px; max-width: 480px; }
+.search-form input[type="search"] {
+  flex: 1; padding: 11px 13px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .98rem;
+}
+.search-form input[type="search"]:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.hero .search-block { margin-top: 20px; }
+.search-meta { color: var(--muted); font-size: .9rem; margin: 14px 0 0; }
+.search-hit-reason { color: var(--muted); font-size: .88rem; margin-top: 2px; }
+.search-noresult { border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; background: var(--surface); }
+.search-noresult p { margin: 0 0 12px; }
+.search-noresult p:last-child { margin-bottom: 0; }
+
 /* ---------- faq ---------- */
 .faq details { border: 1px solid var(--border); border-radius: 12px; padding: 4px 18px; margin-bottom: 12px; background: var(--bg); }
 .faq summary { cursor: pointer; font-weight: 600; padding: 14px 0; list-style: none; }

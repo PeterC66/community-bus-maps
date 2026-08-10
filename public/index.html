@@ -35,6 +35,13 @@
           <a class="btn btn-primary" href="/apply.html">Register your interest</a>
           <a class="btn btn-ghost" href="/examples.html">See examples</a>
         </div>
+        <div class="search-block">
+          <form class="search-form" role="search" action="/maps" method="get">
+            <label class="search-label" for="heroQ">Or check: is there already a map for your village or landmark?</label>
+            <input type="search" id="heroQ" name="q" minlength="2" autocomplete="off" placeholder="Search by place name, e.g. Swavesey">
+            <button class="btn btn-ghost" type="submit">Search</button>
+          </form>
+        </div>
       </div>
       <figure class="hero-shot">
         <img src="/examples/stives-area-internal.jpg" width="1400" height="990" alt="An example printed bus map showing the routes within St Ives, with colour-coded services, stops and local landmarks.">
