@@ -7,6 +7,7 @@
 // map into it. This is that way — one laptop command, ssh-based, consistent
 // with the fool-proofing plan's "laptop = one command":
 //
+// NEW map (import-map.mjs):
 //   npm run deliver -- --src "<S5-render dir>" --name "St Ives" \
 //        --slug st-ives --kind area --subject "St Ives, Cambridgeshire"
 //
@@ -17,6 +18,19 @@
 // All import-map.mjs flags are accepted and forwarded as-is (--customer,
 // --customer-type, --request N, --disagreements, etc.) — see that script's
 // own header for the full set.
+//
+// EXISTING map refresh (propose-update.mjs) — pass --map instead of --name/
+// --slug/--subject, and this runs propose-update.mjs instead of import-map.mjs.
+// This is the routine monthly-refresh case (2026-08-10: until now the only way
+// to get a fresh render onto the live map was to SSH in and run propose-update.mjs
+// by hand — this closes that gap the same way §2.1 Phase 1 closed it for imports):
+//
+//   npm run deliver -- --src "<fresh S5-render dir>" --map st-ives --kind area \
+//        --note "BODS 2026-08-01 refresh"
+//
+// --kind is still required in this mode too — it only picks which verify gate
+// (verify:area vs verify:place) runs in step 2; it is not forwarded to
+// propose-update.mjs, which infers kind from the map row itself.
 //
 // Sequence, matching GO-LIVE.md §2.1/§2.5:
 //   1. scp --src up to a scratch dir on the host (rsync isn't reliably
@@ -29,10 +43,18 @@
 //      false alarm — so this step, like `npm run verify`, never looks at the
 //      JPG for its pass/fail verdict.
 //   3. docker compose stop portal (only once the pre-flight above passed).
-//   4. import-map.mjs, run inside a throwaway container against the staged dir.
+//   4. import-map.mjs OR propose-update.mjs (whichever this call is for), run
+//      inside a throwaway container against the staged dir.
 //   5. docker compose up -d portal.
 //   6. curl /health?deep=1 on the host and check it reports ok.
 //   7. Clean up the scratch dir on the host.
+//
+// propose-update.mjs never touches the live-serving version (it only stages a
+// proposed update for the customer to accept/decline), so steps 3/5 look
+// heavier-handed here than the risk warrants — but it still does a SQLite
+// write, and GO-LIVE.md §2.1's "one writer" rule doesn't carve out an
+// exception for it, so this stays on the same stop/run/restart discipline as
+// import-map.mjs rather than inventing a second, less-tested code path.
 //
 // A failure at step 2 leaves the live service completely untouched. A failure
 // at step 4 leaves the service stopped — this script does NOT auto-restart on
@@ -66,9 +88,11 @@ const has = (name) => process.argv.includes(`--${name}`);
 const SRC = arg('src');
 const KIND = arg('kind', 'area');
 const DRY_RUN = has('dry-run');
+const MAP = arg('map');
+const MODE = MAP ? 'propose' : 'import';
 
 if (!SRC || !existsSync(SRC)) {
-  console.error('✗ --src "<S5-render dir>" is required and must exist (same shape import-map.mjs takes).');
+  console.error('✗ --src "<S5-render dir>" is required and must exist (same shape import-map.mjs / propose-update.mjs takes).');
   process.exit(1);
 }
 if (!['area', 'place'].includes(KIND)) {
@@ -100,8 +124,12 @@ function sshRun(remoteCmd) {
   return run(SSH[0], [...SSH.slice(1), remoteCmd]);
 }
 
-// Import-map.mjs flags this script doesn't itself need to inspect are
-// forwarded verbatim, --src rewritten to the remote staging path.
+// import-map.mjs / propose-update.mjs flags this script doesn't itself need to
+// inspect are forwarded verbatim, --src rewritten to the remote staging path.
+// --kind is deliberately left in for import mode (import-map.mjs reads it
+// itself, same value this script used to pick the verify gate); propose mode
+// forwards it too but propose-update.mjs simply doesn't look for a --kind flag,
+// so it's harmless rather than worth special-casing out.
 const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
   if (a === '--src') return false;
   if (all[i - 1] === '--src') return false;
@@ -110,6 +138,7 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
 });
 
 console.log('== deliver-map ==');
+console.log(`  mode   : ${MODE}${MODE === 'propose' ? ` (refresh existing map "${MAP}")` : ' (new map)'}`);
 console.log(`  src    : ${SRC}`);
 console.log(`  kind   : ${KIND}`);
 console.log(`  host   : ${HOST}`);
@@ -157,18 +186,19 @@ if (!DRY_RUN) {
   if (rc !== 0) { console.error('✗ could not stop the portal — aborting before touching data.'); process.exit(1); }
 }
 
-// 4. Run the importer inside a throwaway container against the staged dir.
+// 4. Run the importer/proposer inside a throwaway container against the staged dir.
+const targetScript = MODE === 'propose' ? 'scripts/propose-update.mjs' : 'scripts/import-map.mjs';
 const importArgsStr = ['--src', '/import', ...passthroughArgs].map((a) => `'${String(a).replace(/'/g, `'\\''`)}'`).join(' ');
-console.log(`\n-- 4. import-map.mjs ${importArgsStr}`);
+console.log(`\n-- 4. ${targetScript} ${importArgsStr}`);
 let importOk = true;
 if (!DRY_RUN) {
   const importCmd =
     `cd ${APP_DIR} && docker compose run --rm -v ${remoteStage}:/import:ro ` +
-    `portal node scripts/import-map.mjs ${importArgsStr}`;
+    `portal node ${targetScript} ${importArgsStr}`;
   const rc = sshRun(importCmd);
   importOk = rc === 0;
   if (!importOk) {
-    console.error('✗ import failed. The portal is left STOPPED on purpose — see this file\'s header before restarting it.');
+    console.error(`✗ ${MODE === 'propose' ? 'propose-update' : 'import'} failed. The portal is left STOPPED on purpose — see this file's header before restarting it.`);
   }
 }
 
@@ -193,4 +223,6 @@ console.log(`\n-- 7. cleanup ${remoteStage}`);
 if (!DRY_RUN) sshRun(`rm -rf ${remoteStage}`);
 
 if (!importOk) process.exit(1);
-console.log('\n✓ delivered.');
+console.log(MODE === 'propose'
+  ? '\n✓ staged — see the propose-update output above for the customer review link.'
+  : '\n✓ delivered.');

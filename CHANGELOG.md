@@ -1,11 +1,23 @@
 # Changelog
 
-<!-- docstamp v1.42 | 2026-08-10 | sha=60ff7318 -->
-**v1.42** · updated 10 August 2026
+<!-- docstamp v1.43 | 2026-08-10 | sha=2a92a959 -->
+**v1.43** · updated 10 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — `deliver-map.mjs` can refresh an existing map, not just import a new one — 2026-08-10
+
+`scripts/deliver-map.mjs` (GO-LIVE.md §2.1 Phase 1) shipped at go-live wrapping only
+`import-map.mjs` — the one-time delivery of a brand-new map. It had no equivalent for the routine
+case: refreshing an already-live map's data, which still meant SSHing into the VPS and running
+`propose-update.mjs` there by hand. Pass `--map <slug>` instead of `--name`/`--slug`/`--subject` and
+the same scp → pre-flight-verify → stop → run-in-container → restart → health-check sequence now
+runs `propose-update.mjs` instead, staging a proposed update for the customer to review exactly as
+it would locally. `--kind` is still required (picks the verify gate) but isn't forwarded to
+`propose-update.mjs`, which infers kind from the map row itself. No server-side change; `.env.example`
+and `docs/GO-LIVE.md` updated to document the new mode.
 
 ### Added — typo tolerance in place-name search — 2026-08-10
 

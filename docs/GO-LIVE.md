@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.12 | 2026-08-09 | sha=357cea1d -->
-**v1.12** · updated 9 August 2026
+<!-- docstamp v1.13 | 2026-08-10 | sha=856a58e9 -->
+**v1.13** · updated 10 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 
@@ -67,7 +67,7 @@ These are not polish. Each one stops the launch.
 
 `scripts/import-map.mjs` and `scripts/propose-update.mjs` write directly to `DATA_DIR` and to SQLite, with the server stopped ("one writer"). Neither speaks HTTP — `grep -l "fetch(" scripts/*.mjs` returns nothing. Once the portal is on a host, `/bus-work` has no way to deliver a built map into it.
 
-**Phase 1 (launch):** an `ssh`-based delivery script on the laptop — rsync the S5 render dir up, `docker compose stop portal`, run the import inside the container, start it again, hit `/health?deep=1`. One laptop command, consistent with the fool-proofing plan's "laptop = one command". Small, and it needs the VPS's shell.
+**Phase 1 (launch):** an `ssh`-based delivery script on the laptop — rsync the S5 render dir up, `docker compose stop portal`, run the import inside the container, start it again, hit `/health?deep=1`. One laptop command, consistent with the fool-proofing plan's "laptop = one command". Extended 2026-08-10 to cover the *other* half of §2.1's problem statement — refreshing an existing map — by running `propose-update.mjs` through the identical stop/run/restart sequence when `--map <slug>` is given instead of `--name`/`--slug`/`--subject`. Small, and it needs the VPS's shell.
 
 **Phase 2 (later):** `POST /api/admin/import` with a token, same shape as the existing `STATUS_TOKEN` / `push-status.mjs` pattern — the *server* does the write, so the single-writer rule holds by construction and the stop/start dance disappears. Build it when the ssh script starts to hurt, or if you move to Render.
 
@@ -173,7 +173,7 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 | ☑ | ~~Email provider module~~ | done 2026-08-09; §2.3 — Resend wired up (`src/email/resend.js`); needs `RESEND_API_KEY` + SPF/DKIM at 20i before it does anything live |
 | ☑ | ~~`trustProxy: true`~~ | done 2026-08-09; §2.4 |
 | ☑ | ~~Version stamping~~ | done 2026-08-09; §5 |
-| ☑ | ~~`ssh` delivery script on the laptop~~ | written 2026-08-09 (`scripts/deliver-map.mjs`, `npm run deliver`); dry-run tested locally, **not yet live-tested end to end** — needs the VPS's Docker/compose stack up first |
+| ☑ | ~~`ssh` delivery script on the laptop~~ | written 2026-08-09 (`scripts/deliver-map.mjs`, `npm run deliver`); used to deliver all 13 initial maps at go-live. Extended 2026-08-10 to also run `propose-update.mjs` (pass `--map <slug>` instead of `--name`/`--slug`/`--subject`) — until then, refreshing an already-live map still meant SSHing in and running `propose-update.mjs` by hand |
 | ☑ | ~~Re-render the place fixture's schematic reference~~ | done 2026-08-09; §2.6 — `verify:place` green |
 | ☑ | ~~Make fixture staleness visible to the verify scripts~~ | done 2026-08-09; §2.6 |
 | ☑ | ~~`.env` repointed at the current area fixture~~ | done 2026-08-09; `verify:area` green |
