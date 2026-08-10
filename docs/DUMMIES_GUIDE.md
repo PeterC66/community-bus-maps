@@ -87,6 +87,15 @@ npm run dev
 
 Then open **http://127.0.0.1:5180** in your browser. Leave that PowerShell window open — the server keeps running there; **Ctrl+C** in that window stops it. `npm run dev` also **auto-reloads** when you save a code change, so you don't need to stop/start it while editing.
 
+**Exception: `package.json`-only changes don't auto-reload.** The version badge in the footer (and anything else that reads `package.json` directly, like the app version) is only re-read when the server process restarts — and auto-reload only watches actual code files (`.js` files that get `import`ed), not `package.json` itself. So if you bump the version number, or change a dependency, and the page still shows the old value after a refresh, that's why. Fix it either by going to that PowerShell window and pressing **Ctrl+C**, then `npm run dev` again — or, without touching that window, force a reload from anywhere by "touching" a real code file so `--watch` notices a change:
+
+```powershell
+cd C:\Claude\community-bus-maps
+(Get-Item src\server.js).LastWriteTime = Get-Date
+```
+
+That's a no-op edit (the file's content doesn't change, just its saved-at time), enough to make the running server restart and pick up the new `package.json`.
+
 This is exactly the "Quick start" in [`README.md`](../README.md) — see that file for what the shopfront actually shows once it's up.
 
 ---
