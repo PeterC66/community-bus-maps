@@ -79,9 +79,16 @@
     try {
       const body = await (await fetch(`/api/public/search?q=${encodeURIComponent(q)}`)).json();
       const results = (body && body.results) || [];
-      if (meta) meta.textContent = results.length
-        ? `${results.length} map${results.length === 1 ? '' : 's'} match “${q}”.`
-        : `No matches for “${q}”.`;
+      const corrected = body && body.corrected;
+      if (meta) {
+        if (results.length && corrected) {
+          meta.textContent = `No exact match for “${q}” — showing results for “${corrected}”.`;
+        } else if (results.length) {
+          meta.textContent = `${results.length} map${results.length === 1 ? '' : 's'} match “${q}”.`;
+        } else {
+          meta.textContent = `No matches for “${q}”.`;
+        }
+      }
       grid.className = results.length ? 'grid cols-2' : '';
       grid.innerHTML = results.length
         ? results.map((r) => card(r.map, r.reason)).join('')

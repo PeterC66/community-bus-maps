@@ -1,6 +1,6 @@
 {
   "name": "community-bus-maps",
-  "version": "0.9.1-pilot",
+  "version": "0.9.2-pilot",
   "private": true,
   "description": "PILOT — self-serve portal for community bus maps: public shopfront plus a deterministic map renderer. No customers yet; see docs/PILOT.md. BUSL-1.1.",
   "type": "module",

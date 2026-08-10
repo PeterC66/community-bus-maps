@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — typo tolerance in place-name search — 2026-08-10
+
+Follow-up to the P9 Part B search below: exact/substring matching alone silently missed "Neotts",
+"Cambrige" and "swavessey" — a misleading result, since B6's zero-match message ("no map covers
+this yet") reads as "this place has no coverage," not "you mistyped it." `searchPlaces()`
+(`src/search/index.js`) now returns `{ results, corrected }`. The existing exact pass is unchanged
+and always tried first; only when it finds nothing does a bounded edit-distance fallback run,
+word-by-word (every query word must find a close word in the same hit — a two-word query can't
+fuzzy-match on the strength of one word alone), with the allowed distance scaled to word length (0
+for ≤3 chars, 1 for ≤6, 2 above) so short words like "St" never drift into an unrelated match.
+`corrected` reports the actual word(s) found, not the whole map name, so `/maps` can show `No exact
+match for "Neotts" — showing results for "Neots".`
+
 ### Added — P9 Part B: place-name search — 2026-08-10
 
 "Does any map cover my village?" `GET /api/public/search?q=` (`src/search/index.js`) answers it

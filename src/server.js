@@ -274,7 +274,8 @@ app.get('/api/public/maps', async () => ({ ok: true, maps: publicMaps(listPublic
 // includes the query string for GET requests on this route.
 app.get('/api/public/search', async (req) => {
   const q = str((req.query || {}).q, 100);
-  return { ok: true, results: searchPlaces(q) };
+  const { results, corrected } = searchPlaces(q);
+  return { ok: true, results, corrected };
 });
 
 app.get('/api/public/maps/:slug', async (req, reply) => {

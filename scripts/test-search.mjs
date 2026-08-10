@@ -26,7 +26,10 @@ function check(name, cond, extra) {
 const db = await import('../src/db/index.js');
 const { mapDataDir, versionDir } = await import('../src/maps/store.js');
 const { writePlacesSidecar } = await import('../src/search/place-index.js');
-const { searchPlaces, bumpSearchIndex } = await import('../src/search/index.js');
+const { searchPlaces: rawSearch, bumpSearchIndex } = await import('../src/search/index.js');
+// Most checks below only care about the matches, not the typo-tolerance
+// metadata — this is the array-returning shape the old tests used.
+const searchPlaces = (q) => rawSearch(q).results;
 
 const areaRoutesJson = (label, stops) => ({
   external: [{ route: 'B', label, stops }],
@@ -133,6 +136,28 @@ console.log('\na demo org\'s result still carries isDemo');
   const hit = searchPlaces('Demo Sample Village').find((r) => r.map.slug === 'search-demo');
   check('the demo map is found', !!hit);
   check('org.isDemo is true for a seeded demo organisation', !!hit && hit.map.org.isDemo === true);
+}
+
+console.log('\ntypo tolerance — only kicks in when the exact pass finds nothing');
+{
+  seedMap({ customerId: activeCustomer, slug: 'search-typo', subject: 'Typotown', destination: 'Typotown', stops: ['Swavesey'] });
+
+  const exact = rawSearch('Swavesey');
+  check('an exact spelling matches with no "corrected" flag', exact.results.some((r) => r.map.slug === 'search-typo'));
+  check('...and corrected is null when the exact pass already found something', exact.corrected === null);
+
+  const oneOff = rawSearch('Swavessey'); // one extra letter
+  check('a one-letter typo still finds the map', oneOff.results.some((r) => r.map.slug === 'search-typo'), JSON.stringify(oneOff));
+  check('...and reports what it corrected to', oneOff.corrected === 'Swavesey', oneOff.corrected);
+
+  const destTypo = rawSearch('Typotwon'); // transposed letters, matches the destination/map name
+  check('a typo in the map/destination name still finds it', destTypo.results.some((r) => r.map.slug === 'search-typo'), JSON.stringify(destTypo));
+
+  const tooGarbled = rawSearch('Sxxxxxey'); // beyond the distance budget for an 8-char word
+  check('a query too garbled to be "probably the same word" still misses', !tooGarbled.results.some((r) => r.map.slug === 'search-typo'), JSON.stringify(tooGarbled));
+
+  const shortWord = rawSearch('Swx'); // 3-char word — maxTypos(3) === 0, no fuzzy leeway
+  check('short words get no fuzzy leeway (avoids matching unrelated 3-letter words)', shortWord.results.length === 0, JSON.stringify(shortWord));
 }
 
 console.log('\nsanity — an unrelated query still misses cleanly');
