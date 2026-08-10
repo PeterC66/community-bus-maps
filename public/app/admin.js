@@ -459,15 +459,42 @@ LOADERS.refreshes = async () => {
   const box = $('refreshes');
   const ups = (body && body.updates) || [];
   if (!ups.length) { box.innerHTML = '<div class="empty">No pending monthly updates. 🎉</div>'; return; }
-  const columns = [{ label: 'Map', key: 'map.name' }, { label: 'Customer', key: 'customer' }, { label: 'Source' }, { label: 'Changes' }, { label: 'Staged', key: 'createdAt' }];
-  renderSortable('refreshes', box, [20, 14, 16, 32, 18], columns, ups, (u) => `<div class="gt-row" role="row">
-      <div class="gt-cell" role="cell"><strong>${esc(u.map.name)}</strong> <span class="tag ${u.map.kind === 'place' ? 'place' : 'area'}">${u.map.kind === 'place' ? 'Place' : 'Area'}</span><div class="sub">${esc(u.map.subject || '')}</div></div>
+  const columns = [{ label: 'Map', key: 'map.name' }, { label: 'Customer', key: 'customer' }, { label: 'Source' }, { label: 'Changes' }, { label: 'Staged', key: 'createdAt' }, { label: '' }];
+  renderSortable('refreshes', box, [17, 12, 15, 26, 14, 16], columns, ups, (u) => `<div class="gt-row" role="row">
+      <div class="gt-cell" role="cell"><a href="/app/maps/${u.map.id}" target="_blank" rel="noopener"><strong>${esc(u.map.name)}</strong></a> <span class="tag ${u.map.kind === 'place' ? 'place' : 'area'}">${u.map.kind === 'place' ? 'Place' : 'Area'}</span><div class="sub">${esc(u.map.subject || '')}</div></div>
       <div class="gt-cell" role="cell">${esc(u.customer || '—')}</div>
       <div class="gt-cell wrap" role="cell">${esc(u.sourceNote || '') || '<span class="muted">—</span>'}</div>
       <div class="gt-cell wrap" role="cell">${refreshSummaryText(u.summary)}</div>
       <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
-    </div>`);
+      <div class="gt-cell actions" role="cell">
+        <button class="btn btn-primary btn-xs" data-accept-refresh="${u.id}" data-map="${u.map.id}" data-name="${esc(u.map.name)}">Accept</button>
+        <button class="btn btn-ghost btn-xs" data-decline-refresh="${u.id}" data-map="${u.map.id}" data-name="${esc(u.map.name)}">Decline</button>
+      </div>
+    </div>`, (b) => {
+    b.querySelectorAll('button[data-accept-refresh]').forEach((b2) => b2.addEventListener('click', () => decideRefresh(b2.dataset.map, b2.dataset.acceptRefresh, b2.dataset.name, 'accept')));
+    b.querySelectorAll('button[data-decline-refresh]').forEach((b2) => b2.addEventListener('click', () => decideRefresh(b2.dataset.map, b2.dataset.declineRefresh, b2.dataset.name, 'decline')));
+  });
 };
+// Admins may accept/decline any map's proposed update (src/server.js
+// loadOwnedMap allows role:'admin' regardless of customer_id) — this reuses
+// the exact same customer-facing endpoints editor.js calls, just from the
+// admin console, so there's a fast path that doesn't require opening the map
+// page (the "Map" link above still does, for previewing the change first).
+async function decideRefresh(mapId, pid, mapName, verb) {
+  const msg = verb === 'accept'
+    ? `Accept the pending update for "${mapName}"? It becomes a new draft version with the customer's colours and landmark choices re-applied; it still needs to be submitted and reviewed before it goes public.`
+    : `Decline the pending update for "${mapName}"? The map keeps its current data.`;
+  if (!confirm(msg)) return;
+  const { body } = await jsend(`/api/maps/${mapId}/proposed/${pid}/${verb}`, 'POST', {});
+  if (body.ok) {
+    banner(verb === 'accept' ? 'ok' : 'warn', verb === 'accept'
+      ? `✓ Update accepted for <strong>${esc(mapName)}</strong> — new draft version ${esc(body.version || '')} staged. <a href="/app/maps/${mapId}" target="_blank" rel="noopener">Open the map</a> to submit it for publication.`
+      : `Update declined for <strong>${esc(mapName)}</strong> — unchanged.`);
+    LOADERS.refreshes(); loadSummary();
+  } else {
+    banner('err', body.error || `Could not ${verb} the update.`);
+  }
+}
 
 // ---- audit ------------------------------------------------------------------
 const ACTION_LABEL = {

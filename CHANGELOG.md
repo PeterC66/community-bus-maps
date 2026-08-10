@@ -7,6 +7,17 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — admin Refreshes tab was read-only, with no way to act on a pending update — 2026-08-10
+
+The admin console's Refreshes tab (`/app/admin`) listed monthly updates staged by
+`propose-update.mjs`, but the row carried no link and no accept/decline control — an admin could
+see a refresh was pending but had no way to act on it short of knowing to sign in as the owning
+customer (unnecessary: `loadOwnedMap` already lets an admin act on any map) or navigating to
+`/app/maps/:id` by hand. The map name is now a link to its editor page, and each row carries
+**Accept**/**Decline** buttons calling the same `/api/maps/:id/proposed/:pid/accept|decline`
+endpoints the customer-facing editor uses. Verified in the browser against local dev: both actions
+return 200, flip the row's status in `proposed_update`, and the table live-refreshes to drop it.
+
 ### Added — `deliver-map.mjs` can refresh an existing map, not just import a new one — 2026-08-10
 
 `scripts/deliver-map.mjs` (GO-LIVE.md §2.1 Phase 1) shipped at go-live wrapping only
