@@ -77,7 +77,7 @@
     ? `${about} It is a sample, kept as a demonstration rather than as live travel information.`
     : about;
   $('aboutPills').innerHTML = [
-    `<span class="pill">Version ${esc(map.version)}</span>`,
+    `<span class="pill">Edition ${esc(map.version)}</span>`,
     `<span class="pill">Published ${esc(when(map.publishedAt))}</span>`,
     '<span class="pill">Free to print &amp; share</span>',
     ...(map.org.isDemo ? ['<span class="pill">Sample — not live</span>'] : []),

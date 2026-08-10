@@ -1,11 +1,36 @@
 # Changelog
 
-<!-- docstamp v1.43 | 2026-08-10 | sha=2a92a959 -->
-**v1.43** · updated 10 August 2026
+<!-- docstamp v1.46 | 2026-08-10 | sha=4c70d464 -->
+**v1.46** · updated 10 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — portal's vendored `engine/footer.js` was stale, and missing from the drift table — 2026-08-10
+
+Re-vendoring `engine/place/gen_internal.js` after the skill's full-fleet engine rollout (panel
+spacing fixes, dropped footer version stamp) left `npm run verify:area` failing: the regenerated
+St Ives SVG carried the OLD footer text (`Map v6.23 · 3 August 2026`) instead of the new
+(`Valid from 3 August 2026`), a 2-byte diff easy to miss in a byte-count-only failure. Cause:
+`gen_internal.js` resolves `footer.js` via `SKILL_ASSETS` exactly like `icons.js`, but `footer.js`
+was never added to the portal hand-off table (`changing-the-engine.md` §4) or `status.js`'s
+vendoring-drift check, so it silently went stale while the tracked files stayed in sync. Copied the
+current `footer.js` to `engine/footer.js`, added it to both the table and `status.js`'s drift rows,
+and refreshed `.env`'s `FIXTURE_DIR` (St Ives v6.23) and the `High Wycombe Aldi` place fixture
+(`Buses/Places/_portal-fixture/`) to the latest rollout output. `npm run verify` (area + place),
+`npm run test:p7` and `npm test` all pass.
+
+### Changed — public map page's "Version" pill renamed to "Edition" — 2026-08-10
+
+The public map page (`/m/<slug>`) showed a "Version 2.0" pill (the portal's own publish-cycle
+number) at the same time the printed sheet's footer showed a completely different "Map v6.22"
+build number (the map-engine's internal render counter) — both called "version," confusing anyone
+comparing the two. The engine no longer prints its build number on the sheet (see the
+`make-bus-leaflet` skill's `footer.js`/`gate_lib.js`, updated the same day — it still records the
+build number internally in `routes.json`/`manifest.json`). On the portal side, `public-map.js`'s
+pill now reads "Edition N" instead of "Version N" so the two numbering schemes no longer share a
+label.
 
 ### Fixed — admin Refreshes tab was read-only, with no way to act on a pending update — 2026-08-10
 
