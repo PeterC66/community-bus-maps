@@ -148,6 +148,17 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 
 The vendored-engine duplication above is maintained by hand with no drift detection. If you are changing the engine often, that is the first thing worth fixing.
 
+## The update/publish flow has already been reviewed — read it first
+
+Before touching the editor, the review screen or anything in the proposed-update → accept → submit → approve → public chain, read **`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`** in the private `buses-data` repo (operator-only, outside this repo — same convention as the host details in [`DEPLOY.md`](DEPLOY.md) §9). It walks the whole flow against a real instance with every screen quoted, ranks the fixes, and its **section J** is written for someone starting cold: a file map per item, the isolated-instance recipe, and the traps.
+
+Two things from it that change how you work here:
+
+- **`changeSummary()` in `src/publish/index.js` compares only the safe-subset overrides.** A version created by accepting a data refresh therefore reports "unchanged", and the approver is told the version is *identical to the published one* when the whole timetable underneath it has moved. The real diff is already stored (`map_version.note`, and the `refresh.accept` audit row) and simply never displayed.
+- **None of that backlog should alter a rendered sheet.** Every item is wording, presentation or a query. If `npm run verify` fails, you have gone wrong — don't relax the gate.
+
+Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
+
 ## Table-like grids: use `.grid-table`, not `<table>`
 
 `public/app/admin.js`, `public/app/review.js` and `public/app/app.css` build every data table (admin

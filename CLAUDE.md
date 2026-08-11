@@ -49,6 +49,25 @@ Two structural facts that catch people out:
 - **`npm run verify` skips silently** when `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` are unset, so a green
   run in a clean checkout proves nothing about the renderer. Confirm it says PASS with byte counts.
 
+## If you are here to improve the update/publish flow
+
+There is an existing review — do not start from scratch, and do not re-derive its findings.
+**`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`** (the private `buses-data`
+repo, `C:\u3a St Ives\Using AI\Buses\` on Peter's machine) documents the whole
+proposed-update → accept → submit → approve → public chain as it actually behaves, with every
+screen quoted verbatim, a ranked backlog, and a **section J written specifically for a cold start**:
+which files each item touches, how to run an isolated seeded instance instead of experimenting on
+live, and the traps that cost the review itself time. Its companion
+`portal-update-flow-walkthrough_2026-08-11.md` is the same flow written for a customer.
+
+The headline, so it is not rediscovered the hard way: `changeSummary()` diffs **only** the
+customer's safe-subset overrides, so a version created by accepting a *data* refresh reports as
+unchanged — and the review screen tells the approver *"this version is identical to the published
+version — there is nothing to change"*, which is false and weakens the publish gate.
+
+**None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
+fail, the change is wrong.
+
 ## Gates to run
 
 ```bash
