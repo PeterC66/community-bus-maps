@@ -553,7 +553,7 @@ app.post('/api/auth/request', async (req, reply) => {
     req.log.info({ email }, 'magic link requested for unknown/inactive email (no-op)');
   }
   // Identical response whether or not the email is registered (no enumeration).
-  return { ok: true, message: 'If that address is registered, a sign-in link has been sent. In local dev the link is printed to the server console.' };
+  return { ok: true, message: 'If that address is registered, a sign-in link has been sent.' };
 });
 
 app.get('/auth/verify', async (req, reply) => {

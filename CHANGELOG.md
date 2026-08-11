@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — the sign-in page told real customers about the dev server console — 2026-08-11
+
+`POST /api/auth/request` returned the same message in every environment: *"If that address is
+registered, a sign-in link has been sent. In local dev the link is printed to the server console."*
+The second sentence is developer instruction that was never gated on `NODE_ENV` or
+`EMAIL_PROVIDER`, so **every real customer signing in at busmaps.uk was reading it** — advice they
+cannot act on, referring to a machine they have no access to. Dropped it; the response is now just
+*"If that address is registered, a sign-in link has been sent."* The deliberate no-enumeration
+property is unchanged: the reply is still identical whether or not the address is registered.
+Developer-facing mentions of the console link (`README.md`, `docs/R2-onboarding.md`,
+`docs/PILOT.md`) are correct in context and stay. Found during the update-flow walkthrough
+(`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`).
+
 ### Fixed — portal's vendored `engine/footer.js` was stale, and missing from the drift table — 2026-08-10
 
 Re-vendoring `engine/place/gen_internal.js` after the skill's full-fleet engine rollout (panel
