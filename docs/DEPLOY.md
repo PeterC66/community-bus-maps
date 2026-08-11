@@ -161,7 +161,7 @@ Everything above is the general recipe. This is the as-built record of the one h
 exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIVE.md`, this is just
 "how do I get back in and what state is it in".
 
-- **Host:** OVHcloud VPS, Ubuntu 26.04, IP + access details in `Buses/OVHCloud settings.txt`
+- **Host:** OVHcloud VPS, Ubuntu 26.04, IP + access details in `community-bus-maps-ops/OVHCloud settings.txt`
   (outside this repo — operator-only). User `ubuntu`, password auth and root login disabled.
 - **SSH key:** a dedicated keypair at `~/.ssh/busmaps_vps` on the laptop (not the default identity —
   pass `-i` explicitly, or rely on `.env`'s `DEPLOY_SSH_KEY` for `scripts/deliver-map.mjs`).

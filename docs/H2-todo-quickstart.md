@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.1 | 2026-08-10 | sha=e7bc82fd -->
-**v1.1** · updated 10 August 2026
+<!-- docstamp v1.2 | 2026-08-11 | sha=fbc0a7f2 -->
+**v1.2** · updated 11 August 2026
 
 **v1.0** · updated 8 August 2026
 
@@ -33,13 +33,24 @@ Two places to look, never more:
 ```powershell
 node "%BW%\worklist.mjs" --url https://busmaps.uk --cookie <cbm_session value>
 ```
-(`BW` = `C:\u3a St Ives\.claude\skills\bus-work\assets`.) Get the cookie value by signing in at `busmaps.uk` as admin in the browser, then copying the `cbm_session` cookie from devtools → Application → Cookies. Or just say **"what's next on the buses"** and let Claude run it and walk you through the top item — it defaults to live too.
+(`BW` = `C:\u3a St Ives\.claude\skills\bus-work\assets`.) Or just say **"what's next on the buses"** — Claude defaults to live in this context unless you say "local" explicitly, and reads the stored cookie itself (see below).
+
+**The `cbm_session` cookie — get it once a month, not every session.**
+
+Sessions last **30 days** (`SESSION_DAYS` in `src/auth/index.js`). Claude keeps the current value at `C:\Claude\community-bus-maps-ops\live-admin-cookie.txt` (that folder is local-only, never in git — see its own `README.md`) and reads it from there for every `worklist.mjs` / `push-status.mjs` call, so you don't hand it over each time you ask "what's next."
+
+To refresh it — needed once the stored one is ~30 days old, or if a `worklist.mjs`/`push-status.mjs` call comes back with an auth error:
+1. Sign in as admin at `https://busmaps.uk` (email → magic link, or reuse the `/auth/verify?token=…` link from the sign-in email).
+2. Open DevTools → Application → Cookies → `busmaps.uk` → copy the `cbm_session` value.
+3. Paste it in chat. Claude overwrites `live-admin-cookie.txt` with the new value and date, and re-verifies with a live `worklist.mjs` call.
+
+Claude should proactively remind you to do this once the stored cookie is close to 30 days old — check the `obtained:` date in that file before relying on it for a live call.
 
 ▸ **Testing locally instead?** Drop `--url` and `--cookie` entirely:
 ```powershell
 node "%BW%\worklist.mjs"
 ```
-With no `--url` it reads the local dev checkout's own SQLite directly (faster, and read-only either way) — but it is **not** the live site's data, so don't act on a local-mode list as if it were the real queue.
+With no `--url` it reads the local dev checkout's own SQLite directly (faster, and read-only either way) — but it is **not** the live site's data, so don't act on a local-mode list as if it were the real queue. Say "local" explicitly if that's what you want; otherwise assume live.
 
 **Normal daily routine:** run `bus-work` against the live portal, take the top item, follow the steps below for its type, repeat until the list is empty or everything left is "waiting on others."
 
