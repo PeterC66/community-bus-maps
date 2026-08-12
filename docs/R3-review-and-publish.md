@@ -27,13 +27,14 @@ As approver/admin, open **`/app/review`** (the queue). Each submission gives you
 
 ## Step 3 — Complete the review checklist
 
-All five are **required** and **server-enforced** — you cannot publish with any unticked:
+All six are **required** and **server-enforced** — you cannot publish with any unticked:
 
 1. **services** — at a glance, the services shown look right: no obviously wrong route numbers or destinations.
 2. **colours** — route colours are distinct and remain colour-blind friendly.
 3. **pois** — at a glance, the points of interest shown or hidden look right and nothing obvious is missing.
 4. **legible** — you have **viewed the full-size print (JPG)** and all text is legible.
 5. **accurate** — this is a visual check, not an independent verification against timetables; nothing here looks wrong or out of date.
+6. **alternative** — you have opened the map's **service list** (its text alternative, `/m/<slug>/services`), it matches the map, and the map page works from the keyboard. Arrived with P8a, when published maps got a public page worth reading online — see [`ACCESSIBILITY.md`](ACCESSIBILITY.md#before-publishing-a-map-part-of-the-sign-off).
 
 This is a reasonableness check, not a re-derivation of the routes from source data — we don't routinely re-verify services or timings against BODS/operator timetables at this step. It still isn't box-ticking: item 4 means **actually opening the JPG**, not trusting the on-screen preview, and anything that looks off should be sent back rather than waved through.
 

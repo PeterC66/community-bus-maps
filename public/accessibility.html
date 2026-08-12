@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accessibility — BusMaps.uk</title>
+  <meta name="description" content="How accessible the BusMaps.uk site and its published maps are, what we have done about the map images, and what is not fixed yet.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/site-banner.js" defer></script>
+  <script src="/js/auth-status.js" defer></script>
+</head>
+<body>
+  <!-- nav:start -->
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/maps">Published maps</a>
+    <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/pricing.html">Pricing</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+    <a class="navlink" href="/contact.html">Contact</a>
+    <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+    <span class="nav-auth" id="navAuth"></span>
+  </nav></div></header>
+  <!-- nav:end -->
+
+  <main>
+    <section><div class="container">
+      <h2 class="mt-0">Accessibility</h2>
+      <p class="section-intro">A bus map is a picture, and a picture on its own excludes people. Every map we publish therefore comes with the same information written out as text.</p>
+      <p class="form-note">Working draft — last reviewed 26 July 2026. The system is currently a <a href="/faq.html#pilot">pilot</a> with no customers, so this statement describes what the software does rather than a service in operation.</p>
+
+      <h3>What we aim for</h3>
+      <p>We aim to meet <strong>WCAG 2.2 level AA</strong> across the public pages. That is the standard UK public sector bodies must meet under the Public Sector Bodies (Websites and Mobile Applications) Accessibility Regulations 2018 — and since a council or school may put one of our maps on its own site, our pages have to be good enough to carry.</p>
+
+      <h3>What we have done</h3>
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Every map is also text</h3>
+          <p>Each published map has a service list page — route, operator, days, where it goes and the stops it serves — as ordinary HTML you can read with a screen reader, search, copy or enlarge. It is linked from the map, and it says the same thing the picture does.</p>
+        </div>
+        <div class="card">
+          <h3>The map can be enlarged</h3>
+          <p>The map is shown as vector artwork, not a flat photograph, so it stays sharp at any size. You can zoom and move around it with the buttons, the keyboard (arrow keys, <kbd>+</kbd>, <kbd>&minus;</kbd>, <kbd>0</kbd>) or a pinch, and browser zoom works normally on the rest of the page.</p>
+        </div>
+        <div class="card">
+          <h3>Colour is never the only signal</h3>
+          <p>Routes are colour-coded from a palette chosen to be distinguishable with colour vision deficiency, and every route also carries its number or letter — on the map, in the key and in the text version.</p>
+        </div>
+        <div class="card">
+          <h3>Keyboard and screen reader</h3>
+          <p>Everything on the public pages can be reached and operated from the keyboard, focus is visible, and the map itself is announced as an image with a pointer to the text version rather than being read out as a stream of stray labels.</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top:26px">What is not fixed</h3>
+      <ul>
+        <li><strong>The map image itself cannot be made readable by a screen reader.</strong> No description of a network map conveys what the picture conveys. The service list is the alternative, and it carries the same facts — but it is a list, not a map.</li>
+        <li><strong>Downloaded files.</strong> The print sheet you download is an image (JPG) or vector artwork (SVG). Neither is an accessible document. Use the service list page instead, or ask us for the information another way.</li>
+        <li><strong>Maps are a snapshot.</strong> Every map says the date its information is correct as at, and warns you when that date is getting old. It never shows live times.</li>
+        <li><strong>The site needs JavaScript</strong> to draw a map page. The service list needs it too at present; if that is a problem for you, tell us and we will send you the list in another format.</li>
+      </ul>
+
+      <h3>If something is in your way</h3>
+      <p>Tell us what you were trying to do and what happened — <a href="/contact.html">use the contact form</a>. If you need the information from a particular map in another format (large print, plain text, or read out), ask and we will get it to you. We are a small volunteer-run pilot, so we cannot promise how quickly, but we will reply.</p>
+      <p>If you are not happy with our response, you can contact the Equality Advisory and Support Service (<a href="https://www.equalityadvisoryservice.com" rel="noopener">equalityadvisoryservice.com</a>).</p>
+
+      <h3>If you publish one of our maps on your own site</h3>
+      <p>You are welcome to link to a map’s page. If you do, please also link to its service list — the link is on every map page — so that the accessible alternative travels with the map. You may find this wording useful in your own accessibility statement:</p>
+      <blockquote class="card">
+        <p>“The bus map on this page is published through BusMaps.uk. The map itself is an image and cannot be read by a screen reader; the same information — every service, its operator, the days it runs and the places it serves — is available as text on the map’s service list page, which is linked beside the map.”</p>
+      </blockquote>
+    </div></section>
+  </main>
+
+  <!-- footer:start -->
+  <footer class="site-footer"><div class="container"><div class="cols">
+    <div class="attrib">
+      <strong>BusMaps.uk</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
+      Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>). Always check live times with the operator or at bustimes.org.
+    </div>
+    <div>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a><br>
+      <span class="muted">© BusMaps.uk</span>
+    </div>
+  </div></div></footer>
+  <!-- footer:end -->
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

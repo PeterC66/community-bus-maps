@@ -16,6 +16,7 @@ import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
 import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
+import { buildFacts, FACTS_FILE } from './facts.js';
 
 const GEN_INTERNAL = 'gen_internal.js';
 /** Portal-owned expert-style generators (P7): the schematic + diagram pre-stages. */
@@ -358,6 +359,15 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
     // directory, not just from whichever deploy happened to be live at the time.
     JSON.stringify({ storageKey, created: new Date().toISOString(), overrides: overrides || {}, files, appVersion: APP_VERSION, gitSha: GIT_SHA }, null, 2),
   );
+  // P8a — snapshot the FACTS this version states, from the very payload it was
+  // drawn from. The public services page (the sheet's text alternative) reads
+  // this, so it can never describe newer data than the published picture: a
+  // monthly refresh renders from the STAGED payload, and its facts travel with
+  // it. Advisory only — a failure here must not lose a good render.
+  try {
+    const facts = buildFacts(dataDir);
+    if (facts) writeFileSync(path.join(outDir, FACTS_FILE), JSON.stringify(facts, null, 2));
+  } catch { /* versions rendered without a snapshot fall back to live data */ }
   return { storageKey, files, log };
 }
 

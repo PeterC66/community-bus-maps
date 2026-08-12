@@ -17,6 +17,7 @@ import { existsSync, statSync } from 'node:fs';
 import sharp from 'sharp';
 import { versionDir, OUTPUTS } from '../maps/store.js';
 import { brandingForPublic } from '../branding/index.js';
+import { factsForPublicMap, provenanceFor, servicesPageUrl } from './services.js';
 
 /** Artefact basenames the public site knows about (internal / external / …). */
 export const PUBLIC_BASES = Object.values(OUTPUTS).map((o) => o.base);
@@ -91,6 +92,10 @@ export function publicOutputs(row) {
       jpgBytes: existsSync(jpg) ? statSync(jpg).size : null,
       // Lightweight screen copy for the page itself (derived on first request).
       previewUrl: existsSync(jpg) ? `/api/public/maps/${row.slug}/preview/${meta.base}` : null,
+      // P8a — the same sheet prepared for INLINE display: scalable, searchable,
+      // pan/zoomable. The raster above stays as the fallback (and as what a
+      // social-media card shows).
+      inlineUrl: existsSync(svg) ? `/api/public/maps/${row.slug}/inline/${meta.base}?v=${encodeURIComponent(row.pub_key)}` : null,
     });
   }
   return out;
@@ -100,6 +105,10 @@ export const fileUrl = (slug, file) => `/api/public/maps/${slug}/${file}`;
 
 /** One public map row → the object the public site renders. */
 export function publicMap(row) {
+  // P8a — a web page implies currency in a way a printed leaflet does not, so
+  // every public map carries when its information is correct as at, and says so
+  // out loud once that date is old (see provenanceFor()).
+  const facts = factsForPublicMap(row);
   return {
     slug: row.slug,
     name: row.name,
@@ -109,6 +118,10 @@ export function publicMap(row) {
     publishedAt: row.published_at,
     bannerNote: row.banner_note || null,
     url: mapPageUrl(row.slug),
+    provenance: provenanceFor(row, facts),
+    // The sheet's text alternative — only offered when the payload actually has
+    // services to list (WCAG 2.2 AA; see docs/ACCESSIBILITY.md).
+    servicesUrl: facts && facts.routes && facts.routes.length ? servicesPageUrl(row.slug) : null,
     org: brandingForPublic({
       name: row.customer_name, slug: row.customer_slug, branding_json: row.branding_json,
       is_demo: row.is_demo,

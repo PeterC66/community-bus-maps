@@ -1,5 +1,7 @@
 // One published map's public page (/m/<slug>). The slug comes from the path; the
-// server has already 404'd anything that is not publicly visible.
+// server has already 404'd anything that is not publicly visible, and has
+// completed the <head> (title, description, canonical, Open Graph, JSON-LD)
+// before this runs — so everything here is the visible page, not metadata.
 (async () => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -12,20 +14,27 @@
   const mb = (n) => (n ? `${(n / 1048576).toFixed(1)} MB` : '');
 
   let map = null;
+  let viewer = null;
 
   function show(o) {
-    $('sheetImg').src = o.previewUrl || o.jpgUrl || '';
-    $('sheetImg').alt = `${map.name} — ${o.label}`;
-    $('sheetLink').href = o.jpgUrl || o.svgUrl || '#';
-    $('sheetNote').textContent = 'Click the sheet to open the full-size printable version.';
+    if (!o) return;
+    viewer.show(o, `${map.name} — ${o.label}`);
+    $('sheetNote').textContent = 'Drag to move around the map, and zoom in for the detail. '
+      + 'The printable sheet is below.';
     $('downloads').innerHTML =
       (o.jpgUrl ? `<a class="btn btn-primary btn-sm" href="${esc(o.jpgUrl)}?download">Download print sheet (A4, ${esc(mb(o.jpgBytes))})</a>` : '') +
-      (o.svgUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(o.svgUrl)}?download">Download vector (SVG)</a>` : '');
+      (o.svgUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(o.svgUrl)}?download">Download vector (SVG)</a>` : '') +
+      (o.jpgUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(o.jpgUrl)}" target="_blank" rel="noopener">Open the image on its own</a>` : '');
     [...document.querySelectorAll('#tabs .tab')].forEach((b) => {
       const on = b.dataset.key === o.key;
       b.classList.toggle('on', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    // Keep the address bar on the sheet actually being looked at, so a link
+    // someone shares opens the same one.
+    const u = new URL(location.href);
+    u.searchParams.set('output', o.key);
+    history.replaceState(null, '', u);
   }
 
   try {
@@ -41,17 +50,9 @@
   }
 
   const headline = map.kind === 'place' ? `Buses serving ${map.name}` : `Buses within ${map.name}`;
-  document.title = `${headline} — BusMaps.uk`;
-  const desc = map.org.isDemo
-    ? `A sample printable bus map${map.subject ? ' for ' + map.subject : ''}, made to demonstrate BusMaps.uk.`
-    : `A printable bus map published by ${map.org.name}${map.subject ? ' for ' + map.subject : ''}, kept up to date as services change.`;
-  const md = document.querySelector('meta[name="description"]');
-  if (md) md.setAttribute('content', desc);
-  const og = document.querySelector('meta[property="og:title"]');
-  if (!og) {
-    const t = document.createElement('meta'); t.setAttribute('property', 'og:title'); t.content = headline;
-    document.head.appendChild(t);
-  }
+  // <head> (title, description, canonical, Open Graph, JSON-LD) is completed
+  // SERVER-side now (P8a) — a crawler never runs this script, so it must not
+  // be the only place that content exists. See server.js's /m/:slug route.
 
   $('head').innerHTML = `
     <h2 class="mt-0">${esc(headline)} <span class="badge ${map.kind === 'place' ? 'place' : ''}">${map.kind === 'place' ? 'Place' : 'Area'}</span>${
@@ -69,6 +70,17 @@
     $('bannerNote').hidden = false;
   }
 
+  // A leaflet on a noticeboard is obviously a snapshot; a web page implies it is
+  // current. So say when the information is from, and admit when that is old.
+  const prov = map.provenance || {};
+  if (prov.stale) {
+    $('staleNote').hidden = false;
+    $('staleNote').className = 'notice notice-warn';
+    $('staleNote').innerHTML = `<strong>This map may be out of date.</strong> It shows services as at
+      ${esc(prov.dataAsAt || when(prov.publishedAt))}, which is more than ${esc(prov.staleAfterMonths)} months ago.
+      Check with the operator or at <a href="https://bustimes.org" rel="nofollow noopener">bustimes.org</a> before you travel.`;
+  }
+
   $('fbSlug').value = map.slug;
   const about = map.subject
     ? `This ${map.kind === 'place' ? 'place' : 'area'} map covers ${map.subject}. It is drawn from official open bus data and checked by a person before each publication.`
@@ -79,16 +91,22 @@
   $('aboutPills').innerHTML = [
     // "Edition" was this page's own word for what every other screen — and the
     // organisation that publishes it — calls a version (findings D).
+    prov.dataAsAt ? `<span class="pill">Services as at ${esc(prov.dataAsAt)}</span>` : '',
     `<span class="pill">Version ${esc(map.version)}</span>`,
     `<span class="pill">Published ${esc(when(map.publishedAt))}</span>`,
     '<span class="pill">Free to print &amp; share</span>',
     ...(map.org.isDemo ? ['<span class="pill">Sample — not live</span>'] : []),
-  ].join('');
+  ].filter(Boolean).join('');
   if (map.reportUrl) {
     $('reportLink').innerHTML = `<a href="${esc(map.reportUrl)}?download">⬇ Disagreements report (PDF)</a> — every route we checked against bustimes.org and the operator's own site.`;
     $('reportLink').hidden = false;
   }
   $('asideGrid').hidden = false;
+
+  if (map.servicesUrl) {
+    $('altCard').hidden = false;
+    $('altLink').href = map.servicesUrl;
+  }
 
   if (!map.outputs.length) {
     $('err').hidden = false;
@@ -102,20 +120,23 @@
     const b = e.target.closest('.tab');
     if (b) show(map.outputs.find((o) => o.key === b.dataset.key));
   });
+  // Attribution belongs on the screen, not only on the printed sheet.
+  $('sheetSource').innerHTML = 'Base map © OpenStreetMap contributors (ODbL) · bus service data from the '
+    + 'Bus Open Data Service (Open Government Licence)'
+    + (map.servicesUrl ? ` · <a href="${esc(map.servicesUrl)}">this map as text</a>` : '');
   $('sheetBox').hidden = false;
-  show(map.outputs[0]);
+
+  viewer = window.CBMViewer.create($('viewer'));
+  const wanted = new URLSearchParams(location.search).get('output');
+  show(map.outputs.find((o) => o.key === wanted) || map.outputs[0]);
 
   // The card was hidden when the page loaded, so a #report link (footer,
   // contact.html) needs the browser's own anchor-jump redone now it's
-  // visible — and again once the sheet image's layout settles, since its
-  // height was still unknown (`.sheet img { height: auto }`) and reflows
-  // the page. The image may already be `complete` (cached) by now, in
-  // which case 'load' has already fired and never will again — rAF after
-  // a layout pass covers that case instead.
+  // visible. Unlike the old plain <img>, the viewer stage has a fixed
+  // aspect-ratio box (public/css/styles.css `.viewer-stage`), so its size
+  // is known synchronously — no need to wait on the async SVG fetch inside
+  // viewer.show() the way the old code waited on an image load.
   if (location.hash === '#report') {
-    const scrollToReport = () => { if (location.hash === '#report') $('report').scrollIntoView(); };
-    scrollToReport();
-    if ($('sheetImg').complete) requestAnimationFrame(scrollToReport);
-    else $('sheetImg').addEventListener('load', scrollToReport, { once: true });
+    requestAnimationFrame(() => { if (location.hash === '#report') $('report').scrollIntoView(); });
   }
 })();

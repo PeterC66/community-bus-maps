@@ -7,6 +7,62 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — P8a: published maps that work online, not just on paper — 2026-08-12
+
+The system assumed the deliverable was a printable sheet. P6 gave every published map a public
+page, but that page was a downscaled JPG of an A4 sheet — on a phone its body text lands at about
+four pixels, a screen reader gets nothing, and a crawler or link preview sees an empty shell.
+P8a is the first of three tiers planned in `portal-online-maps-plan_2026-07-26.md` (Buses repo):
+**the linkable page done properly**. Nothing here touches a generator, the safe subset or the
+byte-identical gate — `npm run verify` passes area + place unchanged. Rebuilt against current
+`main` from the `p8a-maps-online` branch (originally built 2026-07-26/27, never merged — see
+[[project_p8a_online_maps]]); the SVG-vs-watermark question that branch left open turned out to
+already be answered by existing policy, since the public `/m/:slug` page has offered an
+unauthenticated, unwatermarked "Download vector (SVG)" link since P6 — watermarking has only ever
+applied to JPGs (`src/render/watermark.js`).
+
+- **The sheet is now the sheet.** `/api/public/maps/:slug/inline/:base` serves the published SVG
+  itself, prepared for inline display (`src/public/inlineSvg.js`): print width/height dropped so
+  it scales, `role="img"` + `<title>`/`<desc>`, `font-family="Arial"` widened to a stack including
+  the metric-compatible Liberation Sans/Arimo, and anything executable stripped (the generators
+  emit none — inlining just turns an inert `<img>` into live DOM). The **download** route still
+  serves the untouched signed-off bytes. Sharper *and* lighter: St Ives internal is 472 KB raw,
+  88 KB gzipped, against ~1 MB for the print JPG. Gzipped in the route — there is no compression
+  plugin in front of the app.
+- **A viewer** (`public/js/map-viewer.js`): drag/pinch/wheel-with-Ctrl to move and zoom, buttons,
+  and full keyboard control (arrows, `+`, `−`, `0`) with the zoom level announced politely. Plain
+  wheel still scrolls the page. Falls back to the raster preview if the SVG cannot be fetched or
+  the browser has no metric-compatible font.
+- **A text alternative for every map** — `/m/:slug/services`. A picture of a bus map has no `alt`
+  that could carry it, and a council embedding one inherits it into its own WCAG 2.2 AA duty, so
+  the same facts are published as ordinary HTML: route, operator, days, the stops it serves and
+  where it goes. Built by `src/maps/facts.js` from data **already vendored with every map**
+  (`routes.json`, `routes_intown_atco.json`, `atco2name.json`) — it works for both area and place
+  payloads and invents nothing.
+- **The facts are snapshotted per version.** `renderVersion()` now writes `facts.json` beside the
+  artefacts, from the very payload the sheet was drawn from, so the text alternative can never
+  describe newer data than the published picture. Versions rendered before this fall back to the
+  map's live payload and pick up a snapshot on their next render.
+- **Provenance and staleness.** Every public map carries "correct as at" (the payload's own words,
+  e.g. "June 2026") and, past `STALE_AFTER_MONTHS` (default 6), an on-page warning. A leaflet on a
+  noticeboard is obviously a snapshot; a web page implies currency.
+- **Crawler-visible metadata.** `/m/:slug` and its services page have their `<head>` completed
+  server-side — title, description, canonical, Open Graph, JSON-LD — instead of being written by
+  JavaScript a crawler never runs. Both are in the sitemap.
+- **Caching.** A published version is immutable, so anything requested with `?v=<pub_key>` (how the
+  page links) gets `immutable` for a year; a bare URL follows the published pointer and gets 300 s
+  plus an ETag with real 304s. This is what keeps repeat views — and, later, embeds — off the app.
+- **Attribution on screen**, not only on the printed sheet: OSM/ODbL and BODS/OGL under every map.
+- **`/accessibility.html`** — what we aim for (WCAG 2.2 AA), what we have done, and, honestly, what
+  is not fixed; plus a paste-ready paragraph for a customer's own accessibility statement.
+  `docs/ACCESSIBILITY.md` is the operator's version, with the pre-publish check.
+- **Publish gate**: new required checklist item `alternative` (open the service list, confirm it
+  matches the map, confirm the map page works from the keyboard). `CHECKLIST_VERSION` → 4 (3 was
+  already taken on `main` by the unrelated H1 "on every sheet" wording pass).
+- Gates: `npm test` now runs `scripts/test-p8a.mjs` (facts for both payload shapes, provenance and
+  staleness, the inline-SVG transform incl. script stripping) alongside every other gate — all
+  green; `npm run verify` PASS area + place, byte-identical.
+
 ### Added — H9, an editor's-eye view toggle for admins — 2026-08-12
 
 Closes the last open item of the update-flow backlog (`portal-update-flow-findings_2026-08-11.md`

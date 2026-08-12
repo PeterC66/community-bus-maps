@@ -11,11 +11,15 @@
 //   0.8.1: the two lifecycle seams — an approved map request is BUILT IN PLACE by
 //       the importer (admin console shows the build queue), and an approver can
 //       revert the published pointer to an earlier reviewed version.
+//   P8a: the public page made usable online — the sheet served as pan/zoomable
+//       inline SVG, a text alternative at /m/:slug/services, provenance and a
+//       staleness notice, crawler-visible metadata, version-keyed caching.
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import path from 'node:path';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import {
   insertApplication, insertMessage, counts, authCounts,
@@ -39,8 +43,10 @@ import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
 import {
-  publicMap, publicMaps, publicOrg, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
+  publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
 } from './public/index.js';
+import { factsForPublicMap, publicServices, servicesPageUrl } from './public/services.js';
+import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
@@ -252,10 +258,85 @@ const baseUrl = (req) => BASE_URL || `${req.protocol}://${req.headers.host}`;
 // Unknown/unpublished slugs 404 with the same shell (so a link that stops being
 // public does not silently render an empty page or leak that a draft exists).
 app.get('/maps', async (req, reply) => reply.sendFile('maps.html'));
+
+// P8a — the map pages are still static shells filled in by their fetch, but a
+// crawler, a link preview and a screen reader all read the HTML as delivered.
+// So the shell's <head> is completed SERVER-side for the two per-map pages: real
+// title, description, canonical and Open Graph tags, and a JSON-LD block. The
+// client-side render is unchanged and simply agrees with what is already there.
+const shellCache = new Map();
+function shell(name) {
+  if (!shellCache.has(name)) shellCache.set(name, readFileSync(path.join(PUBLIC_DIR, name), 'utf8'));
+  return shellCache.get(name);
+}
+const htmlAttr = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function sendShell(reply, name, head) {
+  // Drop the shell's own placeholder <title>/description/og tags first, so the
+  // page has exactly one of each and the browser does not just take whichever
+  // came first in the file.
+  const stripped = shell(name)
+    .replace(/[ \t]*<title>[\s\S]*?<\/title>\r?\n?/i, '')
+    .replace(/[ \t]*<meta\s+name="description"[^>]*>\r?\n?/i, '')
+    .replace(/[ \t]*<meta\s+property="og:(?:title|description|url|image)"[^>]*>\r?\n?/gi, '');
+  reply.type('text/html; charset=utf-8');
+  return reply.send(stripped.replace('</head>', `${head}\n</head>`));
+}
+
+/** The <head> completion for one public map page. */
+function mapHead(req, m, { services = false } = {}) {
+  const base = baseUrl(req);
+  const headline = m.kind === 'place' ? `Buses serving ${m.name}` : `Buses within ${m.name}`;
+  const title = services
+    ? (m.kind === 'place' ? `Bus services serving ${m.name}` : `Bus services in ${m.name}`)
+    : headline;
+  const desc = services
+    ? `Every bus service on the ${m.name} map, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
+    : m.org.isDemo
+      ? `A sample bus map${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
+      : `A bus map published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
+  const canonical = base + (services ? servicesPageUrl(m.slug) : mapPageUrl(m.slug));
+  const card = m.outputs.length && m.outputs[0].previewUrl ? base + m.outputs[0].previewUrl : '';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Map',
+    name: `${title} — BusMaps.uk`,
+    description: desc,
+    url: canonical,
+    ...(m.org.name ? { publisher: { '@type': 'Organization', name: m.org.name } } : {}),
+    ...(m.provenance && m.provenance.dataAsAtDate ? { datePublished: m.provenance.dataAsAtDate } : {}),
+    isAccessibleForFree: true,
+  };
+  return [
+    `<title>${htmlAttr(title)} — BusMaps.uk</title>`,
+    `<link rel="canonical" href="${htmlAttr(canonical)}">`,
+    `<meta name="description" content="${htmlAttr(desc)}">`,
+    `<meta property="og:title" content="${htmlAttr(title)}">`,
+    `<meta property="og:description" content="${htmlAttr(desc)}">`,
+    `<meta property="og:url" content="${htmlAttr(canonical)}">`,
+    card ? `<meta property="og:image" content="${htmlAttr(card)}">` : '',
+    `<meta name="twitter:card" content="${card ? 'summary_large_image' : 'summary'}">`,
+    `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
+  ].filter(Boolean).map((l) => '  ' + l).join('\n');
+}
+
 app.get('/m/:slug', async (req, reply) => {
-  const m = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!m) return reply.code(404).type('text/html').send(notFoundPage('map'));
-  return reply.sendFile('map.html');
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));
+  return sendShell(reply, 'map.html', mapHead(req, publicMap(row)));
+});
+
+// The sheet's TEXT ALTERNATIVE. A picture of a bus map has no `alt` that could
+// carry it, so the same facts are published as ordinary HTML: route, operator,
+// days, termini, the stops inside the area and where each service goes. 404s
+// (rather than showing an empty page) when the payload lists no services.
+app.get('/m/:slug/services', async (req, reply) => {
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));
+  const m = publicMap(row);
+  if (!m.servicesUrl) return reply.code(404).type('text/html').send(notFoundPage('services list'));
+  return sendShell(reply, 'services.html', mapHead(req, m, { services: true }));
 });
 // An organisation only has a public page while it has a publicly-visible map —
 // the same condition the API applies, so the page and its data never disagree.
@@ -286,6 +367,25 @@ app.get('/api/public/maps/:slug', async (req, reply) => {
   return { ok: true, map: publicMap(row) };
 });
 
+// P8a — caching for published artefacts. A published version is immutable: its
+// bytes never change, because publishing never re-renders and a new version gets
+// a new storage key. So anything asked for WITH the version (`?v=<pub_key>`, how
+// the page itself links) can be cached hard and for ever; a bare URL follows the
+// published pointer and so may change under a reader, and gets a short life plus
+// an ETag. This is what keeps repeat views — and, later, embeds — off the app.
+function cached(req, reply, pubKey, tag) {
+  const etag = `"${pubKey}-${tag}"`;
+  reply.header('ETag', etag);
+  const versioned = req.query && String(req.query.v || '') === String(pubKey);
+  reply.header('Cache-Control', versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300, stale-while-revalidate=86400');
+  const inm = req.headers['if-none-match'];
+  if (inm && inm.split(',').some((t) => t.trim().replace(/^W\//, '') === etag)) {
+    reply.code(304).send();
+    return true;
+  }
+  return false;
+}
+
 // The published artefacts, straight from the reviewed version's render folder.
 // The version key comes from the DB (never the URL), so there is no version to
 // probe and no path to traverse.
@@ -307,7 +407,8 @@ app.get('/api/public/maps/:slug/:file', async (req, reply) => {
   // "not the owner". The owning customer's own downloads, and any admin
   // download (from either route), are never watermarked.
   const isOwnerOrAdmin = !!req.user && (req.user.role === 'admin' || req.user.customer_id === row.customer_id);
-  const watermarked = !isOwnerOrAdmin && file.endsWith('.jpg') && !!row.watermark_enabled;
+  const watermarkable = file.endsWith('.jpg') && !!row.watermark_enabled;
+  const watermarked = !isOwnerOrAdmin && watermarkable;
   if (watermarked) {
     try {
       const wp = await ensureWatermarked(p);
@@ -320,9 +421,14 @@ app.get('/api/public/maps/:slug/:file', async (req, reply) => {
   reply.header('Content-Type', OUTPUT_FILES[file]);
   // The watermarked/unwatermarked choice depends on who's asking (session
   // cookie), so a shared cache must not reuse one visitor's response for
-  // another — only cache the response when it can't vary (JPGs where
-  // watermarking doesn't apply, and every non-JPG file).
-  reply.header('Cache-Control', file.endsWith('.jpg') ? 'private, max-age=60' : 'public, max-age=300');
+  // another. P8a's strong immutable caching (cached()) is safe only when the
+  // response can't vary by viewer — i.e. everything except a JPG this map
+  // might watermark; those keep the original short, private cache instead.
+  if (watermarkable) {
+    reply.header('Cache-Control', 'private, max-age=60');
+  } else if (cached(req, reply, row.pub_key, file)) {
+    return reply;
+  }
   if (req.query && 'download' in req.query) {
     reply.header('Content-Disposition', `attachment; filename="${row.slug}-${row.pub_key}-${file}"`);
   }
@@ -339,13 +445,69 @@ app.get('/api/public/maps/:slug/preview/:base', async (req, reply) => {
   try {
     const p = await webPreviewPath(row.id, row.pub_key, base);
     if (!p) return reply.code(404).send({ ok: false, error: 'Not found.' });
+    if (cached(req, reply, row.pub_key, `preview-${base}`)) return reply;
     reply.header('Content-Type', 'image/jpeg');
-    reply.header('Cache-Control', 'public, max-age=3600');
     return reply.send(createReadStream(p));
   } catch (e) {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Could not prepare the preview image.' });
   }
+});
+
+// P8a — the same published SVG, prepared for INLINE display (scalable, real
+// text, pan/zoomable). See src/public/inlineSvg.js for exactly what differs from
+// the downloadable bytes. Gzipped here because there is no compression plugin in
+// front of the app and an internal sheet is ~470 KB raw against ~88 KB gzipped.
+const inlineCache = new Map(); // `${id}/${pubKey}/${base}` -> { raw, gz }
+app.get('/api/public/maps/:slug/inline/:base', async (req, reply) => {
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
+  const base = str(req.params.base, 40);
+  if (!PUBLIC_BASES.includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
+  const file = path.join(versionDir(row.id, row.pub_key), `${base}.svg`);
+  if (!existsSync(file)) return reply.code(404).send({ ok: false, error: 'Not found.' });
+  if (cached(req, reply, row.pub_key, `inline-${base}`)) return reply;
+
+  const key = `${row.id}/${row.pub_key}/${base}`;
+  let entry = inlineCache.get(key);
+  if (!entry) {
+    const out = publicOutputs(row).find((o) => o.base === base);
+    try {
+      const raw = Buffer.from(inlineSvg(file, {
+        title: out ? `${row.name} — ${out.label}` : `${row.name} bus map`,
+        desc: 'A bus map drawn from open bus data. Every service shown here is also '
+          + `written out as text at ${servicesPageUrl(row.slug)}.`,
+      }), 'utf8');
+      entry = { raw, gz: gzipSync(raw, { level: 9 }) };
+    } catch (e) {
+      req.log.error(e);
+      return reply.code(500).send({ ok: false, error: 'Could not prepare that sheet.' });
+    }
+    // One entry per published version per output — bounded by what is published,
+    // and dropped wholesale rather than tracked when it grows.
+    if (inlineCache.size > 64) inlineCache.clear();
+    inlineCache.set(key, entry);
+  }
+  reply.header('Content-Type', 'image/svg+xml; charset=utf-8');
+  reply.header('Vary', 'Accept-Encoding');
+  if (String(req.headers['accept-encoding'] || '').includes('gzip')) {
+    reply.header('Content-Encoding', 'gzip');
+    return reply.send(entry.gz);
+  }
+  return reply.send(entry.raw);
+});
+
+// The facts behind /m/<slug>/services — the map's text alternative as data.
+app.get('/api/public/maps/:slug/services', async (req, reply) => {
+  const row = getPublicMapBySlug(str(req.params.slug, 120));
+  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
+  const facts = factsForPublicMap(row);
+  const services = publicServices(row, facts);
+  if (!services || !services.routes.length) {
+    return reply.code(404).send({ ok: false, error: 'This map has no service list.' });
+  }
+  if (cached(req, reply, row.pub_key, 'services')) return reply;
+  return { ok: true, map: publicMap(row), services };
 });
 
 app.get('/api/public/orgs', async () => ({ ok: true, orgs: listPublicOrgs().map(publicOrg) }));
@@ -485,7 +647,7 @@ app.get('/robots.txt', async (req, reply) => {
 // from all of them — excluding it would hide it from crawlers while showing it to
 // every visitor, which is not privacy, just inconsistency. (What actually keeps it
 // unindexed during the pilot is robots.txt saying `Disallow: /`.)
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html'];
+const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html', '/accessibility.html'];
 
 app.get('/sitemap.xml', async (req, reply) => {
   const base = baseUrl(req);
@@ -499,6 +661,9 @@ app.get('/sitemap.xml', async (req, reply) => {
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ...STATIC_PAGES.map((p) => url(p)),
     ...maps.map((m) => url(mapPageUrl(m.slug), (m.publishedAt || '').replace(' ', 'T') + 'Z')),
+    // P8a — the text alternative is a page in its own right, and the one most
+    // worth finding in a search for "buses in <town>".
+    ...maps.filter((m) => m.servicesUrl).map((m) => url(m.servicesUrl, (m.publishedAt || '').replace(' ', 'T') + 'Z')),
     ...orgs.map((o) => url(orgPageUrl(o.slug))),
     '</urlset>',
     '',

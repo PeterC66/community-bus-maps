@@ -35,6 +35,9 @@ A self-serve portal that lets **approved organisations** (town/parish councils f
 | **Place engine** | Vendor the place-map engine (`engine/place/`) so **place** maps import/edit/render/publish/refresh like area maps; base-overrides framing layer; place reproduce gate. Orthogonal to P6/P7. | ✅ **done (2026-07-25)** |
 | **P6** | Public front: a public page per **published** map (`/m/:slug`), the published-maps gallery (`/maps`), organisation pages (`/o/:slug`), per-customer branding, map feedback, privacy/licensing page, robots + sitemap. | ✅ **done (2026-07-25)** |
 | **P7** | Expert styles (schematic + tube-map diagram, byte-identical) + the admin-only **diagram pin editor**; ops hardening: readiness, metrics, backups, staged-data retention, container + deploy runbook, licensing review. | ✅ **done (2026-07-25)** |
+| **P8a** | **Maps online, tier 1 — the linkable page done properly.** The sheet served as pan/zoomable inline SVG; a **text alternative** per map at `/m/:slug/services`; provenance + a staleness notice; crawler-visible `<head>`; version-keyed immutable caching; on-screen attribution; `/accessibility.html` + a publish-checklist item. No engine change. | ✅ **done (built 2026-07-26/27, rebuilt against `main` 2026-08-12)** |
+| **P8b** | **Maps online, tier 2 — embedding** on a customer's own site: `/embed/:slug/:output`, a copy-paste snippet, a server-enforced `frame-ancestors` domain allowlist, cookie-free embed routes. Gated on the DPA/processor wording and the bustimes.org sign-off, not on code. | ⏳ planned |
+| **P8c** | **Maps online, tier 3 — interactive.** Generators emit stable `data-route`/`data-stop` hooks + a `map-meta.json` sidecar; highlight a route, tap a stop, search, deep-link. Touches the engine and re-opens the byte-identical gate, so hooks ride behind an off-by-default flag and arrive with each map's next accepted monthly update. | ⏳ planned |
 
 First demo cut = **P0 + P1 + P2**: a real organisation logs in, opens a map, recolours a route, re-renders, and downloads a print-ready sheet — end to end, no AI.
 
@@ -52,8 +55,17 @@ Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI
 | Choose which of the 4 outputs a map produces — *P2 toggles; **all four render as of P7** (the two expert styles are opt-in per map)* | Anything touching upstream (S1/S2) data |
 | — | **Switching the tube-map diagram on.** It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
 
+The three online tiers are analysed in full — including the data-protection, licensing, ops and
+commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the companion Buses repo.
+
 ## Known follow-ups (not blocking a phase)
 
+- **P8a's open policy decisions.** The staleness threshold is `STALE_AFTER_MONTHS` (default 6) and
+  is a policy number, not an engineering one. Still to settle: a licence for the **map content**
+  itself (Apache-2.0 covers the code only — moot in practice while the repo is BUSL-1.1/private, but
+  still unresolved), and whether a self-hosted metric-compatible font (Arimo WOFF2) should ship —
+  P8a instead widens `font-family` to a stack and falls back to the raster sheet if the browser has
+  none of it, which avoids a font binary and a NOTICE change.
 - **Place maps.** ✅ **Done (0.6.0-place, 2026-07-25).** The place engine is vendored in `engine/place/` and copied into each place map's `data/` at import, so **both** kinds render, edit, publish and refresh in the portal. A place's expert framing (river-hide / frozen viewport) rides a `data/base-overrides.json` merged **under** the customer's safe-subset overrides. Proven byte-identical by `npm run verify:place`. See the `[0.6.0-place]` changelog entry and `engine/place/README.md`.
 - **`/legal.html` needs a final read before launch (P6).** The privacy notice is accurate about what the code actually collects, but it is written as a working draft and says so on the page; confirm the wording (and add a "last reviewed" date) before the site goes public. The OSM/ODbL attribution wording remains a launch go/no-go from the planning docs; the **bustimes.org terms check is resolved** — the site owner confirmed on 2026-08-07 the use is acceptable with no attribution required (`docs/LICENSING.md` §3).
 - **Branding on the printed sheet — still deferred, deliberately.** P7 did *not* add it. A logo or an organisation's colours *inside* the SVG needs a new generator knob, and the area generators travel **per map**, so the knob would only exist in newly imported maps unless every map's payload is re-vendored — and it re-opens the byte-identical gate for all six outputs. It is a self-contained piece of engine work with its own gate, best done on its own rather than folded into a phase. Branding therefore decorates the public *page* (P6) only.
@@ -63,7 +75,11 @@ Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI
 - **The three transactional emails were deployed but unproven end to end — now proven.** ✅ **Done (2026-08-12.)** `src/email/notify.js` ships and the hooks fire, but the first live attempt (an editor added to test them) landed platform-level, so `recipientsFor()` found nobody and the "published" email went nowhere (`"notification: nobody deliverable to tell"`) — the gap fixed above. Once fixed: reassigned that editor to *BusMaps.uk (pilot)*, published Beaconsfield Waitrose v2.0, and the "published" notification arrived at the editor's own inbox via Resend (not the admin's) with the correct map name and public link. Magic links were already known to send for real; now all three transactional emails are proven live.
 - **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
 - **~~Email provider~~ for magic links.** ✅ Done — Resend, live since 2026-08-09 (`src/email/`, `EMAIL_PROVIDER=resend` on the host). With it unset, links still print to the server console for dev.
-- **P8a — "published maps that work online" is BUILT BUT NOT MERGED.** An inline-SVG viewer with pan/zoom, a text alternative at `/m/:slug/services` built from each map's own vendored data, per-version `facts.json` snapshots, provenance/staleness, crawler-visible metadata and an accessibility statement — roughly 1,540 lines, complete and gated, on the branch **`p8a-maps-online`** (pushed 2026-08-12; it had lived only on the laptop until then). It is **123 commits behind and a trial merge reports 36 conflicts**, so treat it as a specification plus a working reference implementation and rebuild it against current `main` rather than merging. The design rationale is in `portal-online-maps-plan_2026-07-26.md` in the private `buses-data` repo, which also carries the correction — it claimed for a fortnight that P8a had shipped.
+- **P8a — "published maps that work online" is now merged.** ✅ **Done (rebuilt 2026-08-12).** Was
+  built 2026-07-26/27 and pushed to a branch (`p8a-maps-online`) that had drifted 123 commits behind
+  `main` with 36 conflicts; rebuilt from that branch as a spec, not merged from it. The SVG-vs-watermark
+  question that branch left open turned out to already be settled by existing policy — see the P8a's
+  open policy decisions bullet above and the CHANGELOG entry for what shipped.
 - **Staged-data retention.** ✅ **Done (P7)** — `npm run prune:staged` (`scripts/prune-staged.mjs`) removes the staged payloads of *settled* refreshes and the data an accepted refresh replaced, older than `--days`, with a `--dry-run`. Pending updates, live data and every rendered version are never touched; the admin **Ops** tab shows how much it would free. Run it from cron alongside `npm run backup`.
 
 ## Key facts for continuation
