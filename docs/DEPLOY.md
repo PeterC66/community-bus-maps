@@ -182,7 +182,7 @@ exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIV
 - **Content:** fresh database, one real customer (*BusMaps.uk (pilot)*), all 8 built towns + 5 built
   places imported via `scripts/deliver-map.mjs` and published via `scripts/publish-baseline.mjs` —
   see `GO-LIVE.md` §3 "Content on the live site".
-- **Deploy history:** `da66dc9` (2026-08-11, `0.9.2-pilot`) → **`7603d39` (2026-08-12, `0.9.3-pilot`)**, carrying both update-flow tranches. `/health?deep=1` is the record of what is actually on the box — trust it over any document, including this one.
+- **Deploy history:** `da66dc9` (2026-08-11, `0.9.2-pilot`) → `7603d39` (2026-08-12, `0.9.3-pilot`, both update-flow tranches) → `5e20950` (2026-08-12, admin org-reassignment, #28) → **`59f3a17` (2026-08-12, `0.9.3-pilot`)**, carrying H9 (#30), the P8a rebuild (#32) and `delete-map.mjs` (#33). `/health?deep=1` is the record of what is actually on the box — trust it over any document, including this one.
 
 ### Running the upgrade, as actually done (2026-08-12)
 
