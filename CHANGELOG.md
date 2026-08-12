@@ -7,6 +7,37 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — a status strip on the map page: whose turn is it, and how far along am I? — 2026-08-12
+
+Backlog item **I**. The flow has five states, three actors and days between them, and no screen
+answered the question people actually have. A cold tester finished the whole flow successfully and
+still ended unsure *whether it had finished or was waiting for someone*; the operator's own
+walkthrough asked "is Accept the end?", "is Submit the same as Publish?", "why is everything greyed
+out?" — all the same question in different clothes.
+
+A persistent strip at the top of the map page now draws the five steps — **Update offered → Draft
+ready → Sent for approval → Published → Public page** — marks where this map is, names who holds
+it, dates each step it has reached, and offers the one action that moves it on. Not a wizard: a
+wizard implies one person at one desk, and this flow spans days and three people.
+
+It is a read-out of state `mapDetail` already returned — no schema change, no new endpoint — and it
+closes several backlog items structurally rather than a label at a time:
+
+- **C1** — *Send for approval* now sits at the top of the page, not 900 px below the accept flash
+  that told you to look "below". An accepted update no longer quietly becomes a draft nobody
+  submits. The accept flash was reworded to match, dropping *"Review it below"*, which collided
+  with the approver's Review step (**H3**).
+- **C2** — while a version is with the approver, the reason the controls are frozen is stated at
+  the top, where the freezing is noticed.
+- **B3, B4** — the strip carries how long a submission has been waiting *and* the version the
+  public is still being served, which the dashboard used to hide at exactly that moment.
+- **H1** — "Publishing covers all N sheets of this map together": the unit of publication is the
+  whole map, and nothing said so anywhere.
+
+Off-path states are drawn too: **sent back** quotes the approver's reason, and a published map that
+is not listed says so rather than claiming to be live. An approver or admin looking at another
+organisation's map reads "their move" instead of "your move".
+
 ### Fixed — the portal told you an updated map was "identical" to the published one — 2026-08-12
 
 Backlog item **A1**, the headline finding of the update-flow review, and the one that weakened a
