@@ -1,7 +1,7 @@
 ﻿# The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.6 | 2026-08-10 | sha=31a30d42 -->
-**v1.6** · updated 10 August 2026
+<!-- docstamp v1.7 | 2026-08-12 | sha=f477ae53 -->
+**v1.7** · updated 12 August 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
@@ -113,7 +113,30 @@ npm run dev
 
 (`$env:BUSES_DIR = "..."` is PowerShell's way of setting an environment variable for the current window only — it's gone once you close it. Adjust the path if your Buses data folder moves.)
 
-Now open **http://127.0.0.1:5180/app** — you'll be asked to sign in. Because there's no email service configured locally, **the sign-in link is printed in the PowerShell window running the server**, not emailed. Scroll that window to find it. The seeded people to sign in as, and what each one can do, are listed in [`README.md`](../README.md#set-up-the-multi-customer-demo-p2--p3--p4--p5) — worth reading once.
+Now open **http://127.0.0.1:5180/app** — you'll be asked to sign in. Because there's no email service configured locally, **the sign-in link is printed in the PowerShell window running the server**, not emailed. Scroll that window to find it (or read the token from the database — §3a below).
+
+### Who you can sign in as
+
+There are no passwords anywhere — sign-in is an emailed one-time link, so an address in this list plus that link is the whole of it. These five are created by `seed-demo.mjs`; the only real person among them is you.
+
+| Sign in as | Role | Sees |
+|---|---|---|
+| `peter@pcooper.me.uk` | **admin** | Everything: every organisation's maps, plus the **Admin** console and **Review** |
+| `approver@busmaps.example` | **approver** | The review queue at **/app/review** — can inspect any map's print files, but not edit them |
+| `clerk@broadmeadow-pc.example` | editor | Broadmeadow Parish Council (demo) — **0 maps**, the empty-dashboard state |
+| `clerk@fenmarsh-dc.example` | editor | Fenmarsh District Council (demo) — **1 map** (March) |
+| `coordinator@oakfield-ctt.example` | editor | Oakfield Community Transport Trust (demo) — **the rest**: St Ives, the High Wycombe Aldi place map, and the requested St Ives Waitrose map |
+
+Each editor sees **only** their own organisation's maps — that's enforced on the server, not just hidden in the page, so it is worth signing in as two of them to see the difference. The admin and approver belong to no organisation: they are the platform side of the flow. [`README.md`](../README.md#set-up-the-multi-customer-demo-p2--p3--p4--p5) explains what each one is *for* and is worth reading once.
+
+To check who actually exists in your database right now (roles change, and you may have added people), run this with the server up or down — it only reads:
+
+```powershell
+cd C:\Claude\community-bus-maps
+node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('./data/portal.sqlite',{readOnly:true});for(const r of db.prepare('SELECT u.id,u.email,u.role,u.status,c.name AS org FROM user u LEFT JOIN customer c ON c.id=u.customer_id ORDER BY u.id').all())console.log([r.id,r.email,r.role,r.status,r.org||'(platform)'].join('  |  '))"
+```
+
+Same quoting rule as §3a: **single quotes, never backticks.** This lists the **local** database only — the live site has its own users, which you read through the live Admin console, not from here.
 
 To reset back to empty, delete the database file and start again (server stopped, same folder):
 
