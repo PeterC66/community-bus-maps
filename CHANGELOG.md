@@ -1,11 +1,21 @@
 # Changelog
 
-<!-- docstamp v1.49 | 2026-08-12 | sha=44b2ae62 -->
-**v1.49** · updated 12 August 2026
+<!-- docstamp v1.50 | 2026-08-12 | sha=964e0835 -->
+**v1.50** · updated 12 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Verified — the three transactional emails, proven end to end on live — 2026-08-12
+
+No code change. `src/email/notify.js` had shipped and the hooks demonstrably fired, but no
+notification had ever reached a real inbox — the first live attempt found the test editor stuck
+platform-level, so `recipientsFor()` had nobody to tell. With the org-reassignment fix below
+deployed, reassigned that editor to *BusMaps.uk (pilot)* and published Beaconsfield Waitrose v2.0;
+the "published" email arrived via Resend at the editor's own address, not the admin's, naming the
+map and linking its public page. All three transactional emails share the same recipient-lookup
+path, so this proves the last mile for all of them.
 
 ### Added — admin can move a user to a different organisation — 2026-08-12
 
