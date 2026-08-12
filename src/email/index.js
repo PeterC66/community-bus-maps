@@ -31,10 +31,20 @@ function magicLinkContent({ link, kind }) {
  * (the caller should fall back to its own dev-console logging); throws on a
  * configured provider actually failing, so the caller decides how loud to be. */
 export async function sendMagicLink({ to, link, kind = 'signin' }) {
+  const { subject, text, html } = magicLinkContent({ link, kind });
+  return sendEmail({ to, subject, text, html });
+}
+
+/**
+ * Send one already-composed email. Same contract as sendMagicLink: a no-op
+ * returning {sent:false} when no provider is configured, and it throws when a
+ * configured provider fails. Used by the transactional notifications in
+ * ./notify.js, which is the only other thing this service ever emails about.
+ */
+export async function sendEmail({ to, subject, text, html }) {
   const provider = process.env.EMAIL_PROVIDER;
   if (!provider) return { sent: false, reason: 'EMAIL_PROVIDER not set' };
   const send = PROVIDERS[provider];
   if (!send) throw new Error(`Unknown EMAIL_PROVIDER "${provider}" — supported: ${Object.keys(PROVIDERS).join(', ')}`);
-  const { subject, text, html } = magicLinkContent({ link, kind });
   return send({ to, from: fromAddress(), subject, text, html });
 }

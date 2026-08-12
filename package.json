@@ -1,6 +1,6 @@
 {
   "name": "community-bus-maps",
-  "version": "0.9.2-pilot",
+  "version": "0.9.3-pilot",
   "private": true,
   "description": "PILOT — self-serve portal for community bus maps: public shopfront plus a deterministic map renderer. No customers yet; see docs/PILOT.md. BUSL-1.1.",
   "type": "module",
@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
-    "test": "node scripts/check-chrome.mjs && node scripts/test-p6.mjs && node scripts/test-p7.mjs && node scripts/test-lifecycle.mjs && node scripts/test-safe-subset.mjs && node scripts/test-change-summary.mjs && node scripts/test-worklist.mjs && node scripts/test-search.mjs",
+    "test": "node scripts/check-chrome.mjs && node scripts/test-p6.mjs && node scripts/test-p7.mjs && node scripts/test-lifecycle.mjs && node scripts/test-safe-subset.mjs && node scripts/test-change-summary.mjs && node scripts/test-worklist.mjs && node scripts/test-notify.mjs && node scripts/test-search.mjs",
     "chrome:apply": "node scripts/apply-chrome.mjs",
     "chrome:check": "node scripts/check-chrome.mjs",
     "test:p6": "node scripts/test-p6.mjs",
@@ -30,6 +30,7 @@
     "test:p7": "node scripts/test-p7.mjs",
     "test:lifecycle": "node scripts/test-lifecycle.mjs",
     "test:worklist": "node scripts/test-worklist.mjs",
+    "test:notify": "node scripts/test-notify.mjs",
     "test:search": "node scripts/test-search.mjs"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.6 | 2026-08-11 | sha=9b3d2005 -->
-**v1.6** · updated 11 August 2026
+<!-- docstamp v1.7 | 2026-08-12 | sha=55f97aab -->
+**v1.7** · updated 12 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -60,15 +60,19 @@ which files each item touches, how to run an isolated seeded instance instead of
 live, and the traps that cost the review itself time. Its companion
 `portal-update-flow-walkthrough_2026-08-11.md` is the same flow written for a customer.
 
-**Five items are already done (merged 12 August 2026) — the document describes the flow as it was
+**Items 1–12 are already done (merged 12 August 2026) — the document describes the flow as it was
 on 11 August.** Read its *Suggested order of work* first for the per-item status; the body above it
 still describes the pre-fix behaviour on purpose. Shipped: the three editor defects (`.r-title`
 overrun, unstyled disabled buttons, "review it and review it"); **A1** — a version's data diff now
 lives on the version (`map_version.data_change_json`) and `changeSummary().unchanged` means
 *overrides and data* are both empty, so a refreshed map no longer reports as identical to the
-published one; and the **status strip** on the map page, a read-out of `mapDetail` that says whose
-turn it is. Items 6–13 (vocabulary pass, emails, download labelling, version list, the invisible
-unsubmitted draft, admin view toggle) are open.
+published one; the **status strip** on the map page, a read-out of `mapDetail` that says whose turn
+it is; and in `0.9.3-pilot` the **vocabulary pass** (one word per thing — see the glossary in
+`docs/DEVELOPING.md`, and don't reintroduce "submit for publication" or "Edition"), the **three
+transactional emails** (`src/email/notify.js`), the **version list**, the **compare-dialog change
+bullets**, the **download-row labelling**, the **unit of publication**, and the **`draft-unsubmitted`
+worklist item** that makes an unsent draft visible. Only **H9** (an editor's-eye view for admins)
+is open.
 
 **None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
 fail, the change is wrong.

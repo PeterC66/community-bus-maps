@@ -69,6 +69,12 @@ function changeHtml(sum, pubKey) {
   return dataHtml + yours;
 }
 
+// How many sheets this one decision covers. The list below shows them as
+// separate items, and nothing said they publish together (findings H1).
+function sheetCount(inspect) {
+  return new Set(inspect.filter((d) => /\.(svg|jpg)$/.test(d.file)).map((d) => d.file.replace(/\.(svg|jpg)$/, ''))).size;
+}
+
 function inspectHtml(inspect) {
   const jpgs = inspect.filter((d) => d.file.endsWith('.jpg'));
   const svgs = inspect.filter((d) => d.file.endsWith('.svg'));
@@ -94,6 +100,7 @@ async function openReview(id) {
   $('published').querySelectorAll('.queue-item').forEach((b) => b.classList.remove('active'));
 
   const decided = r.status !== 'pending';
+  const sheets = sheetCount(body.inspect);
   box.innerHTML = `
     <div class="rd-head">
       <h2>${esc(r.map.name)} <span class="tag ${r.map.kind === 'place' ? 'place' : 'area'}">${r.map.kind === 'place' ? 'Place' : 'Area'}</span></h2>
@@ -109,7 +116,9 @@ async function openReview(id) {
 
     <div class="rd-section">
       <h3>Inspect the print-ready output</h3>
-      <p class="hint-line">Open each sheet full-size and check it prints correctly.</p>
+      <p class="hint-line">Open each sheet full-size and check it prints correctly.${sheets > 1
+        ? ` <strong>One decision covers all ${sheets} sheets of this map</strong> — there is no way to publish one and hold another back.`
+        : ''}</p>
       ${inspectHtml(body.inspect)}
     </div>
 

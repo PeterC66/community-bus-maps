@@ -119,9 +119,15 @@ export function ensureProposedDirs(id, pid) {
 // `enabled` there is a pure VISIBILITY gate, not a build gate. See
 // effectiveOutputs() (engine.js, what gets rendered) vs outputsForClient() /
 // visibleDownloadsForVersion() (server.js, what the customer is shown).
+//
+// `placeLabel` is the same output named for a PLACE map. A place map's sheets are
+// titled "Buses serving <place>" and "Buses from <place>", so offering it "Within
+// the area" and "To nearby towns" described somebody else's map (findings D1).
+// The wording matches the public page's own labels (src/public/index.js) so the
+// app and the page a reader lands on call the two sheets the same thing.
 export const OUTPUTS = {
-  internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', portal: true },
-  external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', portal: true },
+  internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true },
+  external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', placeLabel: 'Where those buses go', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Octolinear schematic', portal: true, buildAlways: true },
   internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
 };

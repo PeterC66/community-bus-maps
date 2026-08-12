@@ -458,7 +458,7 @@ LOADERS.refreshes = async () => {
   const { body } = await jget('/api/admin/proposed-updates');
   const box = $('refreshes');
   const ups = (body && body.updates) || [];
-  if (!ups.length) { box.innerHTML = '<div class="empty">No pending monthly updates. 🎉</div>'; return; }
+  if (!ups.length) { box.innerHTML = '<div class="empty">No pending updates. 🎉</div>'; return; }
   const columns = [{ label: 'Map', key: 'map.name' }, { label: 'Customer', key: 'customer' }, { label: 'Source' }, { label: 'Changes' }, { label: 'Staged', key: 'createdAt' }, { label: '' }];
   renderSortable('refreshes', box, [17, 12, 15, 26, 14, 16], columns, ups, (u) => `<div class="gt-row" role="row">
       <div class="gt-cell" role="cell"><a href="/app/maps/${u.map.id}" target="_blank" rel="noopener"><strong>${esc(u.map.name)}</strong></a> <span class="tag ${u.map.kind === 'place' ? 'place' : 'area'}">${u.map.kind === 'place' ? 'Place' : 'Area'}</span><div class="sub">${esc(u.map.subject || '')}</div></div>
@@ -482,13 +482,13 @@ LOADERS.refreshes = async () => {
 // page (the "Map" link above still does, for previewing the change first).
 async function decideRefresh(mapId, pid, mapName, verb) {
   const msg = verb === 'accept'
-    ? `Accept the pending update for "${mapName}"? It becomes a new draft version with the customer's colours and landmark choices re-applied; it still needs to be submitted and reviewed before it goes public.`
+    ? `Accept the pending update for "${mapName}"? It becomes a new draft version with the customer's colours and landmark choices re-applied; it still has to be sent for review and published before the public sees it.`
     : `Decline the pending update for "${mapName}"? The map keeps its current data.`;
   if (!confirm(msg)) return;
   const { body } = await jsend(`/api/maps/${mapId}/proposed/${pid}/${verb}`, 'POST', {});
   if (body.ok) {
     banner(verb === 'accept' ? 'ok' : 'warn', verb === 'accept'
-      ? `✓ Update accepted for <strong>${esc(mapName)}</strong> — new draft version ${esc(body.version || '')} staged. <a href="/app/maps/${mapId}" target="_blank" rel="noopener">Open the map</a> to submit it for publication.`
+      ? `✓ Update accepted for <strong>${esc(mapName)}</strong> — new draft version ${esc(body.version || '')} staged. <a href="/app/maps/${mapId}" target="_blank" rel="noopener">Open the map</a> to send it for review.`
       : `Update declined for <strong>${esc(mapName)}</strong> — unchanged.`);
     LOADERS.refreshes(); loadSummary();
   } else {
@@ -498,11 +498,11 @@ async function decideRefresh(mapId, pid, mapName, verb) {
 
 // ---- audit ------------------------------------------------------------------
 const ACTION_LABEL = {
-  'version.submit': 'Submitted for publication',
+  'version.submit': 'Sent version for review',
   'version.publish': 'Published version',
   'version.revert': 'Reverted published version',
   'version.reject': 'Sent version back',
-  'version.withdraw': 'Withdrew publish request',
+  'version.withdraw': 'Withdrew version from review',
   'version.save': 'Saved version',
   'application.approve': 'Approved application',
   'application.reject': 'Rejected application',
@@ -510,8 +510,8 @@ const ACTION_LABEL = {
   'maprequest.reject': 'Rejected map request',
   'maprequest.fulfil': 'Built an approved request',
   'customer.update': 'Updated customer',
-  'refresh.accept': 'Accepted monthly update',
-  'refresh.decline': 'Declined monthly update',
+  'refresh.accept': 'Accepted update',
+  'refresh.decline': 'Declined update',
   'branding.update': 'Updated public details',
   'public.list': 'Listed map publicly',
   'public.unlist': 'Removed map from public site',

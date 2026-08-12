@@ -119,12 +119,16 @@ export function effectiveOutputs(config, dataDir) {
   return out;
 }
 
-/** Full 4-output descriptor for the UI (toggles): what's available + enabled. */
-export function outputsForClient(config, id) {
+/**
+ * Full 4-output descriptor for the UI (toggles): what's available + enabled.
+ * `kind` picks the wording — a place map's sheets are not "within the area"
+ * (findings D1); absent it, the area labels are used exactly as before.
+ */
+export function outputsForClient(config, id, kind) {
   const dataDir = mapDataDir(id);
   const cfg = config && typeof config === 'object' ? config : {};
   return Object.entries(OUTPUTS).map(([key, meta]) => ({
-    key, base: meta.base, label: meta.label, portal: !!meta.portal,
+    key, base: meta.base, label: (kind === 'place' && meta.placeLabel) || meta.label, portal: !!meta.portal,
     expert: !!meta.expert,
     // Locked to the customer: shown, never switched by them (see chooseOutputs).
     requestOnly: !!meta.requestOnly,

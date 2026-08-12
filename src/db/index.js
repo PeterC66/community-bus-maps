@@ -426,10 +426,12 @@ export function setMapDataDir(mapId, dir) {
   db.prepare('UPDATE map SET data_dir = ? WHERE id = ?').run(dir, Number(mapId));
 }
 
+// `overrides_json` rides along so the editor's version list can offer "copy
+// these settings into a new draft" (findings H8) without a second query.
 export function listVersions(mapId) {
   return db
     .prepare(
-      `SELECT id, major, minor, note, storage_key, review_state, created_at
+      `SELECT id, major, minor, note, storage_key, review_state, created_at, overrides_json
          FROM map_version WHERE map_id = ? ORDER BY major DESC, minor DESC`,
     )
     .all(Number(mapId));
@@ -682,6 +684,40 @@ export function listProposedForMap(mapId) {
         ORDER BY pu.id DESC`,
     )
     .all(Number(mapId));
+}
+
+/**
+ * Maps whose editing head is ahead of what the public is served, with nothing
+ * in flight to move it: no pending publish request, no pending update to accept.
+ *
+ * This is the state findings B5 calls invisible. Every other queue in the portal
+ * is defined by somebody being blocked, and a draft nobody has sent blocks
+ * nobody — so eight live maps sat in it for a day with the worklist reporting
+ * "nothing waiting". It is a query over state the database already holds, not a
+ * new flag: current_version_id ≠ published_version_id, no open request.
+ *
+ * `since` is the draft's own creation time, so the item can age like the rest.
+ * Maps not yet built (no current version) are excluded — they are the build
+ * queue's business, and archived maps are nobody's.
+ */
+export function listUnsubmittedDrafts() {
+  return db
+    .prepare(
+      `SELECT m.id, m.name, m.slug, m.kind, m.status,
+              c.name AS customer_name,
+              v.storage_key AS draft_key, v.created_at AS draft_at, v.review_state AS draft_state,
+              pv.storage_key AS published_key
+         FROM map m
+         JOIN map_version v ON v.id = m.current_version_id
+         LEFT JOIN map_version pv ON pv.id = m.published_version_id
+         LEFT JOIN customer c ON c.id = m.customer_id
+        WHERE m.status <> 'archived'
+          AND (m.published_version_id IS NULL OR m.published_version_id <> m.current_version_id)
+          AND NOT EXISTS (SELECT 1 FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending')
+          AND NOT EXISTS (SELECT 1 FROM proposed_update pu WHERE pu.map_id = m.id AND pu.status = 'pending')
+        ORDER BY v.created_at ASC`,
+    )
+    .all();
 }
 
 /** All pending proposed updates across customers (admin visibility of the refresh queue). */

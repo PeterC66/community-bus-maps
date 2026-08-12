@@ -23,6 +23,7 @@ import {
 } from '../src/db/index.js';
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
+import { notify, appUrl } from '../src/email/notify.js';
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -123,4 +124,17 @@ if (summary.unchanged) {
   if (summary.validity) console.log(`    validity: ${summary.validity.from || '—'} → ${summary.validity.to || '—'}`);
 }
 console.log(`\n  The customer reviews + accepts it at:  /app/maps/${map.id}`);
+
+// 4) Tell them it is there (findings B2). Staging used to be silent: the update
+// sat in the portal until somebody happened to sign in, which is how one can
+// sit for weeks. Skipped without EMAIL_PROVIDER, and never fatal — the update
+// is staged either way, so a mail failure must not fail this run.
+const mailed = await notify('update-ready', {
+  customerId: map.customer_id,
+  mapName: map.name, sourceNote: note,
+  mapUrl: appUrl(`/app/maps/${map.id}`),
+});
+console.log(mailed.sent
+  ? `  Emailed ${mailed.sent} person${mailed.sent === 1 ? '' : 's'} at "${map.customer_name || 'the customer'}".`
+  : '  No email sent (no EMAIL_PROVIDER, or nobody with a deliverable address).');
 process.exit(0);

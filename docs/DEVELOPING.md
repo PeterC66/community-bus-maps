@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.9 | 2026-08-11 | sha=1629de3c -->
-**v1.9** · updated 11 August 2026
+<!-- docstamp v1.10 | 2026-08-12 | sha=a89d3399 -->
+**v1.10** · updated 12 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -175,14 +175,30 @@ Before touching the editor, the review screen or anything in the proposed-update
 
 Two things from it that change how you work here:
 
-- **Five of its items are done — the document describes the flow as it was on 11 August 2026.** Merged 12 August: **H6, A2, E** (#18), **A1** (#23), and the **status strip** (#20, which also closed C1, C2, B3, B4, H1 and half of H3). Read the findings' *Suggested order of work* first: it carries the per-item status, and the body text above it deliberately still describes the pre-fix behaviour. Items 6–13 are open.
+- **Items 1–12 of its backlog are done — the document describes the flow as it was on 11 August 2026.** Merged 12 August: **H6, A2, E** (#18), **A1** (#23), the **status strip** (#20, which also closed C1, C2, B3, B4, H1 and half of H3), then **H4+H3+D**, **B2**, **H5**, **H1**, **B1**, **H8** and **B5** in `0.9.3-pilot`. Read the findings' *Suggested order of work* first: it carries the per-item status, and the body text above it deliberately still describes the pre-fix behaviour. Only **H9** (the admin's editor's-eye view) is open.
 - **None of that backlog should alter a rendered sheet.** Every item is wording, presentation or a query. If `npm run verify` fails, you have gone wrong — don't relax the gate.
 
-Three facts about the shipped work, because they are not obvious from the file tree:
+Five facts about the shipped work, because they are not obvious from the file tree:
 
 - **A version's data diff lives on the version.** Accepting a refresh writes `map_version.data_change_json` (`{ proposedId, sourceNote, summary }`); `dataChangesSince(mapId, since, until)` reads the refreshes a head carries. `changeSummary()`'s **`unchanged` means both halves are empty** — overrides *and* data. Don't reintroduce a check that looks at overrides alone; `scripts/test-change-summary.mjs` will catch you.
 - **`public/app/changes.js` is shared by the editor and the review screen** — a plain script tag on both pages, no build step, exposed as `window.PortalChanges`. It renders the data-change account and the date/ageing helpers. Change it and you change both screens.
 - **The status strip is a read-out, not a state machine.** `stripState()` in `public/app/editor.js` derives the five states purely from what `mapDetail` already returns. If you need a new state, the fix is almost certainly there and not in the API.
+- **Emails never fail the thing they describe.** `src/email/notify.js` is fire-and-forget: it logs and swallows, so a mail outage cannot fail a publish. It sends nothing without `EMAIL_PROVIDER`, and skips RFC 2606 reserved domains (`.example`, `.invalid`) — every seeded demo organisation uses one, and bouncing at them would cost the sending reputation the magic links depend on.
+- **The worklist gained a "nobody is blocked" item.** `listUnsubmittedDrafts()` + the `draft-unsubmitted` item exist because every other queue is defined by somebody being blocked, and the one state nothing surfaced was a draft that will never publish itself. Keep it a query — it must stay derived from live state, never a flag someone has to clear.
+
+### The vocabulary — one word per thing
+
+Settled 12 August 2026 (findings **D**), applied across the app, the public pages and `terms.html`. Use these words in any new copy; grep before inventing a synonym.
+
+| Concept | The word | Never |
+|---|---|---|
+| The rebuilt map offered to a customer | **update** | monthly update, refresh, proposed update *(customer-facing — `refresh` remains the pipeline's own word for the staged payload: `propose-update.mjs`, the admin Refreshes tab, `proposed_update`)* |
+| A saved state of a map | **version** (`v2.0`) | edition |
+| Where a version is | **draft** → **awaiting review** → **published** | locked for review, sent for approval, submitted |
+| What the customer does with a draft | **send it for review** | submit, submit for publication |
+| What only an approver does | **publish** | — |
+| The party that reviews | **BusMaps.uk** (to a customer), **approver** (to an operator) | we, the reviewer, the operator |
+| The two geographic sheets | area: *Within the area* / *To nearby towns*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
 
 Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
 
