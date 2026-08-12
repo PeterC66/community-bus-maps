@@ -1,7 +1,7 @@
 ﻿# The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.7 | 2026-08-12 | sha=f477ae53 -->
-**v1.7** · updated 12 August 2026
+<!-- docstamp v1.8 | 2026-08-12 | sha=65debeca -->
+**v1.8** · updated 12 August 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
