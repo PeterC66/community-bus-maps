@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.10 | 2026-08-09 | sha=2aa3684a -->
-**v1.10** · updated 9 August 2026
+<!-- docstamp v1.12 | 2026-08-12 | sha=2f47207c -->
+**v1.12** · updated 12 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -173,7 +173,7 @@ src/
   maps/     store.js (object store + OUTPUTS) · safeSubset.js (the safe-subset gate) · engine.js (enumerate/preview/render/swap)
   server.js Fastify server: shopfront + auth + tenant-scoped editor API + review/publish + monthly updates + admin console
 public/     the shopfront (incl. pricing + opportunity) + public map pages (maps/map/org/legal/terms) + app/ (login, dashboard, two-pane editor, public details, diagram pin editor, review console, admin console)
-scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
+scripts/    seed-demo.mjs (multi-customer demo) · import-map.mjs (seed one map) · delete-map.mjs (retire a map — row, versions, object-store dir; dry run by default) · propose-update.mjs (stage a monthly refresh) · verify-reproduce{,-place}.mjs (byte-identical tests) · test-p6/p7.mjs (checks) · backup.mjs · prune-staged.mjs
 data/       runtime data + SQLite + object store maps/<id>/… (git-ignored)
 docs/       DUMMIES_GUIDE.md (start here if git/Node are new) · DEVELOPING.md (read before changing code) · ROADMAP.md (orientation) · DEPLOY.md (runbook + restore drill) · LICENSING.md (launch gate) · H1-operations-handbook.md + R1-R6-*.md (running the service)
 Dockerfile, compose.yaml   single-process container + single-volume deployment

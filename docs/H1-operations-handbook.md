@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.12 | 2026-08-09 | sha=fd5598ae -->
-**v1.12** · updated 9 August 2026
+<!-- docstamp v1.13 | 2026-08-12 | sha=d2e30069 -->
+**v1.13** · updated 12 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -100,7 +100,7 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 
 **Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session) · **`POST /api/admin/status`** the laptop's `push-status.mjs` sends status.js's byte-identical gate + engine/S6 staleness here, gated by `STATUS_TOKEN` or an admin session — it then shows up at ranks 0/8 of the To-do tab / `/api/admin/worklist` alongside the portal's own queues.
 
-**Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) · `fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already stored — a one-off catch-up; renders made now are fixed as they are produced) · `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` / `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
+**Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `delete-map.mjs` (retire a map — row, versions, publish/proposed-update rows and its `data/maps/<id>/` dir; dry run by default, `--yes` to act — e.g. freeing a demo-held town's slug for a real customer, R1) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) · `fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already stored — a one-off catch-up; renders made now are fixed as they are produced) · `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` / `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
 **Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
 
@@ -160,6 +160,8 @@ npm run prune:staged -- --days 90 --dry-run     # then without --dry-run
 node scripts/import-map.mjs --src "<S5-render dir>" --name "…" --slug … --kind area|place --customer "…"
 node scripts/import-map.mjs --list-requests      # approved requests awaiting a build
 node scripts/import-map.mjs --request <id> --src "<S5-render dir>"   # build one IN PLACE
+node scripts/delete-map.mjs --slug <slug>                            # dry run — shows what would go
+node scripts/delete-map.mjs --slug <slug> --yes                      # retire a map (row, versions, dir)
 node scripts/propose-update.mjs …               # stage a monthly refresh
 node scripts/fix-badge-contrast.mjs             # dry run; --apply to repair stored sheets
 ```

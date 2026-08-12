@@ -1,7 +1,7 @@
 ﻿# Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.7 | 2026-08-08 | sha=662b98b9 -->
-**v1.7** · updated 8 August 2026
+<!-- docstamp v1.8 | 2026-08-12 | sha=ce3984b9 -->
+**v1.8** · updated 12 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -92,6 +92,43 @@ Two standing rules for demo material:
 
 Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all four outputs are demoable. Note the diagram is *request-only* for customers — you switch it on, they ask ([OPERATIONS-HANDBOOK §4b](H1-operations-handbook.md)).
 
+## Taking over a demo-held town (a real customer wants St Ives / St Neots / …)
+
+**Policy: one live map per town, ever — the demo org's or a real customer's, never both.** A real
+customer signing up for a town a demo org already holds is not a second map; it's the demo's map
+being retired and a real one taking its place, starting clean at **v1.0** (see [R2 → Step
+5](R2-onboarding.md#step-5--their-maps)).
+
+`import-map.mjs` refuses a duplicate `--slug` outright (What-if below), so retire the demo's map
+first:
+
+```bash
+# server STOPPED (one writer)
+node scripts/delete-map.mjs --slug st-ives              # dry run — shows owner, version/publish/
+                                                          # proposed-update counts, the data/maps/<id>
+                                                          # folder; deletes nothing
+node scripts/delete-map.mjs --slug st-ives --yes         # actually deletes: the map row, its
+                                                          # versions, publish requests and proposed
+                                                          # updates, and data/maps/<id>/ on disk
+```
+
+Then build and import as normal (Step 1–4 above), owned by the real customer:
+
+```bash
+node scripts/import-map.mjs --src "<S5-render dir>" --name "St Ives" \
+     --slug st-ives --customer "St Ives Town Council" --customer-type council
+```
+
+`nextVersion()` starts a brand-new map row at v1.0 unconditionally — there's nothing to reset, the
+fresh row just never had a v6-whatever to inherit. Detail worth knowing: `delete-map.mjs` does
+**not** touch the `customer` row, so the demo organisation itself survives (it may still own other
+demo maps); it detaches (doesn't delete) any `message` rows the old map had received; and it writes
+the deletion to the append-only `audit_log`, same as any other governance action.
+
+**If the demo still needs a placeholder town after this**, don't try to coexist on the same slug —
+give it a different, as-yet-unclaimed town instead. See `scripts/seed-demo.mjs` and the *Demo and
+example maps* section above.
+
 ## Building a map a customer asked for (fulfil the request in place)
 
 When the map exists because a customer **requested** it (R2 → customer requests → admin **approves**), build it into **that row**. The approved request *becomes* the built map: one row, quota counted once, no placeholder to tidy.
@@ -126,6 +163,6 @@ Fulfilment is written to the audit log as `maprequest.fulfil` (who/when/which ve
 
 ## What-if / rollback
 
-- **Slug already exists** → pick another `--slug`, or remove the existing map first. If the slug belongs to an approved request, build *that* row: `--request <id>`.
+- **Slug already exists** → pick another `--slug`, or retire the existing map first: `node scripts/delete-map.mjs --slug <slug> --yes` (dry run without `--yes`). If the slug belongs to an approved request, build *that* row instead: `--request <id>`. If it belongs to a demo map a real customer is taking over, see *Taking over a demo-held town* above.
 - **Wrong customer** → re-import under the right `--customer` (new row) and archive the wrong one; there's no in-place re-owner tool.
-- **Bad build** → pre-publish, the object store + v1.0 are disposable: delete the map row and its `maps/<id>/` dir, then re-import. **Never** hand-edit a rendered file — always go through a version. A **fulfilled request** is a normal map by then, so re-doing it means deleting that row too: the request itself is gone (it *is* the map), so re-import as a fresh map with `--customer`.
+- **Bad build** → pre-publish, the object store + v1.0 are disposable: `node scripts/delete-map.mjs --map <id> --yes` (removes the row, its versions, and `maps/<id>/`), then re-import. **Never** hand-edit a rendered file — always go through a version. A **fulfilled request** is a normal map by then, so re-doing it means deleting that row too: the request itself is gone (it *is* the map), so re-import as a fresh map with `--customer`.

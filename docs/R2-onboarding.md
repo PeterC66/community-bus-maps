@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.2 | 2026-08-07 | sha=cfcd462b -->
-**v1.2** · updated 7 August 2026
+<!-- docstamp v1.3 | 2026-08-12 | sha=905c4e04 -->
+**v1.3** · updated 12 August 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -48,6 +48,7 @@ Approving, in one action:
 
 - A customer **requests** a map (area/place) from their dashboard within quota → it lands in **`/app/admin` → Map requests**. **Approve** it → it moves to **"Approved — awaiting a build"** in the same tab, with the command that builds it → **build + import** it (**R1**), which fulfils that request row **in place** (one map, quota counted once).
 - Or you build proactively (R1) and attach it to them by name.
+- **If the town they want is currently a demo map** (e.g. St Ives, St Neots) → **policy: one live map per town, ever.** Don't create a second row alongside the demo's. Retire the demo's map first, then build theirs fresh at v1.0 — the mechanics (`scripts/delete-map.mjs`, then the normal import) are in [R1-create-map.md](R1-create-map.md), section *Taking over a demo-held town*. Don't approve the map request until you're ready to do both steps together — an approved-but-unbuilt request for an already-taken slug will fail the build with the same `--slug` collision error, one step later than you'd want to discover it.
 
 ## What-if
 
