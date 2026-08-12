@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import {
   insertApplication, insertMessage, counts, authCounts,
   listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions,
+  dataChangesSince,
   setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions,
   listPublishedHistory, listPublishedMaps,
   listApplications, getApplication, setApplicationReviewed, listMessages,
@@ -785,8 +786,14 @@ function mapDetail(m) {
     id: open.id, versionKey: pendingVer ? pendingVer.storage_key : null,
     note: open.note || '', createdAt: open.created_at,
   } : null;
+  // The diff must count the DATA refreshes this head carries as well as the
+  // customer's own overrides — see changeSummary()'s note and findings A1.
   const summary = m.cur_key
-    ? changeSummary(saved, parseJson(m.pub_overrides), { palette: meta.palette, hasBaseline: !!m.pub_key })
+    ? changeSummary(saved, parseJson(m.pub_overrides), {
+      palette: meta.palette,
+      hasBaseline: !!m.pub_key,
+      dataChanges: dataChangesSince(id, m.published_version_id, m.current_version_id),
+    })
     : null;
 
   // Monthly change acceptance (P5): a staged data refresh awaiting accept/decline.
@@ -1191,6 +1198,9 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
       map_id: id, major, minor,
       note: `Accepted monthly update${noteBits ? ' — ' + noteBits : ''}`,
       overrides: applied.overrides, storage_key: storageKey,
+      // The diff travels WITH the version, so every later screen can say what
+      // this version changed without digging through the audit log (findings A1).
+      data_change: { proposedId: pu.id, sourceNote: pu.source_note || '', summary },
     });
     setCurrentVersion(id, versionId);
     decideProposedUpdate(pu.id, { status: 'accepted', reviewedBy: user.id, decisionNote, acceptedVersionId: versionId });
@@ -1382,7 +1392,12 @@ app.get('/api/review/:id', async (req, reply) => {
   const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
   const summary = changeSummary(
     parseJson(pr.version_overrides), parseJson(pub ? pub.overrides_json : '{}'),
-    { palette: meta.palette, hasBaseline: !!pub },
+    {
+      palette: meta.palette, hasBaseline: !!pub,
+      // Bounded at the SUBMITTED version, so the reviewer reads what they are
+      // signing off and not anything saved after it (findings A1).
+      dataChanges: dataChangesSince(pr.map_id, pr.published_version_id, pr.version_id),
+    },
   );
   const decided = pr.status !== 'pending';
   return {
@@ -1421,7 +1436,12 @@ app.post('/api/review/:id/approve', async (req, reply) => {
   const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
   const summary = changeSummary(
     parseJson(pr.version_overrides), parseJson(pub ? pub.overrides_json : '{}'),
-    { palette: meta.palette, hasBaseline: !!pub },
+    {
+      palette: meta.palette, hasBaseline: !!pub,
+      // Bounded at the SUBMITTED version, so the reviewer reads what they are
+      // signing off and not anything saved after it (findings A1).
+      dataChanges: dataChangesSince(pr.map_id, pr.published_version_id, pr.version_id),
+    },
   );
   const decisionNote = str((req.body || {}).note, 2000);
   const evidence = { checklistVersion: CHECKLIST_VERSION, checklist, changeSummary: summary, decidedAt: new Date().toISOString() };

@@ -78,12 +78,39 @@ function tableColumns(table) {
   if (!mapCols.includes('banner_note_source')) db.exec("ALTER TABLE map ADD COLUMN banner_note_source TEXT NOT NULL DEFAULT 'auto'");
   if (!mapCols.includes('banner_note_set_at')) db.exec('ALTER TABLE map ADD COLUMN banner_note_set_at TEXT');
 
+  // A version created by accepting a data refresh records WHAT the refresh changed.
+  // Before this column the answer existed only in the audit log, so every screen that
+  // asked "what does publishing this change?" compared the customer's overrides alone
+  // and reported a fully-refreshed map as identical to the published one (findings A1).
+  if (!verCols.includes('data_change_json')) {
+    db.exec('ALTER TABLE map_version ADD COLUMN data_change_json TEXT');
+    backfillDataChanges();
+  }
+
   // Every customer needs a public slug for /o/<slug>; backfill the ones created
   // before P6 (and any created by a script that predates ensureCustomerSlug).
   for (const c of db.prepare("SELECT id, name FROM customer WHERE slug IS NULL OR slug = ''").all()) {
     ensureCustomerSlug(c.id, c.name);
   }
 })();
+
+/**
+ * One-off: fill data_change_json for versions accepted before the column existed.
+ * `proposed_update` already links each accepted refresh to the version it created
+ * and holds the diff, so no history is lost — it was only ever unreadable.
+ */
+function backfillDataChanges() {
+  const rows = db.prepare(
+    `SELECT id, source_note, summary_json, accepted_version_id
+       FROM proposed_update WHERE status = 'accepted' AND accepted_version_id IS NOT NULL`,
+  ).all();
+  const upd = db.prepare('UPDATE map_version SET data_change_json = ? WHERE id = ? AND data_change_json IS NULL');
+  for (const r of rows) {
+    let summary = {};
+    try { summary = JSON.parse(r.summary_json || '{}') || {}; } catch { summary = {}; }
+    upd.run(JSON.stringify({ proposedId: r.id, sourceNote: r.source_note || '', summary }), Number(r.accepted_version_id));
+  }
+}
 
 /** url-safe, unique organisation slug derived from its name (P6 public pages). */
 export function ensureCustomerSlug(id, name) {
@@ -350,8 +377,8 @@ export function nextMajorVersion(mapId) {
 export function insertVersion(v) {
   const info = db
     .prepare(
-      `INSERT INTO map_version (map_id, major, minor, note, overrides_json, storage_key)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO map_version (map_id, major, minor, note, overrides_json, storage_key, data_change_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       Number(v.map_id),
@@ -360,8 +387,35 @@ export function insertVersion(v) {
       v.note || null,
       JSON.stringify(v.overrides || {}),
       v.storage_key,
+      v.data_change ? JSON.stringify(v.data_change) : null,
     );
   return Number(info.lastInsertRowid);
+}
+
+/**
+ * The data refreshes carried by the versions a map has saved SINCE the one it
+ * published — i.e. what a reviewer would be signing off beyond the customer's own
+ * edits. Oldest first, so several months' accepted updates read as a sequence.
+ * `sinceVersionId` null (nothing published yet) ⇒ every refresh this map has taken.
+ * `untilVersionId` bounds the far end, so a review screen describes the version that
+ * was SUBMITTED and not whatever the editor has saved since.
+ * @returns {Array<{version:string, createdAt:string, note:string|null, sourceNote:string, summary:object}>}
+ */
+export function dataChangesSince(mapId, sinceVersionId = null, untilVersionId = null) {
+  const rows = db.prepare(
+    `SELECT id, storage_key, created_at, note, data_change_json
+       FROM map_version
+      WHERE map_id = ? AND data_change_json IS NOT NULL AND id > ? AND (? = 0 OR id <= ?)
+      ORDER BY id ASC`,
+  ).all(Number(mapId), Number(sinceVersionId || 0), Number(untilVersionId || 0), Number(untilVersionId || 0));
+  return rows.map((r) => {
+    let d = {};
+    try { d = JSON.parse(r.data_change_json || '{}') || {}; } catch { d = {}; }
+    return {
+      version: r.storage_key, createdAt: r.created_at, note: r.note || null,
+      sourceNote: d.sourceNote || '', summary: d.summary || {},
+    };
+  });
 }
 
 export function setCurrentVersion(mapId, versionId) {

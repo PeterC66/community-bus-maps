@@ -348,15 +348,23 @@ function buildDownloads() {
 }
 
 // ---- publish gate (P4) -------------------------------------------------------
+// Two questions, answered separately: what changed in the map DATA (an accepted
+// refresh — nobody here edited anything), and what YOU changed (the safe subset).
+// Only when both are empty is there genuinely nothing to publish.
 function renderChangeSummary(sum, pubKey) {
   if (!sum) return '';
   const base = sum.base === 'published' ? `the published version (${esc(pubKey)})` : 'the original map';
   if (sum.unchanged) return `<p class="hint-line">No differences from ${base} yet — make an edit and save first.</p>`;
+  const dataHtml = window.PortalChanges ? window.PortalChanges.dataChangeHtml(sum.dataChanges) : '';
   const parts = [];
   if (sum.routes.length) parts.push(`<li><strong>${sum.routes.length}</strong> route colour${sum.routes.length === 1 ? '' : 's'} changed <span class="muted">(${sum.routes.map((r) => esc(r.id)).join(', ')})</span></li>`);
   if (sum.poisHidden.length) parts.push(`<li><strong>${sum.poisHidden.length}</strong> landmark${sum.poisHidden.length === 1 ? '' : 's'} hidden</li>`);
   if (sum.poisShown.length) parts.push(`<li><strong>${sum.poisShown.length}</strong> landmark${sum.poisShown.length === 1 ? '' : 's'} shown</li>`);
-  return `<div class="change-box"><div class="change-title">What publishing will change vs ${base}</div><ul class="change-list">${parts.join('')}</ul></div>`;
+  const yours = parts.length
+    ? `<div class="change-box"><div class="change-title">${dataHtml ? 'What you changed' : `What publishing will change vs ${base}`}</div><ul class="change-list">${parts.join('')}</ul></div>`
+    : (dataHtml ? '<p class="hint-line">You have made no changes of your own to this version — the difference is all in the data above.</p>' : '');
+  const lead = dataHtml ? `<p class="hint-line">Publishing replaces ${base} with this one.</p>` : '';
+  return lead + dataHtml + yours;
 }
 
 function buildPublishedDownloads() {
