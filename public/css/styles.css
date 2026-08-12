@@ -117,6 +117,20 @@ a:hover { text-decoration: underline; }
 .btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
 .btn-ghost:hover { background: var(--surface); }
 
+/* A disabled button must look disabled. Without these it keeps full colour, the hand
+   cursor and the press animation, so it reads as live and then silently does nothing —
+   which is how the one instruction on screen can be impossible to follow. */
+.btn:disabled, .btn[disabled], .btn[aria-disabled="true"] {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.btn:disabled:active, .btn[disabled]:active, .btn[aria-disabled="true"]:active { transform: none; }
+.btn-primary:disabled:hover, .btn-primary[disabled]:hover, .btn-primary[aria-disabled="true"]:hover {
+  background: var(--primary); color: var(--primary-ink);
+}
+.btn-ghost:disabled:hover, .btn-ghost[disabled]:hover, .btn-ghost[aria-disabled="true"]:hover { background: transparent; }
+
 /* ---------- hero ---------- */
 .hero {
   padding: 72px 0 40px;

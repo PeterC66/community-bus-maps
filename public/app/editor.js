@@ -82,8 +82,17 @@ function refreshState() {
   const dirty = isDirty();
   $('stateDot').className = 'dot ' + (locked ? '' : (dirty ? 'dirty' : 'clean'));
   $('stateText').textContent = locked ? 'Locked for review' : (dirty ? 'Unsaved changes' : 'Saved');
-  $('saveBtn').disabled = locked || !dirty;
-  $('resetBtn').disabled = locked || (staged.hide.size === 0 && staged.hiddenOps.size === 0 && Object.keys(staged.colors).length === 0);
+  // A disabled control must say why: "Save new version" is off for two quite different
+  // reasons, and a customer who has just accepted an update is told elsewhere to press it.
+  const paused = 'Editing is paused while this map is with the approver.';
+  const saveBtn = $('saveBtn');
+  saveBtn.disabled = locked || !dirty;
+  saveBtn.title = locked ? paused
+    : (dirty ? '' : 'Nothing to save — this button is only for your own edits (colours, landmarks, operators).');
+  const untouched = staged.hide.size === 0 && staged.hiddenOps.size === 0 && Object.keys(staged.colors).length === 0;
+  const resetBtn = $('resetBtn');
+  resetBtn.disabled = locked || untouched;
+  resetBtn.title = locked ? paused : (untouched ? 'Nothing to undo — you have not changed anything yet.' : '');
 }
 
 // Disable the editing controls while a version awaits publication review.
@@ -181,7 +190,7 @@ function buildRoutes() {
     return `<div class="route-row" data-route="${esc(r.id)}">
       <input class="route-swatch" type="color" value="${esc((staged.colors[r.id] || r.defaultColor).toLowerCase())}" data-route="${esc(r.id)}" aria-label="Colour for route ${esc(r.id)}">
       <span class="route-badge" style="background:${esc(staged.colors[r.id] || r.defaultColor)};color:${esc(routeInk(r))}">${esc(r.id)}</span>
-      <span class="route-desc"><span class="r-title">${sub || ('Route ' + esc(r.id))}</span></span>
+      <span class="route-desc"><span class="r-title" title="${sub || ('Route ' + esc(r.id))}">${sub || ('Route ' + esc(r.id))}</span></span>
       <button class="link-btn r-reset" data-route="${esc(r.id)}" ${staged.colors[r.id] ? '' : 'disabled'}>reset</button>
     </div>`;
   }).join('');
@@ -502,7 +511,7 @@ async function submitPublish() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
     });
     const b = await res.json().catch(() => ({}));
-    if (res.ok && b.ok) { notice('ok', 'Submitted for publication — an approver will review it and review it.'); await reloadPublish(); }
+    if (res.ok && b.ok) { notice('ok', 'Submitted — an approver will review it and, if all is well, publish it.'); await reloadPublish(); }
     else { notice('err', (b && b.error) || 'Could not submit for publication.'); btn.disabled = false; btn.textContent = `Submit ${esc(detail.currentVersion)} for publication`; }
   } catch { notice('err', 'Network error while submitting.'); btn.disabled = false; }
 }

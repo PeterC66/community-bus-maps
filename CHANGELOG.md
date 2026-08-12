@@ -7,6 +7,28 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — three defects a first-time user found in the editor — 2026-08-12
+
+The first three items of the update-flow backlog (`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`,
+**H6**, **A2**, **E**). All presentational; no rendered sheet changes.
+
+- **Long route names covered the `reset` link.** `.r-title` carried `overflow: hidden;
+  text-overflow: ellipsis` but sat at `display: inline`, where ellipsis has no effect — so the text
+  overran the button instead of truncating. On the March map at 1024 px **all 7 rows** overran, the
+  worst by 260 px; at 1280 px none did, which is why it survived this long. Now `display: block`
+  (also on `.r-sub`), and the full name is carried in a `title` so truncation loses nothing.
+  Measured after the fix: 7 of 7 rows clear the button by 10 px at 1024 px.
+- **Disabled buttons looked live.** There was no `.btn:disabled` rule in either stylesheet, so a
+  disabled button kept full colour, `cursor: pointer` and the `:active` press animation, then
+  silently did nothing when clicked. Added an app-wide disabled style (reduced opacity,
+  `cursor: not-allowed`, no press animation, no hover change) covering `:disabled`, `[disabled]`
+  and `aria-disabled="true"`. **Save new version** and **Undo my changes** now also carry a `title`
+  saying *why* they are off — the two reasons (nothing to save vs editing paused for review) are
+  quite different, and the editor elsewhere tells a customer to press Save.
+- **"an approver will review it and review it."** The submit confirmation, one of the most
+  consequential messages in the product, had a duplicated clause. Now *"Submitted — an approver
+  will review it and, if all is well, publish it."*
+
 ### Fixed — the sign-in page told real customers about the dev server console — 2026-08-11
 
 `POST /api/auth/request` returned the same message in every environment: *"If that address is

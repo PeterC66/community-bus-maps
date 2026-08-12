@@ -60,8 +60,10 @@
 .route-swatch::-webkit-color-swatch-wrapper { padding: 2px; }
 .route-swatch::-webkit-color-swatch { border: none; border-radius: 6px; }
 .route-desc { flex: 1; min-width: 0; }
-.route-desc .r-title { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.route-desc .r-sub { color: var(--muted); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* display:block matters — text-overflow: ellipsis has no effect on an inline box,
+   so without it long route names overrun the `reset` button instead of truncating. */
+.route-desc .r-title { display: block; font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.route-desc .r-sub { display: block; color: var(--muted); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .link-btn { background: none; border: 0; color: var(--primary); cursor: pointer; font: inherit; font-size: .8rem; padding: 2px 4px; }
 .link-btn:hover { text-decoration: underline; }
 .link-btn[disabled] { color: var(--muted); cursor: default; text-decoration: none; }
