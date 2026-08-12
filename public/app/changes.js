@@ -19,10 +19,28 @@
   const asLines = (v) => (Array.isArray(v) ? v : [v]).filter((x) => x != null && x !== '').map(String);
   const joinDesc = (v) => asLines(v).join(' · ');
 
+  // SQLite datetime('now') is UTC without a zone marker; say so before parsing or
+  // the browser reads it as local time and the ageing is out by an hour.
+  function parseStamp(iso) {
+    if (!iso) return null;
+    const s = String(iso);
+    const d = new Date(s.includes('T') || s.endsWith('Z') ? s : s.replace(' ', 'T') + 'Z');
+    return isNaN(d) ? null : d;
+  }
   function fmtDay(iso) {
-    if (!iso) return '';
-    const d = new Date(String(iso).replace(' ', 'T') + (String(iso).endsWith('Z') ? '' : 'Z'));
-    return isNaN(d) ? String(iso) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const d = parseStamp(iso);
+    return d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : String(iso || '');
+  }
+  /** Whole days between `iso` and now (0 = today). */
+  function daysAgo(iso) {
+    const d = parseStamp(iso);
+    return d ? Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000)) : null;
+  }
+  /** "today" / "yesterday" / "3 days" — for saying how long something has sat. */
+  function ageText(iso) {
+    const n = daysAgo(iso);
+    if (n == null) return '';
+    return n === 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days`;
   }
 
   // One refresh, as plain-language bullets. `detail` adds the exact before/after
@@ -88,5 +106,5 @@
     </div>`;
   }
 
-  w.PortalChanges = { dataChangeHtml, esc };
+  w.PortalChanges = { dataChangeHtml, esc, fmtDay, daysAgo, ageText };
 }(window));

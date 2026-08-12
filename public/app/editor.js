@@ -507,13 +507,14 @@ async function reloadPublish() {
       publicListed: d.publicListed, publicUrl: d.publicUrl,
       bannerNote: d.bannerNote, bannerNoteSource: d.bannerNoteSource,
     });
-    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDownloads();
+    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDownloads(); buildStatusStrip();
   } catch { /* leave as-is */ }
 }
 
-async function submitPublish() {
+async function submitPublish(from) {
   const note = ($('publishNote') || {}).value || '';
-  const btn = $('submitPublishBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  // May be driven from the status strip as well as the Publish panel (C1).
+  const btn = from || $('submitPublishBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
   try {
     const res = await fetch(`/api/maps/${MAP_ID}/publish-request`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
@@ -551,6 +552,165 @@ function renderDataSummary(sum) {
   if (has(sum.operatorsRemoved)) li.push(`<li><strong>Operator${sum.operatorsRemoved.length > 1 ? 's' : ''} removed:</strong> ${sum.operatorsRemoved.map(esc).join(', ')}</li>`);
   if (sum.validity) li.push(`<li><strong>Timetable valid from:</strong> ${esc(sum.validity.from || '—')} → ${esc(sum.validity.to || '—')}</li>`);
   return `<ul class="update-list">${li.join('')}</ul>`;
+}
+
+// ---- status strip ------------------------------------------------------------
+// The flow has five states, three actors and days between them, and until now no
+// screen answered the question people actually have: *whose turn is it, and how far
+// along am I?* Everything below is a read-out of state `mapDetail` already returns —
+// no new endpoint, no schema change. It also puts the next action at the TOP of the
+// page rather than 900px down (C1), explains the frozen controls where the freezing
+// is noticed (C2), and keeps the published version and its age in view (B3, B4).
+const STRIP_STEPS = ['Update offered', 'Draft ready', 'Sent for approval', 'Published', 'Public page'];
+const PC = () => window.PortalChanges || { fmtDay: String, ageText: () => '', daysAgo: () => null };
+
+function scrollToPanel(id) {
+  const el = $(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('flash-target');
+  setTimeout(() => el.classList.remove('flash-target'), 1600);
+}
+
+// How many sheets one publication covers — the unit of publication is the whole
+// map, never a single sheet, and nothing on the page used to say so (H1).
+function sheetCount() {
+  return (detail.outputs || []).filter((o) => o.enabled && o.available).length;
+}
+
+/**
+ * Which step the map is on, who holds it, and what to offer.
+ * @returns {{at:number, blocked:boolean, offeredAt:string|null, draftAt:string|null,
+ *            sentAt:string|null, publishedAt:string|null, sentBack:object|null,
+ *            title:string, why:string, action:object|null, mine:boolean}|null}
+ */
+function stripState() {
+  if (!detail.currentVersion) return null;
+  const pu = detail.proposedUpdate, pending = detail.pendingRequest;
+  const head = detail.currentVersion, pub = detail.publishedVersion;
+  const hist = detail.publishHistory || [];          // newest first
+  const refreshes = detail.refreshHistory || [];     // newest first
+  const accepted = refreshes.find((r) => r.status === 'accepted') || null;
+  const lastReq = hist[0] || null;
+  const approvedPub = hist.find((h) => h.status === 'approved' && h.version_key === pub) || null;
+  const sentBack = !pending && lastReq && lastReq.status === 'rejected' && lastReq.version_key === head ? lastReq : null;
+  const headVer = (detail.versions || []).find((v) => v.storage_key === head) || null;
+  // An approver or admin looking at somebody else's map is not the one being asked,
+  // so the strip says "their move" — the same read-out, from the other side of the
+  // handoff. (Admins carry no customer of their own, hence the explicit test.)
+  const mine = !detail.customer || !!(ME && ME.customer && ME.customer.id === detail.customer.id);
+  const you = mine ? 'you' : 'the customer';
+  // The unit of publication is the whole map, never one sheet (H1) — say so, in
+  // whichever tense the step is in.
+  const sheets = sheetCount();
+  const sheetLine = (lead) => (sheets > 1 ? ` ${lead} all ${sheets} sheets of this map together.` : '');
+
+  const common = {
+    offeredAt: pu ? pu.createdAt : (accepted ? accepted.created_at : null),
+    draftAt: headVer ? headVer.created_at : null,
+    sentAt: pending ? pending.createdAt : (lastReq ? lastReq.created_at : null),
+    publishedAt: approvedPub ? approvedPub.reviewed_at : null,
+    fromRefresh: !!accepted, sentBack, mine,
+  };
+
+  if (pending) {
+    const age = PC().ageText(pending.createdAt);
+    return {
+      ...common, at: 2, blocked: true,
+      title: `With BusMaps.uk since ${PC().fmtDay(pending.createdAt)}${age ? ` (${age})` : ''}.`,
+      why: `Editing is paused while we review ${pending.versionKey || head}. The public ${pub ? `is still being served ${pub}` : 'has nothing yet'}.`,
+      action: { label: 'Withdraw and edit', kind: 'ghost', fn: withdrawPublish },
+    };
+  }
+  if (pu) {
+    return {
+      ...common, at: 0, blocked: false,
+      title: mine ? 'An update is waiting for your decision.' : 'An update is waiting for the customer’s decision.',
+      why: `${pu.sourceNote ? pu.sourceNote + '. ' : ''}Nothing is public yet, and the map is unaffected until ${you} decide${mine ? '' : 's'}.`,
+      action: { label: 'See what changed ↓', kind: 'primary', fn: () => scrollToPanel('updatePanel') },
+    };
+  }
+  if (sentBack) {
+    return {
+      ...common, at: 1, blocked: false,
+      title: `BusMaps.uk asked for a change on ${PC().fmtDay(sentBack.reviewed_at)}.`,
+      why: sentBack.decision_note ? `“${sentBack.decision_note}”` : `${head} was sent back without a reason recorded.`,
+      action: { label: 'Edit and resubmit →', kind: 'primary', fn: () => submitPublish() },
+    };
+  }
+  if (pub !== head) {
+    const age = PC().ageText(common.draftAt);
+    return {
+      ...common, at: 1, blocked: false,
+      title: `Draft ${head} is ready${age && age !== 'today' ? ` (saved ${age} ago)` : ''}. Nothing is public yet.`,
+      why: `${pub ? `The public still has ${pub}.` : 'This map has never been published.'} It will not publish itself — send it for approval when ${you} ${mine ? 'are' : 'is'} happy with the sheets below.${sheetLine('Publishing covers')}`,
+      action: { label: 'Send for approval →', kind: 'primary', fn: () => submitPublish() },
+    };
+  }
+  const live = !!(detail.publicListed && detail.publicUrl);
+  return {
+    ...common, at: live ? 4 : 3, blocked: false,
+    title: `${pub} is the official version${common.publishedAt ? `, signed off on ${PC().fmtDay(common.publishedAt)}` : ''}.`,
+    why: live
+      ? `Anyone can view, print or download it.${sheetLine('It covers')}`
+      : 'It is not listed on the public site, so nobody outside your organisation can see it.',
+    action: live
+      ? { label: 'View public page ↗', kind: 'ghost', href: detail.publicUrl }
+      : { label: 'Publish the page ↓', kind: 'primary', fn: () => scrollToPanel('publicPanel') },
+  };
+}
+
+function buildStatusStrip() {
+  const box = $('statusStrip');
+  const s = stripState();
+  if (!box) return;
+  if (!s) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+
+  // Dates only for steps this version has actually reached — the map's PREVIOUS
+  // cycle also has a submitted-on and a published-on, and showing those against
+  // steps ahead of the current one says the opposite of the truth.
+  const when = [
+    s.offeredAt ? PC().fmtDay(s.offeredAt) : '',
+    s.draftAt ? `${detail.currentVersion} · ${PC().fmtDay(s.draftAt)}` : '',
+    s.sentBack ? `sent back ${PC().fmtDay(s.sentBack.reviewed_at)}` : (s.sentAt ? PC().fmtDay(s.sentAt) : ''),
+    s.publishedAt ? `${detail.publishedVersion} · ${PC().fmtDay(s.publishedAt)}` : '',
+    detail.publicListed && detail.publicUrl ? 'listed' : (detail.publishedVersion ? 'not listed' : ''),
+  ];
+  const holder = ['', '', 'BusMaps.uk', '', 'live'];
+
+  const rail = STRIP_STEPS.map((label, i) => {
+    const cls = ['node'];
+    if (i === s.at) cls.push(s.blocked ? 'blocked' : 'here');
+    else if (i < s.at) cls.push(i === 0 && !s.fromRefresh ? 'skip' : 'done');
+    // Step 0 didn't happen for a version the customer built by hand — say so
+    // rather than implying an update we never offered.
+    const label0 = i === 0 && !s.fromRefresh && i !== s.at ? 'No update involved' : label;
+    const tick = cls.includes('done') ? '✓' : '';
+    const whoText = i !== s.at ? '' : (s.blocked ? holder[2] : (s.mine ? 'your move' : 'their move'));
+    const whoPill = i === s.at && i < 3 ? `<div class="who">${esc(whoText)}</div>`
+      : (i === s.at && i === 4 ? '<div class="who">live</div>' : '');
+    return `<div class="${cls.join(' ')}">
+      <div class="bar"></div><div class="dot">${tick}</div>
+      <div class="lbl">${esc(label0)}</div>
+      ${when[i] && (i <= s.at || (i === 2 && s.sentBack)) ? `<div class="when">${esc(when[i])}</div>` : ''}
+      ${whoPill}
+    </div>`;
+  }).join('');
+
+  const act = s.action
+    ? (s.action.href
+      ? `<a class="btn btn-ghost btn-sm" id="stripAction" href="${esc(s.action.href)}" target="_blank" rel="noopener">${esc(s.action.label)}</a>`
+      : `<button class="btn btn-${s.action.kind === 'ghost' ? 'ghost' : 'primary'} btn-sm" id="stripAction" type="button">${esc(s.action.label)}</button>`)
+    : '';
+
+  box.innerHTML = `<div class="rail">${rail}</div>
+    <div class="strip-act">
+      <p><strong>${esc(s.title)}</strong><span class="why">${esc(s.why)}</span></p>
+      ${act}
+    </div>`;
+  const btn = $('stripAction');
+  if (btn && s.action && s.action.fn) btn.addEventListener('click', () => s.action.fn(btn));
 }
 
 function buildUpdatePanel() {
@@ -619,7 +779,9 @@ async function acceptUpdate() {
     });
     const b = await res.json().catch(() => ({}));
     if (res.ok && b.ok) {
-      let msg = `Update accepted — new draft version ${b.version} is ready. Review it below, then submit it for publication.`;
+      // "Review it below" collided with the approver's Review step (H3), and "below"
+      // was past the whole editor (C1). The strip at the top now carries both.
+      let msg = `Update accepted — new draft version ${b.version} is ready. Check the sheets over, then use “Send for approval” at the top of the page. Nothing is public until it is approved.`;
       if (b.dropped && b.dropped.length) msg += ` (${b.dropped.length} customisation${b.dropped.length > 1 ? 's' : ''} no longer applied and ${b.dropped.length > 1 ? 'were' : 'was'} dropped.)`;
       flash('ok', msg); location.reload();
     } else { notice('err', (b && b.error) || 'Could not accept the update.'); btn.disabled = false; btn.textContent = 'Accept update'; }
@@ -724,7 +886,7 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); applyLock();
+    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); buildStatusStrip(); applyLock();
     buildExpertLinks();
 
     await loadSavedSvg();
