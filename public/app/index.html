@@ -17,8 +17,8 @@
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
     <a class="navlink" id="brandingLink" href="/app/branding" style="display:none">Public details</a>
-    <a class="navlink" id="reviewLink" href="/app/review" style="display:none">Review</a>
-    <a class="navlink" id="adminLink" href="/app/admin" style="display:none">Admin</a>
+    <a class="navlink" id="reviewLink" href="/app/review" style="display:none" data-eev-hide>Review</a>
+    <a class="navlink" id="adminLink" href="/app/admin" style="display:none" data-eev-hide>Admin</a>
     <span class="navlink" id="whoami"></span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
   </nav></div></header>
@@ -70,6 +70,7 @@
     </form>
   </dialog>
 
+  <script src="/js/editor-eye-view.js"></script>
   <script>
     const tag = (k) => `<span class="tag ${k === 'place' ? 'place' : 'area'}">${k === 'place' ? 'Place' : 'Area'}</span>`;
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -188,6 +189,7 @@
         $('dashIntro').innerHTML = 'You are a platform approver. Head to <a href="/app/review">Review</a> to review submitted map versions.';
       }
       if (me.customer) { $('requestBtn').style.display = ''; $('brandingLink').style.display = ''; renderQuota(); }
+      if (window.EEV) window.EEV.apply(); // H9 — after role-based nav visibility is set
 
       await loadMaps(isAdmin);
     })();

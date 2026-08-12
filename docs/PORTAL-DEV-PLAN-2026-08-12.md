@@ -27,9 +27,32 @@ pointers at the bottom — and are not part of this doc.
 |---|------|--------|
 | 1 | Admin can change which organisation a user belongs to (`customer_id` into the whitelist, a customer picker on the users tab, an audited move) | ✅ |
 | 2 | Prove the three transactional emails against real Resend delivery, end to end | ✅ |
-| 3 | H9 — admin's editor's-eye view: don't offer an admin the actor's button on a map that's someone else's move | — |
+| 3 | H9 — admin's editor's-eye view: don't offer an admin the actor's button on a map that's someone else's move | ✅ |
 | 4 | Part B place-name search — index `places.json` written at publish time; header entry point decided after Part A (Part A is already shipped) | — |
 | 5 | Rebuild P8a (online-first published maps: viewer, text alternative, accessibility page) against current `main`; branch `p8a-maps-online` is 123 commits behind with 36 conflicts, treat as a spec + reference implementation, not a mergeable branch | — |
+
+## Item 3 detail (done)
+
+Two independent pieces, both from `portal-update-flow-findings_2026-08-11.md` section H9:
+
+- **The toggle.** `public/js/editor-eye-view.js` — a `localStorage` flag, no auth/scoping change.
+  When on, every `[data-eev-hide]` element is hidden (the static Review/Admin nav links on
+  `admin.html`, the conditional ones on `index.html`/`review.html`, and the Refreshes tab's
+  Accept/Decline buttons, re-applied after each row render since those are added dynamically) and a
+  banner names the view with a **Turn off** button. The control itself is a checkbox in `admin.html`'s
+  header, wired in `admin.js`. Script load order matters: it's a plain (non-deferred) `<script>` tag
+  placed immediately before each page's own script, so `window.EEV` exists before that page's
+  role-based nav logic calls `EEV.apply()`.
+- **The wording fix**, independent of the toggle — this is the concrete defect seen live on
+  2026-08-12: the status strip said "their move" while still offering a working button, because an
+  admin passes `loadOwnedMap` on any customer's map. `editor.js`'s `buildStatusStrip()` now reads
+  "their move · you can act as admin" when the viewer is an admin looking at someone else's map, so
+  the pill and the button agree — chosen over the doc's other candidate fix (making the toggle change
+  what the strip says), since this is true regardless of whether the toggle is on.
+
+Verified locally: toggling on hides Review/Admin and shows the banner (confirmed via
+`getComputedStyle` since the accessibility-tree read lagged one click behind the DOM); "Turn off"
+restores both; the strip on an admin-viewed customer map reads the new text.
 
 ## Item 2 detail (done)
 

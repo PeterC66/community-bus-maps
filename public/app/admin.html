@@ -16,9 +16,10 @@
     <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
     <a class="navlink" href="/app">My maps</a>
-    <a class="navlink" href="/app/review">Review</a>
-    <a class="navlink" href="/app/admin">Admin</a>
+    <a class="navlink" href="/app/review" data-eev-hide>Review</a>
+    <a class="navlink" href="/app/admin" data-eev-hide>Admin</a>
     <span class="navlink" id="whoami"></span>
+    <label class="navlink eev-toggle" title="Hide Admin/Review and the Refreshes accept/decide buttons, so the handoffs read the way a customer or approver would see them"><input type="checkbox" id="eevToggle"> Editor’s-eye view</label>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
   </nav></div></header>
 
@@ -141,6 +142,7 @@
     </form>
   </dialog>
 
+  <script src="/js/editor-eye-view.js"></script>
   <script src="/app/admin.js"></script>
 </body>
 </html>

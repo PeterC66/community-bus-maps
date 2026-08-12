@@ -131,6 +131,20 @@
 .btn-sm { padding: 8px 14px; font-size: .9rem; }
 .save-note { width: 100%; margin-bottom: 8px; }
 
+/* H9 — editor's-eye view banner (public/js/editor-eye-view.js) */
+.eev-banner {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  font-size: .85rem;
+  line-height: 1.4;
+  padding: 8px 0;
+}
+.eev-banner-inner { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+.eev-badge { flex: none; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--accent); color: #fff; }
+.eev-text { flex: 1 1 320px; min-width: 0; color: var(--text); }
+.eev-off { flex: none; background: none; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; padding: 3px 10px; font-size: .8rem; font-weight: 600; cursor: pointer; color: var(--text); }
+.eev-off:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
 /* output toggles + misc */
 .soon { color: var(--muted); font-size: .78rem; font-style: italic; }
 .poi-item input:disabled + label { color: var(--muted); }

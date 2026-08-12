@@ -7,6 +7,22 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — H9, an editor's-eye view toggle for admins — 2026-08-12
+
+Closes the last open item of the update-flow backlog (`portal-update-flow-findings_2026-08-11.md`
+§H9). As admin, Peter holds every role at once, so the handoffs the flow is built on become
+invisible — worst seen live 2026-08-12, where the status strip told him "their move" on a map only
+he could act on, while still offering the button. Two fixes:
+
+- `public/js/editor-eye-view.js` — a purely presentational, `localStorage`-backed toggle (checkbox
+  in the admin console header). While on, it hides the Admin/Review nav links and the Refreshes
+  tab's Accept/Decline buttons (`[data-eev-hide]`), and shows a banner naming the view with a
+  **Turn off** button. No auth change, no impersonation, no scoping change — an admin keeps every
+  permission underneath; the toggle only stops their own powers from concealing the handoff.
+- The status strip's wording, independent of the toggle: an admin viewing a customer's map now
+  reads "their move · you can act as admin" instead of a bare "their move" that disowned a button
+  which still worked.
+
 ### Verified — the three transactional emails, proven end to end on live — 2026-08-12
 
 No code change. `src/email/notify.js` had shipped and the hooks demonstrably fired, but no
