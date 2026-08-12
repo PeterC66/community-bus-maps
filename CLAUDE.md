@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.5 | 2026-08-09 | sha=27131643 -->
-**v1.5** · updated 9 August 2026
+<!-- docstamp v1.6 | 2026-08-11 | sha=9b3d2005 -->
+**v1.6** · updated 11 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -48,6 +48,25 @@ Two structural facts that catch people out:
   `src/render/renderMap.js` *after* generation — copy that pattern.
 - **`npm run verify` skips silently** when `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` are unset, so a green
   run in a clean checkout proves nothing about the renderer. Confirm it says PASS with byte counts.
+
+## If you are here to improve the update/publish flow
+
+There is an existing review — do not start from scratch, and do not re-derive its findings.
+**`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`** (the private `buses-data`
+repo, `C:\u3a St Ives\Using AI\Buses\` on Peter's machine) documents the whole
+proposed-update → accept → submit → approve → public chain as it actually behaves, with every
+screen quoted verbatim, a ranked backlog, and a **section J written specifically for a cold start**:
+which files each item touches, how to run an isolated seeded instance instead of experimenting on
+live, and the traps that cost the review itself time. Its companion
+`portal-update-flow-walkthrough_2026-08-11.md` is the same flow written for a customer.
+
+The headline, so it is not rediscovered the hard way: `changeSummary()` diffs **only** the
+customer's safe-subset overrides, so a version created by accepting a *data* refresh reports as
+unchanged — and the review screen tells the approver *"this version is identical to the published
+version — there is nothing to change"*, which is false and weakens the publish gate.
+
+**None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
+fail, the change is wrong.
 
 ## Gates to run
 
