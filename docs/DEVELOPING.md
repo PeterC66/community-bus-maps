@@ -144,6 +144,27 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 - **Don't claim what isn't true.** While the pilot is on there are no customers, no SLA and no guaranteed refresh cadence. Copy that says otherwise has been removed once already; don't reintroduce it. If you add a public page, give it the `/js/site-banner.js` `<script>` tag — that is what puts the pilot banner on it.
 - **Update `CHANGELOG.md`** with the version and what changed — including re-vendoring.
 
+## Stacked PRs: merge without deleting the base branch
+
+This repo is branch → PR → merge, and merges are **squashes**. That combination breaks a stack, and
+it is not obvious until it happens (it did, on 12 August 2026, merging #18 → #19 → #20):
+
+- Squashing #18 makes a *new* commit on `main`. The branch behind #19 still carries #18's original
+  commit, which is now unrelated to anything in `main`, so #19 goes **CONFLICTING** until you rebase
+  it: `git rebase --onto main <old-base-tip> <branch>`.
+- Worse, `gh pr merge --delete-branch` deletes the branch #19 was *based on*, and GitHub then
+  **auto-closes #19** instead of retargeting it. A PR whose base branch no longer exists **cannot be
+  reopened** — the only route back is to raise a fresh PR from the same branch.
+
+So, merging a stack: **merge each PR without `--delete-branch`**, rebase the next branch onto the new
+`main`, re-point its base with `gh pr edit <n> --base main`, and delete the leftover branches by hand
+at the end. Re-run `npm test` (and `npm run verify` if the change goes anywhere near a render) **after
+each rebase**, not just before the first one — a rebase can silently drop or duplicate a hunk.
+
+Expect one casualty: the docstamp Stop hook restamps documents *after* your commit, so a stack often
+carries a stamp-only commit that conflicts on rebase. Drop it (`git rebase --skip`) — the hook
+regenerates it.
+
 ## Known rough edge
 
 The vendored-engine duplication above is maintained by hand with no drift detection. If you are changing the engine often, that is the first thing worth fixing.
@@ -154,8 +175,14 @@ Before touching the editor, the review screen or anything in the proposed-update
 
 Two things from it that change how you work here:
 
-- **`changeSummary()` in `src/publish/index.js` compares only the safe-subset overrides.** A version created by accepting a data refresh therefore reports "unchanged", and the approver is told the version is *identical to the published one* when the whole timetable underneath it has moved. The real diff is already stored (`map_version.note`, and the `refresh.accept` audit row) and simply never displayed.
+- **Five of its items are done — the document describes the flow as it was on 11 August 2026.** Merged 12 August: **H6, A2, E** (#18), **A1** (#23), and the **status strip** (#20, which also closed C1, C2, B3, B4, H1 and half of H3). Read the findings' *Suggested order of work* first: it carries the per-item status, and the body text above it deliberately still describes the pre-fix behaviour. Items 6–13 are open.
 - **None of that backlog should alter a rendered sheet.** Every item is wording, presentation or a query. If `npm run verify` fails, you have gone wrong — don't relax the gate.
+
+Three facts about the shipped work, because they are not obvious from the file tree:
+
+- **A version's data diff lives on the version.** Accepting a refresh writes `map_version.data_change_json` (`{ proposedId, sourceNote, summary }`); `dataChangesSince(mapId, since, until)` reads the refreshes a head carries. `changeSummary()`'s **`unchanged` means both halves are empty** — overrides *and* data. Don't reintroduce a check that looks at overrides alone; `scripts/test-change-summary.mjs` will catch you.
+- **`public/app/changes.js` is shared by the editor and the review screen** — a plain script tag on both pages, no build step, exposed as `window.PortalChanges`. It renders the data-change account and the date/ageing helpers. Change it and you change both screens.
+- **The status strip is a read-out, not a state machine.** `stripState()` in `public/app/editor.js` derives the five states purely from what `mapDetail` already returns. If you need a new state, the fix is almost certainly there and not in the API.
 
 Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
 

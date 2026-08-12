@@ -60,10 +60,15 @@ which files each item touches, how to run an isolated seeded instance instead of
 live, and the traps that cost the review itself time. Its companion
 `portal-update-flow-walkthrough_2026-08-11.md` is the same flow written for a customer.
 
-The headline, so it is not rediscovered the hard way: `changeSummary()` diffs **only** the
-customer's safe-subset overrides, so a version created by accepting a *data* refresh reports as
-unchanged — and the review screen tells the approver *"this version is identical to the published
-version — there is nothing to change"*, which is false and weakens the publish gate.
+**Five items are already done (merged 12 August 2026) — the document describes the flow as it was
+on 11 August.** Read its *Suggested order of work* first for the per-item status; the body above it
+still describes the pre-fix behaviour on purpose. Shipped: the three editor defects (`.r-title`
+overrun, unstyled disabled buttons, "review it and review it"); **A1** — a version's data diff now
+lives on the version (`map_version.data_change_json`) and `changeSummary().unchanged` means
+*overrides and data* are both empty, so a refreshed map no longer reports as identical to the
+published one; and the **status strip** on the map page, a read-out of `mapDetail` that says whose
+turn it is. Items 6–13 (vocabulary pass, emails, download labelling, version list, the invisible
+unsubmitted draft, admin view toggle) are open.
 
 **None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
 fail, the change is wrong.
