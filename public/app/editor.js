@@ -68,20 +68,26 @@ const isDirty = () => sig(staged) !== savedSig;
 const enabledOutputs = () => detail.outputs.filter((o) => o.available && o.enabled);
 const labelForBase = (base) => (detail.outputs.find((o) => o.base === base) || {}).label || base;
 const isLocked = () => detail && detail.editable === false; // frozen while awaiting review
-const DL_LABELS = {
-  'internal.svg': 'Within · SVG', 'internal.jpg': 'Within · JPG (print)',
-  'external.svg': 'To towns · SVG', 'external.jpg': 'To towns · JPG (print)',
-  'internal-schematic.svg': 'Schematic · SVG', 'internal-schematic.jpg': 'Schematic · JPG (print)',
-  'internal-diagram.svg': 'Diagram · SVG', 'internal-diagram.jpg': 'Diagram · JPG (print)',
-  'disagreements.pdf': 'Disagreements report · PDF',
-};
+
+// Download labels were a hard-coded table of abbreviations ("Within · SVG") that
+// named area sheets on a place map and did not read as downloads (findings H5,
+// D1). Derive them from the outputs the server described instead, so one sheet
+// has one name on the tabs, in the downloads and on its public page.
+function dlLabel(file) {
+  if (file === 'disagreements.pdf') return 'Disagreements report (PDF)';
+  const m = /^(.*)\.(svg|jpg)$/.exec(file);
+  if (!m) return file;
+  return `${labelForBase(m[1])} — ${m[2] === 'jpg' ? 'print-ready JPG' : 'SVG'}`;
+}
 
 // ---- state chips -------------------------------------------------------------
 function refreshState() {
   const locked = isLocked();
   const dirty = isDirty();
   $('stateDot').className = 'dot ' + (locked ? '' : (dirty ? 'dirty' : 'clean'));
-  $('stateText').textContent = locked ? 'Locked for review' : (dirty ? 'Unsaved changes' : 'Saved');
+  // One state, one name: this chip said "Locked for review" while the panel
+  // below it and the dashboard pill said "Awaiting review" (findings D2).
+  $('stateText').textContent = locked ? 'Awaiting review' : (dirty ? 'Unsaved changes' : 'Saved');
   // A disabled control must say why: "Save new version" is off for two quite different
   // reasons, and a customer who has just accepted an update is told elsewhere to press it.
   const paused = 'Editing is paused while this map is with the approver.';
@@ -336,15 +342,79 @@ function notice(kind, text, sticky) {
 function reportRejected(rej) { if (rej && rej.length) notice('warn', 'Some edits were outside what you can change here and were ignored: ' + rej.join('; ')); }
 
 // ---- downloads ---------------------------------------------------------------
+// Two download rows sit on this page and they can hold DIFFERENT versions: the
+// one you are working on, and the one the public is being served. Neither used
+// to say which it was (findings H5) — hence the headings below.
 function dlRow(list) {
-  return `<div class="dl-row">${list.map((d) => `<a class="dl" href="${d.url}?download" download>⬇ ${DL_LABELS[d.file] || d.file}</a>`).join('')}</div>`;
+  return `<div class="dl-row">${list.map((d) => `<a class="dl" href="${d.url}?download" download>⬇ ${esc(dlLabel(d.file))}</a>`).join('')}</div>`;
 }
 function buildDownloads() {
   const box = $('downloads');
   if (!detail.currentVersion || !detail.downloads.length) { box.innerHTML = ''; return; }
   const published = detail.publishedVersion && detail.publishedVersion === detail.currentVersion;
   const tag = published ? ' <span class="status-pill pub">published</span>' : ' <span class="status-pill">draft</span>';
-  box.innerHTML = `<h3>Latest version ${esc(detail.currentVersion)}${tag}</h3>${dlRow(detail.downloads)}`;
+  const head = published
+    ? `Your latest version (${esc(detail.currentVersion)}) — this is also what the public has`
+    : `Your latest version (${esc(detail.currentVersion)}, not public yet)`;
+  box.innerHTML = `<h3>${head}${tag}</h3>${dlRow(detail.downloads)}`;
+}
+
+// ---- version list (findings H8) ----------------------------------------------
+// The Save panel promises "earlier versions stay available" — true on disk, but
+// until now no screen in the customer's half of the app listed them, so it was a
+// promise the interface did not keep. Everything here comes from `mapDetail`.
+// "Copy these settings" stages an old version's colours/landmarks as unsaved
+// edits: the way back to an earlier look is a NEW version through the ordinary
+// save + review path, never a quiet swap of what is published.
+const VER_STATE = {
+  published: '<span class="status-pill pub">published</span>',
+  pending: '<span class="status-pill req">awaiting review</span>',
+  rejected: '<span class="status-pill rej">sent back</span>',
+  superseded: '<span class="status-pill">earlier version</span>',
+  draft: '<span class="status-pill">draft</span>',
+};
+
+function buildVersionList() {
+  const box = $('versionList');
+  if (!box) return;
+  const list = detail.versions || [];
+  if (list.length < 2) { box.innerHTML = ''; return; }  // nothing to "go back" to yet
+  const rows = list.map((v) => {
+    const key = v.storage_key;
+    const isHead = key === detail.currentVersion;
+    const isPub = key === detail.publishedVersion;
+    const state = isPub ? VER_STATE.published : (VER_STATE[v.review_state] || VER_STATE.draft);
+    const dls = (v.downloads || []).length ? dlRow(v.downloads) : '<p class="hint-line">Files for this version are no longer on disk.</p>';
+    const copy = !isHead && v.overrides && !isLocked()
+      ? `<button class="link-btn v-copy" data-ver="${esc(key)}" type="button">Copy these settings into a new draft</button>` : '';
+    return `<details class="ver-row${isHead ? ' head' : ''}">
+      <summary><strong>${esc(key)}</strong> ${state}
+        <span class="muted">${esc(PC().fmtDay(v.created_at))}</span>
+        ${isHead ? '<span class="muted">· the one you are editing</span>' : ''}
+        ${v.note ? `<span class="ver-note">${esc(v.note)}</span>` : ''}</summary>
+      <div class="ver-body">${dls}${copy}</div>
+    </details>`;
+  }).join('');
+  box.innerHTML = `<h3>Every version of this map <span class="count">${list.length}</span></h3>
+    <p class="hint-line">Nothing is ever deleted. Copying an earlier version's settings starts a new draft — it does not change what the public is being served, which only an approver can do.</p>
+    ${rows}`;
+  box.querySelectorAll('.v-copy').forEach((b) => b.addEventListener('click', () => copySettingsFrom(b.dataset.ver)));
+}
+
+function copySettingsFrom(key) {
+  const v = (detail.versions || []).find((x) => x.storage_key === key);
+  if (!v || !v.overrides) return;
+  staged = stagedFromOverrides(v.overrides);
+  buildRoutes(); buildOperators(); buildPois(); onEdit();
+  // Two versions can hold identical settings (a data refresh changes the map
+  // without touching them), and then there is nothing to save — say so rather
+  // than sending the customer to a button that is off for a reason.
+  if (isDirty()) {
+    notice('warn', `Loaded ${key}'s colours and landmark choices as unsaved changes. Save to make them a new version — ${key} itself is untouched.`, true);
+    scrollToPanel('saveBtn');
+  } else {
+    notice('ok', `${key}'s colours and landmark choices are the same as the ones you already have — nothing to change.`, true);
+  }
 }
 
 // ---- publish gate (P4) -------------------------------------------------------
@@ -372,7 +442,7 @@ function buildPublishedDownloads() {
   const pub = detail.publishedVersion;
   // Only shown when the published (official) version differs from the working head.
   if (!pub || pub === detail.currentVersion || !detail.publishedDownloads || !detail.publishedDownloads.length) { box.innerHTML = ''; return; }
-  box.innerHTML = `<h3>Published files — official version ${esc(pub)}</h3>${dlRow(detail.publishedDownloads)}`;
+  box.innerHTML = `<h3>What the public has (${esc(pub)}) <span class="status-pill pub">published</span></h3>${dlRow(detail.publishedDownloads)}`;
 }
 
 function buildPublish() {
@@ -382,6 +452,14 @@ function buildPublish() {
   const head = detail.currentVersion, pub = detail.publishedVersion, pending = detail.pendingRequest;
   const stateEl = $('publishState'), body = $('publishBody');
 
+  // H1 — nothing on the page said what a version covers, while the Outputs panel
+  // above presents the sheets as independently switchable. It is always all of
+  // them: there is no way to publish one sheet and hold another back.
+  const sheets = sheetCount();
+  $('publishUnit').textContent = sheets > 1
+    ? `A version is the whole map: sending, reviewing and publishing cover all ${sheets} sheets of it together — there is no way to publish one sheet and hold another back.`
+    : '';
+
   if (pending) stateEl.innerHTML = '<span class="status-pill req">Awaiting review</span>';
   else if (pub && pub === head) stateEl.innerHTML = `<span class="status-pill pub">Published ${esc(pub)}</span>`;
   else if (pub) stateEl.innerHTML = `<span class="status-pill pub">Published ${esc(pub)}</span> <span class="muted">· draft ${esc(head)}</span>`;
@@ -389,18 +467,18 @@ function buildPublish() {
 
   if (pending) {
     body.innerHTML = `<div class="publish-note-box">
-        <p><strong>Version ${esc(pending.versionKey || head)}</strong> has been submitted for an approver's review.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
-        <p class="hint-line">Editing is paused while we review. Withdraw the request if you need to make more changes.</p>
-        <button class="btn btn-ghost btn-sm" id="withdrawBtn" type="button">Withdraw request</button>
+        <p><strong>Version ${esc(pending.versionKey || head)}</strong> is with an approver at BusMaps.uk.${pending.note ? ' <span class="muted">Your note: “' + esc(pending.note) + '”.</span>' : ''}</p>
+        <p class="hint-line">Editing is paused while we review it. Withdraw it if you need to make more changes.</p>
+        <button class="btn btn-ghost btn-sm" id="withdrawBtn" type="button">Withdraw and edit</button>
       </div>`;
     $('withdrawBtn').addEventListener('click', withdrawPublish);
   } else if (pub === head) {
-    body.innerHTML = '<p class="published-ok">✓ Your latest version is the published one. Make an edit and save to prepare a new version to publish.</p>';
+    body.innerHTML = '<p class="published-ok">✓ Your latest version is the published one. Make an edit and save to prepare a new version to send for review.</p>';
   } else {
     body.innerHTML = `${renderChangeSummary(detail.changeSummary, pub)}
-      <label class="hint-line" for="publishNote" style="display:block;margin-top:10px">Note for the reviewer <span class="hint">— optional</span></label>
+      <label class="hint-line" for="publishNote" style="display:block;margin-top:10px">Note for the approver <span class="hint">— optional</span></label>
       <input class="field" id="publishNote" type="text" maxlength="200" placeholder="e.g. New route 9 colour for the summer timetable">
-      <button class="btn btn-primary btn-sm" id="submitPublishBtn" type="button" style="margin-top:8px">Submit ${esc(head)} for publication</button>`;
+      <button class="btn btn-primary btn-sm" id="submitPublishBtn" type="button" style="margin-top:8px">Send ${esc(head)} for review</button>`;
     $('submitPublishBtn').addEventListener('click', submitPublish);
   }
   buildPublishedDownloads();
@@ -507,7 +585,7 @@ async function reloadPublish() {
       publicListed: d.publicListed, publicUrl: d.publicUrl,
       bannerNote: d.bannerNote, bannerNoteSource: d.bannerNoteSource,
     });
-    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDownloads(); buildStatusStrip();
+    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDownloads(); buildVersionList(); buildStatusStrip();
   } catch { /* leave as-is */ }
 }
 
@@ -520,18 +598,18 @@ async function submitPublish(from) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
     });
     const b = await res.json().catch(() => ({}));
-    if (res.ok && b.ok) { notice('ok', 'Submitted — an approver will review it and, if all is well, publish it.'); await reloadPublish(); }
-    else { notice('err', (b && b.error) || 'Could not submit for publication.'); btn.disabled = false; btn.textContent = `Submit ${esc(detail.currentVersion)} for publication`; }
-  } catch { notice('err', 'Network error while submitting.'); btn.disabled = false; }
+    if (res.ok && b.ok) { notice('ok', 'Sent to BusMaps.uk — an approver will review it and, if all is well, publish it.'); await reloadPublish(); }
+    else { notice('err', (b && b.error) || 'Could not send it for review.'); btn.disabled = false; btn.textContent = `Send ${esc(detail.currentVersion)} for review`; }
+  } catch { notice('err', 'Network error while sending it for review.'); btn.disabled = false; }
 }
 
 async function withdrawPublish() {
-  if (!confirm('Withdraw the publication request? You will be able to edit the map again.')) return;
+  if (!confirm('Withdraw this version from review? You will be able to edit the map again.')) return;
   try {
     const res = await fetch(`/api/maps/${MAP_ID}/publish-request/withdraw`, { method: 'POST' });
     const b = await res.json().catch(() => ({}));
-    if (res.ok && b.ok) { notice('warn', 'Request withdrawn — you can edit again.'); await reloadPublish(); }
-    else notice('err', (b && b.error) || 'Could not withdraw the request.');
+    if (res.ok && b.ok) { notice('warn', 'Withdrawn from review — you can edit again.'); await reloadPublish(); }
+    else notice('err', (b && b.error) || 'Could not withdraw it from review.');
   } catch { notice('err', 'Network error while withdrawing.'); }
 }
 
@@ -561,7 +639,7 @@ function renderDataSummary(sum) {
 // no new endpoint, no schema change. It also puts the next action at the TOP of the
 // page rather than 900px down (C1), explains the frozen controls where the freezing
 // is noticed (C2), and keeps the published version and its age in view (B3, B4).
-const STRIP_STEPS = ['Update offered', 'Draft ready', 'Sent for approval', 'Published', 'Public page'];
+const STRIP_STEPS = ['Update offered', 'Draft ready', 'Sent for review', 'Published', 'Public page'];
 const PC = () => window.PortalChanges || { fmtDay: String, ageText: () => '', daysAgo: () => null };
 
 function scrollToPanel(id) {
@@ -643,8 +721,8 @@ function stripState() {
     return {
       ...common, at: 1, blocked: false,
       title: `Draft ${head} is ready${age && age !== 'today' ? ` (saved ${age} ago)` : ''}. Nothing is public yet.`,
-      why: `${pub ? `The public still has ${pub}.` : 'This map has never been published.'} It will not publish itself — send it for approval when ${you} ${mine ? 'are' : 'is'} happy with the sheets below.${sheetLine('Publishing covers')}`,
-      action: { label: 'Send for approval →', kind: 'primary', fn: () => submitPublish() },
+      why: `${pub ? `The public still has ${pub}.` : 'This map has never been published.'} It will not publish itself — send it for review when ${you} ${mine ? 'are' : 'is'} happy with the sheets below.${sheetLine('Publishing covers')}`,
+      action: { label: 'Send for review →', kind: 'primary', fn: () => submitPublish() },
     };
   }
   const live = !!(detail.publicListed && detail.publicUrl);
@@ -718,12 +796,15 @@ function buildUpdatePanel() {
   const pu = detail.proposedUpdate;
   if (!pu) { panel.hidden = true; panel.innerHTML = ''; return; }
   panel.hidden = false;
+  // One name for one thing: this was "a monthly update" here, a "refresh" on the
+  // admin side and a "proposed update" in the API (findings D). What the customer
+  // is offered is an *update*, whatever the pipeline calls the payload.
   panel.innerHTML = `<div class="update-inner">
       <div class="update-main">
-        <div class="update-title">🔄 A monthly update is ready for this map</div>
+        <div class="update-title">🔄 An update is ready for this map</div>
         <p class="update-src">${esc(pu.sourceNote || 'A refreshed timetable is available for this map.')}</p>
         ${renderDataSummary(pu.summary)}
-        <p class="hint-line">Accepting creates a new draft version with your colours and landmark choices re-applied. You then submit it for publication as usual — nothing goes public until it's reviewed.</p>
+        <p class="hint-line">Accepting creates a new draft version with your colours and landmark choices re-applied. You then send it to us for review as usual — nothing goes public until an approver publishes it.</p>
       </div>
       <div class="update-actions">
         <button class="btn btn-ghost btn-sm" id="cmpBtn" type="button">Preview changes</button>
@@ -759,6 +840,14 @@ async function openCompare() {
     const bases = Object.keys(b.after || {}).length ? Object.keys(b.after) : Object.keys(b.before || {});
     cmpBase = bases[0] || null;
     $('compareBeforeVer').textContent = detail.currentVersion ? '(' + detail.currentVersion + ')' : '';
+    // The sheets below are at about half printed size, so a reworded description
+    // or a dropped stop cannot be read off them (findings B1). Say in words what
+    // the images cannot show — the same account the accept step will record.
+    $('compareChanges').innerHTML = window.PortalChanges
+      ? window.PortalChanges.dataChangeHtml(
+        [{ version: null, createdAt: detail.proposedUpdate.createdAt, sourceNote: detail.proposedUpdate.sourceNote || '', summary: b.summary || detail.proposedUpdate.summary || {} }],
+        { detail: true, heading: 'What this update changes' },
+      ) : '';
     $('compareFoot').innerHTML = (b.dropped && b.dropped.length)
       ? `<span class="warn-inline">Note: ${b.dropped.length} of your customisation${b.dropped.length > 1 ? 's' : ''} no longer appl${b.dropped.length > 1 ? 'y' : 'ies'} after this update and will be dropped.</span>`
       : '';
@@ -771,7 +860,7 @@ $('compareClose').addEventListener('click', () => $('compareDialog').close());
 $('compareDialog').addEventListener('click', (e) => { if (e.target === $('compareDialog')) $('compareDialog').close(); });
 
 async function acceptUpdate() {
-  if (!confirm('Accept this update? It becomes a new draft version with your colours and landmark choices re-applied. You can then submit it for publication.')) return;
+  if (!confirm('Accept this update? It becomes a new draft version with your colours and landmark choices re-applied. Nothing is public yet — you then send it to us for review.')) return;
   const btn = $('acceptBtn'); btn.disabled = true; btn.textContent = 'Applying…';
   try {
     const res = await fetch(`/api/maps/${MAP_ID}/proposed/${detail.proposedUpdate.id}/accept`, {
@@ -781,7 +870,7 @@ async function acceptUpdate() {
     if (res.ok && b.ok) {
       // "Review it below" collided with the approver's Review step (H3), and "below"
       // was past the whole editor (C1). The strip at the top now carries both.
-      let msg = `Update accepted — new draft version ${b.version} is ready. Check the sheets over, then use “Send for approval” at the top of the page. Nothing is public until it is approved.`;
+      let msg = `Update accepted — new draft version ${b.version} is ready. Check the sheets over, then use “Send for review” at the top of the page. Nothing is public until an approver publishes it.`;
       if (b.dropped && b.dropped.length) msg += ` (${b.dropped.length} customisation${b.dropped.length > 1 ? 's' : ''} no longer applied and ${b.dropped.length > 1 ? 'were' : 'was'} dropped.)`;
       flash('ok', msg); location.reload();
     } else { notice('err', (b && b.error) || 'Could not accept the update.'); btn.disabled = false; btn.textContent = 'Accept update'; }
@@ -886,7 +975,8 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
-    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); buildStatusStrip(); applyLock();
+    buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildVersionList();
+    buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); buildStatusStrip(); applyLock();
     buildExpertLinks();
 
     await loadSavedSvg();

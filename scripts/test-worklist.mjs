@@ -157,5 +157,53 @@ check('an S6-stale town becomes rank-8 housekeeping', byKey('s6-stale')?.rank ==
 check('a healthy, current town raises no housekeeping item for itself',
   !keys().includes('nobuild-Healthy Town') && !['engine-stale', 's6-stale'].some((k) => (byKey(k)?.towns || []).includes('Healthy Town')));
 
+// --- the draft nobody sent (findings B5) ------------------------------------
+// The blind spot this closes: every other item here exists because somebody is
+// blocked, and a draft blocks nobody — so a map whose customer accepted an
+// update and then closed the tab appeared in no list and no count. Eight live
+// maps sat in exactly that state on 2026-08-11 while the worklist said
+// "nothing waiting".
+const draftId = db.insertMap({ customer_id: customerId, slug: 'draftown', name: 'Draftown', kind: 'area', status: 'published' });
+const draftPub = db.insertVersion({ map_id: draftId, major: 1, minor: 0, storage_key: 'v1.0' });
+db.setPublishedVersion(draftId, draftPub);
+db.setCurrentVersion(draftId, draftPub);
+check('a map whose head IS its published version raises nothing', !keys().includes(`draft-${draftId}`));
+
+const draftHead = db.insertVersion({ map_id: draftId, major: 2, minor: 0, storage_key: 'v2.0', note: 'Accepted update' });
+db.setCurrentVersion(draftId, draftHead);
+check('an accepted-but-unsent draft becomes an item', keys().includes(`draft-${draftId}`));
+eq('… ranked below everything the operator is blocking', byKey(`draft-${draftId}`).rank, 9);
+eq('… in the waiting-on-others band', byKey(`draft-${draftId}`).band, 'Waiting on others');
+check('… naming both versions, so the gap is the point', /v2\.0/.test(byKey(`draft-${draftId}`).title) && /v1\.0/.test(byKey(`draft-${draftId}`).title),
+  byKey(`draft-${draftId}`).title);
+
+backdate('map_version', draftHead, 10);
+eq('one left 10 days is promoted to the operator\'s own move', byKey(`draft-${draftId}`).rank, 8);
+eq('… into the your-move band', byKey(`draft-${draftId}`).band, 'Your move');
+
+// Sending it for review hands it to the review queue — one item, not two.
+const draftReq = db.insertPublishRequest({ map_id: draftId, version_id: draftHead });
+check('sending it for review closes the draft item', !keys().includes(`draft-${draftId}`));
+check('… and it is now a review item instead', keys().includes(`review-${draftReq}`));
+
+// Sent back, and never resubmitted: still nobody's queue, still worth saying.
+db.decidePublishRequest(draftReq, { status: 'rejected', decisionNote: 'terminus wrong on the external sheet', evidence: {} });
+db.setVersionState(draftHead, 'rejected');
+check('a version sent back and left there re-appears', keys().includes(`draft-${draftId}`));
+check('… and the wording says it was sent back', /sent back/.test(byKey(`draft-${draftId}`).why), byKey(`draft-${draftId}`).why);
+
+// A map that has never published anything is in the same blind spot.
+const neverId = db.insertMap({ customer_id: customerId, slug: 'nevertown', name: 'Nevertown', kind: 'area', status: 'draft' });
+const neverVer = db.insertVersion({ map_id: neverId, major: 1, minor: 0, storage_key: 'v1.0' });
+db.setCurrentVersion(neverId, neverVer);
+check('a built map that was never published is listed too', keys().includes(`draft-${neverId}`));
+check('… and says so rather than naming a published version', /never been published/.test(byKey(`draft-${neverId}`).title),
+  byKey(`draft-${neverId}`).title);
+
+// An update waiting on the customer is already an item (rank 6/9); the draft
+// item must not double it up while that decision is outstanding.
+db.insertProposedUpdate({ map_id: neverId, source_note: 'BODS 2026-09 refresh' });
+check('a map with a pending update is not also listed as a draft', !keys().includes(`draft-${neverId}`));
+
 console.log(`\n${failures ? `✗ ${failures} check(s) failed` : '✓ all worklist checks passed'}\n`);
 process.exit(failures ? 1 : 0);

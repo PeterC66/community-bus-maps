@@ -104,18 +104,26 @@
         <div class="panel" style="margin-top:16px">
           <header>Save &amp; download</header>
           <div class="body">
-            <p class="hint-line">Saving renders a new numbered version and its print-ready files. Nothing is deleted — earlier versions stay available.</p>
+            <!-- H5: this panel read like step 2 of 3, and it is not a step at all
+                 — an accepted update is already saved. Say what Save is for, and
+                 that downloading is optional. -->
+            <p class="hint-line"><strong>Save is only for your own edits</strong> — colours, landmarks, operators. Making them above and saving renders a new numbered version and its print-ready files; nothing is deleted, and every earlier version stays listed below. You never have to download anything: the files are here whenever you want them.</p>
             <input class="field save-note" id="saveNote" type="text" maxlength="200" placeholder="Optional note — what did you change?" aria-label="Save note">
             <button class="btn btn-primary btn-sm" id="saveBtn" type="button">Save new version</button>
             <div class="downloads" id="downloads"></div>
+            <div class="versions" id="versionList"></div>
           </div>
         </div>
 
-        <!-- ---------------- publish gate (P4) ---------------- -->
+        <!-- ---------------- publish gate (P4) ----------------
+             Headed "Publish" until findings H4: the panel named the act, the
+             button asked for it, and the customer cannot perform it — only an
+             approver publishes. The panel is now named for what the customer
+             does here, and `publish` is left to the approver throughout. -->
         <div class="panel publish-panel" id="publishPanel" style="margin-top:16px" hidden>
-          <header>Publish <span class="count" id="publishState"></span></header>
+          <header>Getting it published <span class="count" id="publishState"></span></header>
           <div class="body">
-            <p class="hint-line">A version stays a private <em>draft</em> until an approver reviews it. Publishing sets the official, print-ready version people rely on.</p>
+            <p class="hint-line">A version stays a private <em>draft</em> until you send it to us and an approver reviews it. Only an approver can publish — publishing sets the official, print-ready version people rely on. <span id="publishUnit"></span></p>
             <div id="publishBody"></div>
             <div class="downloads" id="publishedDownloads"></div>
           </div>
@@ -146,14 +154,18 @@
     </div>
   </main>
 
-  <!-- Old-vs-new comparison for a proposed monthly update (P5) -->
+  <!-- Old-vs-new comparison for a staged update (P5).
+       The two sheets sit at about half printed size here, so a reworded service
+       description or a dropped stop is not legible in the images (findings B1).
+       The bullets — and the exact old→new wording — are repeated above them. -->
   <dialog id="compareDialog" class="compare-dialog">
     <div class="compare-head">
-      <strong>Compare — current vs proposed update</strong>
+      <strong>Compare — current version vs this update</strong>
       <div class="tabs" id="compareTabs" role="tablist"></div>
       <span class="spacer"></span>
       <button class="btn btn-ghost btn-sm" id="compareClose" type="button">Close</button>
     </div>
+    <div class="compare-changes" id="compareChanges"></div>
     <div class="compare-body">
       <div class="compare-col">
         <h4>Current <span class="muted" id="compareBeforeVer"></span></h4>

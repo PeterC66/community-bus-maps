@@ -112,7 +112,7 @@
       if (m.publishedVersion) return `<span class="status-pill pub">Published ${escapeHtml(m.publishedVersion)}</span> <span class="status-pill">draft ahead</span>`;
       return '<span class="status-pill">Draft</span>';
     }
-    // A monthly refresh is waiting for the customer to accept/decline (P5).
+    // An update is waiting for the customer to accept/decline (P5).
     const updatePill = () => '<span class="status-pill upd">Update ready</span>';
     // P6: a published, listed map has a public page anyone can view.
     const publicPill = (m) => (m.publicUrl ? '<span class="status-pill pub">Public page</span>' : '');

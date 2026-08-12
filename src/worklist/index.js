@@ -17,15 +17,15 @@
 // local engine template has moved on, whether S6 has run, whether a
 // byte-identical gate passes. Those live in the laptop's own map tree.
 //
-// Ranks 0 and 8 CAN appear below, but only from a snapshot `push-status.mjs`
-// has pushed via POST /api/admin/status (item 3 of the fool-proofing plan) —
-// this module still guesses nothing itself, it just trusts the last push.
-// Rank 7 (a BODS-flagged town with no portal map at all) is not pushed yet and
-// stays laptop-only; the skill still adds it locally.
+// The snapshot ranks (0, and the housekeeping half of 8) appear below only from
+// a snapshot `push-status.mjs` has pushed via POST /api/admin/status (item 3 of
+// the fool-proofing plan) — this module still guesses nothing itself, it just
+// trusts the last push. Rank 7 (a BODS-flagged town with no portal map at all)
+// is not pushed yet and stays laptop-only; the skill still adds it locally.
 
 import {
   listPendingPublishRequests, listApplications, listMapsByStatus, listAwaitingBuild,
-  listPendingProposedUpdates, listMessages, listProposedForMap,
+  listPendingProposedUpdates, listMessages, listProposedForMap, listUnsubmittedDrafts,
 } from '../db/index.js';
 import { loadStatusSnapshot } from '../status-snapshot.js';
 
@@ -184,6 +184,31 @@ export function buildWorklist({ baseUrl = process.env.PUBLIC_BASE_URL || '' } = 
       who: p.customer_name || 'unowned', ageDays: age,
       where: url('/app/admin'), runbook: 'R4',
       do: [{ kind: 'portal-ui', what: 'Admin → Refreshes. Nudge by email if it has sat.', url: url('/app/admin') }],
+    });
+  }
+
+  // 8 / 9 — a draft that will never publish itself. Every band above is "who is
+  // blocked", and a draft blocks nobody — which is exactly why this state was
+  // invisible: eight live maps held one for a day and the list said "nothing
+  // waiting" (findings B5). It is the step most likely to be forgotten, because
+  // it sits between two actions taken on different days. Ranked low, promoted
+  // once it has sat, and it disappears the moment the draft is sent.
+  for (const d of listUnsubmittedDrafts()) {
+    const age = daysSince(d.draft_at);
+    const stale = age != null && age >= 7;
+    const sentBack = d.draft_state === 'rejected';
+    const pub = d.published_key
+      ? `the public still has ${d.published_key}`
+      : 'this map has never been published';
+    add({
+      key: `draft-${d.id}`, rank: stale ? 8 : 9, type: 'draft-unsubmitted',
+      title: `"${d.name}" has an unsent draft (${d.draft_key}) — ${pub}`,
+      why: sentBack
+        ? `${d.draft_key} was sent back to ${d.customer_name || 'the customer'} and has not been resubmitted. Nothing will happen until they edit it and send it again.`
+        : `${d.customer_name || 'The customer'} has ${d.published_key ? 'a newer draft' : 'a first version'} that was never sent for review${stale ? `, ${age} days ago` : ''}. It will not publish itself, and no other queue shows it.`,
+      who: d.customer_name || 'unowned', ageDays: age,
+      where: url(`/app/maps/${d.id}`), runbook: 'R3', slug: d.slug || null,
+      do: [{ kind: 'portal-ui', what: `Open the map, check the sheets, then "Send ${d.draft_key} for review" — and approve it at /app/review.`, url: url(`/app/maps/${d.id}`) }],
     });
   }
 

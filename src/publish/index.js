@@ -16,13 +16,17 @@
 // doesn't cover.
 
 // Bump when the checklist wording/ids change so stored evidence stays interpretable.
-export const CHECKLIST_VERSION = 2;
+// v3 (findings H1): the first three items now say ON EVERY SHEET. A version is
+// the whole map — accept, send, review and publish all operate on every enabled
+// output together — and the checklist was the one place that could have said so
+// and didn't, while the screen beside it lists the sheets separately.
+export const CHECKLIST_VERSION = 3;
 
 // Every item is required — publishing is a deliberate, complete review.
 export const CHECKLIST = [
-  { id: 'services',  label: 'At a glance, the services shown look right — no obviously wrong route numbers or destinations.' },
-  { id: 'colours',   label: 'Route colours are distinct and remain colour-blind friendly.' },
-  { id: 'pois',      label: 'At a glance, the points of interest shown or hidden look right and nothing obvious is missing.' },
+  { id: 'services',  label: 'At a glance, the services shown look right on every sheet — no obviously wrong route numbers or destinations.' },
+  { id: 'colours',   label: 'Route colours are distinct and remain colour-blind friendly on every sheet.' },
+  { id: 'pois',      label: 'At a glance, the points of interest shown or hidden look right on every sheet and nothing obvious is missing.' },
   { id: 'legible',   label: 'I have viewed the full-size print (JPG) and all text is legible.' },
   { id: 'accurate',  label: 'This is a visual check, not an independent verification against timetables — nothing here looks wrong or out of date.' },
 ];

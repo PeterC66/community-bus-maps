@@ -63,6 +63,7 @@ import { searchPlaces, bumpSearchIndex } from './search/index.js';
 import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { sendMagicLink } from './email/index.js';
+import { notify, appUrl } from './email/notify.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
@@ -807,8 +808,15 @@ function mapDetail(m) {
     id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject, status: m.status,
     customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     town: meta.town, currentVersion: m.cur_key || null, overrides: saved,
-    routes, pois, hideOperatorsEnabled, operators, outputs: outputsForClient(parseOutputs(m.outputs), id),
-    versions: listVersions(id),
+    routes, pois, hideOperatorsEnabled, operators, outputs: outputsForClient(parseOutputs(m.outputs), id, m.kind),
+    // Every version, with the files that still exist and the overrides it was
+    // rendered from — the editor lists them, so "earlier versions stay
+    // available" is something the customer can see (findings H8).
+    versions: listVersions(id).map((v) => ({
+      id: v.id, storage_key: v.storage_key, note: v.note, review_state: v.review_state,
+      created_at: v.created_at, overrides: parseJson(v.overrides_json),
+      downloads: visibleDownloadsForVersion(id, v.storage_key, parseOutputs(m.outputs)),
+    })),
     downloads: m.cur_key ? visibleDownloadsForVersion(id, m.cur_key, parseOutputs(m.outputs)) : [],
     // --- publish gate ---
     headState: m.cur_state || null,
@@ -1016,7 +1024,7 @@ app.patch('/api/maps/:id/outputs', async (req, reply) => {
   const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
   if (!map) return reply.code(code).send({ ok: false, error });
   const current = parseOutputs(map.outputs);
-  const available = outputsForClient(current, map.id).filter((o) => o.available).map((o) => o.key);
+  const available = outputsForClient(current, map.id, map.kind).filter((o) => o.available).map((o) => o.key);
   const { outputs: clean, refused } = chooseOutputs((req.body || {}).outputs, {
     current, available, isAdmin: user.role === 'admin',
   });
@@ -1030,7 +1038,7 @@ app.patch('/api/maps/:id/outputs', async (req, reply) => {
   if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
   setMapOutputs(map.id, clean);
   req.log.info({ mapId: map.id, outputs: clean }, 'updated map outputs');
-  return { ok: true, outputs: outputsForClient(clean, map.id) };
+  return { ok: true, outputs: outputsForClient(clean, map.id, map.kind) };
 });
 
 // "Ask us for the diagram" — the customer half of the request-only lock above.
@@ -1196,7 +1204,7 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
     const noteBits = refreshNote(summary);
     const versionId = insertVersion({
       map_id: id, major, minor,
-      note: `Accepted monthly update${noteBits ? ' — ' + noteBits : ''}`,
+      note: `Accepted update${noteBits ? ' — ' + noteBits : ''}`,
       overrides: applied.overrides, storage_key: storageKey,
       // The diff travels WITH the version, so every later screen can say what
       // this version changed without digging through the audit log (findings A1).
@@ -1464,6 +1472,15 @@ app.post('/api/review/:id/approve', async (req, reply) => {
 
   req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
   logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote } });
+  // Tell the people whose map it is (findings B2). Deliberately after every
+  // state change and the audit row: the publication has happened whether or not
+  // the email does, and notify() never throws.
+  notify('published', {
+    customerId: pr.customer_id, log: req.log,
+    mapName: pr.map_name, versionKey: pr.version_key,
+    mapUrl: appUrl(`/app/maps/${pr.map_id}`),
+    publicUrl: mapRow.public_listed && getPublicMapBySlug(mapRow.slug) ? appUrl(mapPageUrl(mapRow.slug)) : null,
+  });
   return { ok: true, publishedVersion: pr.version_key, downloads: downloadsForVersion(pr.map_id, pr.version_key) };
 });
 
@@ -1480,6 +1497,15 @@ app.post('/api/review/:id/reject', async (req, reply) => {
   if (pr.version_id !== pr.published_version_id) setVersionState(pr.version_id, 'rejected');
   req.log.info({ mapId: pr.map_id, requestId: pr.id, by: user.email }, 'publication rejected');
   logAudit(req, 'version.reject', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, note } });
+  // The one state change the customer has no other way of learning about: their
+  // map simply becomes editable again (findings B2).
+  const publishedNow = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
+  notify('sent-back', {
+    customerId: pr.customer_id, log: req.log,
+    mapName: pr.map_name, versionKey: pr.version_key, reason: note,
+    publishedVersion: publishedNow ? publishedNow.storage_key : null,
+    mapUrl: appUrl(`/app/maps/${pr.map_id}`),
+  });
   return { ok: true };
 });
 

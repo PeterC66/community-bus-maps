@@ -1,11 +1,91 @@
 # Changelog
 
-<!-- docstamp v1.48 | 2026-08-12 | sha=9b533593 -->
-**v1.48** · updated 12 August 2026
+<!-- docstamp v1.49 | 2026-08-12 | sha=44b2ae62 -->
+**v1.49** · updated 12 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Changed — one word per thing, and the customer's panel renamed for what they can actually do — 2026-08-12
+
+Backlog items **H4 + H3 + D** (`0.9.3-pilot`). The same objects had different names on different
+screens, and the worst collision was structural: a panel headed **Publish** containing a button
+that said **Submit v2.0 for publication**, offered to a customer who *cannot publish at all*. The
+settled vocabulary is now written down in `docs/DEVELOPING.md` and applied everywhere:
+
+| Thing | The word now | Gone |
+|---|---|---|
+| The rebuilt map we offer | **update** | monthly update, monthly data refresh, proposed update (customer-facing) |
+| A saved state of a map | **version** | *Edition* (the public page's own word) |
+| Where a version is | **draft → awaiting review → published** | "Locked for review" beside "Awaiting review" on one screen (**D2**) |
+| What the customer does | **send it for review** | submit for publication |
+| What only an approver does | **publish** | — |
+
+So: the panel is headed **Getting it published** and its button reads **Send v2.0 for review**; the
+editor's status chip says **Awaiting review**, matching the panel and the dashboard pill; the strip's
+third step is **Sent for review**; and the public page says **Version v1.1**.
+
+**D1** — a place map no longer inherits area wording: its two sheets are **Serving this place** and
+**Where those buses go** (the same names its public page uses), instead of "Within the area" and
+"To nearby towns", which described somebody else's map. `outputsForClient()` takes the map kind.
+
+### Added — three transactional emails — 2026-08-12
+
+Backlog item **B2**, and the largest practical gap in the flow: nothing told anyone anything, ever.
+An update staged for a customer, a submission published, a submission sent back — every one of them
+was discovered by signing in and looking, which is why a staged update can sit for weeks.
+
+`src/email/notify.js` composes and sends three: **update ready** (from `propose-update.mjs`, as the
+payload is staged), **published** and **sent back** (from the approver's decisions). Three rules
+hold: an email never breaks the flow it reports on (fire-and-forget, failures logged not thrown);
+`EMAIL_PROVIDER` unset ⇒ no send and no change in behaviour; and addresses at RFC 2606 reserved
+domains are skipped rather than bounced, because every seeded demo organisation uses `.example` and
+bounces would damage the sending reputation the magic links depend on. New gate:
+`scripts/test-notify.mjs`.
+
+### Added — a draft that nobody sent is no longer invisible — 2026-08-12
+
+Backlog item **B5**, found on the live site by leaving eight maps in exactly this state. The
+worklist ranks by *who is blocked*; a draft blocks nobody, so an accepted-but-unsent update
+appeared in no list and no count — while being the step most likely to be forgotten, because it
+sits between two actions taken on different days. `listUnsubmittedDrafts()` is a query over state
+the database already holds (head ≠ published, no open request, no pending update), surfaced as a
+`draft-unsubmitted` worklist item — rank 9, promoted to 8 once it has sat a week, and it says which
+version the public still has. A version sent back and never resubmitted reads differently and is
+listed too. `scripts/test-worklist.mjs` covers appearing, ageing, and disappearing when sent.
+
+### Added — every version of a map, listed where the promise is made — 2026-08-12
+
+Backlog item **H8**. The Save panel promised *"Nothing is deleted — earlier versions stay
+available"* — true on disk, and a promise no screen in the customer's half of the app kept. The
+panel now lists every version with its date, note, state and downloads, and offers **copy these
+settings into a new draft**: an earlier look comes back as a new version through the ordinary save
+and review path, never as a quiet swap of what is published. `listVersions()` carries
+`overrides_json` for it.
+
+### Changed — the compare dialog says what the images cannot show — 2026-08-12
+
+Backlog item **B1**. Both sheets render at about half printed size in that dialog, so a reworded
+service description or a dropped stop is illegible in it and nothing is highlighted. The plain
+bullets — and the exact **old → new** wording — now sit above the two panes.
+
+### Changed — the two download rows say which version they are — 2026-08-12
+
+Backlog item **H5**. One page carried two download rows that can hold *different* versions and
+neither said which: they now read **Your latest version (v2.0, not public yet)** and **What the
+public has (v1.0)**. The links name their sheet in full instead of abbreviating it ("⬇ Within ·
+SVG" → "⬇ Serving this place — print-ready JPG"), derived from the map's own outputs so one sheet
+has one name everywhere. The panel's text now says plainly that Save is only for your own edits and
+that downloading is optional — it sat between the editing controls and the publish gate, reading
+like step 2 of 3 when it is not a step at all.
+
+### Changed — the unit of publication is stated, not implied — 2026-08-12
+
+Backlog item **H1**, the rest of it. The Outputs panel presents the sheets as independently
+switchable and the review screen lists them as separate items, but accept, send, review and publish
+always operate on the whole map. The customer's panel and the approver's inspect section now say so,
+and the first three checklist items say **on every sheet** (`CHECKLIST_VERSION` → 3).
 
 ### Added — a status strip on the map page: whose turn is it, and how far along am I? — 2026-08-12
 
@@ -16,7 +96,7 @@ walkthrough asked "is Accept the end?", "is Submit the same as Publish?", "why i
 out?" — all the same question in different clothes.
 
 A persistent strip at the top of the map page now draws the five steps — **Update offered → Draft
-ready → Sent for approval → Published → Public page** — marks where this map is, names who holds
+ready → Sent for review → Published → Public page** — marks where this map is, names who holds
 it, dates each step it has reached, and offers the one action that moves it on. Not a wizard: a
 wizard implies one person at one desk, and this flow spans days and three people.
 

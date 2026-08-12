@@ -81,9 +81,12 @@
   }
 
   /**
-   * The data half of "what changed": every accepted refresh this version carries.
+   * The data half of "what changed": every accepted refresh this version carries
+   * — or, with a `heading`, the single update being offered but not yet accepted
+   * (the compare dialog, findings B1). An entry with no `version` has not become
+   * one yet, so it is dated rather than numbered.
    * @param {Array} dataChanges  from changeSummary().dataChanges (oldest first)
-   * @param {{detail?:boolean}} opts  detail = show exact old→new wording
+   * @param {{detail?:boolean, heading?:string}} opts  detail = show exact old→new wording
    */
   function dataChangeHtml(dataChanges, opts) {
     const list = Array.isArray(dataChanges) ? dataChanges : [];
@@ -93,12 +96,14 @@
       const rows = bullets(d.summary || {}, detail);
       const when = fmtDay(d.createdAt);
       const src = d.sourceNote ? ` <span class="muted">— ${esc(d.sourceNote)}</span>` : '';
+      const lead = d.version ? `${esc(d.version)} · timetable data refreshed` : 'Timetable data refreshed';
       return `<div class="chg-refresh">
-        <div class="chg-when">${esc(d.version)} · timetable data refreshed${when ? ' ' + esc(when) : ''}${src}</div>
+        <div class="chg-when">${lead}${when ? ' ' + esc(when) : ''}${src}</div>
         <ul class="change-list detail">${rows.join('') || '<li class="muted">Rebuilt from newer data; no service facts differ.</li>'}</ul>
       </div>`;
     }).join('');
-    const title = list.length === 1 ? 'What changed in the map data' : `What changed in the map data <span class="muted">(${list.length} updates)</span>`;
+    const title = (opts && opts.heading) ? esc(opts.heading)
+      : (list.length === 1 ? 'What changed in the map data' : `What changed in the map data <span class="muted">(${list.length} updates)</span>`);
     return `<div class="change-box data-change">
       <div class="change-title">${title}</div>
       ${blocks}
