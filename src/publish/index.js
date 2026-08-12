@@ -86,14 +86,26 @@ const eff = (colors, palette, r) => (colors[r] || palette[r] || '').toLowerCase(
 
 /**
  * Deterministic diff of what a version changes versus a reference version.
+ *
+ * TWO kinds of change reach a reviewer, and for a long time only the first was
+ * counted here:
+ *   1. the customer's safe-subset overrides (colours, landmarks, operators), and
+ *   2. the underlying map DATA, when a version was made by accepting a refresh.
+ * Comparing overrides alone made a fully-rebuilt map report as identical to the
+ * published one — the editor advised "make an edit and save first" and the review
+ * screen told the approver there was "nothing to change" (findings A1). `unchanged`
+ * now means both are empty, which is the only reading that keeps the gate honest.
+ *
  * @param {object} toOverrides    the version being published
  * @param {object} fromOverrides  the currently-published version's overrides ({} if none)
  * @param {object} opts
  * @param {Record<string,string>} opts.palette  route -> default hex (for showing defaults)
  * @param {boolean} opts.hasBaseline            true when `from` is a real published version, false = baseline
- * @returns {{ base:string, unchanged:boolean, routes:Array, poisHidden:string[], poisShown:string[] }}
+ * @param {Array} opts.dataChanges              accepted data refreshes carried since `from` (dataChangesSince())
+ * @returns {{ base:string, unchanged:boolean, routes:Array, poisHidden:string[], poisShown:string[],
+ *            dataChanges:Array, dataChanged:boolean, overridesUnchanged:boolean }}
  */
-export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBaseline = false } = {}) {
+export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBaseline = false, dataChanges = [] } = {}) {
   const toC = colorsOf(toOverrides), fromC = colorsOf(fromOverrides);
   const toH = hiddenOf(toOverrides), fromH = hiddenOf(fromOverrides);
 
@@ -111,11 +123,32 @@ export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBas
   const poisHidden = [...toH].filter((k) => !fromH.has(k)).sort();  // newly hidden vs published
   const poisShown = [...fromH].filter((k) => !toH.has(k)).sort();   // newly shown vs published
 
+  // Keep only refreshes that actually moved something — a no-op refresh is real
+  // provenance but tells a reviewer nothing, and must not defeat "unchanged".
+  const data = (Array.isArray(dataChanges) ? dataChanges : []).filter((d) => d && !isEmptyDataChange(d.summary));
+  const overridesUnchanged = routes.length === 0 && poisHidden.length === 0 && poisShown.length === 0;
+
   return {
     base: hasBaseline ? 'published' : 'baseline',
-    unchanged: routes.length === 0 && poisHidden.length === 0 && poisShown.length === 0,
+    unchanged: overridesUnchanged && data.length === 0,
+    overridesUnchanged,
     routes,
     poisHidden,
     poisShown,
+    dataChanges: data,
+    dataChanged: data.length > 0,
   };
+}
+
+/**
+ * True when a staged refresh's summary reports no difference at all.
+ * diffRouteData() always sets `unchanged`, so trust it when present; the field
+ * checks are the fallback for a summary written by an older or partial producer.
+ */
+export function isEmptyDataChange(s) {
+  if (!s || typeof s !== 'object') return true;
+  if (typeof s.unchanged === 'boolean') return s.unchanged;
+  const some = (k) => Array.isArray(s[k]) && s[k].length > 0;
+  return !(some('routesAdded') || some('routesRemoved') || some('stopsChanged') || some('descChanged')
+    || some('operatorsAdded') || some('operatorsRemoved') || (s.validity && s.validity.to) || s.versionLabel);
 }

@@ -49,16 +49,24 @@ async function loadQueue(keepId) {
 // ---- detail -----------------------------------------------------------------
 function swatch(hex) { return `<span class="mini-swatch" style="background:${esc(hex)}"></span>`; }
 
+// A submitted version differs from the published one in two independent ways: the
+// DATA it was rebuilt from (an accepted refresh) and the customer's own overrides.
+// Showing only the second told the approver a refreshed map had "nothing to change"
+// — the one screen that should say "the timetable moved" said the opposite.
 function changeHtml(sum, pubKey) {
   const base = sum.base === 'published' ? `the published version (${esc(pubKey)})` : 'the original map';
   if (sum.unchanged) return `<p class="hint-line">⚠ This version is identical to ${base} — there is nothing to change.</p>`;
+  const dataHtml = window.PortalChanges ? window.PortalChanges.dataChangeHtml(sum.dataChanges, { detail: true }) : '';
   const rows = [];
   for (const r of sum.routes) {
     rows.push(`<li>Route <strong>${esc(r.id)}</strong>: ${swatch(r.from)} ${esc(r.from)} → ${swatch(r.to)} ${esc(r.to)}${r.default && r.to === r.default ? ' <span class="muted">(back to default)</span>' : ''}</li>`);
   }
   for (const k of sum.poisHidden) rows.push(`<li>Hide landmark <strong>${esc(k)}</strong></li>`);
   for (const k of sum.poisShown) rows.push(`<li>Show landmark <strong>${esc(k)}</strong></li>`);
-  return `<ul class="change-list detail">${rows.join('')}</ul>`;
+  const yours = rows.length
+    ? `${dataHtml ? '<div class="change-title">What the customer changed</div>' : ''}<ul class="change-list detail">${rows.join('')}</ul>`
+    : (dataHtml ? '<p class="hint-line">The customer made no changes of their own to this version.</p>' : '');
+  return dataHtml + yours;
 }
 
 function inspectHtml(inspect) {
