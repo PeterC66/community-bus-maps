@@ -849,6 +849,7 @@ export function updateUserAdmin(id, f) {
   if (f.name != null) { sets.push('name = ?'); args.push(String(f.name).slice(0, 120) || null); }
   if (f.role && USER_ROLES.includes(f.role)) { sets.push('role = ?'); args.push(f.role); }
   if (f.status && USER_STATUSES.includes(f.status)) { sets.push('status = ?'); args.push(f.status); }
+  if (f.customerId !== undefined) { sets.push('customer_id = ?'); args.push(f.customerId); }
   if (!sets.length) return false;
   args.push(Number(id));
   db.prepare(`UPDATE user SET ${sets.join(', ')} WHERE id = ?`).run(...args);

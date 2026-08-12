@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Added — admin can move a user to a different organisation — 2026-08-12
+
+`updateUserAdmin()` only whitelisted `name`/`role`/`status`, and `POST /api/admin/users` left
+`customer_id` `null` (a platform-level account) whenever the customer field was skipped — a user
+created against the wrong org, or none, was then stuck: re-adding the address returned `409 already
+has an account`. `PATCH /api/admin/users/:id` now accepts `customerId` (validated against a real
+customer, or `null` for platform), and moving somebody between organisations — which changes which
+maps they can see — is never a silent edit: it logs a distinct `user.reassign` audit event with the
+from/to org names, on top of the ordinary `user.update` entry. The users tab in the admin console
+gained an organisation picker per row, with a confirmation prompt when the value actually changes.
+Also added: audit-tab labels/detail formatting for `user.invite`/`user.update`/`user.reassign`,
+which previously fell back to the raw action string.
+
 ### Changed — one word per thing, and the customer's panel renamed for what they can actually do — 2026-08-12
 
 Backlog items **H4 + H3 + D** (`0.9.3-pilot`). The same objects had different names on different
