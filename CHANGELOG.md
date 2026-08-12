@@ -7,6 +7,40 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — the portal told you an updated map was "identical" to the published one — 2026-08-12
+
+Backlog item **A1**, the headline finding of the update-flow review, and the one that weakened a
+gate rather than merely confusing someone.
+
+`changeSummary()` compared **only the customer's safe-subset overrides** — route colours, hidden
+landmarks, the operator filter. That was complete when the sole way to make a version was to edit
+those things. Since P5 introduced accepted data refreshes a version can differ entirely in its
+underlying data and still be "unchanged" by that measure, so:
+
+- the editor said *"No differences from the published version (v1.0) yet — make an edit and save
+  first"* — wrong advice, pointing at a `disabled` button, and if followed it produces a pointless
+  colour change;
+- the review screen said *"⚠ This version is identical to the published version (v1.0) — there is
+  nothing to change"* — inviting the approver to reject a real timetable change as an error. A cold
+  tester confronted with that message downloaded both versions' SVGs and diffed them by hand to
+  prove the portal wrong before publishing.
+
+**What changed.** Accepting a refresh now records the diff *on the version it creates*
+(`map_version.data_change_json` — proposed id, source note, and the routes/stops/descriptions/
+validity summary), so every later screen can say what the version changed without digging through
+the audit log. `changeSummary()` takes those refreshes and `unchanged` now means **both** halves are
+empty. Both screens answer two questions instead of one — *What changed in the map data* and *What
+you changed* — and the review screen shows the exact `from → to` wording of every reworded service
+description. Empty refreshes are filtered, so a genuinely unchanged version still reads as
+unchanged.
+
+Nothing is lost from before the column existed: `proposed_update` already linked each accepted
+refresh to the version it created and held the diff, so the migration backfills every past accepted
+version. That covers the eight live maps carrying accepted-but-unsubmitted v2.0 drafts.
+
+New gate: `scripts/test-change-summary.mjs` (in `npm test`) pins the behaviour — most importantly
+that a refresh-only version does **not** report as unchanged.
+
 ### Fixed — three defects a first-time user found in the editor — 2026-08-12
 
 The first three items of the update-flow backlog (`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`,

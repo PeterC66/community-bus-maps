@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
-    "test": "node scripts/check-chrome.mjs && node scripts/test-p6.mjs && node scripts/test-p7.mjs && node scripts/test-lifecycle.mjs && node scripts/test-safe-subset.mjs && node scripts/test-worklist.mjs && node scripts/test-search.mjs",
+    "test": "node scripts/check-chrome.mjs && node scripts/test-p6.mjs && node scripts/test-p7.mjs && node scripts/test-lifecycle.mjs && node scripts/test-safe-subset.mjs && node scripts/test-change-summary.mjs && node scripts/test-worklist.mjs && node scripts/test-search.mjs",
     "chrome:apply": "node scripts/apply-chrome.mjs",
     "chrome:check": "node scripts/check-chrome.mjs",
     "test:p6": "node scripts/test-p6.mjs",

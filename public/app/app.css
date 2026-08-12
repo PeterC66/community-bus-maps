@@ -220,6 +220,17 @@ code.cmd { display: inline-block; background: var(--surface-2); padding: 3px 7px
 .change-list.detail li:last-child { border-bottom: 0; }
 .mini-swatch { display: inline-block; width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--border); vertical-align: -2px; }
 
+/* the data half of "what changed" — an accepted refresh, not anybody's edit */
+.change-box + .change-box, .change-box + .hint-line { margin-top: 10px; }
+.data-change { border-color: color-mix(in srgb, var(--primary) 35%, transparent); background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.chg-refresh + .chg-refresh { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.chg-when { font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.data-change .hint-line { margin: 6px 0 0; }
+.chg-text { margin-top: 3px; font-size: .84rem; }
+.chg-from { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.chg-arrow { color: var(--muted); margin: 0 4px; }
+.chg-to { font-weight: 600; }
+
 /* ---------- P4: review console ---------- */
 .review-layout { display: grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: start; }
 @media (max-width: 900px) { .review-layout { grid-template-columns: 1fr; } }

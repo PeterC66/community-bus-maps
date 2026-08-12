@@ -123,6 +123,11 @@ CREATE TABLE IF NOT EXISTS map_version (
   minor           INTEGER NOT NULL,
   note            TEXT,                     -- what changed (customer's save note)
   overrides_json  TEXT NOT NULL DEFAULT '{}', -- the safe-subset overrides snapshot for this version
+  data_change_json TEXT,                    -- P5: set when this version came from an ACCEPTED data refresh —
+                                            -- { proposedId, sourceNote, summary } (routes/stops/descriptions/validity).
+                                            -- NULL for a version the customer saved themselves. Without it the only
+                                            -- diff on offer is the overrides one, which reports a refreshed map as
+                                            -- unchanged (findings A1).
   storage_key     TEXT NOT NULL,            -- render folder name under maps/<id>/renders/, e.g. 'v1.0'
   review_state    TEXT NOT NULL DEFAULT 'draft', -- P4: draft|pending|published|superseded|rejected
   UNIQUE (map_id, major, minor)
