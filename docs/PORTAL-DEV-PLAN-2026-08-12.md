@@ -1,7 +1,7 @@
 # Portal development plan — 12 August 2026
 
-<!-- docstamp v1.0 | 2026-08-12 | sha=8ad7f9b0 -->
-**v1.0** · updated 12 August 2026
+<!-- docstamp v1.1 | 2026-08-12 | sha=27d58b77 -->
+**v1.1** · updated 12 August 2026
 
 Plan only where marked `—`. Status is per item, so a later session can pick this up mid-flight —
 update the Status column as you go, don't just tick things off at the end.
@@ -28,8 +28,22 @@ pointers at the bottom — and are not part of this doc.
 | 1 | Admin can change which organisation a user belongs to (`customer_id` into the whitelist, a customer picker on the users tab, an audited move) | ✅ |
 | 2 | Prove the three transactional emails against real Resend delivery, end to end | ✅ |
 | 3 | H9 — admin's editor's-eye view: don't offer an admin the actor's button on a map that's someone else's move | ✅ |
-| 4 | Part B place-name search — index `places.json` written at publish time; header entry point decided after Part A (Part A is already shipped) | — |
+| 4 | Part B place-name search | ✅ *(already done — see below)* |
 | 5 | Rebuild P8a (online-first published maps: viewer, text alternative, accessibility page) against current `main`; branch `p8a-maps-online` is 123 commits behind with 36 conflicts, treat as a spec + reference implementation, not a mergeable branch | — |
+
+## Item 4 detail (turned out already done — corrected, not built this session)
+
+This session's plan listed Part B (place-name search) as `—` not started, on the strength of the
+`project_bus_portal_header_search_plan` memory, which was itself stale. **It was actually built and
+merged before this session began**: `5f36d63` "P9 Part B: place-name search" (#15), merged via #14,
+2026-08-10 — the search box on `/maps` and the homepage hero, the `places.json` sidecar written at
+publish time, `GET /api/public/search`, typo tolerance, the no-match demand-capture path, and
+`scripts/test-search.mjs` (already green in every `npm test` run this session). `docs/P9-header-and-place-search.md` itself already showed the whole B1–B8 table as ✅ — this plan doc
+just hadn't been cross-checked against it. Confirmed live: `https://busmaps.uk/maps?q=Swavesey`
+returns both Huntingdon and St Ives with the matching route named ("Route T1/B passes through
+Swavesey"). The only thing P9 itself still leaves open is the header magnifier link (deferred by
+design, decide whenever). No code changed for this item — this entry exists so the next session
+doesn't repeat the same stale-memory mistake.
 
 ## Item 3 detail (done)
 
