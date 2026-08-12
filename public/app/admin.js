@@ -337,9 +337,16 @@ async function saveCust(id) {
 
 // ---- users --------------------------------------------------------------
 let me = null; // set once at init; used only to stop an admin disabling their own row in the UI
-let customersForInvite = null; // cached [{id,name}], loaded lazily when the invite dialog opens
+let customersForInvite = null; // cached [{id,name}], shared by the invite dialog and the users tab's org picker
+async function ensureCustomersList() {
+  if (!customersForInvite) {
+    const { body } = await jget('/api/admin/customers');
+    customersForInvite = ((body && body.customers) || []).map((c) => ({ id: c.id, name: c.name }));
+  }
+  return customersForInvite;
+}
 LOADERS.users = async () => {
-  const { body } = await jget('/api/admin/users');
+  const [{ body }] = await Promise.all([jget('/api/admin/users'), ensureCustomersList()]);
   const box = $('users');
   const users = (body && body.users) || [];
   if (!users.length) { box.innerHTML = '<div class="empty">No users yet.</div>'; return; }
@@ -353,9 +360,11 @@ LOADERS.users = async () => {
 };
 function rowUser(u) {
   const self = me && u.id === me.id;
-  return `<div class="gt-row" role="row" data-user="${u.id}">
+  const custOptions = '<option value="">— platform admin —</option>'
+    + (customersForInvite || []).map((c) => `<option value="${c.id}"${u.customerId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  return `<div class="gt-row" role="row" data-user="${u.id}" data-current-customer="${u.customerId || ''}">
     <div class="gt-cell" role="cell"><strong>${esc(u.email)}</strong>${self ? ' <span class="muted">(you)</span>' : ''}<div><input type="text" value="${esc(u.name || '')}" data-q="name" class="planin" maxlength="120" placeholder="name"></div></div>
-    <div class="gt-cell" role="cell">${u.customerName ? esc(u.customerName) : '<span class="muted">— platform —</span>'}</div>
+    <div class="gt-cell" role="cell"><select data-q="customerId">${custOptions}</select></div>
     <div class="gt-cell" role="cell"><select data-q="role">
         <option value="editor"${u.role === 'editor' ? ' selected' : ''}>editor</option>
         <option value="approver"${u.role === 'approver' ? ' selected' : ''}>approver</option>
@@ -372,9 +381,17 @@ function rowUser(u) {
 async function saveUser(id) {
   const tr = $('users').querySelector(`[data-user="${id}"]`);
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);
-  const data = { name: g('name').value, role: g('role').value, status: g('status').disabled ? undefined : g('status').value };
+  const customerId = g('customerId').value;
+  const wasCustomer = tr.dataset.currentCustomer || '';
+  if (customerId !== wasCustomer) {
+    const fromName = (customersForInvite || []).find((c) => String(c.id) === wasCustomer);
+    const toName = (customersForInvite || []).find((c) => String(c.id) === customerId);
+    const msg = `Move this user from ${fromName ? fromName.name : '— platform admin —'} to ${toName ? toName.name : '— platform admin —'}?\n\nThis changes which maps they can see.`;
+    if (!confirm(msg)) { g('customerId').value = wasCustomer; return; }
+  }
+  const data = { name: g('name').value, role: g('role').value, status: g('status').disabled ? undefined : g('status').value, customerId: customerId || null };
   const { body } = await jsend(`/api/admin/users/${id}`, 'PATCH', data);
-  if (body.ok) { banner('ok', `Saved changes to ${esc(body.user.email)}.`); LOADERS.customers(); }
+  if (body.ok) { banner('ok', `Saved changes to ${esc(body.user.email)}.`); customersForInvite = null; LOADERS.users(); LOADERS.customers(); }
   else banner('err', body.error || 'Save failed.');
 }
 
@@ -510,6 +527,9 @@ const ACTION_LABEL = {
   'maprequest.reject': 'Rejected map request',
   'maprequest.fulfil': 'Built an approved request',
   'customer.update': 'Updated customer',
+  'user.invite': 'Invited user',
+  'user.update': 'Updated user',
+  'user.reassign': 'Moved user to another organisation',
   'refresh.accept': 'Accepted update',
   'refresh.decline': 'Declined update',
   'branding.update': 'Updated public details',
@@ -524,6 +544,9 @@ function auditDetail(a) {
   if (a.action === 'maprequest.fulfil') return esc([d.name, d.kind, d.version, d.slug].filter(Boolean).join(' · '));
   if (a.action.startsWith('maprequest.')) return esc([d.name, d.kind, d.from && 'was ' + d.from].filter(Boolean).join(' · '));
   if (a.action === 'customer.update') return esc([d.name, `areas ${d.quotaAreas}`, `places ${d.quotaPlaces}`, d.status].filter((x) => x != null).join(' · '));
+  if (a.action === 'user.reassign') return esc([d.email, `${d.fromCustomerName || '— platform —'} → ${d.toCustomerName || '— platform —'}`].filter(Boolean).join(' · '));
+  if (a.action === 'user.invite') return esc([d.email, d.role, d.customerId != null ? '' : '— platform —'].filter(Boolean).join(' · '));
+  if (a.action === 'user.update') return esc([d.email, d.role, d.status].filter(Boolean).join(' · '));
   if (a.action.startsWith('refresh.')) {
     const drops = d.droppedOverrides && d.droppedOverrides.length ? `${d.droppedOverrides.length} override(s) dropped` : '';
     return esc([d.version, refreshSummaryTextPlain(d.changeSummary), drops].filter(Boolean).join(' · '));

@@ -1861,11 +1861,33 @@ app.patch('/api/admin/users/:id', async (req, reply) => {
   if (b.status === 'disabled' && u.id === req.user.id) {
     return reply.code(400).send({ ok: false, error: 'You cannot disable your own account.' });
   }
-  const ok = updateUserAdmin(u.id, { name: b.name, role: b.role, status: b.status });
+  let customerId; // undefined = leave alone
+  if ('customerId' in b) {
+    if (b.customerId == null || b.customerId === '') {
+      customerId = null;
+    } else {
+      const cust = getCustomer(Number(b.customerId));
+      if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
+      customerId = cust.id;
+    }
+  }
+  const fromCustomer = u.customer_id ? getCustomer(u.customer_id) : null;
+  const ok = updateUserAdmin(u.id, { name: b.name, role: b.role, status: b.status, customerId });
   if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
   const updated = getUser(u.id);
   req.log.info({ userId: u.id }, 'user updated by admin');
-  logAudit(req, 'user.update', { detail: { userId: u.id, email: updated.email, role: updated.role, status: updated.status } });
+  logAudit(req, 'user.update', { detail: { userId: u.id, email: updated.email, role: updated.role, status: updated.status, customerId: updated.customer_id } });
+  if (customerId !== undefined && customerId !== u.customer_id) {
+    const toCustomer = customerId ? getCustomer(customerId) : null;
+    req.log.info({ userId: u.id, from: u.customer_id, to: customerId }, 'user reassigned to another organisation by admin');
+    logAudit(req, 'user.reassign', {
+      detail: {
+        userId: u.id, email: updated.email,
+        fromCustomerId: u.customer_id, fromCustomerName: fromCustomer ? fromCustomer.name : null,
+        toCustomerId: customerId, toCustomerName: toCustomer ? toCustomer.name : null,
+      },
+    });
+  }
   return { ok: true, user: userShape(updated) };
 });
 
