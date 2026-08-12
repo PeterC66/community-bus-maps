@@ -765,7 +765,10 @@ function buildStatusStrip() {
     // rather than implying an update we never offered.
     const label0 = i === 0 && !s.fromRefresh && i !== s.at ? 'No update involved' : label;
     const tick = cls.includes('done') ? '✓' : '';
-    const whoText = i !== s.at ? '' : (s.blocked ? holder[2] : (s.mine ? 'your move' : 'their move'));
+    // An admin still holds the action (loadOwnedMap allows role:'admin' on any
+    // customer's map), so "their move" alone would disown a button that works —
+    // say who can act, not just who owns it, so the pill and the button agree.
+    const whoText = i !== s.at ? '' : (s.blocked ? holder[2] : (s.mine ? 'your move' : (isAdmin() ? 'their move · you can act as admin' : 'their move')));
     const whoPill = i === s.at && i < 3 ? `<div class="who">${esc(whoText)}</div>`
       : (i === s.at && i === 4 ? '<div class="who">live</div>' : '');
     return `<div class="${cls.join(' ')}">

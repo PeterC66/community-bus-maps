@@ -296,6 +296,7 @@ $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/lo
   $('whoami').textContent = `${me.email} · ${me.role}`;
   if (me.role === 'admin') $('adminLink').style.display = '';
   $('logoutBtn').style.display = '';
+  if (window.EEV) window.EEV.apply(); // H9 — after role-based nav visibility is set
   await loadQueue();
   await loadPublished();
 })();

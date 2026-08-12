@@ -483,13 +483,14 @@ LOADERS.refreshes = async () => {
       <div class="gt-cell wrap" role="cell">${esc(u.sourceNote || '') || '<span class="muted">—</span>'}</div>
       <div class="gt-cell wrap" role="cell">${refreshSummaryText(u.summary)}</div>
       <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
-      <div class="gt-cell actions" role="cell">
+      <div class="gt-cell actions" role="cell" data-eev-hide>
         <button class="btn btn-primary btn-xs" data-accept-refresh="${u.id}" data-map="${u.map.id}" data-name="${esc(u.map.name)}">Accept</button>
         <button class="btn btn-ghost btn-xs" data-decline-refresh="${u.id}" data-map="${u.map.id}" data-name="${esc(u.map.name)}">Decline</button>
       </div>
     </div>`, (b) => {
     b.querySelectorAll('button[data-accept-refresh]').forEach((b2) => b2.addEventListener('click', () => decideRefresh(b2.dataset.map, b2.dataset.acceptRefresh, b2.dataset.name, 'accept')));
     b.querySelectorAll('button[data-decline-refresh]').forEach((b2) => b2.addEventListener('click', () => decideRefresh(b2.dataset.map, b2.dataset.declineRefresh, b2.dataset.name, 'decline')));
+    if (window.EEV) window.EEV.apply(); // rows render after the toggle's own init
   });
 };
 // Admins may accept/decline any map's proposed update (src/server.js
@@ -619,6 +620,10 @@ $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/lo
   if (!me || me.role !== 'admin') { location.href = '/app'; return; }
   $('whoami').textContent = `${me.email} · admin`;
   $('logoutBtn').style.display = '';
+  // H9 — purely presentational; see public/js/editor-eye-view.js.
+  $('eevToggle').checked = window.EEV ? window.EEV.on() : false;
+  $('eevToggle').addEventListener('change', (e) => window.EEV && window.EEV.set(e.target.checked));
+  if (window.EEV) window.EEV.apply();
   await loadSummary();
   // The first thing an admin sees should be the work, not a queue they then
   // have to cross-reference against five other queues.
