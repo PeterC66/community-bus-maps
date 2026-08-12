@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.8 | 2026-08-11 | sha=cb352df7 -->
-**v1.8** · updated 11 August 2026
+<!-- docstamp v1.9 | 2026-08-12 | sha=ff3d3dd9 -->
+**v1.9** · updated 12 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -182,6 +182,26 @@ exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIV
 - **Content:** fresh database, one real customer (*BusMaps.uk (pilot)*), all 8 built towns + 5 built
   places imported via `scripts/deliver-map.mjs` and published via `scripts/publish-baseline.mjs` —
   see `GO-LIVE.md` §3 "Content on the live site".
+- **Deploy history:** `da66dc9` (2026-08-11, `0.9.2-pilot`) → **`7603d39` (2026-08-12, `0.9.3-pilot`)**, carrying both update-flow tranches. `/health?deep=1` is the record of what is actually on the box — trust it over any document, including this one.
+
+### Running the upgrade, as actually done (2026-08-12)
+
+Four steps, about five minutes. **Back up first, build second, switch third** — the order matters:
+
+1. `docker compose run --rm backup` — takes ~30 s and writes to `<app dir>/backups/`. Do it even though cron backs up daily: a release that carries a migration wants a backup from *immediately* before it, not from 03:15.
+2. `git pull`, and **read the new HEAD** rather than assuming the pull got what you expect.
+3. `export GIT_SHA=$(git rev-parse --short HEAD) BUILT_AT=$(date -u +%FT%TZ) && docker compose build portal`. Those exports are not decoration — `compose.yaml` passes them as **build args** and the Dockerfile bakes them in, so without them `/health` reports `gitSha: unknown` and you lose the one reliable way to tell what is running. Building is safe: the old container serves throughout, so a failed build costs nothing.
+4. `docker compose up -d portal` — the only step the public notices, a few seconds of 502 while the container is recreated.
+
+Then check `/health?deep=1` for the expected `version` + `gitSha` and four green checks, and read the startup log. **Migrations run at import of `src/db/index.js`, before the server binds a port**, so a migration failure crash-loops the container rather than logging quietly — a healthy start with `database: ok` is itself the evidence that a migration succeeded.
+
+**Rollback** is the same loop against the previous SHA (`git checkout <sha>`, rebuild, `up -d`). Schema changes here have been additive (`ALTER TABLE … ADD COLUMN`), and the older code's `SELECT *` tolerates an unknown column, so the database is usable by either build. That is a property worth preserving deliberately, not a coincidence to rely on blindly — check it holds for any new migration before you promise a rollback.
+
+**Two traps for an AI assistant driving this:**
+
+- **The Claude sandbox blocks SSH to this host** (as it blocks `curl` POSTs to production). An agent cannot run the deploy itself; it must hand the operator the commands and read back the output. Do not attempt to work around the block.
+- **Windows PowerShell 5.1 strips embedded double quotes** when calling a native exe like `ssh`, so a remote command containing `grep -iE "a|b"` arrives at bash as `grep -iE a|b` and bash reads those `|` as pipes ("command not found"). Keep the remote command in a **single-quoted** PowerShell string (so `$(…)` and `$VAR` survive for the remote shell), and inside it avoid double quotes entirely — use `grep -i -e pat1 -e pat2`, where each pattern is its own argument. Also: `$host` is a reserved PowerShell variable; use `$target`.
+
 - **Known gotcha if you ever recreate the data volume:** it defaults to `root:root`, but the
   container runs as the unprivileged `node` user (uid 1000, same as the host's `ubuntu` user, that's
   not a coincidence worth relying on elsewhere) — `chown -R node:node` on `/data` and `/backups`
