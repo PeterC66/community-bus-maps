@@ -48,6 +48,34 @@ A version you save is a private **draft**. To make it official, open the **Publi
 
 Publishing makes a version *official*; a separate **listing** switch controls whether it appears on the public site (`/maps`, your organisation page, and its own page). So you can have an official map that you keep unlisted until you're ready to announce it.
 
+## Your map online
+
+Once a map is published *and* listed, it has its own page — `/m/<your-map>` — that you can link to
+from anywhere: your website, a newsletter, a QR code on a noticeboard. You don't have to host
+anything, and the page always shows the version currently published, so a correction or a monthly
+update reaches everyone who follows that link.
+
+The page shows the map itself rather than a flat picture of it: readers can drag it about and zoom
+in for the detail, on a phone as well as a laptop, and it stays sharp however far they zoom. Both
+sheets are there (the one for within your area and the one for journeys out of it), and the print
+files are a click away.
+
+Two things worth knowing:
+
+- **Every map is also published as text.** Below the map is a link to its **service list** — every
+  route, its operator, the days it runs, the stops it serves and where it goes, written out. That is
+  what a blind reader gets instead of the map, and it is what makes the page safe for a council or
+  school to link to. Please link to it alongside the map if you put ours on your own site;
+  [`/accessibility.html`](../public/accessibility.html) has a paragraph you can paste into your own
+  accessibility statement.
+- **The page says how old the information is.** It shows the month your map's data is correct as at,
+  and after a while without an update it tells readers plainly that it may be out of date and to
+  check with the operator. That's deliberate: a page on the internet looks current in a way a
+  leaflet on a noticeboard doesn't. Accepting the monthly updates is what keeps the notice away.
+
+Putting the map *inside* a page on your own website — rather than linking to ours — isn't available
+yet. It's the next piece of work; tell us if you want it and we'll know it matters.
+
 ## Downloading print-ready sheets
 
 For any version you can download the **print-ready files** — an SVG and a 300 dpi A4 JPG for each output. Print them, put them on a noticeboard, add them to a newsletter. **Keep the credits** that appear on the sheet, and always point people to the operator or bustimes.org for live times — a printed map is a guide, not today's departures.

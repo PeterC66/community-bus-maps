@@ -20,7 +20,9 @@
 // the whole map — accept, send, review and publish all operate on every enabled
 // output together — and the checklist was the one place that could have said so
 // and didn't, while the screen beside it lists the sheets separately.
-export const CHECKLIST_VERSION = 3;
+// v4 (P8a) added `alternative`: once a published map has a public page, its text
+// alternative is part of what is being published, so it is signed off too.
+export const CHECKLIST_VERSION = 4;
 
 // Every item is required — publishing is a deliberate, complete review.
 export const CHECKLIST = [
@@ -29,6 +31,7 @@ export const CHECKLIST = [
   { id: 'pois',      label: 'At a glance, the points of interest shown or hidden look right on every sheet and nothing obvious is missing.' },
   { id: 'legible',   label: 'I have viewed the full-size print (JPG) and all text is legible.' },
   { id: 'accurate',  label: 'This is a visual check, not an independent verification against timetables — nothing here looks wrong or out of date.' },
+  { id: 'alternative', label: 'I have opened the map’s service list (its text alternative), it matches the map, and the map page works from the keyboard.' },
 ];
 
 const CHECKLIST_IDS = CHECKLIST.map((c) => c.id);

@@ -29,7 +29,53 @@ pointers at the bottom — and are not part of this doc.
 | 2 | Prove the three transactional emails against real Resend delivery, end to end | ✅ |
 | 3 | H9 — admin's editor's-eye view: don't offer an admin the actor's button on a map that's someone else's move | ✅ |
 | 4 | Part B place-name search | ✅ *(already done — see below)* |
-| 5 | Rebuild P8a (online-first published maps: viewer, text alternative, accessibility page) against current `main`; branch `p8a-maps-online` is 123 commits behind with 36 conflicts, treat as a spec + reference implementation, not a mergeable branch | — |
+| 5 | Rebuild P8a (online-first published maps: viewer, text alternative, accessibility page) against current `main`; branch `p8a-maps-online` is 123 commits behind with 36 conflicts, treat as a spec + reference implementation, not a mergeable branch | ✅ |
+
+## Item 5 detail (done)
+
+The SVG-vs-watermark open question resolved itself before any code was written: the public `/m/:slug`
+page has offered an unauthenticated, unwatermarked "Download vector (SVG)" link since P6 —
+watermarking (`src/render/watermark.js`) has only ever applied to JPGs. So P8a's full-fidelity inline
+SVG viewer introduces no new exposure; it just presents inline what the site already lets anyone
+download. Confirmed live against `https://busmaps.uk/m/beaconsfield-waitrose` before starting.
+
+Rebuild method: isolated the clean P8a diff from its own branch history (`git diff a6f9f71~1 a6f9f71`
+— 32 files, 1,540 insertions, independent of the 123 commits of drift) rather than trying to merge the
+whole stale branch, then cherry-picked that one commit onto current `main` and resolved each conflict
+by hand, file by file — 8 files with real conflicts (`CHANGELOG.md`, `README.md`, `docs/ROADMAP.md`,
+`package.json`, `src/maps/engine.js`, `src/publish/index.js`, `src/server.js`,
+`public/js/public-map.js`, `public/map.html`), 9 more resolved by keeping `main`'s current version
+outright (pure chrome/nav conflicts, since main's `scripts/lib/site-chrome.mjs` + `npm run
+chrome:apply` — which didn't exist when P8a was built — regenerates the nav/footer on every page
+including the two new ones, `accessibility.html` and `services.html`, once `FOOTER_HTML` gained an
+Accessibility link).
+
+Three things needed real judgement, not just picking a side:
+
+- **The publish checklist.** P8a wanted to add a 6th required item (`alternative`) and set
+  `CHECKLIST_VERSION` → 2 — but `main` had already taken 2 *and* 3 for the unrelated H1 "on every
+  sheet" wording pass. Kept `main`'s current wording for the first five items, added `alternative` as
+  the sixth, bumped to version 4 (the next free number, not a reused one).
+- **Watermark-safe caching.** P8a's new `cached()` helper gives published artefacts a year-long
+  immutable cache when requested `?v=<pub_key>` — safe for anything that can't vary by viewer, unsafe
+  for a JPG this map might watermark (watermarking depends on `req.user`, so a shared/CDN cache could
+  serve one visitor's watermarked copy to another, or vice versa). P8a predates the watermark feature
+  entirely, so this collision existed nowhere in its own history. Resolved: JPGs eligible for
+  watermarking keep the original short, private cache; everything else (SVGs, and JPGs from a
+  customer with watermarking off) gets the new immutable one.
+- **The `#report` anchor-scroll workaround.** The old code waited for a plain `<img>`'s `load` event
+  before re-scrolling to the "Spotted a problem?" card, because the image's height was unknown until
+  it loaded and reflowed the page. The new inline-SVG viewer's stage has a fixed CSS aspect-ratio box
+  (`.viewer-stage`), so its size is known synchronously — the wait-for-load workaround no longer
+  applies to anything and was simplified to a single `requestAnimationFrame`.
+
+Verified: `npm test` (including the new `scripts/test-p8a.mjs` and `check-chrome.mjs` across all 14
+public pages) and `npm run verify` (byte-identical, area + place) both green; then live in the browser
+against the local dev instance — the St Ives map page serves genuine inline SVG (`viewer.classList
+.contains('is-vector')` true, a real `<svg>` in the DOM), its service list at `/m/st-ives/services`
+matches the map, `/accessibility.html` and the canonical footer render correctly, and
+`CHECKLIST.map(c => c.id)` confirms the 6-item list server-side. Not yet deployed — deploy remains a
+manual VPS step.
 
 ## Item 4 detail (turned out already done — corrected, not built this session)
 

@@ -432,3 +432,84 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 }
 
 @media print { .pilot-banner { display: none; } }
+
+/* ---------- P8a: the public sheet viewer ---------- */
+/* The sheet is A4 landscape; the stage keeps that shape (capped so it can never
+   eat a whole laptop screen) and the map is transformed inside it. */
+.viewer { margin: 0; }
+.viewer-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.viewer-btn {
+  font: inherit; font-weight: 700; line-height: 1; cursor: pointer;
+  min-width: 40px; min-height: 40px; padding: 0 12px; border-radius: 10px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+}
+.viewer-btn:hover:not(:disabled) { background: var(--surface); }
+.viewer-btn:disabled { opacity: .45; cursor: default; }
+.viewer-btn-wide { font-weight: 600; font-size: .92rem; }
+.viewer-hint { color: var(--muted); font-size: .85rem; }
+.viewer-stage {
+  position: relative; overflow: hidden;
+  /* A4 landscape, capped so a tall window does not hand over a stage taller than
+     the screen. The cap can leave the stage narrower than its column, so centre it. */
+  aspect-ratio: 297 / 210; max-height: 78vh; margin-inline: auto;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); background: var(--surface-2);
+  touch-action: none; cursor: default;
+}
+.viewer-stage:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.viewer-stage.zoomed { cursor: grab; }
+.viewer-stage.zoomed:active { cursor: grabbing; }
+.viewer-canvas { width: 100%; height: 100%; transform-origin: 0 0; }
+.viewer-canvas > svg, .viewer-canvas > img {
+  display: block; width: 100%; height: 100%; object-fit: contain; user-select: none;
+}
+/* The sheet is drawn for white paper; it keeps its own white ground in dark mode
+   rather than being inverted into something the printed version never looks like. */
+.viewer-canvas { background: #fff; }
+.viewer-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.sheet-source { color: var(--muted); font-size: .82rem; margin: 12px 0 0; }
+.alt-card { margin: 8px 0 26px; }
+
+/* ---------- P8a: notices ---------- */
+.notice {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); padding: 14px 16px; margin: 0 0 18px; font-size: .95rem;
+}
+.notice-warn {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* ---------- P8a: the services (text alternative) page ---------- */
+.route-jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 22px; }
+.route-jump .tab { text-decoration: none; }
+.route-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); padding: 18px 20px; margin: 0 0 16px; box-shadow: var(--shadow);
+}
+.route-card h3 { margin: 0 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.route-card h4 { margin: 16px 0 6px; font-size: .95rem; }
+.route-card > p.muted { margin: 0; color: var(--muted); font-size: .92rem; }
+.route-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.4em; padding: 3px 9px; border-radius: 8px;
+  font-size: .9rem; font-weight: 700; border: 1px solid rgba(0, 0, 0, .18);
+}
+.route-badge.plain { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.stop-list { margin: 0; padding-left: 1.3em; color: var(--text); }
+.stop-list.wrap {
+  list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 0;
+}
+.stop-list.wrap li { color: var(--muted); }
+.stop-list.wrap li:not(:last-child)::after { content: ' → '; color: var(--border); padding: 0 6px; }
+.tag {
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.small { font-size: .85rem; }
+
+@media (max-width: 620px) {
+  .viewer-stage { max-height: 60vh; }
+  .viewer-hint { width: 100%; }
+}

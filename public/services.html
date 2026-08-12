@@ -1,13 +1,12 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Published bus maps — BusMaps.uk</title>
-  <meta name="description" content="Every bus map published through BusMaps.uk: printable maps of the buses within a town or serving a particular place. The system is a pilot and these are currently our own sample maps.">
-  <meta property="og:title" content="Published bus maps">
-  <meta property="og:description" content="Printable community bus maps, each reviewed before publication. Pilot — not yet a live service.">
-  <meta property="og:type" content="website">
+  <!-- Title/description/canonical are completed SERVER-side for /m/<slug>/services. -->
+  <title>Bus services — BusMaps.uk</title>
+  <meta name="description" content="Every bus service on a BusMaps.uk map, written out as text.">
+  <meta property="og:type" content="article">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
@@ -30,26 +29,22 @@
   <!-- nav:end -->
 
   <main>
-    <section><div class="container">
-      <h2 class="mt-0">Published bus maps</h2>
-      <p class="section-intro">These are the maps published through the portal, each reviewed by a person before it went out. Open a map to view it or download a print-ready sheet — free to use, print and hand out. <strong>This is a pilot:</strong> anything marked <em>Sample</em> is one of our own maps, not an organisation’s published work. <a href="/faq.html#pilot">What that means</a>.</p>
+    <section class="map-page"><div class="container">
+      <p class="crumb"><a href="/maps">Published maps</a> · <a id="mapLink" href="#">Back to the map</a></p>
+      <div id="head"><h2 class="mt-0" id="headline">Loading…</h2></div>
 
-      <div class="search-block" id="search">
-        <form class="search-form" role="search" action="/maps" method="get">
-          <label class="search-label" for="q">Is there a map that mentions your village or landmark?</label>
-          <input type="search" id="q" name="q" minlength="2" autocomplete="off" placeholder="Search by place name, e.g. Swavesey">
-          <button class="btn btn-primary" type="submit">Search</button>
-        </form>
-        <p class="search-meta" id="searchMeta" hidden></p>
-      </div>
+      <div id="staleNote" hidden></div>
 
-      <div id="grid" class="grid cols-2" aria-live="polite">
-        <p class="form-note">Loading published maps…</p>
-      </div>
+      <p class="section-intro" id="intro"></p>
+      <div class="pill-row" id="pills"></div>
+
+      <div id="services"></div>
+
+      <div id="err" class="form-note" hidden></div>
 
       <div class="lead-cta">
-        <a class="btn btn-primary" href="/apply.html">Register your interest</a>
-        <a class="btn btn-ghost" href="/examples.html">See what they look like</a>
+        <a class="btn btn-primary" id="backToMap" href="#">See this as a map</a>
+        <a class="btn btn-ghost" href="/maps">See all published maps</a>
       </div>
     </div></section>
   </main>
@@ -67,6 +62,7 @@
   </div></div></footer>
   <!-- footer:end -->
 
-  <script src="/js/public-maps.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/public-services.js"></script>
 </body>
 </html>
