@@ -1,7 +1,7 @@
 ﻿# Roadmap & architecture
 
-<!-- docstamp v1.7 | 2026-08-07 | sha=f75cf3f9 -->
-**v1.7** · updated 7 August 2026
+<!-- docstamp v1.8 | 2026-08-12 | sha=588cdc3b -->
+**v1.8** · updated 12 August 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
