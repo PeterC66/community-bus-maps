@@ -139,13 +139,22 @@ instead, in a **fresh** PowerShell window (this doesn't disturb the running serv
 
 ```powershell
 cd C:\Claude\community-bus-maps
-node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('./data/portal.sqlite',{readOnly:true});const row=db.prepare(`SELECT token FROM magic_link WHERE used_at IS NULL ORDER BY rowid DESC LIMIT 1`).get();console.log(row ? row.token : 'no unused token yet - submit the sign-in form first')"
+node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('./data/portal.sqlite',{readOnly:true});const row=db.prepare('SELECT token FROM magic_link WHERE used_at IS NULL ORDER BY rowid DESC LIMIT 1').get();console.log(row ? row.token : 'no unused token yet - submit the sign-in form first')"
 ```
 
 1. In the browser, go to `http://127.0.0.1:5180/app` and submit the sign-in form with your email
    (`peter@pcooper.me.uk` for the admin account) as normal.
 2. Run the command above — it prints the newest unused token.
 3. Navigate the browser to `http://127.0.0.1:5180/auth/verify?token=<that token>` — you're signed in.
+
+It also prints two lines about SQLite being "an experimental feature" — that is normal Node noise,
+not a problem. The token is the long line of letters and numbers.
+
+**Do not put backticks in that command.** An earlier version wrapped the SQL in `` ` `` … `` ` ``
+(JavaScript template quotes) and it failed with `SyntaxError: missing ) after argument list`, because
+the backtick is **PowerShell's escape character** — PowerShell eats it before Node ever sees it, and
+the SQL arrives as bare, invalid JavaScript. Single quotes are safe: PowerShell passes them through
+untouched, and JavaScript accepts them as string quotes.
 
 No need to track down the other window, and no need to stop/restart the server to see console output.
 
