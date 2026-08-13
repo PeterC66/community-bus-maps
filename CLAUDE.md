@@ -10,7 +10,7 @@ Node + Fastify + `node:sqlite`, no template engine, no framework.
 
 ## Read this first: the system is a PILOT
 
-It is feature-complete (P0–P7) and it works end to end — which makes it read like a live service.
+It is feature-complete (P0–P7, plus P8a) and it works end to end — which makes it read like a live service.
 **It is not one.** There are **no customers**: every organisation in the database is seeded demo data
 (`scripts/seed-demo.mjs`) and every map on the public site is one we made ourselves.
 
@@ -60,19 +60,26 @@ which files each item touches, how to run an isolated seeded instance instead of
 live, and the traps that cost the review itself time. Its companion
 `portal-update-flow-walkthrough_2026-08-11.md` is the same flow written for a customer.
 
-**Items 1–12 are already done (merged 12 August 2026) — the document describes the flow as it was
-on 11 August.** Read its *Suggested order of work* first for the per-item status; the body above it
-still describes the pre-fix behaviour on purpose. Shipped: the three editor defects (`.r-title`
-overrun, unstyled disabled buttons, "review it and review it"); **A1** — a version's data diff now
-lives on the version (`map_version.data_change_json`) and `changeSummary().unchanged` means
+**The whole backlog is done (items 1–13, last one merged 12 August 2026) — the document describes the
+flow as it was on 11 August.** Read its *Suggested order of work* first for the per-item status; the
+body above it still describes the pre-fix behaviour on purpose. Shipped: the three editor defects
+(`.r-title` overrun, unstyled disabled buttons, "review it and review it"); **A1** — a version's data
+diff now lives on the version (`map_version.data_change_json`) and `changeSummary().unchanged` means
 *overrides and data* are both empty, so a refreshed map no longer reports as identical to the
 published one; the **status strip** on the map page, a read-out of `mapDetail` that says whose turn
-it is; and in `0.9.3-pilot` the **vocabulary pass** (one word per thing — see the glossary in
-`docs/DEVELOPING.md`, and don't reintroduce "submit for publication" or "Edition"), the **three
-transactional emails** (`src/email/notify.js`), the **version list**, the **compare-dialog change
-bullets**, the **download-row labelling**, the **unit of publication**, and the **`draft-unsubmitted`
-worklist item** that makes an unsent draft visible. Only **H9** (an editor's-eye view for admins)
-is open.
+it is; the **vocabulary pass** (one word per thing — see the glossary in `docs/DEVELOPING.md`, and
+don't reintroduce "submit for publication" or "Edition"), the **three transactional emails**
+(`src/email/notify.js`, proven against real Resend delivery 2026-08-12 — see
+`docs/PORTAL-DEV-PLAN-2026-08-12.md` item 2), the **version list**, the **compare-dialog change
+bullets**, the **download-row labelling**, the **unit of publication**, the **`draft-unsubmitted`
+worklist item**; and **H9** — a purely presentational "editor's-eye view" toggle for admins
+(`public/js/editor-eye-view.js`), plus the independent status-strip wording fix it exposed ("their
+move · you can act as admin"), both shipped 2026-08-12.
+
+`docs/PORTAL-DEV-PLAN-2026-08-12.md` is the record of the session that closed this backlog out and
+also rebuilt P8a against current `main` — read it for the mechanics of resolving a stale branch's
+conflicts (isolate the branch's own diff rather than merge its history) if that ever needs doing
+again for P8b/P8c.
 
 **None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
 fail, the change is wrong.

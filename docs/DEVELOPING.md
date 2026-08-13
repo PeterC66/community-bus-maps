@@ -175,7 +175,7 @@ Before touching the editor, the review screen or anything in the proposed-update
 
 Two things from it that change how you work here:
 
-- **Items 1–12 of its backlog are done — the document describes the flow as it was on 11 August 2026.** Merged 12 August: **H6, A2, E** (#18), **A1** (#23), the **status strip** (#20, which also closed C1, C2, B3, B4, H1 and half of H3), then **H4+H3+D**, **B2**, **H5**, **H1**, **B1**, **H8** and **B5** in `0.9.3-pilot`. Read the findings' *Suggested order of work* first: it carries the per-item status, and the body text above it deliberately still describes the pre-fix behaviour. Only **H9** (the admin's editor's-eye view) is open.
+- **The whole backlog (items 1–13) is done — the document describes the flow as it was on 11 August 2026.** Merged 12 August: **H6, A2, E** (#18), **A1** (#23), the **status strip** (#20, which also closed C1, C2, B3, B4, H1 and half of H3), then **H4+H3+D**, **B2**, **H5**, **H1**, **B1**, **H8** and **B5** in `0.9.3-pilot`, and finally **H9** — the admin's editor's-eye view toggle (`public/js/editor-eye-view.js`) plus the status-strip wording fix it exposed. Read the findings' *Suggested order of work* first: it carries the per-item status, and the body text above it deliberately still describes the pre-fix behaviour.
 - **None of that backlog should alter a rendered sheet.** Every item is wording, presentation or a query. If `npm run verify` fails, you have gone wrong — don't relax the gate.
 
 Five facts about the shipped work, because they are not obvious from the file tree:
