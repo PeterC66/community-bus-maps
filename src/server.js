@@ -46,6 +46,7 @@ import {
   publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
 } from './public/index.js';
 import { factsForPublicMap, publicServices, servicesPageUrl } from './public/services.js';
+import { readFactsSnapshot, buildFacts } from './maps/facts.js';
 import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
@@ -1591,6 +1592,30 @@ app.get('/api/review/:id', async (req, reply) => {
     // Files to eyeball before signing off (approver read-access is enforced above).
     inspect: downloadsForVersion(pr.map_id, pr.version_key),
     town: meta.town,
+  };
+});
+
+// Checklist item `alternative` asks the approver to open the map's text
+// alternative and check it — but the map may not be published yet (a first
+// submission has no public page at all), and even when it is, the PUBLIC
+// /m/:slug/services route serves the PUBLISHED version's facts, not the one
+// under review. So this builds the SUBMITTED version's own facts straight
+// from its render folder, same read as factsForPublicMap() but keyed off the
+// pending version rather than the published pointer — the approver always
+// previews exactly what they are about to sign off, whether or not anything
+// has ever been published before.
+app.get('/api/review/:id/services', async (req, reply) => {
+  const user = requireApprover(req, reply); if (!user) return;
+  const pr = getPublishRequest(Number(req.params.id));
+  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
+  const dir = versionDir(pr.map_id, pr.version_key);
+  const facts = readFactsSnapshot(dir) || buildFacts(mapDataDir(pr.map_id), { kind: pr.map_kind });
+  const services = publicServices({ subject: pr.map_subject, name: pr.map_name }, facts);
+  if (!services) return reply.code(404).send({ ok: false, error: 'This version has no service list.' });
+  return {
+    ok: true,
+    map: { name: pr.map_name, kind: pr.map_kind, version: pr.version_key },
+    services,
   };
 });
 
