@@ -125,6 +125,7 @@ async function openReview(id) {
     ${decided ? renderDecided(r) : `
     <div class="rd-section">
       <h3>Review checklist</h3>
+      <p class="hint-line"><a class="btn btn-ghost btn-sm" href="/app/review-services.html?id=${r.id}" target="_blank" rel="noopener">See the service list (this version) ↗</a> — checklist item 6 asks you to open it.</p>
       <div class="checklist" id="checklist">
         ${checklist.map((c) => `<label class="check-item"><input type="checkbox" data-cid="${esc(c.id)}"> <span>${esc(c.label)}</span></label>`).join('')}
       </div>

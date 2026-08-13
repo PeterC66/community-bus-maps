@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — review checklist item 6 had no way to actually do what it asks — 2026-08-12
+
+P8a added a required checklist item asking the approver to open the map's service list and check
+it, but nothing on the Review screen linked to one — the approver had no way to get there except
+guessing the map's slug and typing a URL by hand. Worse, `/m/:slug/services` only serves the
+currently-**published** version, so even that manual route would show stale content on any version
+that changes the data, and 404 outright on a map's first-ever submission (nothing public yet).
+
+New `GET /api/review/:id/services` reads the **submitted** version's own `facts.json` straight from
+its render folder (same read `factsForPublicMap()` does, keyed off the pending version instead of
+the published pointer), and a new preview page (`public/app/review-services.html`) renders it. The
+Review screen now has a **"See the service list (this version) ↗"** link right above the checklist.
+
 ### Added — P8a: published maps that work online, not just on paper — 2026-08-12
 
 The system assumed the deliverable was a printable sheet. P6 gave every published map a public
