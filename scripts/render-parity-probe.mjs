@@ -156,9 +156,69 @@ for (const [name, svg] of Object.entries(PROBES)) {
     density: meta.density,
   };
 }
+// --- did "Arial" resolve to a PROPORTIONAL face? ------------------------------
+//
+// The probes above compare byte counts against a baseline, and a byte count
+// cannot say WHICH face was chosen. That gap cost us: on 2026-08-09 the text
+// probe moved 670,430 -> 676,537 B after fonts-liberation was installed, which
+// was read as "Arial now resolves to Liberation Sans". It did not. The image had
+// the font FILES but not fontconfig's Arial->Liberation Sans metric alias, so
+// fontconfig fell back to the first family it could see -- Liberation MONO --
+// and every live sheet was set in monospace for four days until the Beaconsfield
+// Simpson Centre title visibly overran its Services panel by 16.5mm.
+//
+// So measure the thing that actually matters, with no baseline involved. In any
+// proportional face a run of 'W' is several times wider than the same number of
+// 'i'; in a monospace face the two are identical by definition. The ratio needs
+// no threshold tuning and no reference platform -- it is ~4 for Arial and its
+// metric twins, ~1 for anything monospace.
+async function inkWidthMM(text) {
+  const svg = `${OPEN}\n<rect width="297" height="210" fill="#ffffff"/>\n`
+    + `<text x="10" y="100" font-family="Arial" font-size="12" fill="#000000">${text}</text>\n</svg>\n`;
+  const out = path.join(scratch, `ink-${text[0]}.jpg`);
+  await rasterise(Buffer.from(svg, 'utf8'), out);
+  const { data, info } = await sharp(out).raw().toBuffer({ resolveWithObject: true });
+  let min = Infinity, max = -1;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      const i = (y * info.width + x) * info.channels;
+      if (data[i] < 128 && data[i + 1] < 128 && data[i + 2] < 128) {
+        if (x < min) min = x;
+        if (x > max) max = x;
+      }
+    }
+  }
+  return max < 0 ? null : (max - min + 1) / (info.width / 297);
+}
+
+const RUN = 20;
+const wNarrow = await inkWidthMM('i'.repeat(RUN));
+const wWide = await inkWidthMM('W'.repeat(RUN));
+const ratio = wNarrow && wWide ? wWide / wNarrow : null;
+result.fontResolution = {
+  narrowMM: wNarrow == null ? null : Number(wNarrow.toFixed(2)),
+  wideMM: wWide == null ? null : Number(wWide.toFixed(2)),
+  ratio: ratio == null ? null : Number(ratio.toFixed(3)),
+  // Arial's 'W' advance is 0.944em against 'i' at 0.222em.
+  proportional: ratio != null && ratio > 2,
+};
+
 rmSync(scratch, { recursive: true, force: true });
 
 console.log(JSON.stringify(result, null, 2));
+
+if (result.fontResolution.ratio == null) {
+  console.log('\nFONT CHECK: INCONCLUSIVE — no text rendered at all. No usable font on this platform.');
+} else if (result.fontResolution.proportional) {
+  console.log(`\nFONT CHECK: PASS ✓ — "Arial" resolved to a proportional face `
+    + `(W/i ink ratio ${result.fontResolution.ratio}).`);
+} else {
+  console.log(`\nFONT CHECK: FAIL ✗ — "Arial" resolved to a MONOSPACE face `
+    + `(W/i ink ratio ${result.fontResolution.ratio}, expected >2).\n`
+    + '  Every sheet will be mis-set and long titles will overrun their panels.\n'
+    + '  Install fontconfig alongside fonts-liberation: the font files alone do not\n'
+    + '  create the Arial -> Liberation Sans alias (/etc/fonts/conf.d/30-metric-aliases.conf).');
+}
 
 if (WRITE) {
   writeFileSync(BASELINE, JSON.stringify(result, null, 2) + '\n');
@@ -205,4 +265,7 @@ const verdict = {
 }[worst];
 console.log(`\n${verdict}`);
 
-process.exit(STRICT && worst !== 'identical' ? 1 : 0);
+// The baseline comparison is advisory (Linux legitimately differs from the
+// Windows reference). The font check is not comparative at all — a monospace
+// fallback is wrong on every platform — so it is the one signal worth failing on.
+process.exit(STRICT && (worst !== 'identical' || !result.fontResolution.proportional) ? 1 : 0);
