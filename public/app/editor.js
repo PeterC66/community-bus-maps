@@ -956,6 +956,7 @@ function showPending() {
     me = (await r.json()).user;
     $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
     $('logoutBtn').style.display = '';
+    if (me.role === 'admin') $('adminLink').style.display = '';
     ME = me;
     // Public details belong to a customer organisation, not a platform account.
     if (!me.customer) document.querySelectorAll('a[href="/app/branding"]').forEach((a) => { a.style.display = 'none'; });

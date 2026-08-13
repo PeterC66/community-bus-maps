@@ -1,11 +1,19 @@
 # Changelog
 
-<!-- docstamp v1.50 | 2026-08-12 | sha=964e0835 -->
-**v1.50** · updated 12 August 2026
+<!-- docstamp v1.52 | 2026-08-13 | sha=565d656c -->
+**v1.52** · updated 13 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — Admin nav link missing on the map editor page — 2026-08-13
+
+`editor.html` hardcodes its own header nav markup (there's no shared header component) and never
+had the `id="adminLink"` element that `index.html` and `review.html` have, so admins opening any
+map — draft or published — saw no Admin link, even though it showed on My maps and Review. Added
+the link to `editor.html`'s nav and the `me.role === 'admin'` show-check to `editor.js`, matching
+the pattern in `review.js`.
 
 ### Fixed — review checklist item 6 had no way to actually do what it asks — 2026-08-12
 
