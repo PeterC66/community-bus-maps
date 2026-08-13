@@ -64,7 +64,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 
 | ID | Document | Purpose | Home | Kind |
 |---|---|---|---|---|
-| **G1** | Licensing review + bustimes.org resolution | Fill the review table in `LICENSING.md`; resolve the bustimes.org terms question (read terms / ask owner / drop dependency) and record it. **Launch gate.** | `docs/LICENSING.md` | ACTION |
+| **G1** | Licensing review + bustimes.org resolution | Fill the review table in `LICENSING.md`; bustimes.org terms question **resolved 2026-08-07** (site owner confirmed use acceptable, no attribution required — LICENSING.md §3). Remaining launch gate: the printed-sheet credit checks. | `docs/LICENSING.md` | ✅ DONE |
 | **G2** | Privacy notice review | Confirm the `legal.html` wording, add a **"last reviewed" date**, keep an internal note of what was checked. | `public/legal.html` + `ops/` note | ACTION |
 | **G3** | Terms of use / customer agreement | The **reciprocal** side `legal.html` doesn't cover: what an approved organisation agrees to — acceptable use, "you must have authority over the area you request," no implying operator/council endorsement, service is free with no SLA, we may suspend. Accuracy disclaimer already lives in `legal.html`. | `public/` page + `docs/` source | NEW |
 

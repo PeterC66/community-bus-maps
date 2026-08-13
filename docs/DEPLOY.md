@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.10 | 2026-08-13 | sha=4117d169 -->
-**v1.10** · updated 13 August 2026
+<!-- docstamp v1.11 | 2026-08-13 | sha=41e511b4 -->
+**v1.11** · updated 13 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -153,7 +153,7 @@ Sessions expire themselves (the server purges hourly). Nothing else grows unboun
 
 ## 8. Licensing gate
 
-`docs/LICENSING.md` lists the data sources, what must be credited, and the open **bustimes.org terms** question. It is a launch go/no-go, not a footnote: the review lines at the bottom of that file are meant to be filled in before the public site is announced.
+`docs/LICENSING.md` lists the data sources and what must be credited (the **bustimes.org terms** question is resolved — see LICENSING.md §3). It is a launch go/no-go, not a footnote: the review lines at the bottom of that file are meant to be filled in before the public site is announced.
 
 ## 9. The live host, as built (2026-08-09)
 
