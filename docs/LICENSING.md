@@ -17,7 +17,7 @@ This is the launch go/no-go the planning documents named: the maps are built fro
 |---|---|---|---|
 | **OpenStreetMap** | streets, rivers, points of interest, the road skeleton behind every internal map | **ODbL 1.0** (© OpenStreetMap contributors) | Credit OSM contributors visibly on anything we publish; the produced maps are a *Produced Work*, so the credit is the main obligation. If we ever publish a **derived database** (e.g. exported geometry), it must be offered under the ODbL too. |
 | **UK Bus Open Data Service (BODS)** | routes, stops, operators, days of operation, validity dates | **Open Government Licence v3.0** | Attribute the source. No share-alike. |
-| **bustimes.org** | cross-checking a route against an operator's own timetable during central map-making | **site terms — OPEN QUESTION** | See §3. Central, low-volume, human-in-the-loop use only. |
+| **bustimes.org** | cross-checking a route against an operator's own timetable during central map-making | **confirmed acceptable, no attribution required** (resolved 2026-08-07) | See §3. Central, low-volume, human-in-the-loop use only. |
 | **sharp / libvips, Fastify, Node.js** | the software stack | Apache-2.0 / MIT-family | Preserve their notices (bundled in `node_modules`, not redistributed by us). |
 | **This portal's code** | — | **Business Source License 1.1** (`LICENSE`) | Non-commercial/internal use is free; competing commercial use needs a separate licence from the Licensor until the Change Date (2030-08-09), after which it converts to Apache-2.0. Keep `LICENSE` + `NOTICE` with any redistribution. |
 
