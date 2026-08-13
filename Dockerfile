@@ -28,8 +28,24 @@ FROM node:24-slim
 # The glyph shapes still differ from real Arial, so this makes the host
 # self-consistent; it does not make it pixel-identical to the laptop. See
 # docs/GO-LIVE.md 2.5 for the options that would.
+#
+# fontconfig is the OTHER HALF of that fix and is equally not optional. Font
+# FILES alone do not make "Arial" resolve to Liberation Sans -- the metric alias
+# that maps one to the other lives in fontconfig-config, at
+# /etc/fonts/conf.d/30-metric-aliases.conf. Installed 2026-08-13 after the live
+# host was found rendering every sheet in Liberation MONO: with the files present
+# but no alias to follow, fontconfig failed to match Arial and fell back to the
+# first family it could see, and LiberationMono sorts before LiberationSans.
+# Monospace is ~16% wider than Arial, so the Beaconsfield Simpson Centre title
+# overran its 200mm Services panel by 16.5mm and every other sheet was silently
+# mis-set too. Note the trap this walked into: GO-LIVE.md 2.5 read the text
+# probe moving 670,430 -> 676,537 B as proof Arial now resolved to Liberation
+# Sans. The bytes did move -- but only because the fallback changed to Liberation
+# Mono. A byte count cannot tell you WHICH face was chosen; only naming the
+# resolved family can.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates tini fonts-liberation \
+ && apt-get install -y --no-install-recommends ca-certificates tini fonts-liberation fontconfig \
+ && fc-cache -f \
  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \

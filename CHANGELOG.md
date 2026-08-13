@@ -7,6 +7,29 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — the live host rendered every sheet in monospace — 2026-08-13
+
+The Dockerfile installed `fonts-liberation` but not `fontconfig`. Font files alone do not make
+`Arial` resolve to Liberation Sans — the metric alias that maps them lives in `fontconfig-config`
+(`/etc/fonts/conf.d/30-metric-aliases.conf`). Without it, fontconfig failed to match Arial and fell
+back to the first family it could see, and `LiberationMono` sorts before `LiberationSans`. Every
+sheet rendered on the host since 2026-08-09 is set in monospace, ~16% wider than the Arial the label
+positions were computed against.
+
+Found because the *Beaconsfield Simpson Centre* title — the longest in the estate — overran the
+Services panel at x=200mm by 16.5mm and collided with it on the review page. Measured advance in the
+live JPG was 6.580 mm/char, against 6.60 predicted for a 0.6 em monospace and 5.691 for Arial Bold.
+All 13 maps are affected; the collision is simply the only one visible.
+
+Added `fontconfig` + `fc-cache -f` to the image. `render-parity-probe.mjs` gains a font-resolution
+check that measures the ink width of a run of `W` against a run of `i` and reports whether the face
+is proportional (~4) or monospace (~1) — no baseline, no threshold tuning — and fails under
+`--strict`. The previous conclusion (GO-LIVE.md §2.5) rested on the text probe's byte count moving,
+which records that something changed but never what it changed to; that section is corrected in place.
+
+Renders are stored files, so **this does not retro-fix anything already published** — every map needs
+re-rendering on the host after the image is deployed.
+
 ### Fixed — Admin nav link missing on the map editor page — 2026-08-13
 
 `editor.html` hardcodes its own header nav markup (there's no shared header component) and never

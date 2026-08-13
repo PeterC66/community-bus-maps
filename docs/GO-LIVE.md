@@ -129,6 +129,14 @@ Whichever is chosen, the probe now guards it: re-run the workflow and the number
 
 **Option 1 is done (2026-08-09).** `fonts-liberation` is installed in the Dockerfile, with a comment explaining why so it is not later tidied away as an unused package. The image now carries 16 Liberation faces, and the text probe moved from 670,430 B to 676,537 B — proof that Arial is now resolving to Liberation Sans rather than to whatever the image happened to fall back on before.
 
+> **Correction, 2026-08-13 — the sentence above was wrong, and the live host paid for it.** The bytes did move; the conclusion drawn from them did not follow. Installing the font *files* does not create the alias that maps `Arial` onto Liberation Sans — that lives in `fontconfig-config`, at `/etc/fonts/conf.d/30-metric-aliases.conf`, and `fontconfig` was not installed. With files present but no alias to follow, fontconfig failed to match Arial and fell back to the first family it could see: **Liberation Mono**. That is what the 676,537 B actually recorded.
+>
+> Every sheet rendered on the host between 9 and 13 August is therefore set in monospace, ~16% wider than the Arial the layouts were computed against. It surfaced only when the *Beaconsfield Simpson Centre* title — the longest in the estate — overran the Services panel at x=200mm by 16.5mm and collided visibly. Measured advance in the live JPG was 6.580 mm/char against 6.60 predicted for a 0.6 em monospace and 5.691 for Arial Bold.
+>
+> Fixed by adding `fontconfig` to the Dockerfile. **The lesson is the method, not the package:** a byte count tells you that something changed, never *what* it changed to, and it was treated as though it could. `render-parity-probe.mjs` now measures the ink width of a run of `W` against a run of `i` and names the answer — the ratio is ~4 for any proportional face and ~1 for any monospace one, so it needs no baseline and no threshold tuning, and it fails under `--strict`.
+>
+> Note also why this hid for four days: the map editor and public map pages serve the **inline SVG**, which a Windows browser renders in real Arial and which therefore looked perfectly correct. Only the server-rendered **JPG** on the review page showed the truth. When two surfaces disagree, the one doing its own rendering is not the evidence.
+
 It did **not** close the gap with the laptop, and was never going to:
 
 | Probe | Windows | image *before* | image *after* | `ubuntu-latest` |
