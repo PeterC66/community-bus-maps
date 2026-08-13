@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.52 | 2026-08-13 | sha=565d656c -->
-**v1.52** · updated 13 August 2026
+<!-- docstamp v1.53 | 2026-08-13 | sha=8ce8b8f6 -->
+**v1.53** · updated 13 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -23,12 +23,22 @@ All 13 maps are affected; the collision is simply the only one visible.
 
 Added `fontconfig` + `fc-cache -f` to the image. `render-parity-probe.mjs` gains a font-resolution
 check that measures the ink width of a run of `W` against a run of `i` and reports whether the face
-is proportional (~4) or monospace (~1) — no baseline, no threshold tuning — and fails under
-`--strict`. The previous conclusion (GO-LIVE.md §2.5) rested on the text probe's byte count moving,
-which records that something changed but never what it changed to; that section is corrected in place.
+is proportional (~4) or monospace (~1) — no baseline, no threshold tuning. That check is now wired
+into CI as `--strict-fonts` on the `image` job (`render-parity.yml`) specifically — not the plain
+`--strict` flag, and not the `runner` job — because it has no legitimate "differs but fine" outcome
+the way the baseline byte comparison does (Linux vs Windows glyph *shape* differs by design, see
+GO-LIVE.md §2.5, and gating on that would be a permanent false positive). Before this, the probe
+would have reported the same false PASS it gave on 2026-08-09; it can now fail a future build on
+this exact class of regression. The previous conclusion in GO-LIVE.md §2.5 rested on the text probe's
+byte count moving, which records that something changed but never what it changed to; that section
+is corrected in place rather than silently edited.
 
-Renders are stored files, so **this does not retro-fix anything already published** — every map needs
-re-rendering on the host after the image is deployed.
+Renders are stored files, so the Dockerfile fix alone did not touch anything already published.
+`scripts/rerasterize-stored.mjs` (new) re-encodes a stored SVG's existing JPG without re-running any
+generator or touching the SVG — the text layout was always correct, only the font used to rasterise
+it was wrong. Run with `--apply` against the live store 2026-08-13: **60/60 stored sheets across all
+13 maps re-rasterised, 0 failures.** Verified against the live bytes: Simpson Centre's title now ends
+12.3mm clear of the Services panel it was overlapping (Arial Bold predicted ~11mm clear).
 
 ### Fixed — Admin nav link missing on the map editor page — 2026-08-13
 

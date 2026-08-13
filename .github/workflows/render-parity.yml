@@ -13,8 +13,15 @@
 # problem is fonts missing from the image, not libvips — a one-line Dockerfile
 # fix rather than a platform problem.
 #
-# Advisory by design: it reports, it does not block. Add --strict once the
-# baseline is trusted and you want a red X on a regression.
+# Advisory on the BASELINE comparison by design: geometry/text bytes differing
+# from the Windows reference is expected forever on Linux (different glyph
+# outlines, see docs/GO-LIVE.md 2.5) and would be a permanent false positive.
+#
+# NOT advisory on font resolution. The image job runs with --strict-fonts
+# (2026-08-13, after fontconfig going missing sent every live sheet to
+# Liberation Mono for four days while this probe still reported PASS): whether
+# "Arial" resolved to a proportional face has no legitimate "differs but fine"
+# outcome, so that one check fails the build.
 
 name: render parity
 
@@ -59,8 +66,16 @@ jobs:
             'find / \( -name "*.ttf" -o -name "*.otf" \) 2>/dev/null | sort' | tee fonts-image.txt
           echo "count: $(wc -l < fonts-image.txt)"
 
+      # --strict-fonts (not --strict): the baseline byte comparison is expected
+      # to differ from the Windows reference forever (different glyph outlines by
+      # design, see docs/GO-LIVE.md 2.5) so gating on it would be a permanent
+      # false positive. Whether "Arial" resolved to a proportional face at all
+      # has no legitimate "differs but fine" outcome -- added 2026-08-13 after
+      # fontconfig going missing from the image sent every live sheet to
+      # Liberation Mono for four days and this probe still reported PASS,
+      # because nothing here failed the build on it.
       - name: Rasterise the probes inside the image
-        run: docker run --rm cbm-parity node scripts/render-parity-probe.mjs | tee probe-image.txt
+        run: docker run --rm cbm-parity node scripts/render-parity-probe.mjs --strict-fonts | tee probe-image.txt
 
       - name: Report
         if: always()

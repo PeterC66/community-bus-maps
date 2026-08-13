@@ -46,6 +46,14 @@ const BASELINE = path.join(HERE, 'render-parity-baseline.json');
 const args = new Set(process.argv.slice(2));
 const WRITE = args.has('--write-baseline');
 const STRICT = args.has('--strict');
+// Separate from --strict on purpose. The baseline byte comparison is EXPECTED to
+// differ between platforms (Windows real Arial vs Linux Liberation Sans has
+// different glyph outlines by design -- GO-LIVE.md 2.5) so failing CI on that
+// would be a permanent false positive with no fix available. Whether the
+// resolved face is proportional at all is not comparative, has no legitimate
+// "different but fine" outcome, and is exactly the class of bug this file exists
+// to catch -- so it gets its own flag and can safely gate CI on its own.
+const STRICT_FONTS = args.has('--strict-fonts') || STRICT;
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 
@@ -266,6 +274,11 @@ const verdict = {
 console.log(`\n${verdict}`);
 
 // The baseline comparison is advisory (Linux legitimately differs from the
-// Windows reference). The font check is not comparative at all — a monospace
-// fallback is wrong on every platform — so it is the one signal worth failing on.
-process.exit(STRICT && (worst !== 'identical' || !result.fontResolution.proportional) ? 1 : 0);
+// Windows reference) and only --strict fails on it. The font check has no
+// legitimate "differs but fine" outcome, so --strict-fonts alone is enough to
+// gate CI on it without also gating on the platform difference that can never
+// close.
+const fontsOK = result.fontResolution.proportional;
+process.exit(
+  (STRICT && worst !== 'identical') || (STRICT_FONTS && !fontsOK) ? 1 : 0,
+);

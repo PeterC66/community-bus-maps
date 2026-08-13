@@ -1,7 +1,7 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.13 | 2026-08-10 | sha=856a58e9 -->
-**v1.13** · updated 10 August 2026
+<!-- docstamp v1.14 | 2026-08-13 | sha=3875fefb -->
+**v1.14** · updated 13 August 2026
 
 **For:** the operator. **Status:** planning. Nothing deployed yet.
 

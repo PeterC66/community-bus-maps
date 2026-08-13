@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.9 | 2026-08-12 | sha=ff3d3dd9 -->
-**v1.9** · updated 12 August 2026
+<!-- docstamp v1.10 | 2026-08-13 | sha=4117d169 -->
+**v1.10** · updated 13 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -182,7 +182,7 @@ exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIV
 - **Content:** fresh database, one real customer (*BusMaps.uk (pilot)*), all 8 built towns + 5 built
   places imported via `scripts/deliver-map.mjs` and published via `scripts/publish-baseline.mjs` —
   see `GO-LIVE.md` §3 "Content on the live site".
-- **Deploy history:** `da66dc9` (2026-08-11, `0.9.2-pilot`) → `7603d39` (2026-08-12, `0.9.3-pilot`, both update-flow tranches) → `5e20950` (2026-08-12, admin org-reassignment, #28) → **`59f3a17` (2026-08-12, `0.9.3-pilot`)**, carrying H9 (#30), the P8a rebuild (#32) and `delete-map.mjs` (#33). `/health?deep=1` is the record of what is actually on the box — trust it over any document, including this one.
+- **Deploy history:** `da66dc9` (2026-08-11, `0.9.2-pilot`) → `7603d39` (2026-08-12, `0.9.3-pilot`, both update-flow tranches) → `5e20950` (2026-08-12, admin org-reassignment, #28) → `59f3a17` (2026-08-12, `0.9.3-pilot`, H9/#30, P8a rebuild/#32, `delete-map.mjs`/#33) → `e91b68c` (2026-08-13, #35 service-list link, #36 admin nav link) → **`3254c02`** (2026-08-13, **`fontconfig` fix — see CHANGELOG "the live host rendered every sheet in monospace"**, #37, then `scripts/rerasterize-stored.mjs --apply` run against all 13 maps/60 stored sheets to re-encode existing JPGs, same commit). `/health?deep=1` is the record of what is actually on the box — trust it over any document, including this one.
 
 ### Running the upgrade, as actually done (2026-08-12)
 
