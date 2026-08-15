@@ -1,7 +1,7 @@
 ﻿# Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.3 | 2026-08-13 | sha=ec5bdf0a -->
-**v1.3** · updated 13 August 2026
+<!-- docstamp v1.4 | 2026-08-15 | sha=617895b1 -->
+**v1.4** · updated 15 August 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -27,16 +27,13 @@ As approver/admin, open **`/app/review`** (the queue). Each submission gives you
 
 ## Step 3 — Complete the review checklist
 
-All six are **required** and **server-enforced** — you cannot publish with any unticked:
+All three are **required** and **server-enforced** — you cannot publish with any unticked (v5 of the checklist, consolidated from an earlier six-item version that had become a rubber-stamp exercise):
 
-1. **services** — at a glance, the services shown look right: no obviously wrong route numbers or destinations.
-2. **colours** — route colours are distinct and remain colour-blind friendly.
-3. **pois** — at a glance, the points of interest shown or hidden look right and nothing obvious is missing.
-4. **legible** — you have **viewed the full-size print (JPG)** and all text is legible.
-5. **accurate** — this is a visual check, not an independent verification against timetables; nothing here looks wrong or out of date.
-6. **alternative** — you have opened the map's **service list** (its text alternative, `/m/<slug>/services`), it matches the map, and the map page works from the keyboard. Arrived with P8a, when published maps got a public page worth reading online — see [`ACCESSIBILITY.md`](ACCESSIBILITY.md#before-publishing-a-map-part-of-the-sign-off).
+1. **appearance** — at a glance, the services shown, route colours, and points of interest look right on every sheet: no obviously wrong route numbers or destinations, colours stay distinct and colour-blind friendly, nothing obvious is missing.
+2. **legible** — you have **viewed the full-size prints (JPG)** and all text is legible.
+3. **alternative** — you have opened the map's **services and stops list** (its text alternative, `/m/<slug>/services`), it matches the map, and the map page works from the keyboard. Arrived with P8a, when published maps got a public page worth reading online — see [`ACCESSIBILITY.md`](ACCESSIBILITY.md#before-publishing-a-map-part-of-the-sign-off).
 
-This is a reasonableness check, not a re-derivation of the routes from source data — we don't routinely re-verify services or timings against BODS/operator timetables at this step. It still isn't box-ticking: item 4 means **actually opening the JPG**, not trusting the on-screen preview, and anything that looks off should be sent back rather than waved through.
+This is a reasonableness check, not a re-derivation of the routes from source data — we don't routinely re-verify services or timings against BODS/operator timetables at this step, and the screen says so beside the checklist rather than asking you to tick it. It still isn't box-ticking: item 2 means **actually opening the JPG**, not trusting the on-screen preview, and anything that looks off should be sent back rather than waved through.
 
 ## Step 4 — Decide
 
@@ -54,6 +51,6 @@ The public site serves the **published** pointer; edits in flight never reach th
 
 ## What-if
 
-- **Checklist won't submit** → an item is unticked (the server rejects an incomplete checklist; the UI disables **Publish** until 5/5).
+- **Checklist won't submit** → an item is unticked (the server rejects an incomplete checklist; the UI disables **Publish** until 3/3).
 - **You published something wrong** → that's an **incident** (**R6**, planned): roll the public-current pointer back to a known-good version, or push a corrected version through this gate. **Never** edit a served file in place.
 - **Empty queue** → submissions appear only after an editor submits; nothing to do.

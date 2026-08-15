@@ -81,7 +81,7 @@ function inspectHtml(inspect) {
   const imgs = jpgs.map((d) => `
     <figure class="inspect-fig">
       <a href="${d.url}" target="_blank" rel="noopener"><img loading="lazy" src="${d.url}" alt="${esc(d.file)}"></a>
-      <figcaption>${esc(d.file)} <a href="${d.url}?download" download>download</a></figcaption>
+      <figcaption>${esc(d.file)} <a href="${d.url}" target="_blank" rel="noopener">view full-size ↗ (opens in a new tab)</a> · <a href="${d.url}?download" download>download</a></figcaption>
     </figure>`).join('');
   const svgLinks = svgs.map((d) => `<a class="dl" href="${d.url}?download" download>⬇ ${esc(d.file)}</a>`).join(' ');
   return `<div class="inspect-grid">${imgs || '<p class="hint-line">No print files found for this version.</p>'}</div>
@@ -120,12 +120,13 @@ async function openReview(id) {
         ? ` <strong>One decision covers all ${sheets} sheets of this map</strong> — there is no way to publish one and hold another back.`
         : ''}</p>
       ${inspectHtml(body.inspect)}
+      <div class="dl-row" style="margin-top:8px"><a class="dl" href="/app/review-services.html?id=${r.id}" target="_blank" rel="noopener">↗ Open services and stops list (opens in a new tab)</a></div>
     </div>
 
     ${decided ? renderDecided(r) : `
     <div class="rd-section">
       <h3>Review checklist</h3>
-      <p class="hint-line"><a class="btn btn-ghost btn-sm" href="/app/review-services.html?id=${r.id}" target="_blank" rel="noopener">See the service list (this version) ↗</a> — checklist item 6 asks you to open it.</p>
+      <p class="hint-line">This is a visual check, not an independent verification against timetables — it confirms nothing here looks wrong or out of date, not that the underlying data was re-checked.</p>
       <div class="checklist" id="checklist">
         ${checklist.map((c) => `<label class="check-item"><input type="checkbox" data-cid="${esc(c.id)}"> <span>${esc(c.label)}</span></label>`).join('')}
       </div>

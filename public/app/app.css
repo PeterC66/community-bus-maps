@@ -434,9 +434,11 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
    priority order, which a sortable table would invite you to destroy. */
 .todo-band { margin: 18px 0 8px; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .todo-band:first-child { margin-top: 4px; }
-.todo-item { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; background: var(--surface); }
+.todo-item { display: block; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; background: var(--surface); color: inherit; text-decoration: none; }
 .todo-item.r0, .todo-item.r1, .todo-item.r2, .todo-item.r3 { border-left-color: var(--err); }
 .todo-item.r4, .todo-item.r5, .todo-item.r6, .todo-item.r7, .todo-item.r8 { border-left-color: var(--accent); }
+.todo-item-link { cursor: pointer; }
+.todo-item-link:hover { border-color: var(--primary); }
 .todo-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .todo-head .grow { flex: 1; }
 .todo-item .sub { color: var(--muted); font-size: .86rem; margin: 6px 0 0; }

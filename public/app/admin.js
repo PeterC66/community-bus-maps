@@ -131,7 +131,12 @@ LOADERS.todo = async () => {
   let band = null;
   for (const it of items) {
     if (it.band !== band) { band = it.band; html += `<h3 class="todo-band">${esc(band)}</h3>`; }
-    html += `<div class="todo-item r${it.rank}">
+    // A card whose only action is "go look at a portal page" can be the whole
+    // card's click target, same as the review queue. Cards with a shell command
+    // (a Copy button to hit) stay plain divs so that click isn't shadowed.
+    const singleUrl = it.do.length === 1 && it.do[0].kind === 'portal-ui' ? it.do[0].url : null;
+    const tag = singleUrl ? 'a' : 'div';
+    html += `<${tag} class="todo-item r${it.rank}${singleUrl ? ' todo-item-link' : ''}"${singleUrl ? ` href="${esc(singleUrl)}"` : ''}>
       <div class="todo-head">
         <span class="status-pill ${it.rank <= 3 ? 'rej' : it.rank <= 8 ? 'req' : 'prep'}">${esc(it.type)}</span>
         <strong>${esc(it.title)}</strong>
@@ -146,10 +151,10 @@ LOADERS.todo = async () => {
             <button class="btn btn-ghost btn-xs" data-copy-cmd="${esc(d.cmd)}">Copy</button>
             ${d.note ? `<span class="sub">${esc(d.note)}</span>` : ''}</div>`;
         }
-        if (d.kind === 'portal-ui') return `<div class="todo-step">→ ${esc(d.what)} <a class="btn btn-ghost btn-xs" href="${esc(d.url)}">Open</a></div>`;
+        if (d.kind === 'portal-ui') return `<div class="todo-step">→ ${esc(d.what)} ${singleUrl ? '<span class="muted">Open →</span>' : `<a class="btn btn-ghost btn-xs" href="${esc(d.url)}">Open</a>`}</div>`;
         return `<div class="todo-step">→ ${esc(d.what)}</div>`;
       }).join('')}
-    </div>`;
+    </${tag}>`;
   }
   box.innerHTML = html + `<p class="hint-line" style="margin-top:14px">${meta.actionable} of ${meta.total} waiting on you. Runbook references: R1 build · R2 onboarding · R3 review · R4 refresh.</p>`;
   box.querySelectorAll('button[data-copy-cmd]').forEach((btn) => btn.addEventListener('click', () => {

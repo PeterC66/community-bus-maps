@@ -1,11 +1,35 @@
 # Changelog
 
-<!-- docstamp v1.58 | 2026-08-15 | sha=4f5af686 -->
-**v1.58** · updated 15 August 2026
+<!-- docstamp v1.59 | 2026-08-15 | sha=1bd66c70 -->
+**v1.59** · updated 15 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Changed — review checklist consolidated to 3 items, plus 4 smaller review/admin UX fixes — 2026-08-15
+
+Five findings from a review pass over the publish and admin screens:
+
+- **Checklist 6 → 3** (`src/publish/index.js`, `CHECKLIST_VERSION` → 5). Six tickboxes had become a
+  rubber-stamp exercise — approvers were ticking through without reading past the first few. The
+  first three items (services, colours, POIs) merge into one `appearance` item; `legible` and
+  `alternative` are unchanged in substance; `accurate` (the "this is a visual check, not independent
+  verification" caveat) is no longer a tickbox — it never described something the approver *does*, it
+  describes a boundary on what the other checks mean, so it's now static text next to the checklist.
+  Runbook R3 updated to match.
+- **"Opens in a new tab" made explicit** on the JPG full-size link and the services/stops list link in
+  `/app/review` — neither said so before, so approvers could lose track of a window they needed to close.
+- **The services-list link moved** next to the download pills under "Inspect the print-ready output",
+  replacing the orphaned "checklist item 6 asks you to open it" note (which no longer made sense once
+  the numbering changed anyway) with a plain, discoverable "Open services and stops list" pill.
+- **Admin to-do cards are now the click target**, not just the small "Open" button inside them — matching
+  the review queue's whole-card-clickable pattern. Only applies to cards whose one action is a portal
+  link; cards with a shell command (a Copy button to hit) are unchanged.
+- **`opportunity.html` reworded** — "you do not need to have written the software — but you do need to
+  be able to read it, or to have someone who can" overstated what's actually required (the author
+  doesn't read the generated code either); now says the requirement is understanding how the software
+  is developed and maintained using AI, with a pointer to the succession note below it.
 
 ### Fixed — hero/maps search box unusable (28px wide) — found by a fresh Impeccable critique — 2026-08-15
 

@@ -1,5 +1,5 @@
 // Preview of a PENDING submission's own text alternative — the evidence
-// behind review checklist item 6 (`alternative`). Deliberately reads the
+// behind review checklist item 3 (`alternative`). Deliberately reads the
 // version under review, not the currently-published one (src/server.js
 // GET /api/review/:id/services), so an approver never signs off on a check
 // they actually ran against stale, already-public content.

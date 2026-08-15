@@ -91,7 +91,7 @@ export function buildWorklist({ baseUrl = process.env.PUBLIC_BASE_URL || '' } = 
       why: `${r.customer_name || 'unowned'} submitted it${r.requested_by_email ? ` (${r.requested_by_email})` : ''} and cannot go public until you approve or reject it.`,
       who: r.customer_name || 'unowned', ageDays: daysSince(r.created_at),
       where: url('/app/review'), runbook: 'R3',
-      do: [{ kind: 'portal-ui', what: 'Open the review queue, work the six-item checklist, approve or send back.', url: url('/app/review') }],
+      do: [{ kind: 'portal-ui', what: 'Open the review queue, work the three-item checklist, approve or send back.', url: url('/app/review') }],
     });
   }
 
