@@ -158,6 +158,14 @@ rules from the code. `.impeccable/critique/` holds dated critique snapshots (`/i
 right after found a live regression those very fixes had exposed — the hero/maps search input
 rendering 28px wide, unusable — which was found, fixed and deployed within that same session (see
 `CHANGELOG.md`). That second critique (`2026-08-15T05-10-40Z__public-index-html.md`) also found two
-still-open WCAG contrast fails (`.badge.place`, `.badge.extra` — amber-on-tint text, ~2.3:1) and a
-soft cognitive-load call on the "Who it's for" 5-card grid; read that snapshot before the next round
-of homepage work rather than assuming the earlier one is current.
+WCAG contrast fails (`.badge.place`, `.badge.extra` — amber-on-tint text, ~2.3:1) and a soft
+cognitive-load call on the "Who it's for" 5-card grid — **both fixed and deployed 2026-08-15** (see
+`CHANGELOG.md`'s "impeccable round-2 findings" entry): a new `--accent-tint-ink` token replaced
+`var(--accent)` as text-on-tint wherever that pattern occurred (including `.pill.amber`, which shared
+the bug but wasn't named in the critique), and the grid dropped to 4 cards. Remaining open items from
+that snapshot are P2/P3 only (uncontrolled emoji icon system, succession-risk section not bridging
+back) — lower priority, not yet scheduled.
+
+**Whenever `/impeccable critique` (or any command spawning its Assessment A/B sub-agents) runs here,
+pass `model: "opus"` on both sub-agent calls** — Peter's standing instruction, not specific to this
+repo.
