@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.10 | 2026-08-15 | sha=80b59a07 -->
-**v1.10** · updated 15 August 2026
+<!-- docstamp v1.11 | 2026-08-15 | sha=fa4c858a -->
+**v1.11** · updated 15 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -112,7 +112,8 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 `PRODUCT.md` and `DESIGN.md` at repo root are the Claude Code `/impeccable` skill's product/design
 authority for this repo — read them before any UI work rather than re-deriving audience or visual
 rules from the code. `.impeccable/critique/` holds dated critique snapshots (`/impeccable critique
-<target>`); the two P0 defects the first (2026-08-14) critique of the homepage found — the
-`.pilot-badge` contrast fail and the vanishing sign-in CTA — were both fixed 2026-08-15 (see
-`CHANGELOG.md`). That snapshot's remaining P1s (layout-overflow bugs, no CTA after the
-succession-risk disclosure, an oversized "Who it's for" grid) are still open.
+<target>`); every P0 and P1 the first (2026-08-14) critique of the homepage found were fixed
+2026-08-15 (see `CHANGELOG.md`). Only its Minor Observations remain open (uncontrolled emoji icon
+system, map images lacking "paper" framing in dark mode, missing width/height on `.map-list`
+thumbnails, the diagram "extra" cost badge having no magnitude, an ungrouped 10-link footer) — worth
+a `critique` re-run before the next round of homepage work rather than assuming the score still holds.

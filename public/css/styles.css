@@ -153,6 +153,7 @@ a:hover { text-decoration: underline; }
 .hero .cta { display: flex; gap: 12px; flex-wrap: wrap; }
 
 .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; }
+.hero-grid > * { min-width: 0; }
 @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; gap: 28px; } }
 .hero-shot { margin: 0; }
 .hero-shot img {
@@ -280,7 +281,7 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .search-block .search-label { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 6px; }
 .search-form { display: flex; gap: 8px; max-width: 480px; }
 .search-form input[type="search"] {
-  flex: 1; padding: 11px 13px;
+  flex: 1; min-width: 0; padding: 11px 13px;
   border: 1px solid var(--border); border-radius: 10px;
   background: var(--bg); color: var(--text); font: inherit; font-size: .98rem;
 }

@@ -1,11 +1,31 @@
 # Changelog
 
-<!-- docstamp v1.55 | 2026-08-15 | sha=04bc0eee -->
-**v1.55** · updated 15 August 2026
+<!-- docstamp v1.56 | 2026-08-15 | sha=61f81e5e -->
+**v1.56** · updated 15 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — the three Impeccable P1 defects from the first critique; version bumped to 0.9.4-pilot — 2026-08-15
+
+All three P1s from the 2026-08-14 homepage critique are fixed. The real cause of the "4 layout-
+overflow bugs" was a CSS Grid/Flexbox default: `.hero-grid`'s items and the hero search input had no
+`min-width: 0`, so their default `min-width: auto` let the search input's intrinsic content width
+stretch the whole grid track wider than the viewport at narrow widths (confirmed: 83px of horizontal
+overflow at 320px before the fix, 0px after, on both `/` and `/maps`, the two pages sharing the
+`.search-form` pattern). The "Who it's for" grid dropped from 6 cards to 5 by moving the "Not on this
+list?" catch-all out of the grid into a plain note below it — it was never one of the five kinds
+being enumerated, so treating it as a sixth peer card overstated the grid; the adjacent budget-worry
+sentence now resolves inline ("during the pilot there is no charge") instead of only linking to
+`/pricing.html`, reusing the same pilot claim already truthful elsewhere on this page. The page's
+closing "Or take it on yourself" section (the succession-risk disclosure) had no CTA after it before
+the footer; it now ends on the existing `.lead-cta` pattern with a primary link to
+`/opportunity.html` and a ghost mailto.
+
+Verified: `npm test` and the mechanical detector both clean (only the pre-existing advisory
+em-dash-density note, unrelated). `package.json` bumped `0.9.3-pilot` → `0.9.4-pilot` per
+`docs/GO-LIVE.md` §5's versioning policy; not yet deployed.
 
 ### Fixed — the two Impeccable P0 defects from the first critique — 2026-08-15
 
