@@ -12,6 +12,7 @@
   --primary-soft: #e8eefb;
   --accent: #e08a00;
   --accent-ink: #17202e;
+  --accent-tint-ink: #8a5700;
   --ok: #157347;
   --err: #b42318;
   --radius: 14px;
@@ -32,6 +33,7 @@
     --primary-ink: #0b1017;
     --primary-soft: #182238;
     --accent: #f4b451;
+    --accent-tint-ink: #ffd78a;
     --ok: #4ac07e;
     --err: #ff7a6b;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .35);
@@ -206,13 +208,13 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   color: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
 }
-.badge.place { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.badge.place { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-tint-ink); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 /* An output that is drawn by hand and therefore priced separately (the tube-map
    diagram). Wherever it is offered it carries this badge, so nobody discovers the
    cost after asking for it. */
 .badge.extra {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
+  color: var(--accent-tint-ink);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   text-transform: none;
   letter-spacing: 0;
@@ -249,7 +251,7 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 /* Complexity-triage bands. Colour carries meaning here, so each pill also says
    its own word — GREEN / AMBER / RED — rather than relying on the swatch. */
 .pill.green { background: color-mix(in srgb, var(--ok) 14%, transparent); border-color: color-mix(in srgb, var(--ok) 40%, transparent); color: var(--ok); font-weight: 700; }
-.pill.amber { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); font-weight: 700; }
+.pill.amber { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent-tint-ink); font-weight: 700; }
 .pill.red { background: color-mix(in srgb, var(--err) 12%, transparent); border-color: color-mix(in srgb, var(--err) 40%, transparent); color: var(--err); font-weight: 700; }
 
 /* ---------- forms ---------- */

@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — impeccable round-2 findings: badge/pill contrast, "Who it's for" grid — 2026-08-15
+
+- **`.badge.place`, `.badge.extra`, `.pill.amber` contrast (P0)**: all three reused `var(--accent)` as
+  *foreground text on the accent's own light tint background*, which fails WCAG AA (~2.3:1) even
+  though the same accent works fine as solid-fill text (`.pilot-badge`'s `--accent-ink` fix doesn't
+  apply here — that's white-on-solid, this is amber-on-amber-tint). Added a new `--accent-tint-ink`
+  token (`#8a5700` light / `#ffd78a` dark, ≥5:1 against the 14–16% tint backgrounds in both themes)
+  and switched all three tint-background amber usages to it.
+- **"Who it's for" 5-card grid (P1)**: dropped to 4 cognitive-load-threshold cards by folding
+  "Business & science parks" into the existing catch-all note, switched the grid from `cols-3` (which
+  would have orphaned a 5th card alone on its row) to `cols-2` for a clean 2×2, and added a "most
+  common" cue on the councils card per `PRODUCT.md`'s stated primary audience.
+
 ### Changed — review checklist consolidated to 3 items, plus 4 smaller review/admin UX fixes — 2026-08-15
 
 Five findings from a review pass over the publish and admin screens:
