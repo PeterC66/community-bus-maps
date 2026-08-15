@@ -7,6 +7,19 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — hero/maps search box unusable (28px wide) — found by a fresh Impeccable critique — 2026-08-15
+
+A second `/impeccable critique` of the homepage, run right after the P0/P1 fixes above, caught a live
+regression those very fixes had exposed: `.search-form`'s `<label>` was a direct flex-item sibling of
+the input and button, so it competed for row width instead of stacking above them. Before today's
+`min-width: 0` fix, the (buggy) grid track let the whole hero column overflow wide enough that the
+input still had room despite this; clamping the grid to the viewport correctly exposed the separate,
+pre-existing flex bug underneath it — live measurement showed the input rendering **28px** wide,
+unusable for typing a place name, on both `/` and `/maps`. Fixed with `flex-wrap` on `.search-form`
+and `flex: 1 0 100%` on the label so it always takes its own row (378px input at 480px form width,
+178px at 320px viewport, 0px overflow). `npm test` and the detector clean. Deployed live immediately
+given severity — this was broken in production for however long the P1 fixes had been live.
+
 ### Fixed — the three Impeccable P1 defects from the first critique; version bumped to 0.9.4-pilot — 2026-08-15
 
 All three P1s from the 2026-08-14 homepage critique are fixed. The real cause of the "4 layout-
