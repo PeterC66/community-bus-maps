@@ -112,8 +112,10 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 `PRODUCT.md` and `DESIGN.md` at repo root are the Claude Code `/impeccable` skill's product/design
 authority for this repo — read them before any UI work rather than re-deriving audience or visual
 rules from the code. `.impeccable/critique/` holds dated critique snapshots (`/impeccable critique
-<target>`); every P0 and P1 the first (2026-08-14) critique of the homepage found were fixed
-2026-08-15 (see `CHANGELOG.md`). Only its Minor Observations remain open (uncontrolled emoji icon
-system, map images lacking "paper" framing in dark mode, missing width/height on `.map-list`
-thumbnails, the diagram "extra" cost badge having no magnitude, an ungrouped 10-link footer) — worth
-a `critique` re-run before the next round of homepage work rather than assuming the score still holds.
+<target>`). The first (2026-08-14) critique's P0s and P1s were fixed 2026-08-15; a second critique run
+right after found a live regression those very fixes had exposed — the hero/maps search input
+rendering 28px wide, unusable — which was found, fixed and deployed within that same session (see
+`CHANGELOG.md`). That second critique (`2026-08-15T05-10-40Z__public-index-html.md`) also found two
+still-open WCAG contrast fails (`.badge.place`, `.badge.extra` — amber-on-tint text, ~2.3:1) and a
+soft cognitive-load call on the "Who it's for" 5-card grid; read that snapshot before the next round
+of homepage work rather than assuming the earlier one is current.
