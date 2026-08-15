@@ -10,6 +10,9 @@ slug: public-index-html
 ---
 # BusMaps.uk Homepage Critique — Run 2
 
+<!-- docstamp v1.0 | 2026-08-15 | sha=cca89493 -->
+**v1.0** · updated 15 August 2026
+
 Method: dual-agent (A: design-review sub-agent · B: detector/browser sub-agent)
 
 ## Design Health Score
