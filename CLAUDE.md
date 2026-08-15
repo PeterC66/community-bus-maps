@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.8 | 2026-08-12 | sha=9a52ff8f -->
-**v1.8** · updated 12 August 2026
+<!-- docstamp v1.10 | 2026-08-15 | sha=80b59a07 -->
+**v1.10** · updated 15 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -106,3 +106,12 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 - Server-enforced always; client-side checks are UX, not security.
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
 - Update `CHANGELOG.md` with what changed and why.
+
+## Design review (Impeccable)
+
+`PRODUCT.md` and `DESIGN.md` at repo root are the Claude Code `/impeccable` skill's product/design
+authority for this repo — read them before any UI work rather than re-deriving audience or visual
+rules from the code. `.impeccable/critique/` holds dated critique snapshots (`/impeccable critique
+<target>`); the most recent one flagged two unfixed defects worth checking before starting new
+frontend work — see the "Impeccable design-review tooling initialized" entry in `CHANGELOG.md`
+(2026-08-14) for what they are.

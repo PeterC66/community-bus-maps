@@ -1,11 +1,25 @@
 # Changelog
 
-<!-- docstamp v1.53 | 2026-08-13 | sha=8ce8b8f6 -->
-**v1.53** · updated 13 August 2026
+<!-- docstamp v1.55 | 2026-08-15 | sha=04bc0eee -->
+**v1.55** · updated 15 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — Impeccable design-review tooling initialized — 2026-08-14
+
+`PRODUCT.md` and `DESIGN.md` (plus `.impeccable/design.json`) now capture durable product truth and
+the incumbent visual system (North Star "The Council Noticeboard": plain/procedural, color used only
+semantically, pill controls vs. 14px containers, one shared ambient shadow) for the `/impeccable`
+Claude Code skill. Ran a first `/impeccable critique` against the shopfront homepage
+(`.impeccable/critique/2026-08-14T04-46-45Z__public-index-html.md`) — scored 23/28 (Good), and it
+caught a real, binding defect: `.pilot-badge` (`public/css/styles.css:416-426`) sets white text on the
+amber accent at 2.7:1 contrast against the 4.5:1 WCAG AA floor PRODUCT.md commits the whole portal
+to, on an element `site-banner.js` injects into every single page. Also found: `.btn-primary` is
+absent from the DOM entirely for a signed-in visitor who lands back on `/` (no redirect, no
+repointed CTA). Neither is fixed yet — next session should start with those two before anything else
+design-related.
 
 ### Fixed — the live host rendered every sheet in monospace — 2026-08-13
 

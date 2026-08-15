@@ -1,7 +1,7 @@
 ﻿# Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.2 | 2026-08-07 | sha=5d89e014 -->
-**v1.2** · updated 7 August 2026
+<!-- docstamp v1.3 | 2026-08-13 | sha=ec5bdf0a -->
+**v1.3** · updated 13 August 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 

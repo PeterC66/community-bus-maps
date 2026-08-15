@@ -1,7 +1,7 @@
 ﻿# Documentation development plan — the operator layer
 
-<!-- docstamp v1.5 | 2026-08-09 | sha=380ba1e1 -->
-**v1.5** · updated 9 August 2026
+<!-- docstamp v1.6 | 2026-08-13 | sha=8f88764e -->
+**v1.6** · updated 13 August 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 

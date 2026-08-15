@@ -35,3 +35,7 @@ Thumbs.db
 # ---- Editor ----
 .vscode/
 .idea/
+
+# ---- Impeccable (design-review skill): machine-local state, not shared config ----
+.impeccable/config.local.json
+.impeccable/live/

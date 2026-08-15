@@ -1,7 +1,7 @@
 ﻿# Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.5 | 2026-08-09 | sha=7ff96dc4 -->
-**v1.5** · updated 9 August 2026
+<!-- docstamp v1.6 | 2026-08-13 | sha=521bf8f1 -->
+**v1.6** · updated 13 August 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 

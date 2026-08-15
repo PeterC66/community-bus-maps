@@ -1,5 +1,8 @@
 # Accessibility — what we commit to, and how to check it
 
+<!-- docstamp v1.0 | 2026-08-13 | sha=a6d0125e -->
+**v1.0** · updated 13 August 2026
+
 *Operator-facing. The public statement is [`/accessibility.html`](../public/accessibility.html);
 this is the reasoning behind it and the checks that keep it true.*
 

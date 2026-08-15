@@ -1,7 +1,7 @@
 # Portal development plan — 12 August 2026
 
-<!-- docstamp v1.1 | 2026-08-12 | sha=27d58b77 -->
-**v1.1** · updated 12 August 2026
+<!-- docstamp v1.2 | 2026-08-13 | sha=e4cc23aa -->
+**v1.2** · updated 13 August 2026
 
 Plan only where marked `—`. Status is per item, so a later session can pick this up mid-flight —
 update the Status column as you go, don't just tick things off at the end.

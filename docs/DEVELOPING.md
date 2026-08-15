@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.11 | 2026-08-12 | sha=db2b6751 -->
-**v1.11** · updated 12 August 2026
+<!-- docstamp v1.12 | 2026-08-13 | sha=b38dab5a -->
+**v1.12** · updated 13 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
