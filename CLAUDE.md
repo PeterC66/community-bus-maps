@@ -107,6 +107,48 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
 - Update `CHANGELOG.md` with what changed and why.
 
+## Review checklist & admin to-do — 2026-08-15 session
+
+The publish checklist went from 6 items to 3 (`CHECKLIST_VERSION` 4→5, `src/publish/index.js`):
+`appearance` merges the old services/colours/pois items, `legible` and `alternative` are unchanged
+in substance, and the old `accurate` item ("this is a visual check, not independent verification")
+is no longer a tickbox — it never described something the approver *does*, so it's now static text
+next to the checklist. Runbook `docs/R3-review-and-publish.md` was rewritten to match. Same session
+also: labelled the JPG/services-list links as opening in a new tab; moved the services-list link next
+to the download pills instead of an orphaned "checklist item 6 asks you to open it" cross-reference;
+made admin to-do cards (`public/app/admin.js`) whole-card-clickable like the review queue, but only
+for cards whose one action is a single portal link — cards with a shell command keep their Copy
+button reachable; and reworded `opportunity.html`'s overstated "you do need to be able to read it"
+claim about the codebase.
+
+**Gotcha that cost a fix-then-redeploy cycle:** the string "checklist item 6" existed in *two* places
+— the dynamic note in `public/app/review.js` (caught first pass) and a hardcoded heading in
+`public/app/review-services.html` (missed first pass, only found by testing the live page
+end-to-end). **If checklist numbering or count ever changes again, `grep -rn "checklist item" public/
+docs/` before considering it done** — don't rely on having found review.js and assume that's the only
+place.
+
+Deployed to the live VPS in two steps: `b6760bb` (the consolidation), then hotfix `0b91d05` for the
+above gotcha. Both confirmed via `curl https://busmaps.uk/health?deep=1` showing the matching
+`gitSha`. **Testing the live review queue needs a real pending submission** — signing in alone isn't
+enough to exercise the checklist/Publish-button wiring. On 2026-08-15 there was a real one waiting
+(`Beaconsfield Simpson Centre` v2.0, submitted 2026-08-13) — it was opened and the checklist/Publish
+gating verified via JS (ticking boxes, checking `approveBtn.disabled`), but **never actually
+published** — completing a live publish/reject decision is Peter's call, not something to do as a
+side effect of UI testing.
+
+**Browser-pane testing notes for this app specifically:**
+- The dev-server magic-link DB read (`reference_portal_signin_without_console` memory) needs a
+  different path on the live VPS than locally: `docker compose exec -T portal node -e "...
+  DatabaseSync('/data/portal.sqlite', ...)..."` (container-internal path), not
+  `./data/portal.sqlite` (that's the laptop's dev path).
+- On the live site, `computer` clicks on the sign-in form and on `.queue-item` buttons sometimes
+  silently no-op (no request fires, no error) — most likely stale `ref`s after a page reload/redirect.
+  When a click that should cause a network request produces nothing in
+  `read_network_requests`, don't retry the same click — switch to `javascript_tool` and either
+  `fetch()` the endpoint directly or `document.querySelector(...).click()` on the real element; both
+  proved reliable when the `computer` tool's ref-based click didn't fire.
+
 ## Design review (Impeccable)
 
 `PRODUCT.md` and `DESIGN.md` at repo root are the Claude Code `/impeccable` skill's product/design
