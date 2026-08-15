@@ -7,6 +7,21 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Fixed — the two Impeccable P0 defects from the first critique — 2026-08-15
+
+Both defects the 2026-08-14 homepage critique found are now fixed. `.pilot-badge` used hardcoded
+white text on the amber accent (2.7:1, below the WCAG AA 4.5:1 floor); it now uses a new
+`--accent-ink` token (`#17202e`, ~6:1 on light-mode amber and ~9:1 on dark-mode amber — the same
+paired-token pattern `--primary`/`--primary-ink` already uses), fixing every page since the badge is
+injected site-wide by `site-banner.js`. Separately, `auth-status.js` used to remove the nav's "Apply
+to join" `.btn-primary` for a signed-in visitor and put nothing back in its place — a genuine
+vanishing-CTA dead end on `/`. It now replaces that slot with a `.btn-primary` "My maps" link to
+`/app`, and repoints every other "Apply to join" / "Register your interest" CTA on the page (hero,
+body) to "Go to my maps" → `/app` instead of leaving them pointed at an application the visitor has
+already made. Verified live against a signed-in session (magic-link token read from
+`data/portal.sqlite` per the usual no-console-access workaround); `npm test` and the mechanical
+detector are clean.
+
 ### Added — Impeccable design-review tooling initialized — 2026-08-14
 
 `PRODUCT.md` and `DESIGN.md` (plus `.impeccable/design.json`) now capture durable product truth and

@@ -14,7 +14,15 @@
 
     if (user) {
       // Already signed in — the "Apply to join" CTA is for prospective organisations.
+      // The nav copy is replaced by the whoami/My maps/Sign out group below, but any
+      // other "Apply to join" / "Register your interest" CTA on the page (hero, body)
+      // is repointed to /app rather than simply removed, so a signed-in visitor never
+      // lands on a primary CTA that leads back into an application they've already made.
       nav.querySelector('a[href="/apply.html"]')?.remove();
+      document.querySelectorAll('a.btn-primary[href="/apply.html"]').forEach((el) => {
+        el.href = '/app';
+        el.textContent = 'Go to my maps';
+      });
 
       const who = document.createElement('span');
       who.className = 'navlink';
@@ -22,7 +30,7 @@
       who.textContent = `Signed in as ${user.name || user.email}`;
 
       const appLink = document.createElement('a');
-      appLink.className = 'navlink';
+      appLink.className = 'btn btn-primary btn-sm';
       appLink.id = 'authAppLink';
       appLink.href = '/app';
       appLink.textContent = 'My maps';

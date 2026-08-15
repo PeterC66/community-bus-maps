@@ -11,6 +11,7 @@
   --primary-ink: #ffffff;
   --primary-soft: #e8eefb;
   --accent: #e08a00;
+  --accent-ink: #17202e;
   --ok: #157347;
   --err: #b42318;
   --radius: 14px;
@@ -422,7 +423,7 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   padding: 3px 9px;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 .pilot-text { flex: 1 1 320px; min-width: 0; }
 .pilot-link { flex: none; font-weight: 600; white-space: nowrap; text-decoration: underline; }

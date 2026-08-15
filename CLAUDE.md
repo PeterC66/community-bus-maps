@@ -112,6 +112,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 `PRODUCT.md` and `DESIGN.md` at repo root are the Claude Code `/impeccable` skill's product/design
 authority for this repo — read them before any UI work rather than re-deriving audience or visual
 rules from the code. `.impeccable/critique/` holds dated critique snapshots (`/impeccable critique
-<target>`); the most recent one flagged two unfixed defects worth checking before starting new
-frontend work — see the "Impeccable design-review tooling initialized" entry in `CHANGELOG.md`
-(2026-08-14) for what they are.
+<target>`); the two P0 defects the first (2026-08-14) critique of the homepage found — the
+`.pilot-badge` contrast fail and the vanishing sign-in CTA — were both fixed 2026-08-15 (see
+`CHANGELOG.md`). That snapshot's remaining P1s (layout-overflow bugs, no CTA after the
+succession-risk disclosure, an oversized "Who it's for" grid) are still open.
