@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.14 | 2026-08-15 | sha=04aba1ce -->
-**v1.14** · updated 15 August 2026
+<!-- docstamp v1.15 | 2026-08-15 | sha=3a61f6e9 -->
+**v1.15** · updated 15 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
