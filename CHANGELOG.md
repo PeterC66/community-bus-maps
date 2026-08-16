@@ -7,6 +7,28 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### Changed — engine re-vendored from the skill (design-quality Phase 8 item 3) — 2026-08-16
+
+- **All nine vendored engine files refreshed in one pass**: `engine/icons.js`, `engine/render.js`,
+  `engine/footer.js`, **`engine/labeller.js` and `engine/font_metrics.js` (new here)**,
+  `engine/place/gen_internal.js`, `engine/place/gen_external_places.js`,
+  `engine/expert/schematize_internal.js`, `engine/expert/diagram_internal.js`. This closes the
+  drift the bus-map skill's `changing-the-engine.md` had been holding open since 2026-07-28 while
+  the design-quality plan ran; the skill's `status.js` now reports every row **in sync**.
+- **`labeller.js` and `font_metrics.js` are not optional.** `place/gen_internal.js` requires
+  `labeller.js` at load time (resolved through `SKILL_ASSETS`, like `icons.js` and `footer.js`) and
+  `labeller.js` requires `font_metrics.js`, so vendoring the generator without them throws at
+  require time rather than failing a byte gate. They must always move together.
+- **No fixture needed refreshing.** The five place maps carry no `design` keys, so the engine's
+  absent-config-is-byte-identical invariant held and the vendored code reproduced the shipped
+  sheets exactly. `verify:area` (4 outputs, SVG and JPG), `verify:place` (3 outputs), `test:p7` and
+  `npm test` all PASS.
+- **`.env` `FIXTURE_DIR` repointed** to St Ives `v6.45_2026-08-16_2021` — it still named `v6.23`
+  from 2026-08-10, and `verify:area` warns when the pointer is not the newest render. `.env` is
+  git-ignored, so this is the only record: **a fresh clone must set it, or `npm run verify` exits 0
+  with "skipping" and proves nothing.**
+
+
 ### Fixed — impeccable round-2 findings: badge/pill contrast, "Who it's for" grid — 2026-08-15
 
 - **`.badge.place`, `.badge.extra`, `.pill.amber` contrast (P0)**: all three reused `var(--accent)` as
