@@ -1,7 +1,7 @@
 ﻿# Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.3 | 2026-08-07 | sha=5da9768e -->
-**v1.3** · updated 7 August 2026
+<!-- docstamp v1.4 | 2026-08-17 | sha=52c349c3 -->
+**v1.4** · updated 17 August 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -44,7 +44,7 @@ The customer sees it on their dashboard: an **old-vs-new preview** plus the diff
 ## Step 4 — Review + housekeeping
 
 - An accepted update is a new **draft** → review it (**R3**) so the public map advances.
-- Periodically clear settled staging: `npm run prune:staged -- --days 90 --dry-run`, then without `--dry-run` ([DEPLOY.md §6](DEPLOY.md)). It never touches a pending update, live data, or a rendered version.
+- Periodically clear settled staging: `npm run prune:staged -- --days 90` (dry run by default; add `--yes` to delete, [DEPLOY.md §6](DEPLOY.md)). It never touches a pending update, live data, or a rendered version.
 
 ## What-if
 

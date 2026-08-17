@@ -1,6 +1,7 @@
 ﻿// Reclaim space from settled monthly refreshes (P7 ops).
 //
-//   node scripts/prune-staged.mjs [--days 90] [--dry-run] [--quiet]
+//   node scripts/prune-staged.mjs [--days 90]              # dry run (default)
+//   node scripts/prune-staged.mjs [--days 90] --yes         # actually delete
 //
 // P5 keeps everything on purpose: an accepted refresh archives the data it
 // replaced (`maps/<id>/archive/`) and a declined or superseded one keeps its
@@ -25,7 +26,8 @@ const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
 };
-const dry = process.argv.includes('--dry-run');
+const yes = process.argv.includes('--yes');
+const dry = !yes;
 const quiet = process.argv.includes('--quiet');
 const days = Math.max(0, Number(arg('days', 90)));
 const say = (...a) => { if (!quiet) console.log(...a); };
@@ -81,5 +83,5 @@ if (!dry) {
 }
 
 say(`\n${dry ? 'Would free' : 'Freed'} ${mb(freed)} from ${removed} folder(s).`);
-if (dry) say('Re-run without --dry-run to delete.');
+if (dry) say('Dry run only — nothing deleted. Re-run with --yes to actually delete.');
 process.exit(0);

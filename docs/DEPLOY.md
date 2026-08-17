@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.12 | 2026-08-13 | sha=bf980524 -->
-**v1.12** · updated 13 August 2026
+<!-- docstamp v1.13 | 2026-08-17 | sha=17ea5f1b -->
+**v1.13** · updated 17 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -136,7 +136,7 @@ the round trip.
 ## 6. Housekeeping
 
 ```bash
-npm run prune:staged -- --days 90 --dry-run   # then without --dry-run
+npm run prune:staged -- --days 90             # dry run by default; add --yes to delete
 ```
 
 Removes staged payloads of **settled** monthly refreshes and the data an accepted refresh replaced, once they are older than `--days`. It never touches a pending update, a map's live data, or any rendered version. The Ops tab shows how much it would free.

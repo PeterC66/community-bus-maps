@@ -1,11 +1,19 @@
 # Changelog
 
-<!-- docstamp v1.62 | 2026-08-17 | sha=943c1463 -->
-**v1.62** · updated 17 August 2026
+<!-- docstamp v1.63 | 2026-08-17 | sha=5a98fe59 -->
+**v1.63** · updated 17 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Changed — `prune:staged` is dry-run by default — 2026-08-17
+
+- `scripts/prune-staged.mjs` used to delete for real unless you remembered to pass `--dry-run`.
+  Flipped to match `delete-map.mjs`: it now always dry-runs and prints a summary, and only deletes
+  when you pass `--yes`. Updated the usage comment and every doc that showed the old
+  `--dry-run`-then-remove-it invocation (`README.md`, `docs/DEPLOY.md`, `docs/R4-update-cycle.md`,
+  `docs/H1-operations-handbook.md`, `docs/ROADMAP.md`).
 
 ### Fixed — place maps get their own refresh flags, not their town's — 2026-08-17
 

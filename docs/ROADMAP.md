@@ -1,7 +1,7 @@
 ﻿# Roadmap & architecture
 
-<!-- docstamp v1.10 | 2026-08-13 | sha=40d8f0a8 -->
-**v1.10** · updated 13 August 2026
+<!-- docstamp v1.12 | 2026-08-17 | sha=c4d3f535 -->
+**v1.12** · updated 17 August 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
@@ -80,7 +80,7 @@ commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the co
   `main` with 36 conflicts; rebuilt from that branch as a spec, not merged from it. The SVG-vs-watermark
   question that branch left open turned out to already be settled by existing policy — see the P8a's
   open policy decisions bullet above and the CHANGELOG entry for what shipped.
-- **Staged-data retention.** ✅ **Done (P7)** — `npm run prune:staged` (`scripts/prune-staged.mjs`) removes the staged payloads of *settled* refreshes and the data an accepted refresh replaced, older than `--days`, with a `--dry-run`. Pending updates, live data and every rendered version are never touched; the admin **Ops** tab shows how much it would free. Run it from cron alongside `npm run backup`.
+- **Staged-data retention.** ✅ **Done (P7)** — `npm run prune:staged` (`scripts/prune-staged.mjs`) removes the staged payloads of *settled* refreshes and the data an accepted refresh replaced, older than `--days`. Dry run by default; pass `--yes` to actually delete. Pending updates, live data and every rendered version are never touched; the admin **Ops** tab shows how much it would free. Run it from cron alongside `npm run backup` — **a cron entry must carry `--yes` or it will report what it would free and delete nothing, for ever.**
 
 ## Key facts for continuation
 

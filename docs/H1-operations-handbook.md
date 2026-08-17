@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.13 | 2026-08-12 | sha=d2e30069 -->
-**v1.13** · updated 12 August 2026
+<!-- docstamp v1.14 | 2026-08-17 | sha=6aa04d1e -->
+**v1.14** · updated 17 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -155,7 +155,7 @@ npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) an
 npm test                 # P6 + P7 + lifecycle-seam tests
 npm run verify           # byte-identical gate (needs FIXTURE_DIR + PLACE_FIXTURE_DIR)
 npm run backup -- --out /backups --keep 14      # server may stay up (VACUUM INTO)
-npm run prune:staged -- --days 90 --dry-run     # then without --dry-run
+npm run prune:staged -- --days 90               # dry run by default; add --yes to delete
 # server STOPPED for these (one writer):
 node scripts/import-map.mjs --src "<S5-render dir>" --name "…" --slug … --kind area|place --customer "…"
 node scripts/import-map.mjs --list-requests      # approved requests awaiting a build

@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.12 | 2026-08-12 | sha=2f47207c -->
-**v1.12** · updated 12 August 2026
+<!-- docstamp v1.13 | 2026-08-17 | sha=e69c9c50 -->
+**v1.13** · updated 17 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -132,7 +132,7 @@ The diagram's automatic layout can be hand-tuned by an **admin** at **`/app/maps
 ```bash
 curl -fsS localhost:5180/health?deep=1     # readiness: DB + object store + engine + rasteriser
 npm run backup -- --keep 14                # consistent SQLite copy + per-map data/renders
-npm run prune:staged -- --days 90 --dry-run # reclaim settled refresh data
+npm run prune:staged -- --days 90           # reclaim settled refresh data (dry run by default; add --yes)
 ```
 
 `/health?deep=1` returns **503** when a dependency is unhealthy (the container `HEALTHCHECK` uses it); `/metrics` serves Prometheus text when `METRICS_TOKEN` is set (404 otherwise); and **admin → Ops** shows dependency health, per-map disk usage and what a prune would reclaim. Deployment (container, systemd, reverse proxy, backup schedule and a **restore drill**) is in [`docs/DEPLOY.md`](docs/DEPLOY.md); the licensing launch gate is [`docs/LICENSING.md`](docs/LICENSING.md).
