@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.15 | 2026-08-15 | sha=3a61f6e9 -->
-**v1.15** · updated 15 August 2026
+<!-- docstamp v1.16 | 2026-08-17 | sha=2b0bdbe9 -->
+**v1.16** · updated 17 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -148,6 +148,27 @@ side effect of UI testing.
   `read_network_requests`, don't retry the same click — switch to `javascript_tool` and either
   `fetch()` the endpoint directly or `document.querySelector(...).click()` on the real element; both
   proved reliable when the `computer` tool's ref-based click didn't fire.
+
+## The monthly BODS scan now names places — 2026-08-17
+
+`scripts/check-upcoming-refreshes.mjs` cross-references the Buses side's `upcoming-report_*.md`
+against portal maps. That report used to contain **towns only**, and a place map was matched to its
+town's section by substring on `map.subject`. Both halves changed:
+
+- The report now carries `## <Place> — <verdict>` sections with a `_kind place · region … · town … ·
+  radius … km_` meta line. `parseSections` reads that into `{name, kind, parent, region, radiusKm}`
+  and still fills `section.town` for anything that only knew about towns.
+- **Join exactly, per kind** (`mapsForSection`). `mapsForSectionLegacy` exists only for reports
+  written before this change, selected by `reportHasPlaces(sections)` — do not reintroduce the
+  substring rule for current reports. Why it mattered is not duplicate messages (those dedup per map
+  per report date) but that the matched section seeds the map's **public** banner via
+  `setMapBannerNoteAuto`: the Aldi map would have advertised a new service that does not serve it.
+
+Two traps if you touch this: the verdict is parsed field-by-field because a `2 to verify` section
+(0 actionable) silently vanished under the old all-or-nothing regex; and the report is written on
+Windows, so every parser here must tolerate CRLF — that has bitten this file before. `npm run
+test:upcoming-join` covers all of it, and its legacy assertions are meant to prove the old behaviour
+was wrong, so don't "tidy" them away.
 
 ## Design review (Impeccable)
 

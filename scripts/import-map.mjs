@@ -38,7 +38,7 @@ import {
 } from '../src/db/index.js';
 import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
-import { newestReportPath, parseSections, sectionsForTown, bannerNoteFor } from './lib/upcoming-report.mjs';
+import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 
@@ -282,7 +282,7 @@ setCurrentVersion(id, versionId);
 try {
   const reportPath = newestReportPath();
   if (reportPath) {
-    const sections = sectionsForTown(parseSections(readFileSync(reportPath, 'utf8')), subject || name);
+    const sections = sectionsForMap(parseSections(readFileSync(reportPath, 'utf8')), { kind, name, subject });
     const banner = sections.length ? bannerNoteFor(sections.flatMap((s) => s.bullets)) : null;
     if (banner) {
       setMapBannerNoteAuto(id, banner);

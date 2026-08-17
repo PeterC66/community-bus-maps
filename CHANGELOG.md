@@ -1,11 +1,42 @@
 # Changelog
 
-<!-- docstamp v1.61 | 2026-08-16 | sha=22e95f41 -->
-**v1.61** · updated 16 August 2026
+<!-- docstamp v1.62 | 2026-08-17 | sha=943c1463 -->
+**v1.62** · updated 17 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Fixed — place maps get their own refresh flags, not their town's — 2026-08-17
+
+- **The monthly BODS scan now reports places as well as towns.** `gtfs_upcoming.py` (bus-map skill
+  side) discovers every built place map from its manifest and scans it against **its own** service
+  radius, emitting a `## <Place> — <verdict>` section with a `_kind place · region … · town … ·
+  radius … km_` meta line. Nothing here is registered by hand: the towns registry
+  (`town_prefixes.json`) drifts, and places are added far more often than towns.
+- **`parseSections` no longer silently drops a "to verify"-only section.** The heading regex
+  required `— (\d+) upcoming`, so a verdict of `2 to verify` (0 actionable, some `[ENDS?]`) matched
+  nothing and vanished. On the 2026-08-17 report that hid St Ives entirely. A possible withdrawal
+  is exactly the advance notice the scan exists to give.
+- **Flags and public banners are now attributed to the right map.** Place maps used to be matched
+  to their TOWN's section by substring on `map.subject`. Duplicate messages were never the risk
+  (they dedup per map per report date) — the damage was that `setMapBannerNoteAuto` seeds the
+  **public** "changes coming" banner from the matched section, so the High Wycombe Aldi map would
+  have advertised `[NEW] WW1`, a new service that does not serve that store, while the two changes
+  that do affect it (M40, X74) were demoted to "+2 more". `mapsForSection` now joins exactly, per
+  kind; `mapsForSectionLegacy` is kept and used only for reports written before places had sections.
+- **Silence is now reported as a coverage hole, not read as good news.** `parseSections` keeps
+  quiet ("nothing upcoming") sections and marks them `actionable: false`, which is what lets
+  `unscannedPlaceMaps()` tell a place map that was *scanned and is clear* from one the scan **never
+  looked at** — the latter now prints a warning naming each map. Exact joins are stricter than
+  substring ones, so this is the failure mode the change introduces, and it is the one thing that
+  must not be silent.
+- **New gate `scripts/test-upcoming-join.mjs`** (in `npm test`, or `npm run test:upcoming-join`).
+  Its legacy assertions deliberately reproduce the old wrong banner, so the fix is measured against
+  a check that can go red rather than one that was always green.
+- `scripts/import-map.mjs` uses `sectionsForMap` in place of `sectionsForTown` when seeding a new
+  map's banner. No rendered sheet changes: `npm test` and `npm run verify` (area + place) both PASS
+  byte-identical.
 
 ### Changed — engine re-vendored from the skill (design-quality Phase 8 item 3) — 2026-08-16
 
