@@ -229,6 +229,40 @@ wrong-file trap this took two attempts to notice (mutating `engine/place/gen_int
 the AREA fixture's own bundled copy) is now also recorded as a fourth trap in the Buses repo's
 `Documentation\README - How to enhance the system.md`, "The duplication map" section.
 
+## RESOLVED — `FIXTURE_DIR` is a list, and the gate that reads it wrong told nobody — 2026-08-18
+
+**One fixture can't test thirteen keys, once a fix elsewhere changes what any single town needs.**
+The Buses-side legend measurement fix (see `open-actions.md`'s "In progress" section, same date)
+narrowed every external legend panel by ~5mm, which let it *fit* where Beaconsfield and St Ives
+already configure it — so `design.legendPlace:false` stopped changing anything on those two towns
+specifically. Not dead code: measured across all eight towns, `legendPlace` bites on Huntingdon
+alone, `badgeFit` on five towns but not Huntingdon, `hubFit` on seven but not March. **No single
+fixture covers all thirteen keys**, and the alternative — another cited `KEYS` exclusion like the
+PLACE-side `hubFit` above — is a cost every time: an excluded key is a key nothing tests, and
+`legendPlace` is the worst possible candidate for that (it's the key whose absence let
+`design.spokeSpread` bury 62 pieces of artwork across six towns while every defect metric went down).
+
+**Landed:** `FIXTURE_DIR` is now `;`-separated (`.env.example` documents the format and gives a
+worked three-town example). `verify-reproduce-defaults.mjs`/`-place-defaults.mjs` build against
+every fixture in the list and a key passes if it moves ink on **any** of them — "this escape hatch
+is live code" is a property of the engine, not of one town. Chosen combination for the area side:
+St Ives, Huntingdon, Beaconsfield — between them they cover all thirteen keys.
+
+**Splitting the env var broke the OTHER gate that reads it, silently, and that's the part worth
+remembering.** `verify-reproduce.mjs` (the plain byte-identical check) ran `existsSync()` on the
+whole `;`-joined string — never a real path — so it started printing "FIXTURE_DIR not set or
+missing — skipping" and exiting **0**, with the renderer determinism check simply not running,
+while `npm run verify` stayed green the entire time. This is the exact "a green run in a clean
+checkout proves nothing about the renderer" trap this file's own header already names — a second,
+independent instance of it inside one session. **It was caught by counting `RESULT:` lines in the
+verify output (three where there should have been four), not by the exit code, which was 0
+throughout.** Any script reading `FIXTURE_DIR` now needs to split the list itself
+(`(process.env.FIXTURE_DIR||'').split(';').map(f=>f.trim()).filter(Boolean)`) rather than treating
+it as a single path — check for this if a new consumer of the variable is ever added.
+
+Confirmed working the same way as everything else in this file: `npm run verify` now prints four
+real `RESULT:` lines with real byte counts, not a skip message, and `npm test` passes.
+
 ## Design review (Impeccable)
 
 `PRODUCT.md` and `DESIGN.md` at repo root are the Claude Code `/impeccable` skill's product/design
