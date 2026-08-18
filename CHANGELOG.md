@@ -1,11 +1,30 @@
 # Changelog
 
-<!-- docstamp v1.64 | 2026-08-18 | sha=d3771076 -->
-**v1.64** · updated 18 August 2026
+<!-- docstamp v1.65 | 2026-08-18 | sha=e232fd70 -->
+**v1.65** · updated 18 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### Added — `verify:defaults` proves the design escape hatches aren't dead code — 2026-08-18
+
+- **New gate**: `npm run verify` now also runs `verify:defaults` (`scripts/verify-reproduce-defaults.mjs`
+  + `scripts/verify-reproduce-place-defaults.mjs`), built 2026-08-17. It builds each fixture once
+  as-is, then once per `design:{key:false}` / `labels:{engine:"v1"}` escape hatch, and asserts every
+  variant differs from as-is on at least one sheet — proving the second invariant in this file
+  ("absent config ⇒ previous behaviour") that nothing in `npm run verify` had ever tested. Two earlier
+  designs were tried and proven wrong by deliberately breaking a key and watching the gate stay green
+  (full account in `verify-reproduce-defaults.mjs`'s header and `CLAUDE.md`'s resolved WIP note).
+- **`hubFit` excluded from the PLACE-side check, with a cited reason**: the `High Wycombe Aldi` fixture
+  can't exercise it — both the `hubFit`-on and legacy-off `HUB_W` formulas in `gen_external_places.js`
+  reduce to the same 26mm floor for a 4-character place name, so the two codepaths are byte-identical
+  for this one place regardless of what the key does. Confirmed via an isolated re-run against the
+  unmutated engine and by reading `HUB_W`'s two branches directly; corroborated by the AREA-side gate
+  (`St Ives`), where `hubFit` genuinely differs. See `CLAUDE.md` for the full record.
+- `.env`'s `FIXTURE_DIR` repointed to a fresh `St Ives` render and `Buses/Places/_portal-fixture/High
+  Wycombe Aldi/routes.json` refreshed to match G5's `design:{}`/`labels:{}` convention, so the new gate
+  runs against current, not stale, fixture config.
 
 ### Changed — public text follows current bus policy, not the 2021 strategy — 2026-08-18
 

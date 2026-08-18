@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.18 | 2026-08-18 | sha=6d2cc3a7 -->
-**v1.18** · updated 18 August 2026
+<!-- docstamp v1.19 | 2026-08-18 | sha=50122c59 -->
+**v1.19** · updated 18 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -88,8 +88,13 @@ fail, the change is wrong.
 
 ```bash
 npm test          # P6 public front, P7 expert styles, request→publish→revert lifecycle
-npm run verify    # byte-identical reproduce, area + place (needs the fixture dirs)
+npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (needs the fixture dirs)
 ```
+
+`npm run verify` is `verify:area && verify:place && verify:defaults`. The last of those proves every
+`design:{key:false}` / `labels:{engine:"v1"}` escape hatch actually changes rendered output on at
+least one sheet — i.e. none of them are dead code. One key, `hubFit`, is excluded from the PLACE-side
+check with a cited reason; see the resolved note below before touching that exclusion.
 
 If `verify` reports the SVG DIFFERS by a few hundred bytes, suspect a lost `stamp: false` in the
 verify scripts before you suspect the generator. Never relax a gate to make it pass.
@@ -170,13 +175,13 @@ Windows, so every parser here must tolerate CRLF — that has bitten this file b
 test:upcoming-join` covers all of it, and its legacy assertions are meant to prove the old behaviour
 was wrong, so don't "tidy" them away.
 
-## WORK IN PROGRESS, not committed — `npm run verify:defaults` — 2026-08-17
+## RESOLVED — `npm run verify:defaults` — landed 2026-08-18, built 2026-08-17
 
-**Uncommitted in this working tree right now**: `scripts/verify-reproduce-defaults.mjs`,
-`scripts/verify-reproduce-place-defaults.mjs` (new files), `package.json`'s `verify`/`verify:defaults`
-scripts, `.env`'s `FIXTURE_DIR` (repointed to a fresh render), and a refreshed
-`Buses/Places/_portal-fixture/High Wycombe Aldi/routes.json`. **Do not run `npm run verify` and
-assume a FAIL means a real regression until the open item below is resolved** — see it first.
+Landed: `scripts/verify-reproduce-defaults.mjs`, `scripts/verify-reproduce-place-defaults.mjs`,
+`package.json`'s `verify`/`verify:defaults` scripts, `.env`'s `FIXTURE_DIR` (repointed to a fresh
+render), and the refreshed `Buses/Places/_portal-fixture/High Wycombe Aldi/routes.json`. `npm run
+verify` now runs clean end to end (exit 0, all four PASS) — see the resolved `hubFit` item below
+before touching the PLACE-side `KEYS` exclusion it depends on.
 
 **Why this exists.** Flagged by another session: `npm run verify` (area + place) can only ever prove
 determinism against whatever config a fixture happens to carry, and every fixture's `routes.json` now
@@ -205,29 +210,24 @@ reason. Once mutated in the right file, deleting `iconSet`'s escape hatch correc
 **exactly one row, `iconSet`, on both the area-side and place-side gates**, with the other twelve
 staying green — proof the per-key isolation works, not just that something changed somewhere.
 
-**OPEN ITEM, left here on purpose (Peter's instruction, 2026-08-17): the place-side gate has one
-apparent false positive.** `verify-reproduce-place-defaults.mjs` reports `hubFit` as "IDENTICAL on
-every sheet" against the `High Wycombe Aldi` fixture — **without any deliberate mutation**, i.e. on
-the CURRENT, un-broken engine. Very likely NOT a bug: item 3b's session already found and documented
-that "Aldi" is short enough to hit the 26mm hub-box floor under BOTH the `hubFit` and legacy sizing
-formulas, so the two are byte-identical for this one place regardless of whether the engine's `hubFit`
-code is doing anything at all — see `design-quality.md`'s "The PLACE external" section, `HUBFIT`. That
-would make this a genuine **untestable-by-this-fixture** case, not dead code. **Needs confirming, not
-re-investigating from scratch**: revert any stray mutation first (`git diff engine/place/gen_internal.js`
-should be empty), run `node --env-file-if-exists=.env scripts/verify-reproduce-place-defaults.mjs`
-alone, and check whether `hubFit` is STILL "IDENTICAL" with nothing broken. If so, exclude it from the
-`KEYS` list in `verify-reproduce-place-defaults.mjs` with a comment citing this paragraph and the
-`design-quality.md` finding — do not silence it by weakening the assertion for every key, only this one,
-and only with a cited reason. If the isolated re-run instead shows hubFit CHANGING something (meaning
-this note's hypothesis is wrong), treat it as a live gate failure and investigate the generator, not the
-test.
+**RESOLVED 2026-08-18: the place-side `hubFit` false positive, confirmed and excluded.**
+`verify-reproduce-place-defaults.mjs` reported `hubFit` as "IDENTICAL on every sheet" against the
+`High Wycombe Aldi` fixture with no deliberate mutation, on the current, un-broken engine. Confirmed
+two ways before excluding it: (1) an isolated re-run (`git diff engine/place/gen_internal.js` empty,
+gate run alone) reproduced the same result — `hubFit` the only FAIL among 12 keys, all others DIFFER;
+(2) reading `HUB_W` in `gen_external_places.js` directly shows the `hubFit`-on and legacy-off formulas
+are both `Math.max(26, ...)`, and "Aldi" (4 characters) is short enough that the 26mm floor wins under
+both — so the two codepaths are provably byte-identical for this one place, regardless of what
+`hubFit` does. Independent corroboration: the AREA-side gate (`St Ives`, longer names) shows `hubFit`
+genuinely DIFFERS on `external.svg` — the key is live code, just untestable by this one PLACE fixture.
+`hubFit` is now excluded from `verify-reproduce-place-defaults.mjs`'s `KEYS` list with a comment citing
+this paragraph. A fixture with a longer place name would cover it; none exists yet.
 
-**Before landing any of this:** the `hubFit` item above must be resolved (excluded-with-reason or fixed)
-so `npm run verify` does not FAIL on a healthy tree — a gate that cries wolf gets ignored, this repo's
-own `fixture-freshness.mjs` says so in as many words. Then: re-run the full `npm run verify` chain
-clean, add `verify:defaults` to the "Gates to run" section above, note it in `CHANGELOG.md`, and check
-whether the Buses repo's `Documentation\README - How to enhance the system.md` or `gotchas.md` want a
-line about the fixture-vs-vendored-copy trap this took two attempts to notice.
+`npm run verify` now passes clean end to end (exit 0, all four PASS: `verify:area`, `verify:place`,
+and both halves of `verify:defaults`). `verify:defaults` is in the "Gates to run" section above. The
+wrong-file trap this took two attempts to notice (mutating `engine/place/gen_internal.js` instead of
+the AREA fixture's own bundled copy) is now also recorded as a fourth trap in the Buses repo's
+`Documentation\README - How to enhance the system.md`, "The duplication map" section.
 
 ## Design review (Impeccable)
 
