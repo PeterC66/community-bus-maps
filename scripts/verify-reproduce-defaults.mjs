@@ -34,18 +34,44 @@
 // that the absent path and an explicit-true path agree (no fixture anywhere
 // carries explicit `true` any more, on purpose — see gotchas.md).
 //
-// Skips cleanly (exit 0) when FIXTURE_DIR is unset or missing.
+// A KEY MAY NEED MORE THAN ONE FIXTURE, and FIXTURE_DIR is therefore a LIST
+// (`;`-separated — not `:`, because these are Windows absolute paths). A key
+// passes when it changes at least one sheet on at least ONE fixture: "this
+// escape hatch is live code" is a property of the ENGINE, not of any one town,
+// and no single town can exercise all thirteen.
+//
+// That is not a convenience, it is the difference between a real gate and an
+// exclusion list. Measured 2026-08-18 across all eight towns: `legendPlace`
+// bites on Huntingdon alone, `badgeFit` on five towns but not Huntingdon,
+// `hubFit` on seven but not March. Pick any single fixture and at least one key
+// reports dead. The precedent for the alternative is the `hubFit` exclusion on
+// the PLACE side, which was correct there (one four-character place name makes
+// two codepaths provably identical) but is a cost every time: an excluded key is
+// a key nothing tests. `legendPlace` in particular is the key whose absence let
+// design.spokeSpread bury 62 pieces of artwork across six towns while every
+// defect metric went down — the last one to leave untested.
+//
+// Why the fixtures stopped agreeing, for the record: the 2026-08-18 legend
+// measurement fix made the panel 5mm narrower on Beaconsfield and St Ives, which
+// let it FIT where those towns configure it, so the placement search no longer
+// moves it and forcing the search off changes nothing. The key did not die; the
+// sheets stopped needing it.
+//
+// Skips cleanly (exit 0) when FIXTURE_DIR is unset or no entry in it exists.
 
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ENGINE_DIR, generateSvg } from '../src/render/renderMap.js';
 
-const FIXTURE = process.env.FIXTURE_DIR;
+const FIXTURES = (process.env.FIXTURE_DIR || '')
+  .split(';')
+  .map((f) => f.trim())
+  .filter((f) => f && existsSync(f));
 const ICONS = process.env.SKILL_ASSETS || ENGINE_DIR;
 const n = (x) => Number(x).toLocaleString('en-GB');
 
-if (!FIXTURE || !existsSync(FIXTURE)) {
+if (!FIXTURES.length) {
   console.log('· verify-reproduce-defaults: FIXTURE_DIR not set or missing — skipping.');
   process.exit(0);
 }
@@ -71,69 +97,98 @@ const KEYS = [
   ['labels.engine', { labels: { engine: 'v1' } }],
 ];
 
-const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-defaults-'));
-cpSync(FIXTURE, scratch, { recursive: true });
-const routesPath = path.join(scratch, 'routes.json');
-const baseRoutesJson = JSON.parse(readFileSync(routesPath, 'utf8'));
-
 console.log('Escape-hatch reproduce test — proves EACH design:{key:false} / labels:{engine:"v1"} still changes the output on its own');
-console.log('  fixture :', FIXTURE);
+for (const f of FIXTURES) console.log('  fixture :', f);
 console.log('');
 
-const targets = [
-  ['gen_internal.js', 'internal.svg'],
-  ['gen_external.js', 'external.svg'],
-];
-const EXPERT = path.join(ENGINE_DIR, 'expert');
-if (baseRoutesJson.internalSchematic) targets.push([path.join(EXPERT, 'gen_internal_schematic.js'), 'internal-schematic.svg']);
-if (baseRoutesJson.internalDiagram) targets.push([path.join(EXPERT, 'gen_internal_diagram.js'), 'internal-diagram.svg']);
+// One fixture's verdict per key: the sheets it changed, or [] for none.
+function runFixture(fixture) {
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-defaults-'));
+  cpSync(fixture, scratch, { recursive: true });
+  const routesPath = path.join(scratch, 'routes.json');
+  const baseRoutesJson = JSON.parse(readFileSync(routesPath, 'utf8'));
 
-function buildAll() {
-  const out = {};
-  for (const [gen] of targets) {
-    const { svgPath, svgName } = generateSvg({ dataDir: scratch, generator: gen, iconsDir: ICONS, stamp: false });
-    out[svgName] = readFileSync(svgPath);
+  const targets = [
+    ['gen_internal.js', 'internal.svg'],
+    ['gen_external.js', 'external.svg'],
+  ];
+  const EXPERT = path.join(ENGINE_DIR, 'expert');
+  if (baseRoutesJson.internalSchematic) targets.push([path.join(EXPERT, 'gen_internal_schematic.js'), 'internal-schematic.svg']);
+  if (baseRoutesJson.internalDiagram) targets.push([path.join(EXPERT, 'gen_internal_diagram.js'), 'internal-diagram.svg']);
+
+  const buildAll = () => {
+    const out = {};
+    for (const [gen] of targets) {
+      const { svgPath, svgName } = generateSvg({ dataDir: scratch, generator: gen, iconsDir: ICONS, stamp: false });
+      out[svgName] = readFileSync(svgPath);
+    }
+    return out;
+  };
+
+  const result = {};
+  let asIs;
+  try {
+    asIs = buildAll();
+  } catch (e) {
+    rmSync(scratch, { recursive: true, force: true });
+    throw new Error(`building as-is from ${fixture}: ${e.message}`);
   }
-  return out;
+
+  for (const [keyName, patch] of KEYS) {
+    const forced = {
+      ...baseRoutesJson,
+      design: { ...(baseRoutesJson.design || {}), ...(patch.design || {}) },
+      labels: { ...(baseRoutesJson.labels || {}), ...(patch.labels || {}) },
+    };
+    writeFileSync(routesPath, JSON.stringify(forced, null, 2));
+    try {
+      const built = buildAll();
+      result[keyName] = targets.map(([, s]) => s).filter((s) => !asIs[s].equals(built[s]));
+    } catch (e) {
+      result[keyName] = { error: e.message };
+    }
+    writeFileSync(routesPath, JSON.stringify(baseRoutesJson, null, 2));
+  }
+  rmSync(scratch, { recursive: true, force: true });
+  return result;
 }
 
-let asIs;
-try {
-  asIs = buildAll();
-} catch (e) {
-  console.log(`ERROR building as-is: ${e.message}`);
-  rmSync(scratch, { recursive: true, force: true });
-  process.exit(1);
+const perFixture = [];
+for (const f of FIXTURES) {
+  try {
+    perFixture.push([f, runFixture(f)]);
+  } catch (e) {
+    console.log(`ERROR ${e.message}`);
+    process.exit(1);
+  }
 }
 
 let headlineOK = true;
-for (const [keyName, patch] of KEYS) {
-  const forced = {
-    ...baseRoutesJson,
-    design: { ...(baseRoutesJson.design || {}), ...(patch.design || {}) },
-    labels: { ...(baseRoutesJson.labels || {}), ...(patch.labels || {}) },
-  };
-  writeFileSync(routesPath, JSON.stringify(forced, null, 2));
-  let built;
-  try {
-    built = buildAll();
-  } catch (e) {
-    console.log(`— ${keyName}\n   ERROR: ${e.message}`);
+for (const [keyName] of KEYS) {
+  // A key is live if ANY fixture saw it move ink. Name the fixture that did, so a
+  // future reader knows which town carries the proof and does not "tidy" it away.
+  const wins = perFixture
+    .map(([f, r]) => [f, r[keyName]])
+    .filter(([, v]) => Array.isArray(v) && v.length);
+  const errs = perFixture.filter(([, r]) => r[keyName] && r[keyName].error);
+  if (wins.length) {
+    const [f, sheets] = wins[0];
+    const via = FIXTURES.length > 1 ? `  [via ${path.basename(path.dirname(f))}/${path.basename(f)}${wins.length > 1 ? ` +${wins.length - 1} more` : ''}]` : '';
+    console.log(`— ${keyName}  ->  DIFFERS on ${sheets.join(', ')} ✓${via}`);
+  } else if (errs.length) {
+    console.log(`— ${keyName}\n   ERROR: ${errs[0][1][keyName].error}`);
     headlineOK = false;
-    continue;
+  } else {
+    console.log(`— ${keyName}  ->  IDENTICAL on every sheet of every fixture ✗ — this key's escape hatch changed nothing`);
+    headlineOK = false;
   }
-  const changedSheets = targets.map(([, svgName]) => svgName).filter((svgName) => !asIs[svgName].equals(built[svgName]));
-  const ok = changedSheets.length > 0;
-  if (!ok) headlineOK = false;
-  console.log(`— ${keyName}  ->  ${ok ? `DIFFERS on ${changedSheets.join(', ')} ✓` : 'IDENTICAL on every sheet ✗ — this key\'s escape hatch changed nothing'}`);
 }
 
 console.log('');
 console.log(
   headlineOK
     ? `RESULT: PASS — all ${KEYS.length} escape hatches change at least one sheet; none are dead code.`
-    : 'RESULT: FAIL — see above. At least one key\'s design:{key:false} (or labels:{engine:"v1"}) no longer changes anything.',
+    : "RESULT: FAIL — see above. At least one key's design:{key:false} (or labels:{engine:\"v1\"}) no longer changes anything on ANY fixture.",
 );
 
-rmSync(scratch, { recursive: true, force: true });
 process.exit(headlineOK ? 0 : 1);

@@ -18,11 +18,28 @@ import sharp from 'sharp';
 import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
 import { warnIfStaleSibling } from './lib/fixture-freshness.mjs';
 
-const FIXTURE = process.env.FIXTURE_DIR;
+// FIXTURE_DIR may be a `;`-separated LIST — verify-reproduce-defaults.mjs needs
+// several towns because no single one exercises all thirteen escape hatches (see its
+// header). THIS gate only proves determinism, which one town proves as well as three,
+// so it takes the first entry that exists.
+//
+// Splitting matters more than it looks. This file ran `existsSync` on whatever the
+// variable held, and a three-town list is not a directory — so the moment the list
+// landed, this gate began printing "not set or missing — skipping" and exiting 0, and
+// `npm run verify` stayed GREEN with the byte-identical check not running at all.
+// That is exactly the silent skip CLAUDE.md warns about ("a green run in a clean
+// checkout proves nothing about the renderer"), and it was caught by counting RESULT
+// lines — three where there should have been four — not by the exit code, which was 0
+// throughout. If you add another consumer of FIXTURE_DIR, split it there too.
+const FIXTURES = (process.env.FIXTURE_DIR || '')
+  .split(';')
+  .map((f) => f.trim())
+  .filter(Boolean);
+const FIXTURE = FIXTURES.find((f) => existsSync(f));
 const ICONS = process.env.SKILL_ASSETS || ENGINE_DIR;
 const n = (x) => Number(x).toLocaleString('en-GB');
 
-if (!FIXTURE || !existsSync(FIXTURE)) {
+if (!FIXTURE) {
   console.log('· verify-reproduce: FIXTURE_DIR not set or missing — skipping.');
   console.log('  Point FIXTURE_DIR at a staged town render folder to run it (see .env.example).');
   process.exit(0);

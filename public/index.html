@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
   <script src="/js/site-banner.js" defer></script>
+  <script src="/js/live-examples.js" defer></script>
   <script src="/js/auth-status.js" defer></script>
 </head>
 <body>
@@ -44,7 +45,7 @@
         </div>
       </div>
       <figure class="hero-shot">
-        <img src="/examples/stives-area-internal.jpg" width="1400" height="990" alt="An example printed bus map showing the routes within St Ives, with colour-coded services, stops and local landmarks.">
+        <img src="/api/public/maps/st-ives/preview/internal" data-fallback="/examples/stives-area-internal.jpg" width="1400" height="990" alt="An example printed bus map showing the routes within St Ives, with colour-coded services, stops and local landmarks.">
         <figcaption>Example: “Buses within St Ives” — one of four outputs per map.</figcaption>
       </figure>
     </div></section>
@@ -109,7 +110,7 @@
       <p class="section-intro">St Ives is a market town and fits on a sheet easily. High Wycombe has three times the network — so it is the more useful proof.</p>
       <div class="grid cols-2">
         <div class="card" style="padding:0; overflow:hidden">
-          <a href="/examples.html#complex"><img class="shot" src="/examples/highwycombe-area-internal.jpg" width="1400" height="990" loading="lazy" alt="Geographic map of the buses within High Wycombe"></a>
+          <a href="/examples.html#complex"><img class="shot" src="/api/public/maps/high-wycombe/preview/internal" data-fallback="/examples/highwycombe-area-internal.jpg" width="1400" height="990" loading="lazy" alt="Geographic map of the buses within High Wycombe"></a>
         </div>
         <div class="card">
           <h3 class="mt-0">Measured first, drawn second</h3>
