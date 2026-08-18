@@ -157,15 +157,23 @@ Must print **PASS** with byte counts. If it doesn't, stop — don't hand over a 
 
 **Step 1 — regenerate** (laptop, same either way): re-run the same skill (`make-bus-leaflet` / `make-place-bus-leaflet`) for that town/place, producing a fresh S5-render folder.
 
-**Step 2 — stage it. This is the one gap: there is no `deliver`-style remote path for refreshes yet** (only new-map builds have one — see §4). `propose-update.mjs` writes straight to a local `DATA_DIR`/SQLite, so today it only works run **on the machine actually hosting the live data** — that's the VPS itself, not this laptop, unless you're deliberately testing against the local checkout. Until `GO-LIVE.md` §2.1 Phase 2 (a `POST /api/admin/import`-style endpoint) exists, treat a live refresh as something you do on the host, e.g. over `ssh`:
+**Step 2 — deliver it to the live portal.** One laptop command, `ssh`-based, the same script a new-map build uses (§4) — run it from `C:\Claude\community-bus-maps`:
 ```powershell
-node scripts/propose-update.mjs --map <slug> --src "<fresh S5-render dir>" --note "BODS <date> refresh"
+npm run deliver -- --src "<the fresh S5-render dir>" --map <slug> --kind area --note "BODS <date> refresh"
+# place map instead: --kind place
 ```
-This prints a plain-language diff (routes added/removed, stops, operators, validity dates) — read it before moving on.
+`--src` is the dated S5-render folder the skill just produced (a Windows absolute path with spaces in it is fine — `scp` handles the drive letter). `--map` is the live map's slug or numeric id, e.g. `st-ives`; **passing `--map` instead of `--name`/`--slug` is what makes this a refresh rather than a new import**. `--kind` is `area` or `place` and only picks which pre-flight gate runs (`verify:area` vs `verify:place`). `--note` is the free-text "what this refresh is" that the customer sees on the proposal.
 
-▸ **Testing locally instead?** Exactly the same command, run against the local dev checkout on this laptop — that's what "testing" means for this row, so there's no separate variant to switch to.
+It `scp`'s the render up, pre-flight verifies it byte-identically in a throwaway container **before the running service is touched**, then runs `propose-update.mjs` against it and prints the plain-language diff (routes added/removed, stops, operators, validity dates) — read that before moving on. It never advances the live-serving version: all it does is stage a proposal for the customer.
 
-**Step 3 — that's it for you.** It's now the customer's move: they accept (re-applies their recolours/POI toggles onto the new data as a new draft, which then needs a `review`) or decline. It shows up as `awaiting-customer` until they do.
+*(Proven end to end on 18 Aug 2026 — all 13 sample maps were refreshed this way from the laptop in one pass. Expect two side effects per call: the portal is briefly stopped and restarted, and the customer is emailed an "update is ready" notification.)*
+
+▸ **Testing locally instead?** Skip `npm run deliver`, stop the dev server, and run the proposer straight against the local checkout (from `C:\Claude\community-bus-maps`):
+```powershell
+node scripts/propose-update.mjs --map <slug> --src "<the fresh S5-render dir>" --note "BODS <date> refresh"
+```
+
+**Step 3 — that's it for you.** It's now the customer's move: they accept (re-applies their recolours/POI toggles onto the new data as a new draft, which then needs a `review`) or decline. It shows up as `awaiting-customer` until they do. Accepting is **browser work** — there is no script for it, and a map with any open publish request refuses the accept with a 409 until that request is withdrawn.
 
 ---
 
@@ -232,9 +240,9 @@ node "%BW%\push-status.mjs"
 
 - **Never decide a `review` / `application` / `request-decision` from the terminal.** Those are yours to click in the browser — bus-work will summarise, never decide, for you.
 - **Never hand-edit a rendered file.** Regenerate instead.
-- **Stop the dev server** before any command that writes directly to a **local** checkout (`import-map.mjs`, `propose-update.mjs` run locally, `rollout.js --apply`, `seed-demo.mjs`) — one SQLite writer. `npm run deliver` (live map builds, §4) handles its own stop/start on the host for you; you don't do this by hand for that path.
+- **Stop the dev server** before any command that writes directly to a **local** checkout (`import-map.mjs`, `propose-update.mjs` run locally, `rollout.js --apply`, `seed-demo.mjs`) — one SQLite writer. `npm run deliver` (live map builds §4, live refreshes §5) handles its own stop/start on the host for you; you don't do this by hand for either path.
 - **PowerShell `$env:VAR = ...` form only** for the verify commands — the bash `VAR=x npm run …` form silently no-ops on this machine.
-- **What actually works against the live portal from this laptop, today:** reading (`worklist.mjs` / `push-status.mjs` with `--url`) — yes. Delivering a brand-new map (`npm run deliver`, §4) — yes, but freshly built and not yet proven end to end. Delivering a refresh to an already-live map (§5) — **no**, that still has to run on the host itself. If a command's actual target is ever in doubt, check the `LOCAL —` / `REMOTE —` banner both scripts print first, before reading anything else in their output.
+- **What actually works against the live portal from this laptop, today:** reading (`worklist.mjs` / `push-status.mjs` with `--url`) — yes. Delivering a **refresh** to an already-live map (`npm run deliver -- --map <slug>`, §5) — yes, proven end to end on 18 Aug 2026 across all 13 sample maps. Delivering a **brand-new** map (`npm run deliver -- --name … --slug …`, §4) — yes, but still not proven end to end against a real request, so watch its output. What has **no** laptop path at all is the operator half of the cycle: accepting a proposed update, withdrawing a publish request and changing a map's outputs are HTTP endpoints needing a signed-in admin session, so they are browser work rather than terminal work. If a command's actual target is ever in doubt, check the `LOCAL —` / `REMOTE —` banner both scripts print first, before reading anything else in their output.
 
 ## If you want the why, not just the how
 
