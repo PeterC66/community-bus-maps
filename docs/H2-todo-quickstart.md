@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.2 | 2026-08-11 | sha=fbc0a7f2 -->
-**v1.2** · updated 11 August 2026
+<!-- docstamp v1.3 | 2026-08-18 | sha=f10384d6 -->
+**v1.3** · updated 18 August 2026
 
 **v1.0** · updated 8 August 2026
 
@@ -240,6 +240,6 @@ node "%BW%\push-status.mjs"
 
 This page is deliberately just the steps. Background and reasoning live in:
 - [H1 — Operations Handbook](H1-operations-handbook.md) — the full picture, roles, vocabulary
-- [GO-LIVE.md](GO-LIVE.md) — why the laptop/host split exists, what `npm run deliver` does step by step, and what's still not built (§2.1 Phase 2 — a refresh delivery path)
+- [GO-LIVE.md](_archive/GO-LIVE.md) — historic go-live record: why the laptop/host split exists, what `npm run deliver` does step by step, and what wasn't yet built at the time (§2.1 Phase 2 — a refresh delivery path)
 - [R1](R1-create-map.md) / [R2](R2-onboarding.md) / [R3](R3-review-and-publish.md) / [R4](R4-update-cycle.md) — the detailed runbooks each section above is a shortcut for
 - `C:\u3a St Ives\.claude\skills\bus-work\references\playbooks.md` — the same procedures, written for Claude to follow

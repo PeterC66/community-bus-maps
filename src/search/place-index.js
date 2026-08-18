@@ -5,7 +5,7 @@
 // AREA map's `external[]`, a PLACE map's `destinations[]`) plus an optional
 // pois.json, exactly as they stood when the version was published — never from
 // the live data dir, which can run ahead of what a person actually reviewed.
-// See docs/P9-header-and-place-search.md Part B, B1.
+// See docs/_archive/P9-header-and-place-search.md Part B, B1.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';

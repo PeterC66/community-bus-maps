@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.16 | 2026-08-17 | sha=2b0bdbe9 -->
-**v1.16** · updated 17 August 2026
+<!-- docstamp v1.18 | 2026-08-18 | sha=6d2cc3a7 -->
+**v1.18** · updated 18 August 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -70,13 +70,13 @@ published one; the **status strip** on the map page, a read-out of `mapDetail` t
 it is; the **vocabulary pass** (one word per thing — see the glossary in `docs/DEVELOPING.md`, and
 don't reintroduce "submit for publication" or "Edition"), the **three transactional emails**
 (`src/email/notify.js`, proven against real Resend delivery 2026-08-12 — see
-`docs/PORTAL-DEV-PLAN-2026-08-12.md` item 2), the **version list**, the **compare-dialog change
+`docs/_archive/PORTAL-DEV-PLAN-2026-08-12.md` item 2), the **version list**, the **compare-dialog change
 bullets**, the **download-row labelling**, the **unit of publication**, the **`draft-unsubmitted`
 worklist item**; and **H9** — a purely presentational "editor's-eye view" toggle for admins
 (`public/js/editor-eye-view.js`), plus the independent status-strip wording fix it exposed ("their
 move · you can act as admin"), both shipped 2026-08-12.
 
-`docs/PORTAL-DEV-PLAN-2026-08-12.md` is the record of the session that closed this backlog out and
+`docs/_archive/PORTAL-DEV-PLAN-2026-08-12.md` is the record of the session that closed this backlog out and
 also rebuilt P8a against current `main` — read it for the mechanics of resolving a stale branch's
 conflicts (isolate the branch's own diff rather than merge its history) if that ever needs doing
 again for P8b/P8c.
@@ -169,6 +169,65 @@ Two traps if you touch this: the verdict is parsed field-by-field because a `2 t
 Windows, so every parser here must tolerate CRLF — that has bitten this file before. `npm run
 test:upcoming-join` covers all of it, and its legacy assertions are meant to prove the old behaviour
 was wrong, so don't "tidy" them away.
+
+## WORK IN PROGRESS, not committed — `npm run verify:defaults` — 2026-08-17
+
+**Uncommitted in this working tree right now**: `scripts/verify-reproduce-defaults.mjs`,
+`scripts/verify-reproduce-place-defaults.mjs` (new files), `package.json`'s `verify`/`verify:defaults`
+scripts, `.env`'s `FIXTURE_DIR` (repointed to a fresh render), and a refreshed
+`Buses/Places/_portal-fixture/High Wycombe Aldi/routes.json`. **Do not run `npm run verify` and
+assume a FAIL means a real regression until the open item below is resolved** — see it first.
+
+**Why this exists.** Flagged by another session: `npm run verify` (area + place) can only ever prove
+determinism against whatever config a fixture happens to carry, and every fixture's `routes.json` now
+carries `design:{}`/`labels:{}` — G5 (`label-and-design-quality-plan.md`, Phase 8 item 5, 2026-08-17)
+emptied it on every real committed town/place. **This gate is CLAUDE.md's own second invariant, "absent
+config ⇒ previous behaviour," and nothing in `npm run verify` had ever tested it.**
+
+**Two wrong designs before this one, both proven wrong by actually breaking something and watching the
+gate NOT go red** — see the header comment in `verify-reproduce-defaults.mjs` for the full account:
+1. "Strip design/labels, rebuild, assert byte-identical to as-is" — vacuous once every fixture's config
+   is already `{}`, because `RJ.design || {}` makes "empty object" and "missing key" the same input.
+   Confirmed: broke the `iconSet` default's fallback value, both builds went through the same broken
+   fallback, gate reported PASS.
+2. "Force ALL twelve keys to `false` at once, assert differs from as-is" — non-vacuous but too coarse.
+   Confirmed: deleted `iconSet`'s `=== false` check entirely (hardcoded the constant), the other eleven
+   keys still moved enough ink that the two builds differed anyway, gate reported PASS.
+
+**Landed on:** build once with the fixture as-is, then once per key with ONLY that key forced to its
+`false` (or `labels.engine:"v1"`) value, and assert EACH variant differs from as-is on at least one
+sheet. Confirmed working by the same method as everything else in this project — **the mutation was
+in the wrong file the first time**: the AREA fixture (`FIXTURE_DIR`) runs the `gen_internal.js` COPY
+bundled inside the fixture's own S5-render folder (gitignored, see the duplication map in the Buses
+repo's `Documentation\README - How to enhance the system.md`), not `engine/place/gen_internal.js` —
+mutating the wrong one made the area-side gate un-testable by construction, not passing for a good
+reason. Once mutated in the right file, deleting `iconSet`'s escape hatch correctly turned red
+**exactly one row, `iconSet`, on both the area-side and place-side gates**, with the other twelve
+staying green — proof the per-key isolation works, not just that something changed somewhere.
+
+**OPEN ITEM, left here on purpose (Peter's instruction, 2026-08-17): the place-side gate has one
+apparent false positive.** `verify-reproduce-place-defaults.mjs` reports `hubFit` as "IDENTICAL on
+every sheet" against the `High Wycombe Aldi` fixture — **without any deliberate mutation**, i.e. on
+the CURRENT, un-broken engine. Very likely NOT a bug: item 3b's session already found and documented
+that "Aldi" is short enough to hit the 26mm hub-box floor under BOTH the `hubFit` and legacy sizing
+formulas, so the two are byte-identical for this one place regardless of whether the engine's `hubFit`
+code is doing anything at all — see `design-quality.md`'s "The PLACE external" section, `HUBFIT`. That
+would make this a genuine **untestable-by-this-fixture** case, not dead code. **Needs confirming, not
+re-investigating from scratch**: revert any stray mutation first (`git diff engine/place/gen_internal.js`
+should be empty), run `node --env-file-if-exists=.env scripts/verify-reproduce-place-defaults.mjs`
+alone, and check whether `hubFit` is STILL "IDENTICAL" with nothing broken. If so, exclude it from the
+`KEYS` list in `verify-reproduce-place-defaults.mjs` with a comment citing this paragraph and the
+`design-quality.md` finding — do not silence it by weakening the assertion for every key, only this one,
+and only with a cited reason. If the isolated re-run instead shows hubFit CHANGING something (meaning
+this note's hypothesis is wrong), treat it as a live gate failure and investigate the generator, not the
+test.
+
+**Before landing any of this:** the `hubFit` item above must be resolved (excluded-with-reason or fixed)
+so `npm run verify` does not FAIL on a healthy tree — a gate that cries wolf gets ignored, this repo's
+own `fixture-freshness.mjs` says so in as many words. Then: re-run the full `npm run verify` chain
+clean, add `verify:defaults` to the "Gates to run" section above, note it in `CHANGELOG.md`, and check
+whether the Buses repo's `Documentation\README - How to enhance the system.md` or `gotchas.md` want a
+line about the fixture-vs-vendored-copy trap this took two attempts to notice.
 
 ## Design review (Impeccable)
 
