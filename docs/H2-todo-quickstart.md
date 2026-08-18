@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.3 | 2026-08-18 | sha=f10384d6 -->
-**v1.3** · updated 18 August 2026
+<!-- docstamp v1.4 | 2026-08-18 | sha=f52e9de8 -->
+**v1.4** · updated 18 August 2026
 
 **v1.0** · updated 8 August 2026
 
