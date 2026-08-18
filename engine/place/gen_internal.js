@@ -232,7 +232,15 @@ const ICON_SET = DESIGN.iconSet === false ? undefined : (DESIGN.iconSet !== unde
 // the trim. `false` => today's 8/294/206 on a 297x210 page, byte-identical;
 // absent => 5, the standard this whole key exists to enforce.
 const PRINT_SAFE = DESIGN.printSafe === false ? null : (DESIGN.printSafe != null ? +DESIGN.printSafe : 5);
-FOOTER_PLATE_TOP = footerPlateTop({ notes: INTERNAL_FOOTER_NOTES, safe: PRINT_SAFE });
+// design.sheetUrl / design.sheetQr — the printed route back to the current version.
+// Bundled into ONE object because footerPlateTop() and footerBand() must be given
+// identical arguments or the plate the map is fitted around is not the plate that
+// gets drawn; passing the same object to both makes that true by construction
+// rather than by remembering (see INTERNAL_FOOTER_NOTES' header above).
+const FOOTER_OPTS = { notes: INTERNAL_FOOTER_NOTES, safe: PRINT_SAFE,
+  url: DESIGN.sheetUrl || null, qr: DESIGN.sheetQr || null,
+  ...(DESIGN.sheetUrlLabel !== undefined ? { urlLabel: DESIGN.sheetUrlLabel } : {}) };
+FOOTER_PLATE_TOP = footerPlateTop(FOOTER_OPTS);
 // labels{}: which label placer to use.
 //   engine:"v2"  hand point labels to the shared labeller.js — real Arial widths, an
 //                occupancy grid that knows where the route ink is, scored candidate
@@ -266,6 +274,43 @@ const IR = (RJ.internalRoads === false) ? null : (function(){
     roadLabelMax:12, badgeEvery:70 }, u);       // gap>=stroke+~1mm so bundled lanes read separately (see header)
   o.focus = Object.assign({ coreKm:1.1, comp:0.5 }, u.focus||{});
   return o; })();
+
+/* design.frequencyTiers — draw HOW USABLE a service is, not how many journeys it
+ * runs (2026-08-17; Buses repo, Development Docs/frequency-tier-model_2026-08-17.md).
+ *
+ *   "frequency": {"<lane>":"frequent"|"all-day"|"limited"}    which class each LANE is
+ *   "design":{"frequencyTiers":{"frequent":{"mm":2.4,"label":"…"},
+ *                               "limited":{"mm":1.2}}}
+ *
+ * Keyed by the DRAWN LANE, which is why it reads the same key as `palette` and not
+ * a route number: where internalCorridors bundles co-running services into one
+ * line, the class belongs to the merged timetable, not to any one member.
+ *
+ * Needs BOTH keys; either absent ⇒ every string this touches is what it was, byte
+ * for byte. A tier with no `mm` keeps IR.stroke, so a tier can be dash-only.
+ *
+ * A dashed tier gets a BUTT cap, per the 2026-08-17 dash gotcha: with round caps
+ * the usable gap is (gap − width), so a 1.4 mm line dashed "2.6 2.4" would draw
+ * solid with 1 mm of overlap per dash. The casing widens with the line, or a
+ * heavier tier would show its casing as a fringe.
+ *
+ * Previewed on all eight sheets 2026-08-17. Dashing the limited tier was tried and
+ * rejected there: 40% of a market town's lanes are limited, and dashing them made
+ * Ramsey — which has no frequent lane at all — read as a town whose buses are
+ * provisional. The shipped shape is three solid weights, with the dash kept for
+ * what VL14's dashed grey already means: a service that runs on certain dates only.
+ */
+const FTIER = (DESIGN.frequencyTiers && RJ.frequency) ? DESIGN.frequencyTiers : null;
+const ftier = r => FTIER ? (FTIER[RJ.frequency[r]] || null) : null;
+const fw   = r => { const t=ftier(r); return (t && t.mm!=null) ? t.mm : (IR?IR.stroke:2.6); };
+const fdash= r => { const t=ftier(r); return (t && t.dash) ? ` stroke-dasharray="${t.dash}"` : ''; };
+const fcap = r => { const t=ftier(r); return (t && t.dash) ? 'butt' : 'round'; };
+// Default wording for the Key row. A tier may override it with `label`; an unknown
+// tier name falls back to itself, so a town can invent a fourth class and still
+// get a row rather than a silent line style.
+const FTIER_LABEL = { frequent:'Frequent — turn up and go',
+                      'all-day':'Runs through the day',
+                      limited:'Limited — check times' };
 // ---- internalDiagram render extensions (tube-map diagram, 2026-07-10) ------
 // Keyed off internalDiagramRENDER, which ONLY diagram_internal.js writes into
 // its workspace routes.json (curated stop ticks, interchange lozenges, one-way
@@ -1015,7 +1060,13 @@ function drawFeature(f){
       lines.push(`<path d="${d}" fill="none" stroke="${st.coreColor}" stroke-width="${st.coreWidth}" stroke-dasharray="${st.chequer}" stroke-linecap="butt"/>`);
       continue;
     }
-    lines.push(`<path d="${d}" fill="none" stroke="${st.stroke}" stroke-width="${st.width}"${dash} stroke-linecap="round" stroke-linejoin="round"/>`);
+    // A dashed feature needs a BUTT cap for the same reason the chequer above does
+    // and the external generators' dashed spokes do: a round cap adds width/2 of ink
+    // past each end of every dash, so any pattern whose gap is narrower than the
+    // stroke fuses into a solid scalloped line. The `canal` default ("3 1.6" at
+    // w2.4) is exactly such a pattern — latent today because no town has a canal yet.
+    const cap = st.dash ? 'butt' : 'round';
+    lines.push(`<path d="${d}" fill="none" stroke="${st.stroke}" stroke-width="${st.width}"${dash} stroke-linecap="${cap}" stroke-linejoin="round"/>`);
   }
   if(st.ties){                     // railway cross-ties (perpendicular ticks)
     const t = st.tieLen!=null ? st.tieLen : st.width*0.9;   // OS-style: longer, bolder,
@@ -1641,9 +1692,9 @@ if(IR){
    */
   const CASE = ROUTE_CASING_ON ? ((DESIGN.routeCasing&&DESIGN.routeCasing.mm!=null)?DESIGN.routeCasing.mm:0.35) : 0;
   if(CASE>0) for(const L of RLINES)
-    out(`<path d="${L.d}" fill="none" stroke="${(DESIGN.routeCasing&&DESIGN.routeCasing.color)||'#ffffff'}" stroke-width="${(IR.stroke+CASE*2).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`);
+    out(`<path d="${L.d}" fill="none" stroke="${(DESIGN.routeCasing&&DESIGN.routeCasing.color)||'#ffffff'}" stroke-width="${(fw(L.r)+CASE*2).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`);
   for(const L of RLINES)
-    out(gk('route',L.r,`<path d="${L.d}" fill="none" stroke="${C[L.r]}" stroke-width="${IR.stroke}" stroke-linecap="round" stroke-linejoin="round"/>`));
+    out(gk('route',L.r,`<path d="${L.d}" fill="none" stroke="${C[L.r]}" stroke-width="${fw(L.r)}"${fdash(L.r)} stroke-linecap="${fcap(L.r)}" stroke-linejoin="round"/>`));
   // -- stop ticks ON the route lines (one per physical stop, first route wins;
   //    stops[ATCO].pos override moves the tick)
   const tickSeen=new Set();
@@ -2795,6 +2846,33 @@ function panelSub(routeKey, sub, x, size){
   process.stderr.write(`panel: service ${routeKey} draws no line, but its row has no room to say so — "${sub}" already fills the column. Shorten the subtitle, or set routes.json notShownNoteShort.\n`);
   return sub;
 }
+/* subFit — the width discipline the comment above says the plain row does not have.
+ *
+ * Returns the size (mm) to SET a subtitle at so it fits the space it is given,
+ * shrinking no further than the 2.4mm print-legibility floor and reporting on stderr
+ * when even that will not do. This is exactly what the panelCorridors branch has done
+ * since printSafe landed; the panelCols and plain branches simply never got it, so a
+ * subtitle one word too long ran off its column — or off the sheet — in silence.
+ *
+ * It became load-bearing when the frequency tiers landed: rule 3 of the tier model is
+ * that every Limited lane carries a phrase saying WHICH kind of limited it is, and a
+ * phrase is 16-28mm of type appended to rows that were already 40-78mm wide. Seven of
+ * the thirty-one Limited rows across the eight towns overflowed by 1-17mm. Shrinking
+ * those seven a little is a far better answer than shortening real destination lists
+ * to hit a ruler, and it means the next subtitle edit is caught rather than shipped.
+ *
+ * `right` is the boundary the text must not cross: its own column's right edge on a
+ * multi-column panel, or the print-safe trim on a single-column one.
+ */
+function subFit(routeKey, sub, x, size, right){
+  if(!sub) return size;
+  const w = FONT.textWidth(sub, size, false);
+  if(x + w <= right) return size;
+  const want = size * (right - x) / w;
+  if(want >= 2.4) return Math.floor(want*100)/100;
+  process.stderr.write(`panel: service ${routeKey}'s subtitle "${sub}" needs ${want.toFixed(2)}mm type to fit its column, below the 2.4mm print floor — shorten it in routes.json internalDesc.\n`);
+  return 2.4;
+}
 
 out(`<text x="${PX}" y="${py}" font-family="Arial" font-weight="bold" font-size="${PS?PS.head:5}" fill="#222">Services</text>`);
 if(!PS) py+=2;
@@ -2997,7 +3075,14 @@ if(PCORR){
       } else py += (g.name && i===0) ? PROW-1.5 : PROW;
       badge(PX+4+PXW,py,r,PBR);
       out(`<text x="${PX+10+2*PXW}" y="${py-0.6}" font-family="Arial" font-weight="bold" font-size="${PS?PS.title:3.5}" fill="#111">${esc(d[0])}</text>`);
-      out(`<text x="${PX+10+2*PXW}" y="${py+3.0}" font-family="Arial" font-size="${PS?PS.sub:2.8}" fill="#555">${esc(panelSub(r,d[1],PX+10+2*PXW,PS?PS.sub:2.8))}</text>`);
+      // subFit — see the plain branch below. This grouped branch is a FOURTH copy of
+      // the same three lines and was missed on the first pass, which is exactly how
+      // St Ives shipped "…gaps of over 2 ho" and "…morning & evening or" running off
+      // the trim: the town groups its panel by operator, so it never reaches the plain
+      // branch that had just been given the measurement.
+      const _gx=PX+10+2*PXW, _gsz=PS?PS.sub:2.8, _gtext=panelSub(r,d[1],_gx,_gsz);
+      const _gfz=(PRINT_SAFE==null)?_gsz:subFit(r,_gtext,_gx,_gsz,297-PRINT_SAFE);
+      out(`<text x="${_gx}" y="${py+3.0}" font-family="Arial" font-size="${_gfz}" fill="#555">${esc(_gtext)}</text>`);
       lastSubY=py+3.0;
     });
     firstBlock=false;
@@ -3050,7 +3135,11 @@ if(PCORR){
     // its own subtitle in tighter underneath (2026-08-11, second pass).
     const subY=cy-0.6+crow*0.35+0.1;
     out(`<text x="${cx+7.6+2*CXWP}" y="${cy-0.6}" font-family="Arial" font-weight="bold" font-size="${PS?PS.sub:2.9}" fill="#111">${esc(d[0])}</text>`);
-    out(`<text x="${cx+7.6+2*CXWP}" y="${subY.toFixed(2)}" font-family="Arial" font-size="${PS?PS.dense:2.3}" fill="#555">${esc(panelSub(r,d[1],cx+7.6+2*CXWP,PS?PS.dense:2.3))}</text>`);
+    // subFit: this row's own column is the boundary, not the sheet — a two-column
+    // panel that measured to the trim would let column 1 run under column 2.
+    const _sx=cx+7.6+2*CXWP, _ssz=PS?PS.dense:2.3, _stext=panelSub(r,d[1],_sx,_ssz);
+    const _sfz=(PRINT_SAFE==null)?_ssz:subFit(r,_stext,_sx,_ssz,cx+cw);
+    out(`<text x="${_sx}" y="${subY.toFixed(2)}" font-family="Arial" font-size="${_sfz}" fill="#555">${esc(_stext)}</text>`);
     if(row===per-1) lastSubY=subY;
   });
   py=top+per*crow;
@@ -3063,7 +3152,11 @@ for(const r of panelOrder){
   firstRow=false;
   badge(PX+4+PXW,py,r,PBR);
   out(`<text x="${PX+10+2*PXW}" y="${py-0.6}" font-family="Arial" font-weight="bold" font-size="${PS?PS.title:3.5}" fill="#111">${esc(d[0])}</text>`);
-  out(`<text x="${PX+10+2*PXW}" y="${py+3.0}" font-family="Arial" font-size="${PS?PS.sub:2.8}" fill="#555">${esc(panelSub(r,d[1],PX+10+2*PXW,PS?PS.sub:2.8))}</text>`);
+  // subFit: one column, so the boundary is the print-safe trim (the sheet is 297mm
+  // wide). With printSafe absent this keeps the old behaviour — nothing to measure to.
+  const _sx=PX+10+2*PXW, _ssz=PS?PS.sub:2.8, _stext=panelSub(r,d[1],_sx,_ssz);
+  const _sfz=(PRINT_SAFE==null)?_ssz:subFit(r,_stext,_sx,_ssz,297-PRINT_SAFE);
+  out(`<text x="${_sx}" y="${py+3.0}" font-family="Arial" font-size="${_sfz}" fill="#555">${esc(_stext)}</text>`);
   lastSubY=py+3.0;
 }
 }
@@ -3079,17 +3172,71 @@ if(pois.some(p=>p.cat==='allotments')) key.push(['allotments','Allotments']);
 // The label baseline is ky+1, so the heading rule is applied there and the icon
 // centre follows from it — the same clear air under `Key` as under `Services`.
 const KFIRST = PS ? gapDown(PS.head,AIR_BELOW_HEAD,RISE_KEY)-1 : 5;
-key.forEach((kk,i)=>{const ky=py+KFIRST+i*KROW, kx=PX+3;
+/* KROW_FIT — the Key's row pitch, compressed if the whole Key would otherwise run
+ * under the footer plate.
+ *
+ * design.frequencyTiers adds one Key row per drawn tier (style-guide §9 rule 7: an
+ * unexplained line WEIGHT is worse than an unexplained hue, because the reader can see
+ * it is deliberate and cannot tell what it claims). On St Ives that is three more rows
+ * under a twelve-row pictogram list, and the last of them — "Limited — check times" —
+ * landed at y=190.1 with the plate top at 187.6, so it was painted and then covered by
+ * an opaque band. A key row that exists but cannot be seen is the worst of both: the
+ * sheet draws a weight it does not explain, and pays for the explanation anyway.
+ *
+ * Compress the pitch to fit rather than drop a row, floor at 3.6mm (the 2.0mm-radius
+ * pictograms need ~3.4mm of pitch not to touch), and say so on stderr when even that
+ * will not do. Absent the tier rows this is arithmetically the old constant, so every
+ * ungated sheet stays byte-identical.
+ */
+const KROW_FIT = (()=>{
+  const rows = key.length + (FTIER ? new Set(Object.values(RJ.frequency||{})).size + 0.5 : 0);
+  if(!FTIER || !FOOTER_SAFE) return KROW;
+  const last = py + KFIRST + (rows-1)*KROW + 1;        // baseline of the final row
+  const room = FOOTER_PLATE_TOP - 1.5;
+  if(last <= room) return KROW;
+  const want = (room - py - KFIRST - 1) / (rows-1);
+  if(want >= 3.6) return Math.floor(want*100)/100;
+  process.stderr.write(`key: ${rows} rows need ${want.toFixed(2)}mm pitch to clear the footer plate, below the 3.6mm pictogram floor — the Key is too long for this panel. Shorten it, or move it with panelCols.keyAt.\n`);
+  return 3.6;
+})();
+key.forEach((kk,i)=>{const ky=py+KFIRST+i*KROW_FIT, kx=PX+3;
   out(icon(kk[0],kx,ky,2.0,ICON_INK,ICON_SET));
   // '3.0' as a STRING: the old code emitted the literal font-size="3.0", and
   // JS renders the number 3.0 as "3" — a one-character diff that fails all 27
   // byte-identical gates with the key absent.
   out(`<text x="${kx+4.0}" y="${ky+1}" font-family="Arial" font-size="${PS?PS.sub:'3.0'}" fill="#222">${esc(kk[1])}</text>`);});
 
+/* The line-weight rows. style-guide §9 rule 7 — a sheet that shares a hue must say
+ * why — and an unexplained line WEIGHT is worse, because the reader can see it is
+ * deliberate and cannot tell what it claims. Only tiers a drawn lane actually uses
+ * get a row: a Key line for a class this town has none of would be a lie about the
+ * network, and Ramsey (no frequent lane) and March (none either) are why that is
+ * not hypothetical. Config order decides the order, so the town controls it.
+ */
+let KEYROWS = key.length;
+if(FTIER){
+  const used = new Set(Object.values(RJ.frequency||{}));
+  const tiers = Object.keys(FTIER).filter(t=>used.has(t));
+  // The sample occupies exactly the pictogram's footprint (kx±2.0) and the label
+  // sits at kx+4.0, so these rows share the POI rows' column and the whole Key
+  // reads as one list. A longer sample crowded the label — 1.2 mm of air against
+  // the pictograms' 2.0 — and the Key looked like two different tables.
+  const kx=PX+3;
+  let ty = py+KFIRST+key.length*KROW_FIT + KROW_FIT*0.5;   // half a row of air below the pictograms
+  for(const t of tiers){
+    const st=FTIER[t]||{}, w=(st.mm!=null)?st.mm:(IR?IR.stroke:2.6);
+    const dash=st.dash?` stroke-dasharray="${st.dash}"`:'', cap=st.dash?'butt':'round';
+    out(`<path d="M${(kx-2.0).toFixed(2)} ${ty.toFixed(2)}h4.00" fill="none" stroke="#555" stroke-width="${w}"${dash} stroke-linecap="${cap}"/>`);
+    out(`<text x="${kx+4.0}" y="${(ty+1).toFixed(2)}" font-family="Arial" font-size="${PS?PS.sub:'3.0'}" fill="#222">${esc(st.label||FTIER_LABEL[t]||t)}</text>`);
+    ty+=KROW_FIT; KEYROWS++;
+  }
+  KEYROWS += 0.5;                                // the air, so the fare note clears it
+}
+
 // fare note (opt-in routes.json "fareNote") — highlighted box under the key
 if(RJ.fareNote){
-  let fy=PS ? py+KFIRST+(key.length-1)*KROW+1+gapDown(PS.sub,AIR_ABOVE_HEAD,PS.sub*CAP)
-            : py+5+key.length*KROW+9;
+  let fy=PS ? py+KFIRST+(KEYROWS-1)*KROW_FIT+1+gapDown(PS.sub,AIR_ABOVE_HEAD,PS.sub*CAP)
+            : py+5+KEYROWS*KROW_FIT+9;
   const words=String(RJ.fareNote).split(' '); const lines=[]; let cur='';
   for(const wd of words){ if((cur+' '+wd).trim().length>38){ lines.push(cur.trim()); cur=wd; } else cur+=' '+wd; }
   if(cur.trim()) lines.push(cur.trim());
@@ -3123,10 +3270,7 @@ if (NORTH_ON) {
 
 // footer band: attribution note + version + BusMaps.uk (shared across all four map types — footer.js)
 const _ver = process.env.LEAFLET_VERSION || RJ.version;
-out(footerBand({
-  notes: INTERNAL_FOOTER_NOTES,
-  version: _ver, validFrom: RJ.validFrom || 'Summer 2026', safe: PRINT_SAFE
-}));
+out(footerBand({ ...FOOTER_OPTS, version: _ver, validFrom: RJ.validFrom || 'Summer 2026' }));
 
 // Optional "coming soon" / validity stamp (opt-in via routes.json "stamp"; absent => byte-identical).
 function stampNote(cfg,x,y,align){
