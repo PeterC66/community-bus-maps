@@ -1,11 +1,11 @@
 # Go-live plan — putting the pilot on busmaps.uk
 
-<!-- docstamp v1.14 | 2026-08-13 | sha=3875fefb -->
-**v1.14** · updated 13 August 2026
+<!-- docstamp v1.15 | 2026-08-18 | sha=323afbb9 -->
+**v1.15** · updated 18 August 2026
 
-**For:** the operator. **Status:** planning. Nothing deployed yet.
+**For:** the operator. **Status: DONE — deployed 2026-08-09.** Every item in the host-setup checklist below is ticked; this doc is now the historic record of that go-live, not a live plan. `DEPLOY.md` and `H1-operations-handbook.md` are the current operational references.
 
-`DEPLOY.md` says *how* to run the thing on a box you already have. This says *which* box, *what has to be built first*, and *how the laptop and the live site work together afterwards*. Read this one first; `DEPLOY.md` becomes the reference once the host exists.
+`DEPLOY.md` says *how* to run the thing on a box you already have. This said *which* box, *what had to be built first*, and *how the laptop and the live site work together afterwards*, back when none of that existed yet.
 
 The single sentence that shapes everything below: **the central pipeline runs on the laptop and the portal runs on the host, and today there is no mechanism that connects them.** Every other decision falls out of that.
 

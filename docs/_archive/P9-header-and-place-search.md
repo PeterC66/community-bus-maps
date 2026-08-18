@@ -1,9 +1,9 @@
 # P9 — header cleanup + place-name search
 
-<!-- docstamp v1.4 | 2026-08-10 | sha=3ae08833 -->
-**v1.4** · updated 10 August 2026
+<!-- docstamp v1.5 | 2026-08-18 | sha=86f5728d -->
+**v1.5** · updated 18 August 2026
 
-Plan only. Nothing here is built yet. Status is per item, so a later session can pick this up mid-flight — update the Status column as you go, don't just tick things off at the end.
+**DONE — both parts shipped and merged** (Part A + Part B, PR #14 and PR #15). Kept here as the historic record of the plan; status is per item below for the same reason it was written that way originally.
 
 Two changes, deliberately sequenced. **Part A** tidies the site header (small, self-contained, touches 12 near-identical files). **Part B** adds the search a visitor actually wants — "is there a map that covers *my* village?" — and depends on Part A only for where the entry point lives.
 

@@ -5,7 +5,7 @@
 // customers (src/db/index.js) — never a raw walk of data/maps/, which would
 // leak unpublished or unlisted work. Each map contributes its own name and
 // subject, plus whatever places.json (src/search/place-index.js) recorded at
-// publish time. See docs/P9-header-and-place-search.md Part B, B3/B4.
+// publish time. See docs/_archive/P9-header-and-place-search.md Part B, B3/B4.
 
 import { listPublicMaps } from '../db/index.js';
 import { publicMap } from '../public/index.js';
