@@ -43,6 +43,20 @@ export function baseOverridesPath(id) {
 export function rendersDir(id) {
   return path.join(mapDir(id), 'renders');
 }
+/**
+ * The customer-facing version NUMBER from a storage key: 'v5.0' -> '5.0'.
+ *
+ * One place, because two things print it and they must not disagree: the version
+ * pill in the app, and the line the engine now prints in the footer band of the
+ * sheet itself (footer.js `design.sheetVersion`). A reader on a noticeboard scans
+ * the QR and lands on the public page; the number on the paper and the number on
+ * the page have to be the same number.
+ */
+export function versionNumber(storageKey) {
+  const m = /^v(\d+\.\d+)$/.exec(String(storageKey || ''));
+  return m ? m[1] : null;
+}
+
 export function versionDir(id, storageKey) {
   return path.join(rendersDir(id), storageKey);
 }
