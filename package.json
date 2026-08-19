@@ -25,6 +25,7 @@
     "create-admin": "node --env-file-if-exists=.env scripts/create-admin.mjs",
     "deliver": "node --env-file-if-exists=.env scripts/deliver-map.mjs",
     "deploy": "node --env-file-if-exists=.env scripts/deploy.mjs",
+    "accept-publish": "node --env-file-if-exists=.env scripts/accept-publish-batch.mjs",
     "delete-map": "node --env-file-if-exists=.env scripts/delete-map.mjs",
     "publish-baseline": "node --env-file-if-exists=.env scripts/publish-baseline.mjs",
     "prune:staged": "node --env-file-if-exists=.env scripts/prune-staged.mjs",

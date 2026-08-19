@@ -92,7 +92,26 @@ check('… and says so when there is not', /not listed on the public site/.test(
 const back = compose('sent-back', { mapName: 'Fenmarsh', versionKey: 'v2.0', reason: 'route 5 terminus is wrong', publishedVersion: 'v1.0', mapUrl: 'https://busmaps.uk/app/maps/7' });
 check('sent-back quotes the approver\'s reason', /route 5 terminus is wrong/.test(back.text), back.text);
 check('… reassures that the public is unaffected', /they still have v1\.0/.test(back.text), back.text);
-check('every email says why it was received', [up, pubbed, back].every((m) => /You are receiving this/.test(m.text)));
+
+// A batch run (scripts/accept-publish-batch.mjs) groups several publishes for
+// the same customer into one digest instead of one email per map — this is
+// the wording that grouping produces, independent of the grouping logic
+// itself (which lives server-side in POST /api/admin/notify-published-batch).
+const batch = compose('published-batch', {
+  maps: [
+    { mapName: 'Fenmarsh', versionKey: 'v3.0', mapUrl: 'https://busmaps.uk/app/maps/7' },
+    { mapName: 'Oakfield', versionKey: 'v2.0', mapUrl: 'https://busmaps.uk/app/maps/9' },
+  ],
+});
+check('published-batch counts the maps in the subject', /^2 maps published/.test(batch.subject), batch.subject);
+check('… names every map', batch.text.includes('Fenmarsh') && batch.text.includes('Oakfield'), batch.text);
+check('… links every map', batch.text.includes('https://busmaps.uk/app/maps/7') && batch.text.includes('https://busmaps.uk/app/maps/9'));
+const one = compose('published-batch', { maps: [{ mapName: 'Fenmarsh', mapUrl: 'https://busmaps.uk/app/maps/7' }] });
+check('singular subject for exactly one map', /^1 map published/.test(one.subject), one.subject);
+const empty = compose('published-batch', { maps: [] });
+check('an empty batch does not throw', empty.subject === '0 maps published on BusMaps.uk', empty.subject);
+
+check('every email says why it was received', [up, pubbed, back, batch].every((m) => /You are receiving this/.test(m.text)));
 
 // --- links ------------------------------------------------------------------
 eq('appUrl uses PUBLIC_BASE_URL without doubling the slash', appUrl('/app/maps/7'), 'https://busmaps.uk/app/maps/7');

@@ -72,9 +72,10 @@ const SIGN_OFF = `You are receiving this because your organisation has a map on 
 /**
  * Compose one of the three. Pure and exported so the wording can be read (and
  * tested) without a mail provider or a database.
- * @param {'update-ready'|'published'|'sent-back'} kind
+ * @param {'update-ready'|'published'|'sent-back'|'published-batch'} kind
  * @param {{mapName:string, mapUrl:string, versionKey?:string, publishedVersion?:string,
- *          sourceNote?:string, reason?:string, publicUrl?:string}} f
+ *          sourceNote?:string, reason?:string, publicUrl?:string,
+ *          maps?:{mapName:string, versionKey?:string, mapUrl:string}[]}} f
  */
 export function compose(kind, f) {
   const map = f.mapName || 'your map';
@@ -103,6 +104,21 @@ export function compose(kind, f) {
           f.publicUrl ? `Public page: ${f.publicUrl}` : 'It is not listed on the public site — tick "List this map" on the map page when you want the page live.',
         ],
         action: { label: 'Open the map', url: f.mapUrl },
+        footnote: SIGN_OFF,
+      }),
+    };
+  }
+  if (kind === 'published-batch') {
+    const maps = Array.isArray(f.maps) ? f.maps : [];
+    const n = maps.length;
+    return {
+      subject: `${n} map${n === 1 ? '' : 's'} published on ${SITE}`,
+      ...wrap({
+        lede: `An approver has reviewed and published ${n} map${n === 1 ? '' : 's'} for your organisation.`,
+        body: [
+          'Each is now the official version: the print-ready sheets people rely on, and what your public page serves.',
+          ...maps.map((m) => `${m.mapName}${m.versionKey ? ` ${m.versionKey}` : ''} — ${m.mapUrl}`),
+        ],
         footnote: SIGN_OFF,
       }),
     };
