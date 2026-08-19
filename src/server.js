@@ -37,8 +37,7 @@ import {
   listProposedForMap, listPendingProposedUpdates,
   listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug,
   setCustomerBranding, setMapPublicListed, publicCounts,
-  setMapBannerNote, clearMapBannerNote,
-} from './db/index.js';
+  setMapBannerNote, clearMapBannerNote, getVersion } from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
@@ -56,6 +55,7 @@ import {
 import { sanitizeOverrides } from './maps/safeSubset.js';
 import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES } from './maps/store.js';
 import { ensureWatermarked } from './render/watermark.js';
+import { ensureDraftMarked, draftLabel } from './render/draftStamp.js';
 import {
   diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes,
 } from './expert/index.js';
@@ -1264,8 +1264,31 @@ app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
   if (!/^v\d+\.\d+$/.test(key) || !Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
     return reply.code(400).send({ ok: false, error: 'Bad version or file.' });
   }
-  const p = path.join(versionDir(map.id, key), file);
+  let p = path.join(versionDir(map.id, key), file);
   if (!existsSync(p)) return reply.code(404).send({ ok: false, error: 'Not found.' });
+
+  /* Mark a copy that is NOT the published one, so a sheet on someone's desk says
+   * what it is. The render itself carries only "Map version 5.0" — true while the
+   * version is a draft and still true once it is published, which is what lets
+   * publishing stay a pure state flip and leaves the reviewed bytes alone (see
+   * renderVersion in maps/engine.js). This route is the one that serves versions
+   * OTHER than the published one, so it is where the state belongs.
+   *
+   * Derived and cached beside the source, never written over it — the same
+   * contract as the public watermark, and it falls back to the original file on
+   * any error rather than failing a download. A render made before the version
+   * line existed has no line to rewrite and is served untouched.
+   */
+  const ver = getVersion(map.id, key);
+  if (ver && ver.review_state !== 'published') {
+    try {
+      const marked = await ensureDraftMarked(p, draftLabel(ver.review_state, `${ver.major}.${ver.minor}`, ver.created_at));
+      if (marked) p = marked;
+    } catch (e) {
+      req.log.error(e, 'draft marking failed; serving the original file');
+    }
+  }
+
   reply.header('Content-Type', OUTPUT_FILES[file]);
   if (req.query && 'download' in req.query) {
     reply.header('Content-Disposition', `attachment; filename="${map.slug}-${key}-${file}"`);

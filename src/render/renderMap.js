@@ -54,6 +54,22 @@ export function generateSvg({
   // against a shipped fixture, so anything laid on top would fail a gate that is
   // about determinism, not about presentation.
   stamp = true,
+  /* The version this sheet is OF, printed in the footer band beside the QR
+   * (footer.js design.sheetVersion; the engine adds the words "Map version" to a
+   * bare number and prints anything else verbatim).
+   *
+   * Passed as an environment variable rather than written into the map's data,
+   * because the data is shared by every version of the map and this is a fact
+   * about ONE of them. The generator's own routes.json carries a `build <ver> ·
+   * <date>` stamp put there by the skill's rollout.js — right for a sheet being
+   * looked at during development, wrong the moment it reaches a customer — and
+   * this is what overrides it.
+   *
+   * Absent (the byte-identical reproduce test, which passes nothing) the
+   * generator falls back to routes.json, so the gate keeps reproducing the
+   * fixture's own value and stays exactly as meaningful as it was.
+   */
+  sheetVersion,
 } = {}) {
   if (!dataDir) throw new Error('generateSvg: dataDir is required');
   // Generators normally travel WITH the map (dataDir); the portal-owned expert
@@ -67,6 +83,7 @@ export function generateSvg({
   // them. It is opt-in and never set for a shipped render, so the byte-identical
   // baseline (P0 gate) is unaffected.
   if (editorKeys) env.EDITOR_KEYS = '1';
+  if (sheetVersion) env.LEAFLET_SHEET_VERSION = String(sheetVersion);
 
   const res = spawnSync(process.execPath, [genPath], {
     cwd: dataDir,

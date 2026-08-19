@@ -14,7 +14,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT } from './store.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { buildFacts, FACTS_FILE } from './facts.js';
 
@@ -288,7 +288,15 @@ export function previewFrom(dataDir, overrides, outputsConfig) {
   const result = {};
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
-      const { svgPath } = generateSvg({ dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp });
+      const { svgPath } = generateSvg({
+        dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
+        // A preview is of no version at all — it is the customer's unsaved edits.
+        // Without this it would fall back to routes.json, which on a map delivered
+        // from the skill carries a `build 6.54 · 19 Aug 2026` development stamp:
+        // the one audience that must never see the engine's build number is the
+        // customer editing their own map.
+        sheetVersion: 'Preview \u2014 unsaved',
+      });
       result[o.base] = readFileSync(svgPath, 'utf8');
     }
   } finally {
@@ -327,7 +335,26 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
   const log = [];
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
-      const { svgPath, log: genLog } = generateSvg({ dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp });
+      const { svgPath, log: genLog } = generateSvg({
+        dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
+        // The PLAIN number, and deliberately nothing about the version's state.
+        //
+        // A version is always a draft at the moment it is rendered, and publishing
+        // it does NOT re-render — approving a publish request flips review_state and
+        // moves the map's pointer, and the bytes the approver signed off are the
+        // bytes that go public. So a "Draft" baked in here would become a lie on
+        // every published sheet, and the only ways round that are to re-render on
+        // publish (the reviewed artwork would no longer be the published artwork) or
+        // to rewrite a reviewed file in place. Neither is worth it.
+        //
+        // "5.0" is true while it is a draft and still true once it is published, so
+        // nothing here ever has to change. The DRAFT marking is added on the way out
+        // instead, on the authenticated per-version download route, derived and
+        // cached beside the original exactly as the public watermark is — see
+        // src/render/draftStamp.js. The public route serves the reviewed bytes
+        // untouched.
+        sheetVersion: versionNumber(storageKey),
+      });
       if (genLog) log.push(`${o.gen}: ${genLog}`);
       const svgOut = path.join(outDir, `${o.base}.svg`);
       const jpgOut = path.join(outDir, `${o.base}.jpg`);

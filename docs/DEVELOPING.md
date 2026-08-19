@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.12 | 2026-08-13 | sha=b38dab5a -->
-**v1.12** · updated 13 August 2026
+<!-- docstamp v1.13 | 2026-08-19 | sha=f0839fa9 -->
+**v1.13** · updated 19 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -80,8 +80,26 @@ All generators, vendored or per-map, are driven the same way:
 | `SKILL_ASSETS` | where `icons.js` resolves from (falls back to a sibling `icons.js`) |
 | `OVERRIDES_FILE` | the customer's saved safe-subset edits. **Absent or empty ⇒ byte-identical baseline.** |
 | `EDITOR_KEYS` | editor-support keys emitted into the SVG |
+| `LEAFLET_SHEET_VERSION` | the version printed in the footer band. **Overrides** `design.sheetVersion` in the map's own `routes.json`. Absent ⇒ whatever the data says, which is what the reproduce gates rely on. |
 
 **The `LEAFLET_DIR` trap.** The schematic and diagram pre-stages spawn `gen_internal.js` with `cwd` set to a workspace and an inherited environment. Because `gen_internal.js` prefers `LEAFLET_DIR` over `cwd`, an inherited value sends that render back to the parent folder and **silently produces the ordinary geographic map** under the expert style's filename. The wrappers in `engine/expert/` delete it for the child and pass everything else through. If you write a new pre-stage or wrapper, do the same. Symptom: an expert sheet that looks exactly like the plain internal map.
+
+### The printed sheet version — three states, one line
+
+A sheet has to say which version it is, and **where the reader got it decides which answer is right** (Peter's review item 6). The engine prints one line in the footer band beside the QR; a bare number gets the words `Map version` in front of it and anything else prints verbatim, so one string covers all three cases:
+
+| The sheet came from | It prints | Set by |
+|---|---|---|
+| the skill, before it ever reached the portal | `build 6.54 · 19 Aug 2026` | `rollout.js`, into the run's own `routes.json` |
+| this portal, rendered | `Map version 5.0` | `renderVersion()` → `generateSvg({ sheetVersion })` |
+| this portal, downloaded before it is published | `Draft 5.0 · 19 Aug 2026 14:02` | `src/render/draftStamp.js`, at download time |
+| the editor's live preview | `Preview — unsaved` | `previewFrom()` |
+
+**Why the state is added on the way out and not baked into the render.** A version is always a draft at the moment it is rendered, and **publishing does not re-render** — approving a publish request flips `review_state` and moves the map's pointer, and the bytes the approver signed off are the bytes that go public. So the render can only carry what is true in *both* states, which is the plain number. Baking in "Draft" would make every published sheet lie, and the two ways round that are both worse: re-rendering on publish means the reviewed artwork is not the published artwork, and rewriting the stored file in place puts a new failure mode inside the publish transaction.
+
+So the marking is derived at download time on the **authenticated per-version route** (`/api/maps/:id/versions/:key/:file`) — the only route that serves versions other than the published one — cached beside the source and never written over it, the same contract as the public watermark. `/api/public/maps/:slug/:file` serves the reviewed bytes untouched.
+
+**If you touch `draftStamp.js`, key its cache on the LABEL.** `watermark.js` keys on the source's mtime alone, which is right there because its overlay never changes. A version's `review_state` *does* change while the render sits untouched, so an mtime-only cache serves the first state's file for ever. That was the first cut, it passed every happy-path check, and `npm run test:sheet-version` exists because of it — it asks for three states in a row.
 
 ---
 
@@ -198,7 +216,7 @@ Settled 12 August 2026 (findings **D**), applied across the app, the public page
 | What the customer does with a draft | **send it for review** | submit, submit for publication |
 | What only an approver does | **publish** | — |
 | The party that reviews | **BusMaps.uk** (to a customer), **approver** (to an operator) | we, the reviewer, the operator |
-| The two geographic sheets | area: *Within the area* / *To nearby towns*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
+| The two geographic sheets | area: *Within the area* / *To nearby places*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
 
 Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
 
