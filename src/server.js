@@ -1688,13 +1688,26 @@ app.post('/api/review/:id/approve', async (req, reply) => {
   // Tell the people whose map it is (findings B2). Deliberately after every
   // state change and the audit row: the publication has happened whether or not
   // the email does, and notify() never throws.
-  notify('published', {
-    customerId: pr.customer_id, log: req.log,
-    mapName: pr.map_name, versionKey: pr.version_key,
-    mapUrl: appUrl(`/app/maps/${pr.map_id}`),
+  //
+  // suppressNotify: true skips this one call — the ONLY caller is the laptop
+  // batch script (scripts/accept-publish-batch.mjs), which collects every map
+  // it publishes in a run and asks for one grouped digest per customer via
+  // POST /api/admin/notify-published-batch instead, so a 12-map round sends
+  // one email per customer, not twelve. The interactive review screen never
+  // sends this flag, so a human approving one map through the UI is unaffected.
+  if ((req.body || {}).suppressNotify !== true) {
+    notify('published', {
+      customerId: pr.customer_id, log: req.log,
+      mapName: pr.map_name, versionKey: pr.version_key,
+      mapUrl: appUrl(`/app/maps/${pr.map_id}`),
+      publicUrl: mapRow.public_listed && getPublicMapBySlug(mapRow.slug) ? appUrl(mapPageUrl(mapRow.slug)) : null,
+    });
+  }
+  return {
+    ok: true, publishedVersion: pr.version_key, downloads: downloadsForVersion(pr.map_id, pr.version_key),
+    customerId: pr.customer_id,
     publicUrl: mapRow.public_listed && getPublicMapBySlug(mapRow.slug) ? appUrl(mapPageUrl(mapRow.slug)) : null,
-  });
-  return { ok: true, publishedVersion: pr.version_key, downloads: downloadsForVersion(pr.map_id, pr.version_key) };
+  };
 });
 
 app.post('/api/review/:id/reject', async (req, reply) => {
@@ -2120,6 +2133,31 @@ app.get('/api/admin/proposed-updates', async (req, reply) => {
     customer: pu.customer_name || null,
   }));
   return { ok: true, updates };
+});
+
+// One grouped "N maps published" email per customer, for a scripted batch that
+// published several maps with suppressNotify:true on each individual approve
+// (see the comment on /api/review/:id/approve). Never called by the UI — the
+// review screen always sends its own single notify('published', ...) inline.
+// Grouping happens HERE, server-side, so the digest wording and the recipient
+// lookup stay in one tested place (src/email/notify.js) rather than being
+// duplicated in a laptop script that has no access to EMAIL_PROVIDER anyway.
+app.post('/api/admin/notify-published-batch', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const items = Array.isArray((req.body || {}).items) ? (req.body || {}).items : [];
+  const byCustomer = new Map();
+  for (const it of items) {
+    if (it == null || it.customerId == null || !it.mapName || !it.mapUrl) continue;
+    if (!byCustomer.has(it.customerId)) byCustomer.set(it.customerId, []);
+    byCustomer.get(it.customerId).push({ mapName: it.mapName, versionKey: it.versionKey, mapUrl: it.mapUrl });
+  }
+  const results = [];
+  for (const [customerId, maps] of byCustomer) {
+    const r = await notify('published-batch', { customerId, maps, log: req.log });
+    results.push({ customerId, maps: maps.length, ...r });
+  }
+  req.log.info({ customers: results.length, items: items.length }, 'published-batch digest sent');
+  return { ok: true, results };
 });
 
 // Operational snapshot (P7): readiness, disk usage per map, and the counts an
