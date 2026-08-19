@@ -218,7 +218,15 @@ async function main() {
     if (aborted) { entry.steps.skipped = 'run aborted after an earlier auth failure'; continue; }
     try {
       console.log(`\n-- ${label}`);
-      const detail = await api('GET', `/api/maps/${u.map.id}`);
+      // GET /api/maps/:id answers `{ ok, map: mapDetail(m) }` — everything about the
+      // map is one level DOWN. Reading `detail.pendingRequest` and `detail.slug` off
+      // the envelope silently yielded undefined: the withdraw step never fired, and
+      // the verify below fetched /api/public/maps/undefined, got a 404 body with no
+      // `map` in it, and reported `public API reports "undefined"` for all eleven
+      // maps in the 2026-08-19 batch — every one of which had in fact published
+      // correctly. A uniform failure across every item is the tell that the fault is
+      // in the harness, not the work.
+      const { map: detail } = await api('GET', `/api/maps/${u.map.id}`);
       if (detail.pendingRequest) {
         console.log(`   withdrawing stale publish request #${detail.pendingRequest.id} first`);
         await api('POST', `/api/maps/${u.map.id}/publish-request/withdraw`, {});
@@ -249,9 +257,17 @@ async function main() {
       // per [[feedback_verify_claimed_actions]], the claim isn't trusted until
       // a read confirms it independently of the call that made the change.
       const slug = detail.slug;
+      if (!slug) throw new Error('no slug on the map detail — cannot verify publication');
       const check = await fetch(`${BASE_URL}/api/public/maps/${slug}?_=${Date.now()}`, { cache: 'no-store' });
       const checkJson = await check.json().catch(() => null);
-      const liveVersion = checkJson?.map?.version;
+      // Distinguish "the map says the wrong version" from "the check itself did not
+      // work". Reporting the second as the first is what made a clean run of eleven
+      // look like a total failure.
+      if (!check.ok || !checkJson || !checkJson.map) {
+        throw new Error(`verification request failed: HTTP ${check.status} from /api/public/maps/${slug}`
+          + (checkJson && checkJson.error ? ` — ${checkJson.error}` : ''));
+      }
+      const liveVersion = checkJson.map.version;
       if (liveVersion === approved.publishedVersion) {
         entry.steps.verified = liveVersion;
         entry.ok = true;
