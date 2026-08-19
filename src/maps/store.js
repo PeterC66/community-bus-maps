@@ -125,10 +125,19 @@ export function ensureProposedDirs(id, pid) {
 // the area" and "To nearby towns" described somebody else's map (findings D1).
 // The wording matches the public page's own labels (src/public/index.js) so the
 // app and the page a reader lands on call the two sheets the same thing.
+//
+// 2026-08-19 — "Octolinear schematic" became "Simplified street map" (Peter's item 12).
+// It was two pieces of jargon in a row of four labels that carry none, and it disagreed
+// with this app's OWN public page, which has said "Simplified street map" since P8a. The
+// new name says what the reader gets, sits in the same register as its three siblings,
+// and keeps it distinct from the tube-map diagram — which is the distinction that matters,
+// since both are abstractions of the same geography. The sheet's own corner note moved
+// with it: the schematic now prints "Simplified — not to scale" where it used to claim,
+// alongside the diagram, to be a "Diagram".
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true },
-  external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby towns', placeLabel: 'Where those buses go', portal: true },
-  internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Octolinear schematic', portal: true, buildAlways: true },
+  external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
+  internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Simplified street map', portal: true, buildAlways: true },
   internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
 };
 

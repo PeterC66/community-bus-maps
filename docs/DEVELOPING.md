@@ -198,7 +198,7 @@ Settled 12 August 2026 (findings **D**), applied across the app, the public page
 | What the customer does with a draft | **send it for review** | submit, submit for publication |
 | What only an approver does | **publish** | — |
 | The party that reviews | **BusMaps.uk** (to a customer), **approver** (to an operator) | we, the reviewer, the operator |
-| The two geographic sheets | area: *Within the area* / *To nearby towns*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
+| The two geographic sheets | area: *Within the area* / *To nearby places*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
 
 Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
 

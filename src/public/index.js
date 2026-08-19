@@ -56,7 +56,7 @@ export const orgPageUrl = (slug) => `/o/${slug}`;
 const PUBLIC_LABELS = {
   area: {
     internal_geographic: 'Buses within the area',
-    external: 'Buses to nearby towns',
+    external: 'Buses to nearby places',
     internal_schematic: 'Simplified street map',
     internal_diagram: 'Network diagram',
   },
