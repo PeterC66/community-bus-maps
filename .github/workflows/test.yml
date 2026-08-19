@@ -1,0 +1,42 @@
+# Runs the portal's own test suite. Nothing ran it until 2026-08-19: the only
+# workflow in this repo was render-parity.yml, whose `paths:` filter meant a
+# change to src/server.js, src/db/, src/auth/, src/publish/ or anything in
+# scripts/ triggered no CI at all (technical-audit_2026-08-19 V1).
+#
+# Deliberately NO `paths:` filter. The point of this workflow is that there is
+# no edit to this repository which is not covered by it.
+#
+# The suite needs no fixtures, no network and no secrets - it builds its own
+# SQLite under DATA_DIR - so it runs on a fresh clone. Checked before wiring it
+# up: it passes with no .env and an empty data dir, and it genuinely goes RED on
+# real drift (a one-character edit to a footer block failed check-chrome with
+# exit 1). A gate nobody has watched fail is not a gate.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 24 to match the Dockerfile's base image: node:sqlite is the store, and
+      # it is still flagged experimental, so the runtime is not a free variable.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm test
+        run: npm test

@@ -17,6 +17,7 @@
     "chrome:check": "node scripts/check-chrome.mjs",
     "test:p6": "node scripts/test-p6.mjs",
     "test:safe-subset": "node scripts/test-safe-subset.mjs",
+    "audit": "node scripts/audit-check.mjs",
     "verify": "npm run verify:area && npm run verify:place && npm run verify:defaults",
     "verify:area": "node --env-file-if-exists=.env scripts/verify-reproduce.mjs",
     "verify:place": "node --env-file-if-exists=.env scripts/verify-reproduce-place.mjs",

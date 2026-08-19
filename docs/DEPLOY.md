@@ -71,6 +71,30 @@ WantedBy=multi-user.target
 
 Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the app relies on: forward `X-Forwarded-Proto` (the session cookie is marked `Secure` when the request is HTTPS) and don't strip `/api/` or `/m/` paths.
 
+### 3a. Security headers live in the Caddyfile, and they are deployed separately
+
+The `Caddyfile` in this repo carries the site's security headers - HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a strict Content-Security-Policy (added 2026-08-19; until then every response carried none of them, `technical-audit_2026-08-19` S1). **This file is not deployed by `deliver-map.mjs`, `deploy.mjs` or the container build.** Caddy runs on the host, outside Docker, so shipping a new app image does nothing to it. If you change the `Caddyfile` you must copy and reload it yourself, or the change simply never happens.
+
+Run these on the **VPS** (`ssh` in first), after copying the repo's `Caddyfile` up to your home directory - `~/Caddyfile` below is wherever you put it, and `/etc/caddy/Caddyfile` is fixed:
+
+```bash
+sudo cp ~/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+`caddy validate` before `reload` on purpose: `reload` on a malformed file leaves the previous config running on some versions and fails the site on others, and finding out which by experiment is not a thing to do to a live site.
+
+Then check from the **laptop** that the headers actually arrive, because a reload that silently kept the old config looks exactly like success:
+
+```bash
+curl -sI https://busmaps.uk/ | grep -iE "content-security-policy|strict-transport|x-content-type|referrer-policy|permissions-policy"
+```
+
+The CSP is strict (`script-src 'self'`, no `'unsafe-inline'`) and the site is built to stay inside it: there are **no inline `<script>` blocks anywhere in `public/`**, and three that used to exist were moved out to `/js/contact-kind.js`, `/js/app-dashboard.js` and `/js/app-login.js` on 2026-08-19 to keep it that way. If you add an inline script, the browser will silently refuse to run it and the page will half-work. Add a file under `public/js/` and a `<script src=... defer>` instead. After any change to a page's scripts, open `/`, `/maps`, `/m/<slug>` (any published map - `<slug>` comes from `/api/public/maps`), `/app/login.html` and a signed-in `/app`, and confirm the browser console shows no `Refused to ...` lines.
+
+There is a way to test the whole header block without touching the live site or installing Caddy locally: run the portal (`npm start`, from the repo root) and put a proxy in front of it that reads the header values straight out of the `Caddyfile`. That is how this block was checked before it was first deployed - including confirming the CSP *blocks* an injected inline script, rather than only confirming the pages still load.
+
 ## 4. Smoke test after every deploy
 
 ```bash
@@ -173,7 +197,8 @@ exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIV
   Settings → Deploy keys). Not the laptop's key, and not write-capable.
 - **Firewall:** `ufw` allows only 22/80/443.
 - **Reverse proxy:** Caddy (`Caddyfile` in this repo, deployed to `/etc/caddy/Caddyfile`) —
-  see §3/§11 of `GO-LIVE.md` for why it isn't serving the public site yet (DNS).
+  see §3/§11 of `GO-LIVE.md` for why it isn't serving the public site yet (DNS). Carries the
+  security headers and the CSP since 2026-08-19 — **deployed by hand, not by any script**: see §3a.
 - **Backups:** host cron (`crontab -l` as `ubuntu`) runs `docker compose run --rm backup` daily at
   03:15. A Windows scheduled task on the laptop (`BusMaps-PullBackups`, `schtasks /Query`) runs
   `C:\Claude\community-bus-maps-ops\pull-backups.ps1` daily at 08:00 to pull them off-box into

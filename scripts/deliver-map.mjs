@@ -203,6 +203,7 @@ if (!DRY_RUN) {
 }
 
 // 5. Bring the service back up (only attempted if the import succeeded).
+let healthOk = true;
 if (importOk) {
   console.log('\n-- 5. docker compose up -d portal');
   if (!DRY_RUN) {
@@ -214,7 +215,20 @@ if (importOk) {
   console.log('\n-- 6. /health?deep=1');
   if (!DRY_RUN) {
     // A few seconds for the container to actually come up before probing it.
-    run(SSH[0], [...SSH.slice(1), 'sleep 3 && curl -fsS localhost:5180/health?deep=1']);
+    // The return code is the point of this step: `curl -fsS` fails on a 503,
+    // which is exactly what readiness returns when a dependency is unhealthy.
+    // Until 2026-08-19 the status was discarded, so a delivery that left the
+    // service unhealthy still printed "✓ delivered"
+    // (technical-audit_2026-08-19 O3).
+    const rc = run(SSH[0], [...SSH.slice(1), 'sleep 3 && curl -fsS localhost:5180/health?deep=1']);
+    if (rc !== 0) {
+      console.error('');
+      console.error('FAILED: the portal restarted but is NOT healthy - /health?deep=1 did not return 200.');
+      console.error('  The import SUCCEEDED and the container is UP; it is readiness that is failing.');
+      console.error(`  Check it by hand:  ssh ${HOST} 'curl -sS localhost:5180/health?deep=1'`);
+      console.error(`  and the logs:      ssh ${HOST} 'cd ${APP_DIR} && docker compose logs --tail=50 portal'`);
+      healthOk = false;
+    }
   }
 }
 
@@ -223,6 +237,7 @@ console.log(`\n-- 7. cleanup ${remoteStage}`);
 if (!DRY_RUN) sshRun(`rm -rf ${remoteStage}`);
 
 if (!importOk) process.exit(1);
+if (!healthOk) process.exit(1);
 console.log(MODE === 'propose'
   ? '\n✓ staged — see the propose-update output above for the customer review link.'
   : '\n✓ delivered.');

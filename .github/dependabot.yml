@@ -1,0 +1,35 @@
+# Dependency update PRs. There was no dependabot config at all until 2026-08-19,
+# and no workflow ran `npm audit` either, so four high-severity advisories sat in
+# the production tree unnoticed (technical-audit_2026-08-19 S2).
+#
+# Dependabot proposes; .github/workflows/audit.yml is what actually fails the
+# build. The two are complements: Dependabot will not tell you that an advisory
+# you chose to defer has been sitting there for six weeks.
+#
+# Grouped and weekly on purpose - this is a one-maintainer project, and a daily
+# drip of single-package PRs is how a bot ends up ignored.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    open-pull-requests-limit: 5
+    groups:
+      # Patch and minor bumps arrive as one PR; the test workflow gates them.
+      routine:
+        patterns: ['*']
+        update-types: [minor, patch]
+    # Majors come as their own PR: sharp in particular cannot be merged on a
+    # green test run alone - it needs `npm run verify` and a byte re-baseline
+    # (see the Dockerfile's note and scripts/audit-allowlist.json).
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies]
