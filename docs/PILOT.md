@@ -21,8 +21,9 @@ Considered and rejected: *experimental* (reads as "may break your data" — wron
 |---|---|---|
 | Every web page (17 static files + the 404) | Amber banner above the header; `[Pilot]` prefix on the tab title | `/js/site-banner.js`, generated in `src/server.js` |
 | Every rendered sheet | Red band across the top: *PILOT — SAMPLE MAP · Made to test the system…* | `src/render/pilotStamp.js` |
-| Search engines | `Disallow: /` | `src/server.js` robots handler |
 | FAQ | The `#pilot` entry — the banner's link target, and the honest long version | `public/faq.html` |
+
+**Search engines are no longer on that list.** Until 2026-08-21 `PILOT_MODE` also served `Disallow: /`, and that conflated two different claims: the banner and the sheet band say *"this is a pilot"*, which is honest and worth keeping for as long as it is true, while `Disallow: /` says *"nobody may find this at all"*. Tying them to one switch meant the only way to become discoverable was to stop admitting it was a pilot. Indexing is now its own flag, `ALLOW_INDEXING` (default off, see `src/config.js` §INDEXING and `scripts/test-indexing.mjs`), so the two can be set independently — including the useful middle state of an indexed site that still says plainly that it is a pilot.
 
 The banner is injected by one generated script rather than pasted into seventeen hand-written HTML files, because there is no template engine here. Each page carries a single `<script src="/js/site-banner.js" defer>` tag.
 
@@ -34,7 +35,7 @@ The sheet band **reserves space** rather than overlaying. The sheets have no rel
 PILOT_MODE=0
 ```
 
-That is the whole switch — restart and every item in the table above is gone. Then, in this order:
+That is the whole switch — restart and every item in the table above is gone. It does **not** enable indexing; that is `ALLOW_INDEXING=1`, and the two are deliberately independent. Then, in this order:
 
 1. **Set `PILOT_MODE=0`** in the deployment environment (and `.env`).
 2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already reviewed and published:
@@ -42,7 +43,7 @@ That is the whole switch — restart and every item in the table above is gone. 
    node scripts/restamp-renders.mjs --apply
    ```
 With `PILOT_MODE=0` this *strips* the band and re-rasterises each JPG. The transform is lossless — a stamped sheet stripped again is byte-identical to the original. Run it without `--apply` first for a dry run.
-3. **Delete the code.** `grep -rn "PILOT:" --include=* . | grep -v node_modules` finds every gated block. Whole files: `src/config.js`, `src/render/pilotStamp.js`, `scripts/restamp-renders.mjs`. Everything else is a marked block or a one-line `<script>` tag. **Not** `src/render/badgeContrast.js` or `scripts/fix-badge-contrast.mjs` — they sit next to the band in `renderMap.js` but are a correctness fix, and must survive the pilot.
+3. **Delete the code.** `grep -rn "PILOT:" --include=* . | grep -v node_modules` finds every gated block. Whole files: `src/render/pilotStamp.js`, `scripts/restamp-renders.mjs`. Everything else is a marked block or a one-line `<script>` tag. Three things sit close to the pilot code and **must survive it**: `src/render/badgeContrast.js` and `scripts/fix-badge-contrast.mjs` (they sit next to the band in `renderMap.js` but are a correctness fix), and — since 2026-08-21 — **`src/config.js` is no longer a whole-file delete**: it also exports `INDEXING`, which has nothing to do with the pilot. Delete the `PILOT` export from it and keep the rest, or the site silently stops being indexable at the moment it stops being a pilot.
 4. **Revisit the copy.** See below — most of it should *stay*.
 
 Leaving the `<script>` tags in place after `PILOT_MODE=0` is harmless: the route serves an empty file.

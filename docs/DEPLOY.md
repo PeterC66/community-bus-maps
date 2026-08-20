@@ -34,7 +34,8 @@ Copy `.env.example`. The ones that matter in production:
 | `EMAIL_PROVIDER` / `EMAIL_FROM` / `RESEND_API_KEY` | magic-link delivery via Resend (`src/email/resend.js`, the only provider wired up). **Unset `EMAIL_PROVIDER` means sign-in links are printed to the log** — fine in dev, not in production. Needs SPF/DKIM at 20i for `EMAIL_FROM`'s domain. |
 | `METRICS_TOKEN` | set to expose `/metrics`; unset and the endpoint 404s |
 | `STATUS_TOKEN` | set to accept `POST /api/admin/status` (the laptop's `push-status.mjs`); unset and it 404s |
-| `PILOT_MODE` | **defaults ON.** Banner on every page, band on every rendered sheet, `Disallow: /` in robots.txt. Set to `0` to switch all of it off — see [`PILOT.md`](PILOT.md) |
+| `PILOT_MODE` | **defaults ON.** Banner on every page and a band on every rendered sheet. Set to `0` to switch all of it off — see [`PILOT.md`](PILOT.md). Does **not** control indexing; that is `ALLOW_INDEXING` below |
+| `ALLOW_INDEXING` | **defaults OFF.** While off, `robots.txt` serves `Disallow: /` and the site cannot be found in a search engine. Set to `1` to become discoverable. Independent of `PILOT_MODE` since 2026-08-21, so the site can be indexed while still honestly labelled a pilot — see `src/config.js` §INDEXING |
 
 ## 3. Run it
 
