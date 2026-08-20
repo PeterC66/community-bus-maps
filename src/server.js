@@ -67,7 +67,8 @@ import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseR
 import { logAudit } from './audit/index.js';
 import { writePlacesSidecar } from './search/place-index.js';
 import { searchPlaces, bumpSearchIndex } from './search/index.js';
-import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
+import { PILOT, INDEXING } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING stays
+import { robotsTxt } from './public/robots.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { sendMagicLink } from './email/index.js';
 import { notify, appUrl } from './email/notify.js';
@@ -663,26 +664,20 @@ app.get('/js/site-banner.js', async (req, reply) => {
 });
 
 // Search engines: only public pages, and only maps that are actually published.
+// The policy is in src/public/robots.js so it can be tested against the real
+// bytes without booting this server — see that file's header and
+// scripts/test-indexing.mjs.
 app.get('/robots.txt', async (req, reply) => {
   reply.type('text/plain');
-  return [
-    'User-agent: *',
-    // PILOT: a pilot with no customers has no business being indexed. The
-    // sitemap stays below so the line is a one-line revert.
-    ...(PILOT.on ? ['Disallow: /'] : []),
-    'Disallow: /app',
-    'Disallow: /api/',
-    'Disallow: /auth/',
-    `Sitemap: ${baseUrl(req)}/sitemap.xml`,
-    '',
-  ].join('\n');
+  return robotsTxt({ indexable: INDEXING.allowed, sitemapUrl: `${baseUrl(req)}/sitemap.xml` });
 });
 
 // Every public page that is linked from the footer, so the sitemap and the footer
 // agree. `/opportunity.html` is outreach rather than shopfront, but it is linked
 // from all of them — excluding it would hide it from crawlers while showing it to
 // every visitor, which is not privacy, just inconsistency. (What actually keeps it
-// unindexed during the pilot is robots.txt saying `Disallow: /`.)
+// unindexed is robots.txt saying `Disallow: /`, which it does until ALLOW_INDEXING=1
+// — a decision now independent of PILOT_MODE. See src/config.js §INDEXING.)
 const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html', '/accessibility.html'];
 
 app.get('/sitemap.xml', async (req, reply) => {
