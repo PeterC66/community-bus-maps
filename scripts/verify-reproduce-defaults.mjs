@@ -57,23 +57,30 @@
 // moves it and forcing the search off changes nothing. The key did not die; the
 // sheets stopped needing it.
 //
-// Skips cleanly (exit 0) when FIXTURE_DIR is unset or no entry in it exists.
+// FIXTURES. Resolved by scripts/lib/fixtures.mjs: $FIXTURE_DIR if it points at
+// anything real, otherwise the COMMITTED fixture at Areas/_portal-fixture/.
+// It FAILS rather than skips when there is nothing at all — see that file's
+// header (technical-audit_2026-08-19 V2).
+//
+// Measured 2026-08-20 against the committed fixture: St Ives ALONE exercises all
+// thirteen keys. That was not true two days earlier and may stop being true
+// again, which is the whole reason FIXTURES is still a list — if a key reports
+// dead, ask first whether this town stopped exercising it, and prefer adding a
+// second fixture to excluding the key.
 
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ENGINE_DIR, generateSvg } from '../src/render/renderMap.js';
+import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
 
-const FIXTURES = (process.env.FIXTURE_DIR || '')
-  .split(';')
-  .map((f) => f.trim())
-  .filter((f) => f && existsSync(f));
+const { fixtures: FIXTURES } = resolveFixtures('area');
 const ICONS = process.env.SKILL_ASSETS || ENGINE_DIR;
 const n = (x) => Number(x).toLocaleString('en-GB');
 
 if (!FIXTURES.length) {
-  console.log('· verify-reproduce-defaults: FIXTURE_DIR not set or missing — skipping.');
-  process.exit(0);
+  reportNoFixture('area');
+  process.exit(0); // only reached under --allow-skip
 }
 
 // Every key promoted to a default by the label-and-design-quality-plan.md G5

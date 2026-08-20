@@ -44,14 +44,17 @@ cp .env.example .env      # then edit if you like
 npm run dev               # serves the shopfront on http://127.0.0.1:5180
 ```
 
-Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate Buses data repo):
+Prove the renderer reproduces a real leaflet byte-for-byte. Run from this repository's root, with the separate `buses-data` repo cloned next to it (or `BUSES_DIR` set in `.env` to wherever it is):
 
 ```bash
-# point FIXTURE_DIR at one staged town render folder, then:
 npm run verify
 ```
 
-Note that `verify` **exits 0 with "skipping" when `FIXTURE_DIR` is unset** — a green run in a fresh clone proves nothing about the renderer. Set it (and `PLACE_FIXTURE_DIR`) first.
+Nothing else to configure: the gates read a **committed fixture** — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in `buses-data` — so a fresh clone proves the claim. Set `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` only to point a gate at something else, normally the live render tree.
+
+**With no fixture at all, `verify` FAILS.** It used to print "skipping" and exit 0, which meant a fresh clone, a CI run and a second developer all got a green result from a check that had not executed — the finding [`technical-audit_2026-08-19`](../../u3a%20St%20Ives/Using%20AI/Buses/Development%20Docs/technical-audit_2026-08-19.md) called the single most important structural item in the report (V2), on the grounds that the byte-identical guarantee is what the product is sold on and it could be verified by exactly one person on one machine. `npm run verify -- --allow-skip` is the escape hatch for a clone of the portal alone, and it says out loud that it proved nothing.
+
+The same three gates run in CI on every push and pull request, and nightly — [`.github/workflows/verify.yml`](.github/workflows/verify.yml).
 
 **Before you change any code, read [`docs/DEVELOPING.md`](docs/DEVELOPING.md)** — the determinism contract, the three approval gates, the vendored-engine hand-off, the generator env contract, and which gates to run.
 

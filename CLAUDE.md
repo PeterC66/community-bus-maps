@@ -46,8 +46,13 @@ Two structural facts that catch people out:
 - **Generators are vendored per map** into `data/maps/<id>/data/`. Editing `engine/` changes nothing
   for existing maps. The pilot band works around this by transforming the finished SVG in
   `src/render/renderMap.js` *after* generation — copy that pattern.
-- **`npm run verify` skips silently** when `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` are unset, so a green
-  run in a clean checkout proves nothing about the renderer. Confirm it says PASS with byte counts.
+- **`npm run verify` no longer skips** (2026-08-20, technical-audit_2026-08-19 V2). It finds a
+  committed fixture in `buses-data` — `Areas/_portal-fixture/` and `Places/_portal-fixture/` — via
+  `BUSES_DIR` or a sibling checkout, and it FAILS rather than exiting 0 when there is none.
+  `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` still win when set, and still point at the live render tree on
+  Peter's laptop, which is where a real regression shows first. `--allow-skip` exists for a clone of
+  the portal alone and announces that it proved nothing. Still read the output: PASS with byte counts
+  is the evidence, an exit code is not.
 
 ## If you are here to improve the update/publish flow
 

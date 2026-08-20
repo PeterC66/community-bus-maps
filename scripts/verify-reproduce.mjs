@@ -8,8 +8,14 @@
 //   3. rasterises the shipped SVG and compares to the shipped JPG
 //      (render-parity — byte / pixel / near, reported for information).
 //
-// Skips cleanly (exit 0) when FIXTURE_DIR is unset or missing, so a fresh clone
-// without the data repo still passes `npm run verify`.
+// FIXTURES, AND WHY THIS NO LONGER SKIPS. Until 2026-08-20 this exited 0 with
+// "skipping" when FIXTURE_DIR was unset — so a fresh clone, a CI run and a
+// second developer all got a green result from a gate that had not executed.
+// See scripts/lib/fixtures.mjs for the whole of that argument
+// (technical-audit_2026-08-19 V2). It now resolves a COMMITTED fixture at
+// Areas/_portal-fixture/ automatically, and FAILS when there is genuinely
+// nothing to run against. `--allow-skip` is the escape hatch, and says loudly
+// that it proved nothing.
 
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
@@ -17,6 +23,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
 import { warnIfStaleSibling } from './lib/fixture-freshness.mjs';
+import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
 
 // FIXTURE_DIR may be a `;`-separated LIST — verify-reproduce-defaults.mjs needs
 // several towns because no single one exercises all thirteen escape hatches (see its
@@ -31,18 +38,14 @@ import { warnIfStaleSibling } from './lib/fixture-freshness.mjs';
 // checkout proves nothing about the renderer"), and it was caught by counting RESULT
 // lines — three where there should have been four — not by the exit code, which was 0
 // throughout. If you add another consumer of FIXTURE_DIR, split it there too.
-const FIXTURES = (process.env.FIXTURE_DIR || '')
-  .split(';')
-  .map((f) => f.trim())
-  .filter(Boolean);
-const FIXTURE = FIXTURES.find((f) => existsSync(f));
+const { fixtures: FIXTURES, source: FIXTURE_SOURCE } = resolveFixtures('area');
+const FIXTURE = FIXTURES[0];
 const ICONS = process.env.SKILL_ASSETS || ENGINE_DIR;
 const n = (x) => Number(x).toLocaleString('en-GB');
 
 if (!FIXTURE) {
-  console.log('· verify-reproduce: FIXTURE_DIR not set or missing — skipping.');
-  console.log('  Point FIXTURE_DIR at a staged town render folder to run it (see .env.example).');
-  process.exit(0);
+  reportNoFixture('area');
+  process.exit(0); // only reached under --allow-skip; reportNoFixture exits 1 otherwise
 }
 
 async function pixelCompare(aBuf, bBuf) {
@@ -100,6 +103,7 @@ cpSync(FIXTURE, scratch, { recursive: true });
 
 console.log('Byte-identical reproduce test');
 console.log('  fixture :', FIXTURE);
+console.log('  source  :', FIXTURE_SOURCE === 'env' ? '$FIXTURE_DIR' : 'committed fixture (Areas/_portal-fixture)');
 console.log('  icons   :', ICONS);
 console.log('');
 warnIfStaleSibling(FIXTURE);
