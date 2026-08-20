@@ -10,6 +10,7 @@
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
   <script src="/js/site-banner.js" defer></script>
   <script src="/js/auth-status.js" defer></script>
+  <script src="/js/contact-kind.js" defer></script>
 </head>
 <body>
   <!-- nav:start -->
@@ -63,21 +64,6 @@
         <button class="btn btn-primary" type="submit">Send message</button>
         <div class="form-msg" role="status" aria-live="polite"></div>
       </form>
-      <script>
-        (function () {
-          var kind = new URLSearchParams(location.search).get('kind');
-          var select = document.getElementById('kind');
-          if (kind && select && select.querySelector('option[value="' + kind + '"]')) {
-            select.value = kind;
-          }
-          if (kind === 'issue') {
-            var body = document.getElementById('body');
-            if (body && !body.value) body.placeholder = 'Which map, and what looks wrong? A link or a photo helps.';
-            var note = document.getElementById('issueNote');
-            if (note) note.hidden = false;
-          }
-        })();
-      </script>
     </div></section>
   </main>
 

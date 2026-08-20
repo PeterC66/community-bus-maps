@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Advisories we have SEEN, JUDGED and DEFERRED - not ones we are ignoring.",
+    "scripts/audit-check.mjs fails CI on any high/critical advisory that is NOT",
+    "listed here, and ALSO fails once an entry's `until` date passes. That second",
+    "rule is the point of the file: a deferral has to be renewed deliberately, so",
+    "it cannot rot into a permanent exemption that nobody re-reads.",
+    "Adding an entry is a decision. Record why, and who has to do what to remove it."
+  ],
+  "allow": [
+    {
+      "module": "sharp",
+      "advisories": [
+        "GHSA-f88m-g3jw-g9cj"
+      ],
+      "severity": "high",
+      "until": "2026-10-01",
+      "why": "Fix requires sharp >=0.35, a major bump of the rasteriser. Every published sheet's bytes are a product guarantee, so the upgrade needs a full re-render and re-baseline (npm run verify) before it can ship - see the Dockerfile's sharp note. Deferred to the P1 block of technical-audit_2026-08-19, NOT waived.",
+      "removeBy": "Upgrade sharp, re-run npm run verify, re-baseline and re-publish the affected sheets. The written rule is that a security patch outranks byte continuity: a re-baseline is a normal event, not a failure.",
+      "exposure": "libvips parses image data. The portal only ever feeds it SVG this system generated itself; it never rasterises a file supplied by a customer or a visitor."
+    }
+  ]
+}

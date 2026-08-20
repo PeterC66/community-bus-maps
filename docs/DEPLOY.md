@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.15 | 2026-08-19 | sha=3795b8d8 -->
-**v1.15** · updated 19 August 2026
+<!-- docstamp v1.17 | 2026-08-20 | sha=d43f88a4 -->
+**v1.17** · updated 20 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -71,6 +71,48 @@ WantedBy=multi-user.target
 
 Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the app relies on: forward `X-Forwarded-Proto` (the session cookie is marked `Secure` when the request is HTTPS) and don't strip `/api/` or `/m/` paths.
 
+### 3a. Security headers live in the Caddyfile, and they are deployed separately
+
+The `Caddyfile` in this repo carries the site's security headers - HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a strict Content-Security-Policy (added 2026-08-19; until then every response carried none of them, `technical-audit_2026-08-19` S1). **This file is not deployed by `deliver-map.mjs`, `deploy.mjs` or the container build.** Caddy runs on the host, outside Docker, so shipping a new app image does nothing to it. If you change the `Caddyfile` you must copy and reload it yourself, or the change simply never happens.
+
+**Getting onto the VPS from the laptop.** From `C:\Claude\community-bus-maps` (the repo root):
+
+```bash
+npm run ssh
+```
+
+That reads `DEPLOY_HOST`, `DEPLOY_SSH_KEY` and `DEPLOY_APP_DIR` out of `.env` and drops you into a shell already in the app directory, so there is no hostname or key path to remember. To run a single command without opening a shell, quote it as one argument after `--`:
+
+```bash
+npm run ssh -- "docker compose ps"
+```
+
+**Copying the Caddyfile up.** Also from `C:\Claude\community-bus-maps`, and note the trailing `:` on the destination - it means "your home directory on that host". `%DEPLOY_HOST%` is a placeholder for whatever `DEPLOY_HOST` is set to in `.env` (of the form `user@host`); substitute it by hand, since `scp` does not read `.env`:
+
+```bash
+scp Caddyfile %DEPLOY_HOST%:
+```
+
+**Then, in the shell that `npm run ssh` opened**, install and reload it. `~/Caddyfile` is where the `scp` above just put it; `/etc/caddy/Caddyfile` is fixed and is where Caddy actually reads from:
+
+```bash
+sudo cp ~/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+`caddy validate` before `reload` on purpose: `reload` on a malformed file leaves the previous config running on some versions and fails the site on others, and finding out which by experiment is not a thing to do to a live site.
+
+Then check from the **laptop** that the headers actually arrive, because a reload that silently kept the old config looks exactly like success:
+
+```bash
+curl -sI https://busmaps.uk/ | grep -iE "content-security-policy|strict-transport|x-content-type|referrer-policy|permissions-policy"
+```
+
+The CSP is strict (`script-src 'self'`, no `'unsafe-inline'`) and the site is built to stay inside it: there are **no inline `<script>` blocks anywhere in `public/`**, and three that used to exist were moved out to `/js/contact-kind.js`, `/js/app-dashboard.js` and `/js/app-login.js` on 2026-08-19 to keep it that way. If you add an inline script, the browser will silently refuse to run it and the page will half-work. Add a file under `public/js/` and a `<script src=... defer>` instead. After any change to a page's scripts, open `/`, `/maps`, `/m/<slug>` (any published map - `<slug>` comes from `/api/public/maps`), `/app/login.html` and a signed-in `/app`, and confirm the browser console shows no `Refused to ...` lines.
+
+There is a way to test the whole header block without touching the live site or installing Caddy locally: run the portal (`npm start`, from the repo root) and put a proxy in front of it that reads the header values straight out of the `Caddyfile`. That is how this block was checked before it was first deployed - including confirming the CSP *blocks* an injected inline script, rather than only confirming the pages still load.
+
 ## 4. Smoke test after every deploy
 
 ```bash
@@ -78,6 +120,8 @@ curl -fsS localhost:5180/health?deep=1 | head -40
 ```
 
 `?deep=1` is the **readiness** probe, not a ping: it queries the database, writes and deletes a probe file in `DATA_DIR`, checks the vendored engine files (including the P7 expert styles) and rasterises a tiny image through sharp. It returns **503** if any of those fail, so it is what a load balancer and the container `HEALTHCHECK` should use.
+
+This URL is also monitored from outside. An **Uptime Robot** check polls `https://busmaps.uk/health?deep=1` every five minutes and alerts by email (set up 2026-08-20, `technical-audit_2026-08-19` O2 — the alert address is recorded in `community-bus-maps-ops`, not here). Two things to keep in mind when touching this route: it is not a free ping, so tightening the interval multiplies the rasterisations this box does; and **S4 — putting `?deep=1` behind `METRICS_TOKEN` — must update the monitor in the same change**, or it will start returning 401 and paging about a fault that is not there. There is a note to that effect beside the handler in `src/server.js`.
 
 Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
 
@@ -173,7 +217,8 @@ exists, for picking this up cold — VPS/DNS decision rationale lives in `GO-LIV
   Settings → Deploy keys). Not the laptop's key, and not write-capable.
 - **Firewall:** `ufw` allows only 22/80/443.
 - **Reverse proxy:** Caddy (`Caddyfile` in this repo, deployed to `/etc/caddy/Caddyfile`) —
-  see §3/§11 of `GO-LIVE.md` for why it isn't serving the public site yet (DNS).
+  see §3/§11 of `GO-LIVE.md` for why it isn't serving the public site yet (DNS). Carries the
+  security headers and the CSP since 2026-08-19 — **deployed by hand, not by any script**: see §3a.
 - **Backups:** host cron (`crontab -l` as `ubuntu`) runs `docker compose run --rm backup` daily at
   03:15. A Windows scheduled task on the laptop (`BusMaps-PullBackups`, `schtasks /Query`) runs
   `C:\Claude\community-bus-maps-ops\pull-backups.ps1` daily at 08:00 to pull them off-box into

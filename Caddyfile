@@ -17,6 +17,49 @@ busmaps.uk, www.busmaps.uk {
 
 	encode zstd gzip
 
+	# Security headers (technical-audit_2026-08-19 S1). Until 2026-08-19 every
+	# response from this site carried none of these at all.
+	#
+	# The CSP is the point of the block. public/js/map-viewer.js injects a
+	# published SVG into the page with `canvas.innerHTML = svg`, so that SVG runs
+	# in busmaps.uk's own origin, and the only other thing standing in its way is
+	# the regex denylist in src/public/inlineSvg.js (S9) — a denylist that does
+	# not cover <foreignObject>, <animate attributeName="href"> or entity-encoded
+	# variants. Place names in that SVG come from OpenStreetMap, which anyone in
+	# the world can edit. `script-src 'self'` is what makes that safe.
+	#
+	# Three notes on the specific values:
+	#   script-src has NO 'unsafe-inline'. The three inline <script> blocks that
+	#     used to be in contact.html, app/index.html and app/login.html were moved
+	#     to /js/contact-kind.js, /js/app-dashboard.js and /js/app-login.js on
+	#     2026-08-19 precisely so this could stay strict. Keep it that way: adding
+	#     'unsafe-inline' here would re-open the SVG hole above site-wide.
+	#   style-src DOES allow 'unsafe-inline', because ~40 inline style="…"
+	#     attributes remain across the public pages and the app shells. They are
+	#     all trivial spacing tweaks (margin-top, max-width), a style attribute
+	#     cannot execute script, and rewriting them as classes across eight live
+	#     pages is a visual-regression risk out of proportion to the gain. Worth
+	#     tidying later; it is not what this block is for.
+	#   img-src allows data: for one reason — the favicon is an inline
+	#     data:image/svg+xml URI in every page's <head>.
+	#
+	# No 'preload' on the HSTS header: preloading is effectively irreversible and
+	# should be a deliberate separate decision, not a side effect of this change.
+	#
+	# Verify after deploying: `curl -sI https://busmaps.uk/` shows the headers,
+	# and the browser console is clean (no "Refused to …" lines) on /, /maps,
+	# /m/<slug>, /app/login.html and a signed-in /app.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'"
+		# Caddy's own advert; nothing downstream needs it.
+		-Server
+	}
+
 	# Don't let the reverse proxy handle 404s for /api/ or /m/ (GO-LIVE.md's
 	# reminder not to strip those paths) — there's no path rewriting above, so
 	# this is automatically satisfied; kept explicit as documentation.

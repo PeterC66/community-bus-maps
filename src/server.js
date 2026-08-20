@@ -105,6 +105,13 @@ const authLink = (req, token) => `${req.protocol}://${req.headers.host}/auth/ver
 // trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
 // otherwise the proxy's, not the client's — breaking authLink()'s https URLs
 // (GO-LIVE.md §2.4) and letting every visitor share one rate-limit bucket.
+//
+// `1`, not `true`: `true` trusts the WHOLE X-Forwarded-For chain and takes the
+// leftmost entry, which is the value the client sent. Caddy appends the real
+// peer address rather than replacing the header, so under `true` anyone could
+// pick their own req.ip with a header and rotate it to defeat every rate limit
+// below (technical-audit_2026-08-19 S3). `1` trusts exactly one hop — the
+// local Caddy — so req.ip is the address Caddy actually saw.
 const app = Fastify({
   // P9 B8 — search queries are never logged, and an access log counts as a
   // log: the default request serializer logs req.url including its query
@@ -119,7 +126,7 @@ const app = Fastify({
     },
   },
   bodyLimit: 256 * 1024,
-  trustProxy: true,
+  trustProxy: 1,
 });
 
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
@@ -133,18 +140,46 @@ app.addHook('preHandler', async (req) => {
 
 // --- tiny in-memory per-IP rate limit for public POSTs ---
 const hits = new Map();
+// Nothing evicted from this map until 2026-08-19, so it grew one entry per
+// distinct client address for the life of the process — slow memory exhaustion
+// (technical-audit_2026-08-19 S3). Two bounds now, belt and braces: a periodic
+// sweep of entries whose window has closed, and a hard cap that clears the lot
+// the way inlineCache already does. Clearing wholesale only forgives in-flight
+// counts, so the failure mode is a moment's extra leniency, never a lockout.
+const HITS_MAX = 20_000;
+function sweepHits(windowMs = 60_000) {
+  const now = Date.now();
+  if (hits.size > HITS_MAX) { hits.clear(); return; }
+  for (const [ip, rec] of hits) if (now - rec.t > windowMs) hits.delete(ip);
+}
 function rateLimited(ip, max = 20, windowMs = 60_000) {
   const now = Date.now();
   const rec = hits.get(ip) || { n: 0, t: now };
   if (now - rec.t > windowMs) { rec.n = 0; rec.t = now; }
   rec.n += 1;
   hits.set(ip, rec);
+  if (hits.size > HITS_MAX) sweepHits(windowMs);
   return rec.n > max;
 }
 
 // Liveness by default (cheap, safe to hammer). `?deep=1` runs the P7 readiness
 // probe — DB, object store, engine files, rasteriser — and returns 503 if any
 // dependency is unhealthy, which is what a load balancer or uptime check wants.
+//
+// SOMETHING EXTERNAL DEPENDS ON THIS URL. Since 2026-08-20 an Uptime Robot
+// check polls `/health?deep=1` from outside every five minutes and alerts on
+// anything that is not a 200 (technical-audit_2026-08-19 O2). Two things follow.
+//
+// 1. Do not make `?deep=1` more expensive without thinking about the interval.
+//    It already writes and deletes a probe file and rasterises an image through
+//    sharp on every call, i.e. ~288 rasterisations a day just from monitoring.
+//
+// 2. S4 in that audit puts the counts and `?deep=1` behind the METRICS_TOKEN
+//    gate. Doing that WITHOUT updating the monitor turns it into a 401 and it
+//    will page about a fault that does not exist — the classic way a healthy
+//    system teaches its owner to ignore its alerts. Give the monitor the token
+//    (or a loopback/dedicated-token exemption, which the Docker HEALTHCHECK
+//    needs anyway) in the SAME change, not afterwards.
 app.get('/health', async (req, reply) => {
   const base = {
     status: 'ok', service: 'community-bus-maps', version: VERSION, gitSha: GIT_SHA, builtAt: BUILT_AT, pilotMode: PILOT.on,
@@ -2183,6 +2218,7 @@ try {
   await app.listen({ port: PORT, host: HOST });
   app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
   setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
+  setInterval(() => { try { sweepHits(); } catch {} }, 300_000).unref();
 } catch (err) {
   app.log.error(err);
   process.exit(1);

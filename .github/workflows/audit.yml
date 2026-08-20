@@ -1,0 +1,46 @@
+# Dependency advisories in the PRODUCTION tree.
+#
+# Not a bare `npm audit --audit-level=high`: on the day this landed the tree
+# already carried two known, judged, deferred advisories (sharp, @fastify/static),
+# so a bare audit would have been red from its first run - and a check that is
+# red on day one gets muted inside a week. technical-audit_2026-08-19 V4 already
+# names gate fatigue as a live problem here, so the gate is written to start
+# green and only go red on something that deserves attention:
+#   - a high/critical advisory not listed in scripts/audit-allowlist.json, or
+#   - a new advisory against a module that was already deferred, or
+#   - a deferral whose `until` date has passed.
+# All three were tested by hand before this workflow was committed.
+#
+# Weekly as well as per-push, because the dependency tree can turn red without
+# anyone touching the repository - that is the normal way a CVE arrives.
+
+name: dependency audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 07:15 UTC - a working morning, so a red result gets looked at.
+    - cron: '15 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # `npm ci` so the audit reads the committed lockfile, not a fresh resolve.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: node scripts/audit-check.mjs

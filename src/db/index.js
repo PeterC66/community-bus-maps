@@ -17,6 +17,17 @@ mkdirSync(DATA_DIR, { recursive: true });
 
 export const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL;');
+// The schema declares REFERENCES on nine columns, but SQLite ignores every one
+// of them unless foreign_keys is switched on per connection — so until now they
+// were documentation, not a constraint (technical-audit_2026-08-19 S10).
+// Checked before enabling: `PRAGMA foreign_key_check` is clean on the live
+// database (2026-08-18 backup) and on the dev one, and the only script that
+// deletes a parent row (scripts/delete-map.mjs) already clears map's two
+// self-referencing version pointers before removing the map_version rows.
+db.exec('PRAGMA foreign_keys = ON;');
+// Single-writer, but the backup and the write scripts do open a second
+// connection: wait for the lock rather than throwing SQLITE_BUSY immediately.
+db.exec('PRAGMA busy_timeout = 5000;');
 db.exec(readFileSync(path.join(HERE, 'schema.sql'), 'utf8'));
 
 // Lightweight migrations for DBs created before a column existed. (schema.sql is
