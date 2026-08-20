@@ -23,6 +23,21 @@
 # "Arial" resolved to a proportional face has no legitimate "differs but fine"
 # outcome, so that one check fails the build.
 
+# EVERY JOB HERE CARRIES A timeout-minutes, AND THAT IS NOT BOILERPLATE.
+#
+# On 2026-08-20 the `runner` job below sat in "Rasterise the probes on the bare
+# runner" for FOUR HOURS on the sharp 0.35 upgrade PR, on a step that had taken
+# under a minute on every previous run. GitHub's default job timeout is SIX
+# HOURS, so it was neither red nor green: it was simply pending, and `gh pr
+# checks` reported it as pending alongside the passing jobs.
+#
+# A check that cannot reach a verdict is worse than one that fails, because
+# nothing chases it. That is the same defect as deliver-map.mjs discarding its
+# health check's exit code (audit O3) and as buses-data's gate board sitting red
+# for twelve days because a scheduled failure is silent (audit V2): in all three
+# the machinery ran and the result went nowhere. A bounded timeout turns a hang
+# into a result.
+
 name: render parity
 
 on:
@@ -52,6 +67,7 @@ jobs:
   image:
     name: node:24-slim (deployment target)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -101,6 +117,7 @@ jobs:
   runner:
     name: ubuntu-latest (system fonts present)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
