@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.15 | 2026-08-19 | sha=3795b8d8 -->
-**v1.15** · updated 19 August 2026
+<!-- docstamp v1.17 | 2026-08-20 | sha=d43f88a4 -->
+**v1.17** · updated 20 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -102,6 +102,8 @@ curl -fsS localhost:5180/health?deep=1 | head -40
 ```
 
 `?deep=1` is the **readiness** probe, not a ping: it queries the database, writes and deletes a probe file in `DATA_DIR`, checks the vendored engine files (including the P7 expert styles) and rasterises a tiny image through sharp. It returns **503** if any of those fail, so it is what a load balancer and the container `HEALTHCHECK` should use.
+
+This URL is also monitored from outside. An **Uptime Robot** check polls `https://busmaps.uk/health?deep=1` every five minutes and alerts by email (set up 2026-08-20, `technical-audit_2026-08-19` O2 — the alert address is recorded in `community-bus-maps-ops`, not here). Two things to keep in mind when touching this route: it is not a free ping, so tightening the interval multiplies the rasterisations this box does; and **S4 — putting `?deep=1` behind `METRICS_TOKEN` — must update the monitor in the same change**, or it will start returning 401 and paging about a fault that is not there. There is a note to that effect beside the handler in `src/server.js`.
 
 Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
 

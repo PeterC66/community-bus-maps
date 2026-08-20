@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.65 | 2026-08-18 | sha=e232fd70 -->
-**v1.65** · updated 18 August 2026
+<!-- docstamp v1.67 | 2026-08-20 | sha=a1a1cdf2 -->
+**v1.67** · updated 20 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -21,7 +21,9 @@ Seven items from `Development Docs/technical-audit_2026-08-19.md`'s P0 list. The
 - **S3 — the rate limiter was bypassable and leaked memory.** `trustProxy` was `true`, which trusts the whole `X-Forwarded-For` chain and takes the *leftmost* entry — the one the client sent. Since Caddy appends rather than replaces, anyone could choose their own `req.ip` and rotate it to defeat every public POST limit. Now `1`: exactly one hop, the local Caddy. The `hits` map also had no eviction anywhere, one entry per distinct (spoofable) address for the life of the process; it now has a five-minute sweep and a hard cap.
 - **S10 — nine `REFERENCES` columns that SQLite was ignoring.** `PRAGMA foreign_keys` was never set, so every declared foreign key was documentation. Now `ON`, plus a `busy_timeout`. Checked first rather than assumed: `PRAGMA foreign_key_check` is clean on the **live** database (the 2026-08-18 backup) as well as the dev one, and `scripts/delete-map.mjs` — the only script that removes a parent row — already clears `map`'s two self-referencing version pointers before deleting the `map_version` rows it points at.
 
-Not done, and not doable from here: **O2**, the external uptime monitor. It is the other half of O3 — `deliver-map.mjs` leaves the site stopped on purpose when an import fails, which is a sound design *only* if something tells a human, and today nothing does. It needs an account on a third-party service, so it is Peter's to create.
+**O2 closed 2026-08-20.** An external Uptime Robot check now polls `https://busmaps.uk/health?deep=1` every five minutes and alerts Peter by email; confirmed working from his end, and the endpoint verified returning 200 with all four readiness checks green at the time it was set up. This is the half of O3 that reaches a human who is not at the keyboard: `deliver-map.mjs` stops the portal for every delivery and **deliberately leaves it stopped** if the import fails, which is a sound loud-failure design only if something raises the alarm. Until now the entire detection capability was the operations handbook's "glance at readiness".
+
+`?deep=1` rather than `/health` on purpose — it returns **503** when a dependency is unhealthy, so the check catches "up but broken" and not merely "port open". Two consequences worth holding on to. It is not a free ping: each call queries the database, writes and deletes a probe file, and rasterises a small image through sharp, so the interval should not be tightened much below five minutes on a single small VM. And **S4 will break this monitor if nobody thinks about it** — that P1 item moves `?deep=1` behind the `METRICS_TOKEN` gate, at which point the check starts returning 401 and paging about a fault that does not exist. A note to that effect now sits next to the route handler in `src/server.js`.
 
 
 ### Added — `verify:defaults` proves the design escape hatches aren't dead code — 2026-08-18

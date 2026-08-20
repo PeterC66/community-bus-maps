@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.14 | 2026-08-17 | sha=6aa04d1e -->
-**v1.14** · updated 17 August 2026
+<!-- docstamp v1.15 | 2026-08-20 | sha=0d72f41e -->
+**v1.15** · updated 20 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -80,7 +80,7 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 
 | Cadence | Task | How | Runbook |
 |---|---|---|---|
-| **Daily** (mostly automated) | Backup runs; glance at readiness | cron `npm run backup`; `curl /health?deep=1` | [DEPLOY.md §5](DEPLOY.md), [§4](DEPLOY.md) |
+| **Daily** (mostly automated) | Backup runs; readiness is watched **for** you now | cron `npm run backup`; **Uptime Robot** polls `/health?deep=1` every 5 min and emails on failure (since 2026-08-20) — so this row is a glance, not the safety net it used to be | [DEPLOY.md §5](DEPLOY.md), [§4](DEPLOY.md) |
 | **Daily/weekly** | Clear the queues | `/app/admin` badges: **Applications**, **Messages** (contact + report-a-problem + diagram requests, §4b) | R2, R5 |
 | **Weekly** | Review submitted maps | `/app/review` | R3 |
 | **Monthly** | Run the update cycle after the BODS refresh; then prune | `propose-update.mjs` per map; `npm run prune:staged` | R4, [DEPLOY.md §6](DEPLOY.md) |

@@ -165,6 +165,21 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
 // Liveness by default (cheap, safe to hammer). `?deep=1` runs the P7 readiness
 // probe — DB, object store, engine files, rasteriser — and returns 503 if any
 // dependency is unhealthy, which is what a load balancer or uptime check wants.
+//
+// SOMETHING EXTERNAL DEPENDS ON THIS URL. Since 2026-08-20 an Uptime Robot
+// check polls `/health?deep=1` from outside every five minutes and alerts on
+// anything that is not a 200 (technical-audit_2026-08-19 O2). Two things follow.
+//
+// 1. Do not make `?deep=1` more expensive without thinking about the interval.
+//    It already writes and deletes a probe file and rasterises an image through
+//    sharp on every call, i.e. ~288 rasterisations a day just from monitoring.
+//
+// 2. S4 in that audit puts the counts and `?deep=1` behind the METRICS_TOKEN
+//    gate. Doing that WITHOUT updating the monitor turns it into a 401 and it
+//    will page about a fault that does not exist — the classic way a healthy
+//    system teaches its owner to ignore its alerts. Give the monitor the token
+//    (or a loopback/dedicated-token exemption, which the Docker HEALTHCHECK
+//    needs anyway) in the SAME change, not afterwards.
 app.get('/health', async (req, reply) => {
   const base = {
     status: 'ok', service: 'community-bus-maps', version: VERSION, gitSha: GIT_SHA, builtAt: BUILT_AT, pilotMode: PILOT.on,
