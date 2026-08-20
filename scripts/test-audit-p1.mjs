@@ -9,6 +9,7 @@
 //   S5  seven-day sliding sessions, step-up freshness, non-secret session handles
 //   S6  the submitter of a version cannot approve it
 //   S7  the app's HTML shells are not inside the static root
+//   V3  a town whose S6 verification pre-dates its data is not deliverable
 //   O4  a configured-but-broken email provider is a FAULT, not a silent success
 //
 // The route-level halves of S4, S6 and S7 are exercised here against a real
@@ -20,7 +21,7 @@
 // Runs against a throwaway DATA_DIR; it never touches real portal data, needs no
 // network, and sends no email.
 
-import { mkdtempSync, existsSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -255,6 +256,64 @@ eq('…and it is gone', after.some((x) => x.handle === target.handle), false);
 check('…while the others remain', after.length === sessions.length - 1);
 
 eq('the self-approval override is OFF by default', process.env.ALLOW_SELF_APPROVAL === '1', false);
+
+console.log('\nV3 — S6 freshness');
+const { checkS6, findWaiver } = await import('../scripts/lib/s6-freshness.mjs');
+
+// Synthetic manifests, not the real map tree: CI has no map tree, and a gate
+// that quietly does nothing in CI is the exact failure this whole block is
+// about.
+const manifestDir = (name, stages) => {
+  const d = path.join(scratch, 'maps', name);
+  mkdirSync(path.join(d, 'S5-render', 'v1.0'), { recursive: true });
+  writeFileSync(path.join(d, 'manifest.json'), JSON.stringify({ town: name, stages }, null, 1));
+  return path.join(d, 'S5-render', 'v1.0');
+};
+const run = (id, at) => ({ name: 'x', latest: id, runs: [{ id, dir: `x/${id}`, at }] });
+
+const freshMap = manifestDir('Freshtown', {
+  S1: run('a', '2026-01-01T00:00'), S2: run('b', '2026-01-02T00:00'),
+  S3: run('c', '2026-01-03T00:00'), S6: run('d', '2026-01-04T00:00'),
+});
+eq('S6 newer than the data is fresh', checkS6({ srcDir: freshMap }).verdict, 'fresh');
+
+const staleMap = manifestDir('Staletown', {
+  S1: run('a', '2026-01-01T00:00'), S2: run('b', '2026-01-02T00:00'),
+  S3: run('c', '2026-06-03T00:00'), S6: run('d', '2026-01-04T00:00'),
+});
+// The finding itself: S3 (the hand-authored config) moved after the last
+// verification, so what was verified is not what would be delivered.
+eq('S3 moving after S6 makes it stale', checkS6({ srcDir: staleMap }).verdict, 'stale');
+eq('…and it names the newest data', checkS6({ srcDir: staleMap }).newestDataAt, '2026-06-03T00:00');
+
+const neverMap = manifestDir('Nevertown', { S1: run('a', '2026-01-01T00:00'), S6: { name: 'verify', latest: null, runs: [] } });
+eq('an area never verified is refused', checkS6({ srcDir: neverMap }).verdict, 'never');
+// …and the same empty S6 slot on a PLACE is not a fault. The shared stage
+// machinery writes all six slots; the place skill fills five. Getting this
+// wrong blocked every place delivery on the first attempt.
+eq('…the same empty slot on a place is not applicable', checkS6({ srcDir: neverMap, kind: 'place' }).verdict, 'not-applicable');
+
+// A directory that is not in a map tree must REFUSE, not pass. "Could not check"
+// and "checked and fine" reporting the same way is how the verify gate spent
+// months being green without running (the audit's V2).
+eq('no manifest anywhere above is cannot-tell, not pass', checkS6({ srcDir: scratch }).verdict, 'no-manifest');
+
+// The waiver file is the reason this gate could start green. Its expiry is the
+// reason it will not stay green by default.
+const waivers = { waive: [{ map: 'Staletown', until: '2026-12-31', why: 'w', removeBy: 'r' }] };
+eq('a live waiver is found', findWaiver(waivers, 'Staletown', { now: new Date('2026-06-01') }).expired, false);
+eq('…and matched case-insensitively', findWaiver(waivers, 'staletown', { now: new Date('2026-06-01') }) !== null, true);
+eq('…and reports itself expired after `until`', findWaiver(waivers, 'Staletown', { now: new Date('2027-01-02') }).expired, true);
+eq('…and a town with no entry gets nothing', findWaiver(waivers, 'Freshtown'), null);
+
+// The shipped file has to parse, and every entry has to carry the four fields
+// the refusal message reads out. A waiver that cannot explain itself is an
+// exemption pretending to be a decision.
+const shipped = JSON.parse(readFileSync(path.join(ROOT, 'scripts', 's6-waivers.json'), 'utf8'));
+check('s6-waivers.json parses and has entries', Array.isArray(shipped.waive) && shipped.waive.length > 0);
+for (const w of shipped.waive) {
+  check(`waiver for ${w.map} is complete and dated`, Boolean(w.map && w.until && w.why && w.removeBy) && /^\d{4}-\d{2}-\d{2}$/.test(w.until));
+}
 
 await app.close();
 

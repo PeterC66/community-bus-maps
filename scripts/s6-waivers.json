@@ -1,0 +1,93 @@
+{
+  "_comment": [
+    "Towns allowed to be delivered with a STALE S6 verification, and until when.",
+    "",
+    "scripts/deliver-map.mjs refuses a town whose latest S6 run pre-dates its",
+    "newest S1/S2/S3 data (technical-audit_2026-08-19 V3): the byte gates prove",
+    "the renderer reproduces the sheet, S6 is the stage that asks whether the",
+    "sheet is RIGHT, and on 2026-08-19 every town was stale by 8-31 days while",
+    "all 13 maps were live.",
+    "",
+    "This file exists because that gate would otherwise have been RED on its",
+    "first run, for all eight towns, and a check that is red on day one gets",
+    "muted inside a week - the audit's own V4 names gate fatigue as a live",
+    "problem here. Same shape and same reasoning as scripts/audit-allowlist.json:",
+    "an entry is a DEFERRAL, not a waiver, and deliver-map.mjs refuses an entry",
+    "whose `until` has passed just as loudly as it refuses a missing one. A",
+    "deferral has to be renewed deliberately; it cannot rot into a permanent",
+    "exemption nobody re-reads.",
+    "",
+    "TO CLEAR ONE: run the town's S6 stage (make-bus-leaflet, stage S6) against",
+    "its current data, then delete its entry here. Do not extend `until` without",
+    "writing down what changed.",
+    "",
+    "The `until` dates are staggered so eight towns' S6 passes do not all fall",
+    "due in the same week."
+  ],
+  "waive": [
+    {
+      "map": "St Ives",
+      "until": "2026-09-15",
+      "s6AsAt": "2026-08-10T10:47",
+      "dataAsAt": "2026-08-19T04:45",
+      "why": "S6 predates the 2026-08-19 P1-round config pass (S3), which changed frequency tiers, the sheet URL/QR footer and the how-to panel on every town. The map's SERVICE content was verified on 2026-08-10 and has not moved since; what is unverified is the presentation the P1 round changed.",
+      "removeBy": "Run S6 for St Ives against the current S3, then delete this entry."
+    },
+    {
+      "map": "Huntingdon",
+      "until": "2026-09-15",
+      "s6AsAt": "2026-08-04T04:23",
+      "dataAsAt": "2026-08-19T04:45",
+      "why": "As St Ives: S6 predates the P1-round config pass.",
+      "removeBy": "Run S6 for Huntingdon against the current S3, then delete this entry."
+    },
+    {
+      "map": "High Wycombe",
+      "until": "2026-09-22",
+      "s6AsAt": "2026-08-04T04:23",
+      "dataAsAt": "2026-08-19T04:45",
+      "why": "As St Ives: S6 predates the P1-round config pass. Also the town whose Key filter and note panel changed most in that round, so its S6 is the one worth doing early.",
+      "removeBy": "Run S6 for High Wycombe against the current S3, then delete this entry."
+    },
+    {
+      "map": "Wisbech",
+      "until": "2026-09-22",
+      "s6AsAt": "2026-08-04T04:23",
+      "dataAsAt": "2026-08-19T04:45",
+      "why": "As St Ives, plus the P1-round palette guard repicked its X46 off the furniture grey onto amber, on a sheet that also draws the A47 in gold. Checked by eye at the time; pick_route_colour.js does not score against drawn roads, so this one wants a human look.",
+      "removeBy": "Run S6 for Wisbech against the current S3, then delete this entry."
+    },
+    {
+      "map": "March",
+      "until": "2026-09-29",
+      "s6AsAt": "2026-08-04T04:23",
+      "dataAsAt": "2026-08-19T10:44",
+      "why": "As St Ives, plus the schematic river-warp fix of 2026-08-19 — the only town combining the legacy river_geo.json fallback with internalSchematic, so its schematic sheet is the one that changed most and has never been verified in its fixed form.",
+      "removeBy": "Run S6 for March against the current S3, then delete this entry."
+    },
+    {
+      "map": "Ramsey",
+      "until": "2026-09-29",
+      "s6AsAt": "2026-08-08T04:40",
+      "dataAsAt": "2026-08-19T04:45",
+      "why": "As St Ives: S6 predates the P1-round config pass.",
+      "removeBy": "Run S6 for Ramsey against the current S3, then delete this entry."
+    },
+    {
+      "map": "St Neots",
+      "until": "2026-10-06",
+      "s6AsAt": "2026-07-19T04:23",
+      "dataAsAt": "2026-08-19T04:43",
+      "why": "The oldest S6 in the tree at 31 days on the day of the audit. As St Ives otherwise.",
+      "removeBy": "Run S6 for St Neots against the current S3, then delete this entry."
+    },
+    {
+      "map": "Beaconsfield",
+      "until": "2026-10-06",
+      "s6AsAt": "2026-07-21T15:23",
+      "dataAsAt": "2026-08-19T06:37",
+      "why": "Second-oldest S6 at 28 days. As St Ives otherwise.",
+      "removeBy": "Run S6 for Beaconsfield against the current S3, then delete this entry."
+    }
+  ]
+}

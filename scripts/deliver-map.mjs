@@ -33,6 +33,11 @@
 // propose-update.mjs, which infers kind from the map row itself.
 //
 // Sequence, matching GO-LIVE.md §2.1/§2.5:
+//   0. S6 FRESHNESS — refuse a town whose independent verification pre-dates
+//      its own data (technical-audit_2026-08-19 V3). Local, first, and before
+//      anything leaves the laptop, so a refusal costs nothing. Deferrals with
+//      expiry dates live in scripts/s6-waivers.json; --s6-unchecked "<reason>"
+//      is the one-off escape hatch.
 //   1. scp --src up to a scratch dir on the host (rsync isn't reliably
 //      available on Windows/Git Bash laptops, so this uses scp instead).
 //   2. PRE-FLIGHT VERIFY there, inside a throwaway container, BEFORE touching
@@ -76,8 +81,11 @@
 // Zero npm dependencies (Node core + the system `ssh`/`scp` binaries),
 // matching the other laptop-side scripts (push-status.mjs, worklist.mjs).
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { checkS6, findWaiver } from './lib/s6-freshness.mjs';
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -134,8 +142,103 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
   if (a === '--src') return false;
   if (all[i - 1] === '--src') return false;
   if (a === '--dry-run') return false;
+  // Local to this script's step 0 — import-map.mjs would reject them.
+  if (a === '--s6-unchecked') return false;
+  if (all[i - 1] === '--s6-unchecked') return false;
   return true;
 });
+
+// ---------------------------------------------------------------------------
+// STEP 0 — is the independent verification (S6) newer than the data?
+// technical-audit_2026-08-19 V3.
+//
+// Deliberately the FIRST thing, before the scp: it is a fact about the local
+// tree, needs no host, and refusing here means nothing was uploaded, nothing was
+// stopped and nothing has to be undone.
+//
+// The byte gate in step 2 proves the portal reproduces this render exactly. It
+// says nothing about whether the map is CORRECT — that is what S6 is, and on the
+// day of the audit every town's S6 was 8–31 days stale while all thirteen maps
+// were live. The gate board already printed `28d STALE` beside each one and
+// nothing read it.
+//
+// Waivers live in scripts/s6-waivers.json and EXPIRE — see that file's header
+// for why it exists at all (all eight towns were stale on day one, and a gate
+// that starts red gets muted). An expired waiver is refused as loudly as a
+// missing one.
+// ---------------------------------------------------------------------------
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const WAIVERS_PATH = path.join(HERE, 's6-waivers.json');
+
+function gateS6() {
+  const r = checkS6({ srcDir: SRC, kind: KIND });
+
+  if (r.verdict === 'fresh') {
+    console.log(`-- 0. S6 freshness: OK — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'not-applicable') {
+    // Named out loud rather than passed over. "Did not apply" and "passed" must
+    // not look the same at a terminal.
+    console.log(`-- 0. S6 freshness: N/A — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'no-manifest') {
+    console.error('\n✗ 0. S6 freshness: CANNOT TELL');
+    console.error(`  ${r.message}`);
+    console.error('  Refusing rather than assuming. A check that cannot see its evidence has not passed;');
+    console.error('  it has failed to run, and the two must not report the same way. Deliver from a real');
+    console.error('  S5-render directory inside the map tree, or add --s6-unchecked "<reason>" if you');
+    console.error('  genuinely mean to ship something that is not from one.');
+    process.exit(1);
+  }
+
+  // stale | never
+  let waivers = { waive: [] };
+  try { if (existsSync(WAIVERS_PATH)) waivers = JSON.parse(readFileSync(WAIVERS_PATH, 'utf8')); } catch (e) {
+    console.error(`✗ could not read ${WAIVERS_PATH}: ${e.message}`);
+    process.exit(1);
+  }
+  const w = findWaiver(waivers, r.town);
+
+  if (w && !w.expired) {
+    console.log(`-- 0. S6 freshness: STALE, deferred until ${w.until}`);
+    console.log(`  ${r.message}`);
+    console.log(`  Why deferred: ${w.why}`);
+    console.log(`  To clear: ${w.removeBy}`);
+    return;
+  }
+
+  console.error('\n✗ 0. S6 freshness: REFUSED — nothing has been uploaded and the live service is untouched.');
+  console.error(`  ${r.message}`);
+  if (w && w.expired) {
+    console.error(`\n  There IS a deferral for ${r.town} in scripts/s6-waivers.json, and it EXPIRED on ${w.until}.`);
+    console.error('  That is the file working as intended: a deferral has to be renewed deliberately.');
+    console.error(`  It said: ${w.why}`);
+    console.error(`  And: ${w.removeBy}`);
+  } else {
+    console.error(`\n  There is no deferral for ${r.town} in scripts/s6-waivers.json.`);
+  }
+  console.error('\n  Do one of these:');
+  console.error(`   1. Run the S6 verification stage for ${r.town} against its current data (the right answer).`);
+  console.error('   2. Add or renew a DATED entry in scripts/s6-waivers.json, saying what changed and who clears it.');
+  console.error('   3. --s6-unchecked "<reason>" for a one-off, which is recorded in this log and nowhere else.');
+  process.exit(1);
+}
+
+const S6_UNCHECKED = (() => {
+  const i = process.argv.indexOf('--s6-unchecked');
+  return i === -1 ? null : (process.argv[i + 1] || '(no reason given)');
+})();
+
+if (S6_UNCHECKED) {
+  console.log('!! 0. S6 freshness: SKIPPED BY HAND');
+  console.log(`   reason: ${S6_UNCHECKED}`);
+  console.log('   Nothing has verified that this map is correct against its current data.');
+} else {
+  gateS6();
+}
+console.log('');
 
 console.log('== deliver-map ==');
 console.log(`  mode   : ${MODE}${MODE === 'propose' ? ` (refresh existing map "${MAP}")` : ' (new map)'}`);
