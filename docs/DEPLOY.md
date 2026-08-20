@@ -223,6 +223,16 @@ Sessions expire themselves (the server purges hourly). Nothing else grows unboun
 
 The Dockerfile's `FROM` is now **pinned by digest** (`node:24-slim@sha256:3638d9a6…`), because it said "pinned by digest-able tag" above a floating tag and a rebuild months apart could move the very bytes the product guarantees — which is not hypothetical, it is what the Liberation Mono incident was (`technical-audit_2026-08-19` V6). Bump it from Dependabot's monthly `docker` PR or with `docker buildx imagetools inspect node:24-slim`, run from anywhere; record the new digest in `CHANGELOG.md`, and re-run `npm run verify` before deploying, because a base-image change is a rasteriser change until proved otherwise.
 
+**After any rasteriser change — a `sharp` bump or a base-image bump — check the sheets you have already published**, on the host, where the bytes actually live:
+
+```bash
+npm run ssh -- "cd /opt/community-bus-maps && docker compose run --rm portal node scripts/rerasterize-stored.mjs --check"
+```
+
+Run from the repo root on the laptop (`C:\Claude\community-bus-maps`); `/opt/community-bus-maps` is `DEPLOY_APP_DIR` on the host. It writes nothing — it re-rasterises each stored SVG to a scratch file and reports whether the bytes would change. If any would, **look at one of the changed sheets before doing anything else**: the Liberation Mono incident moved bytes too, and every sheet was wrong. Then `--apply` to bring the stored files back in line, and record it in `CHANGELOG.md`.
+
+**The rule when byte continuity and a security patch pull apart: the patch wins.** `sharp` carried a high-severity advisory for weeks on the grounds that the bytes are a product guarantee. A re-baseline is a normal, announced, recoverable event; an unpatched image parser in production is not. (In the event, `0.34.5 → 0.35.3` moved no bytes at all — but that was the outcome, not the reason.)
+
 The image also copies a new top-level **`views/`** directory holding the signed-in app's HTML shells, which moved out of `public/` so `@fastify/static` can no longer serve them (S7 — `/app/admin.html` returned 200 to anyone while `/app/admin` correctly redirected). Miss that `COPY` line and every `/app` page 404s while the public site looks perfectly fine.
 
 1. `npm ci` (respect the lockfile — see the sharp warning below), then **`npm test`**.

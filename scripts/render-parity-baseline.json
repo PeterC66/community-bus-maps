@@ -1,8 +1,8 @@
 {
   "platform": "win32-x64",
   "node": "v24.14.0",
-  "sharp": "0.34.5",
-  "vips": "8.17.3",
+  "sharp": "0.35.3",
+  "vips": "8.18.3",
   "probes": {
     "geometry": {
       "svgSha": "75c147f733222d08e740b4aa1caa4552122b32080427c8e4e591973749c05031",
@@ -22,5 +22,11 @@
       "dims": "3508x2480",
       "density": 300
     }
+  },
+  "fontResolution": {
+    "narrowMM": 51.73,
+    "wideMM": 226.22,
+    "ratio": 4.373,
+    "proportional": true
   }
 }
