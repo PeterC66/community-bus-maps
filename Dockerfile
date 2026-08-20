@@ -31,9 +31,12 @@
 #      moved bytes too, and every sheet was wrong.
 #
 # Measured for the 0.34.5 -> 0.35.3 bump (libvips 8.17.3 -> 8.18.3) on
-# 2026-08-20: not one byte moved. Both parity probes byte-identical, and all 37
-# stored JPGs in the dev store re-rasterised to identical bytes. That is the
-# happy case, not the guaranteed one.
+# 2026-08-20: not one byte moved, on Windows OR on Linux. The parity workflow ran
+# the same probes before and after -- on THIS image, geometry stayed byte-
+# identical at 418,761 B and text at 683,470 B, with the Arial ink ratio at
+# 4.376 -- and all 37 stored JPGs in the dev store re-rasterised identically.
+# That is the happy case, not the guaranteed one; step 3 above is still the
+# check, because next time it may not be.
 # The base image is pinned BY DIGEST for the same reason.
 #
 # It said "pinned by digest-able tag" until 2026-08-20 and then wrote

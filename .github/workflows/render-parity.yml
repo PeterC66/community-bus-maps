@@ -26,10 +26,16 @@
 # EVERY JOB HERE CARRIES A timeout-minutes, AND THAT IS NOT BOILERPLATE.
 #
 # On 2026-08-20 the `runner` job below sat in "Rasterise the probes on the bare
-# runner" for FOUR HOURS on the sharp 0.35 upgrade PR, on a step that had taken
-# under a minute on every previous run. GitHub's default job timeout is SIX
-# HOURS, so it was neither red nor green: it was simply pending, and `gh pr
-# checks` reported it as pending alongside the passing jobs.
+# runner" for FOUR HOURS, on a step that had taken under a minute on every
+# previous run. GitHub's default job timeout is SIX HOURS, so it was neither red
+# nor green: it was simply pending, and `gh pr checks` reported it as pending
+# alongside the passing jobs.
+#
+# It did NOT reproduce -- re-running the identical commit finished in seconds --
+# so it was a transient runner fault and not, as first suspected, the sharp 0.35
+# bump that PR carried. Which is exactly why the timeout is the fix worth
+# having: the cause was unknowable while the job was still pending, and a
+# bounded failure is something you can re-run and reason about.
 #
 # A check that cannot reach a verdict is worse than one that fails, because
 # nothing chases it. That is the same defect as deliver-map.mjs discarding its
