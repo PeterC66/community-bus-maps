@@ -31,11 +31,23 @@
 # nor green: it was simply pending, and `gh pr checks` reported it as pending
 # alongside the passing jobs.
 #
-# It did NOT reproduce -- re-running the identical commit finished in seconds --
-# so it was a transient runner fault and not, as first suspected, the sharp 0.35
-# bump that PR carried. Which is exactly why the timeout is the fix worth
-# having: the cause was unknowable while the job was still pending, and a
-# bounded failure is something you can re-run and reason about.
+# It is INTERMITTENT -- it hung on two of three runs of the same commit, and
+# passed the third in about 40 seconds with every probe number matching. So it
+# is NOT the sharp 0.35 bump that PR carried, which is what it looked like at
+# first; and it is not a one-off either. Unexplained as of 2026-08-20.
+#
+# Two things follow. The `image` job -- node:24-slim, the actual deployment
+# target -- has never hung and passes in ~35s, so nothing about deploying is
+# blocked by this; it is the diagnostic control that is flaky, not the thing
+# being controlled. And the timeout is what makes the flakiness survivable:
+# verified 2026-08-20, a hung run now ends at 20m22s instead of pending until
+# GitHub's six-hour default. Note that GitHub reports a timed-out job as
+# `cancelled`, not `failure`.
+#
+# IF YOU COME TO INVESTIGATE: it hangs in the rasterisation step itself, after
+# `npm ci` has succeeded. Compare against the image job, which does the same
+# work on the same probes in Debian bookworm with a small font set, where
+# ubuntu-latest has a large one.
 #
 # A check that cannot reach a verdict is worse than one that fails, because
 # nothing chases it. That is the same defect as deliver-map.mjs discarding its
