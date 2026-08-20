@@ -10,21 +10,14 @@
   "allow": [
     {
       "module": "sharp",
-      "advisories": ["GHSA-f88m-g3jw-g9cj"],
+      "advisories": [
+        "GHSA-f88m-g3jw-g9cj"
+      ],
       "severity": "high",
       "until": "2026-10-01",
       "why": "Fix requires sharp >=0.35, a major bump of the rasteriser. Every published sheet's bytes are a product guarantee, so the upgrade needs a full re-render and re-baseline (npm run verify) before it can ship - see the Dockerfile's sharp note. Deferred to the P1 block of technical-audit_2026-08-19, NOT waived.",
       "removeBy": "Upgrade sharp, re-run npm run verify, re-baseline and re-publish the affected sheets. The written rule is that a security patch outranks byte continuity: a re-baseline is a normal event, not a failure.",
       "exposure": "libvips parses image data. The portal only ever feeds it SVG this system generated itself; it never rasterises a file supplied by a customer or a visitor."
-    },
-    {
-      "module": "@fastify/static",
-      "advisories": ["GHSA-pr96-94w5-mx2h", "GHSA-x428-ghpx-8j92", "GHSA-8pvw-jcv7-9cmj", "GHSA-83w8-p2f5-377r"],
-      "severity": "high",
-      "until": "2026-09-16",
-      "why": "Surfaced 2026-08-19, AFTER technical-audit_2026-08-19 was written, so it is in none of that document's blocks. Fix is @fastify/static >=10.1.2, two major versions on from the 8.3.0 in the lockfile - not a patch, and it is the component serving every file under public/.",
-      "removeBy": "Bump to ^10.1.3, run npm test, and re-walk the static routes by hand (/, /maps, /m/<slug>, /app/login.html, a signed-in /app) before merging.",
-      "exposure": "The advisories are path traversal and route-guard bypass. This app registers @fastify/static on public/ with no directory listing and no route guard layered on top of it - every authorisation decision is made in the API handlers, which return 401 independently (verified in technical-audit_2026-08-19 S7). Nothing outside public/ is reachable through it. Short window on purpose: this one is cheap to close and should not wait."
     }
   ]
 }
