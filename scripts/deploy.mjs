@@ -103,10 +103,41 @@ if (!DRY_RUN) {
   if (rc !== 0) { console.error('✗ could not switch over — check the host by hand.'); process.exit(1); }
 }
 
-// 5. Smoke test.
+// 5. Readiness.
+//
+// The exit code is CAPTURED. It was discarded until 2026-08-20, exactly as
+// deliver-map.mjs step 6 was (technical-audit_2026-08-19 O3) — so a deploy that
+// left the service unhealthy still printed a tick. `curl -f` returns non-zero on
+// the 503 that /health?deep=1 gives when a dependency is down, and that is the
+// whole point of asking.
 console.log('\n-- 5. /health?deep=1');
 if (!DRY_RUN) {
-  sshRun('sleep 3 && curl -fsS localhost:5180/health?deep=1');
+  const rc = sshRun('sleep 3 && curl -fsS localhost:5180/health?deep=1');
+  if (rc !== 0) {
+    console.error('\n✗ the new container is not READY (curl returned ' + rc + ').');
+    console.error('  The deploy has happened. Read the output above, then decide whether to roll back —');
+    console.error('  docs/DEPLOY.md §9 has the recipe. Do not walk away from this.');
+    process.exit(1);
+  }
 }
 
-console.log('\n✓ deploy sequence complete — read the /health output above: gitSha, builtAt, and all four checks green.');
+// 6. Can anyone actually get in?
+//
+// Readiness proves the DB, the store, the rasteriser and the email
+// CONFIGURATION. It cannot prove the provider will accept a message today, and
+// sign-in is the only door into this system — see scripts/smoke-signin.mjs.
+// Skippable with --skip-signin for a deploy where sending a real email is
+// unwanted, but the default is to send one, because the alternative is finding
+// out from a customer.
+console.log('\n-- 6. sign-in smoke test');
+if (!DRY_RUN && !has('skip-signin')) {
+  const rc = run(process.execPath, ['scripts/smoke-signin.mjs', '--quiet']);
+  if (rc !== 0) {
+    console.error('\n✗ nobody can sign in to the deployment that was just shipped. Fix before doing anything else.');
+    process.exit(1);
+  }
+} else if (has('skip-signin')) {
+  console.log('   SKIPPED (--skip-signin) — nothing has proved a real sign-in email can be sent.');
+}
+
+console.log('\n✓ deploy sequence complete — read the /health output above: gitSha, builtAt, and every check green.');

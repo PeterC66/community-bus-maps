@@ -874,7 +874,11 @@ export function getSession(token) {
   // returns the joined user row when the session is live, else undefined
   return db
     .prepare(
-      `SELECT s.token, s.expires_at,
+      // created_at is not decoration: it is the anchor for step-up freshness
+      // (stepUpFresh in ../auth/index.js). It was missing from this list when
+      // step-up landed, which made EVERY session look stale and refused every
+      // privileged action — caught by scripts/test-audit-p1.mjs, not by reading.
+      `SELECT s.token, s.created_at, s.expires_at,
               u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id
          FROM session s JOIN user u ON u.id = s.user_id
         WHERE s.token = ? AND s.expires_at > datetime('now')`,
@@ -886,6 +890,45 @@ export function deleteSession(token) {
 }
 export function purgeExpiredSessions() {
   db.prepare("DELETE FROM session WHERE expires_at <= datetime('now')").run();
+}
+
+/**
+ * Push a live session's expiry out to `expiresAt` (the sliding window — see
+ * SESSION_DAYS in ../auth/index.js). Returns true if a row moved.
+ */
+export function touchSession(token, expiresAt) {
+  const r = db
+    .prepare("UPDATE session SET expires_at = ? WHERE token = ? AND expires_at > datetime('now')")
+    .run(expiresAt, token);
+  return r.changes > 0;
+}
+
+/**
+ * Every live session, newest first, with the user it belongs to.
+ *
+ * The raw token is returned so the CALLER can derive a stable handle from it
+ * (src/auth/index.js sessionHandle) — it must never leave the server, because a
+ * session token is a bearer credential and a list of them is a list of accounts
+ * anyone holding it can become. technical-audit_2026-08-19 S5.
+ */
+export function listSessions() {
+  return db
+    .prepare(
+      `SELECT s.token, s.created_at, s.expires_at,
+              u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id,
+              c.name AS customer_name
+         FROM session s
+         JOIN user u ON u.id = s.user_id
+         LEFT JOIN customer c ON c.id = u.customer_id
+        WHERE s.expires_at > datetime('now')
+        ORDER BY s.created_at DESC`,
+    )
+    .all();
+}
+
+/** Revoke every live session belonging to one user. Returns how many went. */
+export function deleteSessionsForUser(userId) {
+  return db.prepare('DELETE FROM session WHERE user_id = ?').run(Number(userId)).changes;
 }
 
 export function insertMagicLink(token, email, expiresAt) {

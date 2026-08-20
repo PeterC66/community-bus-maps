@@ -35,6 +35,7 @@
       <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
       <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
       <button class="tab" data-tab="users" role="tab">Users</button>
+      <button class="tab" data-tab="sessions" role="tab">Sessions</button>
       <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
       <button class="tab" data-tab="refreshes" role="tab">Refreshes <span class="count-badge" id="badge-refreshes"></span></button>
       <button class="tab" data-tab="audit" role="tab">Audit</button>
@@ -73,6 +74,12 @@
       </div>
       <p class="hint-line">Role controls what a user may do: <strong>editor</strong> submits map edits, <strong>approver</strong> reviews + publishes, <strong>admin</strong> has full platform access. Disabling an account (rather than deleting it) keeps its history meaningful — sessions and audit rows still refer to it.</p>
       <div class="table-wrap"><div id="users">Loading…</div></div>
+    </section>
+
+    <section class="admin-section" id="sec-sessions" hidden>
+      <p class="hint-line">Everyone currently signed in. Sessions last <strong id="sessDays">7</strong> days and slide forward on use, so an account that stops being used loses its credential within a week. Revoking one signs that browser out immediately — the way to deal with a lost laptop or a token that has been somewhere it should not.</p>
+      <p class="hint-line">A session is named by a short <strong>handle</strong>, never by its token: a list of live tokens would be a list of accounts anyone reading this screen could become. Publishing, changing an organisation's settings and changing a user's role each need a sign-in from the last <strong id="sessStepUp">30</strong> minutes, however long the session itself has left.</p>
+      <div class="table-wrap"><div id="sessions">Loading…</div></div>
     </section>
 
     <section class="admin-section" id="sec-messages" hidden>

@@ -28,6 +28,7 @@ import {
   listPendingProposedUpdates, listMessages, listProposedForMap, listUnsubmittedDrafts,
 } from '../db/index.js';
 import { loadStatusSnapshot } from '../status-snapshot.js';
+import { emailHealth, FAILURE_THRESHOLD } from '../email/health.js';
 
 // Ranks are "who is blocked", not "which queue". Lower acts first.
 // 0 is reserved for the skill's failing-gate items — nothing the portal knows
@@ -81,6 +82,40 @@ export function buildWorklist({ baseUrl = process.env.PUBLIC_BASE_URL || '' } = 
   const url = (p) => `${String(baseUrl).replace(/\/$/, '')}${p}`;
   const items = [];
   const add = (it) => items.push(it);
+
+  // 0 — email is the only door into this system. If it is broken, nobody can
+  // sign in: not a customer, not an approver, not the admin, and no
+  // notification of anything reaches anyone. It outranks every queue below,
+  // because none of them can be worked while this is true
+  // (technical-audit_2026-08-19 O4).
+  //
+  // Two distinct faults, deliberately separate rows' worth of wording in one
+  // item: a broken CONFIGURATION (which survives a restart and is also reported
+  // by /health?deep=1), and a provider that keeps THROWING (which is only
+  // visible here — it is kept out of the readiness probe so a Resend outage
+  // does not page anyone about the site being down).
+  const mail = emailHealth();
+  if (!mail.ok || mail.failing) {
+    add({
+      key: 'email-health', rank: 0, type: 'email',
+      title: mail.ok
+        ? `Sign-in emails are failing (${mail.consecutiveFailures} in a row)`
+        : 'Sign-in email is not configured correctly — nobody can sign in',
+      why: mail.ok
+        ? `The provider has thrown ${mail.consecutiveFailures} times with no success since${mail.lastError ? `. Last error: ${mail.lastError}` : ''}. New sign-in requests are being refused with a 503 rather than silently dropped, which is honest but nobody can get in.`
+        : `${mail.error} Until this is fixed, sign-in requests are refused outright.`,
+      who: '—', ageDays: null,
+      runbook: 'R6',
+      detail: [
+        mail.lastSentAt ? `Last successful send: ${mail.lastSentAt}.` : 'No successful send since this process started.',
+        `Sends since start-up: ${mail.totalSent} ok, ${mail.totalFailed} failed. Refusal threshold is ${FAILURE_THRESHOLD} consecutive failures.`,
+      ].join(' '),
+      do: [
+        { kind: 'shell', cwd: 'portal', cmd: 'npm run smoke:signin', note: 'sends one real link to ADMIN_EMAIL and reads the result back off /health?deep=1' },
+        { kind: 'shell', cwd: 'portal', cmd: 'npm run ssh -- "docker compose logs --tail 100 portal | grep -i mail"' },
+      ],
+    });
+  }
 
   // 1 — a customer submitted a map for review and is blocked until it is looked
   // at. The third approval gate; the decision is never automated.

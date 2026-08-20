@@ -56,7 +56,9 @@ At launch **you wear three hats** — Admin, Approver, and central map-maker. Th
 | Per-customer branding of public pages | Customer (or you) | `/app/branding` |
 | Expert diagram pin editing | **Admin** | `/app/maps/:id/diagram` |
 
-**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it.
+**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it. **This is now enforced, not just asked for.** `POST /api/review/:id/approve` refuses when the approver is the submitter, unless `ALLOW_SELF_APPROVAL=1` is set on the host — which it currently is, because with one operator the alternative is that nothing can be published at all. Every publication made under that override is stamped `selfApproved: true` in the decision evidence and the audit row, so the trail says which publications had a second pair of eyes and which did not. Unset it the day a second person holds `approver`.
+
+**Sessions and step-up.** Sign-in sessions last **7 days** and slide forward on use, so an unused account loses its credential within a week (they were fixed 30-day sessions until 2026-08-20). Three actions need a sign-in from the **last 30 minutes** whatever the session's own age: publishing a version, changing an organisation's settings or quota, and changing a user's role or organisation. If one is refused with `step-up-required`, sign out and follow a fresh sign-in link. **Admin → Sessions** lists everyone signed in and revokes any of them on the spot; that is the tool for a lost laptop or a token that has been somewhere it should not, and it replaces keeping a live admin cookie in a file.
 
 ## 4. The three approval gates
 

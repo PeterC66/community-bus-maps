@@ -22,22 +22,8 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import {
-  insertApplication, insertMessage, counts, authCounts,
-  listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions,
-  dataChangesSince,
-  setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions,
-  listPublishedHistory, listPublishedMaps,
-  listApplications, getApplication, setApplicationReviewed, listMessages,
-  insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin,
-  listCustomersAdmin, updateCustomerAdmin, adminSummary,
-  getVersionById, setVersionState, setPublishedVersion,
-  insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests,
-  decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit,
-  nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate,
-  listProposedForMap, listPendingProposedUpdates,
-  listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug,
-  setCustomerBranding, setMapPublicListed, publicCounts,
-  setMapBannerNote, clearMapBannerNote, getVersion } from './db/index.js';
+  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionsForUser,
+} from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
@@ -61,7 +47,7 @@ import {
 } from './expert/index.js';
 import { readiness, metricsText, opsSnapshot } from './ops/index.js';
 import {
-  requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie,
+  requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie, sessionHandle, stepUpFresh, STEP_UP_MINUTES, SESSION_DAYS,
 } from './auth/index.js';
 import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
 import { logAudit } from './audit/index.js';
@@ -70,10 +56,26 @@ import { searchPlaces, bumpSearchIndex } from './search/index.js';
 import { PILOT } from './config.js'; // PILOT: remove with docs/PILOT.md
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { sendMagicLink } from './email/index.js';
+import { signInSendable } from './email/health.js';
 import { notify, appUrl } from './email/notify.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(HERE, '../public');
+// The signed-in app's HTML shells. OUTSIDE public/ on purpose
+// (technical-audit_2026-08-19 S7): @fastify/static serves the whole of
+// PUBLIC_DIR, so while these lived at public/app/*.html the guarded route
+// `/app/admin` correctly 302'd an anonymous visitor to the login page and
+// `/app/admin.html` handed the same file to anybody who asked. No data leaked —
+// every API behind those shells returns 401, checked at the time across
+// /api/maps, /api/me, /api/admin/* and /api/review/pending — but a role check on
+// the pretty URL that reads like an access control and is not one is exactly the
+// thing a reviewer tests. Now the only way to a shell is through its route.
+//
+// The app's .js and .css stay under public/app/ and stay public: the browser has
+// to be able to fetch them, they are the same code every signed-in user runs,
+// and nothing in them is a secret. It is the shells that carried the false
+// promise, not the assets.
+const VIEWS_DIR = path.resolve(HERE, '../views');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
 const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
@@ -132,11 +134,48 @@ const app = Fastify({
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
 
 // Resolve the signed-in user (from the session cookie) for app/api/auth routes.
-app.addHook('preHandler', async (req) => {
+//
+// `reply` is taken as well as `req` because the seven-day session window SLIDES
+// (technical-audit_2026-08-19 S5): resolveUser may push the row's expiry
+// forward, and when it does the browser needs a cookie with the matching
+// Max-Age, or the credential dies seven days after sign-in no matter how active
+// the session was. Re-sent only on the requests that actually slid — about one
+// an hour — so this is not a Set-Cookie on every response.
+app.addHook('preHandler', async (req, reply) => {
   req.user = null;
   const u = req.url;
   if (u.startsWith('/api/') || u.startsWith('/app') || u.startsWith('/auth/') || u.startsWith('/metrics')) req.user = resolveUser(req);
+  if (req.user && req.user.sessionSlid) {
+    reply.header('Set-Cookie', sessionCookie(req.user.sessionToken, { secure: isHttps(req) }));
+  }
 });
+
+// STEP-UP AUTHENTICATION for the three actions the audit named: publishing a
+// version, changing an organisation's quota, and changing a user's role
+// (technical-audit_2026-08-19 S5).
+//
+// The check is "did THIS session prove control of the mailbox in the last
+// STEP_UP_MINUTES", anchored on the session's creation — the moment a magic link
+// was consumed. Staying signed in never re-earns it. Since the magic link is the
+// only credential this system has, re-authenticating IS re-requesting one, which
+// is what the audit's remedy asked for; the difference is that the user is sent
+// to do it rather than being interrupted mid-action by an email round-trip
+// wedged into a POST handler.
+//
+// 403 rather than 401 on purpose: the caller IS authenticated, and an app that
+// treats 401 as "signed out" would otherwise throw them back to the login page
+// having lost whatever they had typed. `code: 'step-up-required'` is what the
+// UI keys on.
+function requireStepUp(req, reply, what) {
+  if (stepUpFresh(req.user)) return true;
+  req.log.warn({ userId: req.user && req.user.id, what }, 'step-up required');
+  reply.code(403).send({
+    ok: false,
+    code: 'step-up-required',
+    error: `For security, ${what} needs a sign-in from the last ${STEP_UP_MINUTES} minutes. Sign out and follow a fresh sign-in link, then try again.`,
+  });
+  return false;
+}
 
 // --- tiny in-memory per-IP rate limit for public POSTs ---
 const hits = new Map();
@@ -162,44 +201,89 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
   return rec.n > max;
 }
 
+// Is the caller allowed to see operational DETAIL? Same gate as /metrics: a
+// METRICS_TOKEN (Bearer header or ?token=) or a signed-in admin. Factored out
+// because /health and /metrics want the same answer, and two hand-rolled copies
+// of one authorisation rule are two chances to drift apart.
+function opsAuthorised(req) {
+  const token = process.env.METRICS_TOKEN;
+  const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const viaToken = Boolean(token) && (bearer === token || (req.query && req.query.token === token));
+  const viaAdmin = Boolean(req.user) && req.user.role === 'admin';
+  return viaToken || viaAdmin;
+}
+
+// The readiness probe writes a file and rasterises an 8x8 JPEG on every call, so
+// a short cache stands between it and anyone who decides to hold down F5. Ten
+// seconds is far below the five-minute monitor interval, so neither the monitor
+// nor the container HEALTHCHECK ever reads a cached answer in practice — this
+// only bites on a burst.
+let readinessCache = { at: 0, result: null };
+const READINESS_TTL_MS = 10_000;
+async function cachedReadiness() {
+  const now = Date.now();
+  if (readinessCache.result && now - readinessCache.at < READINESS_TTL_MS) return readinessCache.result;
+  const result = await readiness();
+  readinessCache = { at: now, result };
+  return result;
+}
+
 // Liveness by default (cheap, safe to hammer). `?deep=1` runs the P7 readiness
 // probe — DB, object store, engine files, rasteriser — and returns 503 if any
 // dependency is unhealthy, which is what a load balancer or uptime check wants.
 //
-// SOMETHING EXTERNAL DEPENDS ON THIS URL. Since 2026-08-20 an Uptime Robot
-// check polls `/health?deep=1` from outside every five minutes and alerts on
-// anything that is not a 200 (technical-audit_2026-08-19 O2). Two things follow.
+// WHAT AN ANONYMOUS CALLER GETS, AND WHY (technical-audit_2026-08-19 S4).
+// Until 2026-08-20 this returned, to anybody: the git SHA, the build time, the
+// exact sharp and libvips versions, the object-store path, and eleven business
+// counts (applications, messages, maps, publishRequests, proposedUpdates,
+// auditEvents, customers, users…). The versions are a precise CVE-targeting aid
+// and the counts are a public read-out of how small the operation is. The code's
+// own reasoning below already said an unauthenticated /metrics "leaks
+// operational detail"; the same argument always applied here.
 //
-// 1. Do not make `?deep=1` more expensive without thinking about the interval.
-//    It already writes and deletes a probe file and rasterises an image through
-//    sharp on every call, i.e. ~288 rasterisations a day just from monitoring.
+// So anonymous callers get the four fields the audit named — status, service,
+// version, time — and nothing else. Everything that was there before is still
+// there for a caller who passes METRICS_TOKEN or is a signed-in admin.
 //
-// 2. S4 in that audit puts the counts and `?deep=1` behind the METRICS_TOKEN
-//    gate. Doing that WITHOUT updating the monitor turns it into a 401 and it
-//    will page about a fault that does not exist — the classic way a healthy
-//    system teaches its owner to ignore its alerts. Give the monitor the token
-//    (or a loopback/dedicated-token exemption, which the Docker HEALTHCHECK
-//    needs anyway) in the SAME change, not afterwards.
+// SOMETHING EXTERNAL DEPENDS ON THIS URL, AND THE VERDICT IS DELIBERATELY NOT
+// GATED. Since 2026-08-20 an Uptime Robot check polls `/health?deep=1` from
+// outside every five minutes and alerts on anything that is not a 200
+// (technical-audit_2026-08-19 O2). The Docker HEALTHCHECK does the same from
+// inside the container. Both need exactly one thing: the STATUS CODE.
+//
+// That is why `?deep=1` still RUNS for an anonymous caller and still returns 503
+// when a dependency is down. It is the per-check `checks{}` detail that is
+// gated, not the verdict. Requiring a token to learn the verdict would have
+// turned every monitor poll into a 401 the moment this shipped — paging about a
+// fault that does not exist, which is the fastest known way to train an operator
+// to ignore an alert. Nothing had to be reconfigured in Uptime Robot for this
+// change, and nothing should have to be.
+//
+// If you ever DO gate the verdict, change the monitor and the Dockerfile
+// HEALTHCHECK in the same commit, and prove the monitor still goes red by
+// stopping the service — the same falsification the alert itself was given on
+// 2026-08-20. And do not make `?deep=1` materially more expensive without
+// thinking about the interval: it is ~288 readiness probes a day from
+// monitoring alone.
 app.get('/health', async (req, reply) => {
-  const base = {
-    status: 'ok', service: 'community-bus-maps', version: VERSION, gitSha: GIT_SHA, builtAt: BUILT_AT, pilotMode: PILOT.on,
-    time: new Date().toISOString(), ...counts(), ...authCounts(), ...publicCounts(),
-  };
+  const detail = opsAuthorised(req);
+  const base = detail
+    ? {
+        status: 'ok', service: 'community-bus-maps', version: VERSION, gitSha: GIT_SHA, builtAt: BUILT_AT, pilotMode: PILOT.on,
+        time: new Date().toISOString(), ...counts(), ...authCounts(), ...publicCounts(),
+      }
+    : { status: 'ok', service: 'community-bus-maps', version: VERSION, time: new Date().toISOString() };
   if (!req.query || !('deep' in req.query)) return base;
-  const r = await readiness();
+  const r = await cachedReadiness();
   if (!r.ok) reply.code(503);
-  return { ...base, status: r.ok ? 'ok' : 'degraded', checks: r.checks };
+  return { ...base, status: r.ok ? 'ok' : 'degraded', ...(detail ? { checks: r.checks } : {}) };
 });
 
 // Prometheus metrics. Off unless METRICS_TOKEN is set (an unauthenticated metrics
 // endpoint leaks operational detail); an admin session is also accepted so the
 // numbers can be eyeballed from a browser.
 app.get('/metrics', async (req, reply) => {
-  const token = process.env.METRICS_TOKEN;
-  const bearer = String((req.headers.authorization || '')).replace(/^Bearer\s+/i, '');
-  const viaToken = token && (bearer === token || (req.query && req.query.token === token));
-  const viaAdmin = req.user && req.user.role === 'admin';
-  if (!viaToken && !viaAdmin) {
+  if (!opsAuthorised(req)) {
     return reply.code(404).type('text/plain').send('not found\n'); // don't advertise it
   }
   reply.type('text/plain; version=0.0.4');
@@ -214,6 +298,10 @@ app.get('/metrics', async (req, reply) => {
 // worklist trusts it. Same gate as /metrics: a token or an admin session, and
 // an absent token 404s so the endpoint doesn't advertise itself.
 app.post('/api/admin/status', async (req, reply) => {
+  // Its OWN token, not METRICS_TOKEN, so opsAuthorised() is deliberately not
+  // reused here: /metrics and /health?deep=1 are read-only, this one WRITES the
+  // snapshot the worklist trusts. Keeping the credentials separate stops a read
+  // token from quietly becoming a write token.
   const token = process.env.STATUS_TOKEN;
   const bearer = String((req.headers.authorization || '')).replace(/^Bearer\s+/i, '');
   const viaToken = token && (bearer === token || (req.query && req.query.token === token));
@@ -730,10 +818,49 @@ function notFoundPage(what) {
 // Auth (P2) — passwordless magic links + server-side sessions
 // ===========================================================================
 
+// SIGN-IN MUST NOT LIE (technical-audit_2026-08-19 O4).
+//
+// This route used to tell every caller "a sign-in link has been sent" whether or
+// not one had been. The dev fallback that prints the link to the console keyed
+// on CONFIGURATION (`sendMagicLink` returns `{sent:false}` only when
+// EMAIL_PROVIDER is unset), so a configured provider that THREW — bad key,
+// outage, suspended domain — landed in the catch, logged, and the caller was
+// still told to check their inbox. Nobody could sign in and nothing surfaced it.
+//
+// The fix has to keep two properties that pull against each other.
+//
+// NO ADDRESS ENUMERATION. The response must not differ between a registered and
+// an unregistered address. So the refusal below is decided BEFORE the address is
+// looked at, from `signInSendable()`, which reads only configuration and the
+// consecutive-failure count — never this request's address. A caller who trips
+// it learns that BusMaps cannot send email at the moment, which is true for
+// everyone and reveals nothing about anyone.
+//
+// NO SILENT SUCCESS. A send that throws is counted (src/email/health.js). It
+// still returns the generic message for THIS request — refusing on the first
+// failure would leak that an attempt was made, i.e. that the address exists —
+// but after FAILURE_THRESHOLD consecutive failures the address-independent
+// refusal above starts firing, the readiness probe reports the configuration
+// half, and the admin worklist carries a row about it. The window in which the
+// system can be lying is one request wide, not indefinite.
+//
+// AND NO CONSOLE FALLBACK ON FAILURE. The link is printed only when no provider
+// is configured at all. Printing a live credential into production logs because
+// a send failed is worse than failing.
 app.post('/api/auth/request', async (req, reply) => {
   if (rateLimited(req.ip, 10)) return reply.code(429).send({ ok: false, error: 'Too many requests — please wait a moment.' });
   const email = str((req.body || {}).email, 200).toLowerCase();
   if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'Please enter a valid email address.', fields: ['email'] });
+
+  const sendable = signInSendable();
+  if (!sendable.ok) {
+    req.log.error({ reason: sendable.reason }, 'sign-in refused: email is not sendable');
+    return reply.code(503).send({
+      ok: false,
+      error: 'We cannot send sign-in emails at the moment. Please try again shortly — this is a fault at our end, not with your address.',
+      code: 'email-unavailable',
+    });
+  }
 
   const token = requestMagicLink(email);
   if (token) {
@@ -744,12 +871,14 @@ app.post('/api/auth/request', async (req, reply) => {
         req.log.info({ email }, 'magic link emailed');
       } else {
         // DEV_LINKS: no email provider configured — print the link to the SERVER CONSOLE.
+        // Only reachable outside production; signInSendable() refuses this
+        // configuration when NODE_ENV=production.
         console.log(`\n🔗  Sign-in link for ${email}:\n    ${link}\n`);
         req.log.info({ email }, 'magic link issued (see console)');
       }
     } catch (e) {
-      // A broken provider must not tell an unauthenticated caller anything
-      // beyond the generic message below — log it and move on.
+      // Counted by sendEmail() before it rethrows, so the NEXT caller gets the
+      // honest 503 above. This one still gets the generic message, deliberately.
       req.log.error({ email, err: e.message }, 'magic link email failed to send');
     }
   } else {
@@ -780,6 +909,14 @@ app.get('/api/me', async (req, reply) => {
   const usage = cust ? quotaUsage(cust.id) : null;
   return {
     ok: true,
+    // So a screen can say "this needs a fresh sign-in" BEFORE the user fills in
+    // a form, rather than after the 403 (technical-audit_2026-08-19 S5).
+    session: {
+      signedInAt: req.user.sessionCreatedAt || null,
+      expiresAt: req.user.sessionExpiresAt || null,
+      stepUpFresh: stepUpFresh(req.user),
+      stepUpMinutes: STEP_UP_MINUTES,
+    },
     user: {
       id: req.user.id, email: req.user.email, name: req.user.name, role: req.user.role,
       customer: cust ? {
@@ -1042,18 +1179,34 @@ function mapDetail(m) {
   };
 }
 
-app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html') : reply.redirect('/app/login.html')));
-app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html') : reply.redirect('/app/login.html')));
-app.get('/app/branding', async (req, reply) => (req.user ? reply.sendFile('app/branding.html') : reply.redirect('/app/login.html')));
+// Anonymous by design — it is the sign-in page. It needs a route only because
+// it is no longer a static file; the URL is unchanged so every existing
+// redirect, bookmark and `location.href` in the app keeps working.
+app.get('/app/login.html', async (req, reply) => reply.sendFile('app/login.html', VIEWS_DIR));
+
+app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
+app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
+app.get('/app/branding', async (req, reply) => (req.user ? reply.sendFile('app/branding.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
 app.get('/app/admin', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
   if (req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/admin.html');
+  return reply.sendFile('app/admin.html', VIEWS_DIR);
 });
 app.get('/app/review', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
   if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/review.html');
+  return reply.sendFile('app/review.html', VIEWS_DIR);
+});
+
+// The services-and-stops list a reviewer opens in a second tab from
+// /app/review. It was reachable by anyone until 2026-08-20 because it was a
+// static file with no route of its own — the clearest single case of S7. Same
+// guard as the review page that links to it. The `.html` stays in the URL
+// because review.js links to it by that name.
+app.get('/app/review-services.html', async (req, reply) => {
+  if (!req.user) return reply.redirect('/app/login.html');
+  if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
+  return reply.sendFile('app/review-services.html', VIEWS_DIR);
 });
 
 app.get('/api/maps', async (req, reply) => {
@@ -1477,7 +1630,7 @@ app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
 app.get('/app/maps/:id/diagram', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
   if (req.user.role !== 'admin') return reply.redirect(`/app/maps/${Number(req.params.id)}`);
-  return reply.sendFile('app/diagram.html');
+  return reply.sendFile('app/diagram.html', VIEWS_DIR);
 });
 
 // Load a map for expert work: admin-only, must have data + the diagram configured.
@@ -1641,6 +1794,12 @@ app.get('/api/review/:id', async (req, reply) => {
       version: pr.version_key, versionNote: pr.version_note || '',
       publishedVersion: pub ? pub.storage_key : null,
       requestedBy: pr.requested_by_email || null,
+      // Told to the review screen so an approver sees, BEFORE ticking anything,
+      // that they are about to sign off their own submission — and whether the
+      // server will let them (technical-audit_2026-08-19 S6). Sending both flags
+      // rather than one lets the UI say which of the two situations it is.
+      selfReview: pr.requested_by != null && Number(pr.requested_by) === Number(user.id),
+      selfApprovalAllowed: ALLOW_SELF_APPROVAL,
       reviewedBy: pr.reviewed_by_email || null, reviewedAt: pr.reviewed_at || null,
       decisionNote: pr.decision_note || '',
       evidence: decided ? parseJson(pr.evidence_json) : null,
@@ -1677,11 +1836,50 @@ app.get('/api/review/:id/services', async (req, reply) => {
   };
 });
 
+// SEPARATION OF DUTIES, ENFORCED (technical-audit_2026-08-19 S6).
+//
+// README.md and src/publish/index.js have said since P4 that "the editor who
+// makes a change never publishes it — that's a deliberate separation of
+// duties". Until 2026-08-20 the code did not implement it: approve checked the
+// role, the request's existence, its pending status and the checklist, and
+// never once compared pr.requested_by to the approving user. Every one of the
+// 41 publications to date was self-approved, on a deployment with two users.
+// That is fine for a pilot; documenting a control that does not exist is not,
+// and it is precisely what a reviewer tests.
+//
+// So: refuse a self-approval, unless ALLOW_SELF_APPROVAL is explicitly set, and
+// when it is, RECORD that the publication was self-approved in the decision
+// evidence, the audit row and the API response. The override is not a way of
+// switching the rule off quietly; it is a way of being honest that a
+// one-operator pilot has no second pair of eyes, in a form that shows up
+// afterwards in the audit trail rather than only in someone's memory.
+//
+// WHEN TO TURN IT OFF: as soon as a second person holds `approver`. Until then
+// leaving it unset would simply stop Peter publishing anything, which is a
+// worse outcome than a recorded self-approval — see docs/R3-review-and-publish.md.
+const ALLOW_SELF_APPROVAL = process.env.ALLOW_SELF_APPROVAL === '1';
+
 app.post('/api/review/:id/approve', async (req, reply) => {
   const user = requireApprover(req, reply); if (!user) return;
   const pr = getPublishRequest(Number(req.params.id));
   if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
   if (pr.status !== 'pending') return reply.code(409).send({ ok: false, error: `This request was already ${pr.status}.` });
+
+  // Self-approval BEFORE step-up, deliberately. Step-up says "not right now";
+  // self-approval says "not by you, ever, on this request". Telling someone to
+  // go and re-authenticate before telling them the action was never theirs to
+  // take wastes a round trip and teaches the wrong lesson.
+  const selfApproval = pr.requested_by != null && Number(pr.requested_by) === Number(user.id);
+  if (selfApproval && !ALLOW_SELF_APPROVAL) {
+    req.log.warn({ requestId: pr.id, mapId: pr.map_id, by: user.email }, 'self-approval refused');
+    return reply.code(409).send({
+      ok: false,
+      error: 'You submitted this version, so you cannot approve it. Ask another approver to review it.',
+      code: 'self-approval',
+    });
+  }
+
+  if (!requireStepUp(req, reply, 'publishing a version')) return;
 
   // The review gate: every checklist item must be confirmed. No exceptions —
   // it is public transit information people rely on.
@@ -1700,7 +1898,13 @@ app.post('/api/review/:id/approve', async (req, reply) => {
     },
   );
   const decisionNote = str((req.body || {}).note, 2000);
-  const evidence = { checklistVersion: CHECKLIST_VERSION, checklist, changeSummary: summary, decidedAt: new Date().toISOString() };
+  const evidence = {
+    checklistVersion: CHECKLIST_VERSION, checklist, changeSummary: summary, decidedAt: new Date().toISOString(),
+    // Present and true only when the approver is the submitter and the operator
+    // override allowed it. Absent on a genuine two-person review, so a later
+    // reader can tell the two apart without inferring it from user ids.
+    ...(selfApproval ? { selfApproved: true } : {}),
+  };
 
   decidePublishRequest(pr.id, { status: 'approved', reviewedBy: user.id, decisionNote, evidence });
   // Advance the public-current pointer; retire the previous published version.
@@ -1719,7 +1923,7 @@ app.post('/api/review/:id/approve', async (req, reply) => {
   bumpSearchIndex();
 
   req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
-  logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote } });
+  logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote, ...(selfApproval ? { selfApproved: true } : {}) } });
   // Tell the people whose map it is (findings B2). Deliberately after every
   // state change and the audit row: the publication has happened whether or not
   // the email does, and notify() never throws.
@@ -1742,6 +1946,7 @@ app.post('/api/review/:id/approve', async (req, reply) => {
     ok: true, publishedVersion: pr.version_key, downloads: downloadsForVersion(pr.map_id, pr.version_key),
     customerId: pr.customer_id,
     publicUrl: mapRow.public_listed && getPublicMapBySlug(mapRow.slug) ? appUrl(mapPageUrl(mapRow.slug)) : null,
+    ...(selfApproval ? { selfApproved: true } : {}),
   };
 });
 
@@ -2054,6 +2259,10 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
   const cust = getCustomer(Number(req.params.id));
   if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
   const b = req.body || {};
+  // Quota and status are the two that decide how much of the service an
+  // organisation gets and whether its maps stay public, so the whole route is
+  // step-up gated rather than picking fields out of the body.
+  if (!requireStepUp(req, reply, "changing an organisation's settings")) return;
   const ok = updateCustomerAdmin(cust.id, {
     quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
     hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
@@ -2122,6 +2331,9 @@ app.patch('/api/admin/users/:id', async (req, reply) => {
   if (b.status === 'disabled' && u.id === req.user.id) {
     return reply.code(400).send({ ok: false, error: 'You cannot disable your own account.' });
   }
+  // Role is the privilege escalation path — `role: 'admin'` on this route is the
+  // whole of it — so a stale cookie must not be enough to travel it.
+  if (('role' in b || 'status' in b || 'customerId' in b) && !requireStepUp(req, reply, "changing a user's role or organisation")) return;
   let customerId; // undefined = leave alone
   if ('customerId' in b) {
     if (b.customerId == null || b.customerId === '') {
@@ -2177,6 +2389,71 @@ app.get('/api/admin/proposed-updates', async (req, reply) => {
 // Grouping happens HERE, server-side, so the digest wording and the recipient
 // lookup stay in one tested place (src/email/notify.js) rather than being
 // duplicated in a laptop script that has no access to EMAIL_PROVIDER anyway.
+// ---------------------------------------------------------------------------
+// Active sessions (technical-audit_2026-08-19 S5)
+//
+// There was no way to see who was signed in, and no way to end a session short
+// of waiting a month for it to expire — `purgeExpiredSessions` removes only the
+// already-dead. So a session token that escaped (a laptop, a backup, a file left
+// on disk) was a valid admin credential until its own clock ran out, and nobody
+// could do anything about it.
+//
+// Sessions are named by a HANDLE — the first 12 hex of the token's SHA-256 —
+// never by the token. See sessionHandle() in src/auth/index.js for why: a list of
+// live tokens is a list of accounts whoever holds it can become, and an admin
+// console is not a place to put those.
+// ---------------------------------------------------------------------------
+app.get('/api/admin/sessions', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const mine = req.user.sessionToken;
+  return {
+    ok: true,
+    stepUpMinutes: STEP_UP_MINUTES,
+    sessionDays: SESSION_DAYS,
+    sessions: listSessions().map((r) => ({
+      handle: sessionHandle(r.token),
+      current: r.token === mine,
+      user: { id: r.user_id, email: r.email, name: r.name, role: r.role, status: r.status },
+      customer: r.customer_id ? { id: r.customer_id, name: r.customer_name } : null,
+      signedInAt: r.created_at,
+      expiresAt: r.expires_at,
+      // expires_at is always exactly SESSION_DAYS after the last use, so it is
+      // also the record of when that was — no extra column needed.
+      lastSeenAt: new Date(new Date(`${String(r.expires_at).replace(' ', 'T')}Z`).getTime() - SESSION_DAYS * 86_400_000)
+        .toISOString().slice(0, 19).replace('T', ' '),
+    })),
+  };
+});
+
+app.post('/api/admin/sessions/:handle/revoke', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const handle = str(req.params.handle, 64);
+  const row = listSessions().find((r) => sessionHandle(r.token) === handle);
+  if (!row) return reply.code(404).send({ ok: false, error: 'No such live session (it may already have expired).' });
+  const self = row.token === req.user.sessionToken;
+  deleteSession(row.token);
+  req.log.info({ handle, userId: row.user_id, self }, 'session revoked by admin');
+  logAudit(req, 'session.revoke', { detail: { handle, userId: row.user_id, email: row.email, self } });
+  // Revoking your own session really does sign you out — clear the cookie so
+  // the browser stops presenting a token the server has already forgotten.
+  if (self) reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
+  return { ok: true, self };
+});
+
+// The one to reach for when a credential has leaked rather than when a laptop
+// has been lost: every session that user holds, everywhere, gone at once.
+app.post('/api/admin/users/:id/revoke-sessions', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const u = getUser(Number(req.params.id));
+  if (!u) return reply.code(404).send({ ok: false, error: 'No such user.' });
+  const n = deleteSessionsForUser(u.id);
+  req.log.info({ userId: u.id, revoked: n }, 'all sessions revoked for user by admin');
+  logAudit(req, 'session.revoke-all', { detail: { userId: u.id, email: u.email, revoked: n } });
+  const self = u.id === req.user.id;
+  if (self) reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
+  return { ok: true, revoked: n, self };
+});
+
 app.post('/api/admin/notify-published-batch', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   const items = Array.isArray((req.body || {}).items) ? (req.body || {}).items : [];
@@ -2214,12 +2491,29 @@ app.get('/api/admin/audit', async (req, reply) => {
   return { ok: true, audit: rows };
 });
 
-try {
-  await app.listen({ port: PORT, host: HOST });
-  app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
-  setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
-  setInterval(() => { try { sweepHits(); } catch {} }, 300_000).unref();
-} catch (err) {
-  app.log.error(err);
-  process.exit(1);
+// Exported so scripts/test-audit-p1.mjs can drive real requests through
+// `app.inject()` instead of asserting about the source. It still listens below
+// exactly as before — this is an entry point that also happens to be importable,
+// not a refactor of how it starts.
+export { app };
+
+// CBM_NO_LISTEN=1 builds the app without binding a socket, for
+// scripts/test-audit-p1.mjs, which drives real requests through `app.inject()`.
+// Set only by that harness: production and dev both leave it unset and listen
+// exactly as before. It exists so the test suite cannot fail in CI over a port
+// that happened to be busy -- a test that is flaky for a reason unrelated to
+// what it asserts is a test people learn to re-run rather than read.
+if (process.env.CBM_NO_LISTEN === '1') {
+  await app.ready();
+  app.log.info(`BusMaps.uk portal (${VERSION}) built, not listening (CBM_NO_LISTEN=1)`);
+} else {
+  try {
+    await app.listen({ port: PORT, host: HOST });
+    app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
+    setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
+    setInterval(() => { try { sweepHits(); } catch {} }, 300_000).unref();
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
 }

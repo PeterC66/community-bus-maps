@@ -8,8 +8,29 @@
 # the sharp or libvips version can change JPEG output, so `npm ci` against the
 # committed package-lock is deliberate, and any sharp upgrade must be re-proved
 # with `npm run verify` (which needs the private fixtures) BEFORE it is deployed.
-# The base image is pinned by digest-able tag for the same reason.
-FROM node:24-slim
+# The base image is pinned BY DIGEST for the same reason.
+#
+# It said "pinned by digest-able tag" until 2026-08-20 and then wrote
+# `FROM node:24-slim`, which is a floating tag: the comment described an
+# intention, not the line beneath it (technical-audit_2026-08-19 V6). A rebuild
+# months apart could pull different fontconfig, freetype or libvips-adjacent
+# packages and silently move the very bytes the product guarantees -- which is
+# not hypothetical here. It is exactly what the Liberation Mono incident was:
+# fontconfig went missing from the image, every live sheet was mis-set for four
+# days, and the parity probe still reported PASS.
+#
+# node:24-slim as at 2026-08-05, resolved 2026-08-20. This is the multi-arch
+# INDEX digest, so it still selects the right architecture; the `node:24-slim`
+# tag in front of it is decoration for a human reader and is ignored by Docker
+# once a digest is present.
+#
+# TO BUMP: take the new digest from Dependabot's PR (.github/dependabot.yml has
+# a `docker` ecosystem entry for exactly this, monthly), or by hand with
+#   docker buildx imagetools inspect node:24-slim
+# run from anywhere. Record the new digest in CHANGELOG.md on each bump, and
+# re-run `npm run verify` before deploying -- a base-image change is a
+# rasteriser change until proved otherwise.
+FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
 
 # libvips is bundled with sharp's prebuilt binary; CA certs + tini are the only
 # other infrastructure.
@@ -72,6 +93,10 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY engine ./engine
 COPY public ./public
+# The signed-in app's HTML shells, kept OUT of public/ so they cannot be served
+# statically (technical-audit_2026-08-19 S7). Miss this line and every /app page
+# 404s while the public site looks fine.
+COPY views ./views
 COPY scripts ./scripts
 COPY LICENSE NOTICE README.md CHANGELOG.md ./
 COPY docs ./docs

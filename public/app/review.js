@@ -107,6 +107,9 @@ async function openReview(id) {
       <div class="rd-meta">${esc(r.customer ? r.customer.name : '—')} · version <strong>${esc(r.version)}</strong>${r.publishedVersion ? ' · currently published ' + esc(r.publishedVersion) : ' · not yet published'}</div>
       <div class="rd-meta">Submitted by ${esc(r.requestedBy || '—')} on ${fmtDate(r.createdAt)}</div>
       ${r.note ? `<p class="rd-note">“${esc(r.note)}”</p>` : ''}
+      ${!decided && r.selfReview ? (r.selfApprovalAllowed
+        ? '<p class="rd-note"><strong>You submitted this version.</strong> There is no second pair of eyes on this review, so publishing it will be recorded in the audit trail as a self-approval.</p>'
+        : '<p class="rd-note"><strong>You submitted this version, so you cannot publish it.</strong> Another approver has to review it. You can still send it back to the editor.</p>') : ''}
     </div>
 
     <div class="rd-section">
