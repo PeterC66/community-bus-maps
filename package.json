@@ -19,6 +19,7 @@
     "test:safe-subset": "node scripts/test-safe-subset.mjs",
     "audit": "node scripts/audit-check.mjs",
     "ssh": "node --env-file-if-exists=.env scripts/ssh-vps.mjs",
+    "deploy:caddy": "node --env-file-if-exists=.env scripts/deploy-caddy.mjs",
     "verify": "npm run verify:area && npm run verify:place && npm run verify:defaults",
     "verify:area": "node --env-file-if-exists=.env scripts/verify-reproduce.mjs",
     "verify:place": "node --env-file-if-exists=.env scripts/verify-reproduce-place.mjs",

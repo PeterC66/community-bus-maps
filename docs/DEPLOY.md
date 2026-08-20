@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.17 | 2026-08-20 | sha=d43f88a4 -->
-**v1.17** · updated 20 August 2026
+<!-- docstamp v1.18 | 2026-08-20 | sha=5f0bd9d0 -->
+**v1.18** · updated 20 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -74,6 +74,22 @@ Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the 
 ### 3a. Security headers live in the Caddyfile, and they are deployed separately
 
 The `Caddyfile` in this repo carries the site's security headers - HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a strict Content-Security-Policy (added 2026-08-19; until then every response carried none of them, `technical-audit_2026-08-19` S1). **This file is not deployed by `deliver-map.mjs`, `deploy.mjs` or the container build.** Caddy runs on the host, outside Docker, so shipping a new app image does nothing to it. If you change the `Caddyfile` you must copy and reload it yourself, or the change simply never happens.
+
+**The whole thing is one command.** From `C:\Claude\community-bus-maps` (the repo root):
+
+```bash
+npm run deploy:caddy
+```
+
+That copies the `Caddyfile` up, installs it, runs `caddy validate`, reloads Caddy only if validation passed, and then reads the live headers back to prove the reload actually took effect. It gets the host and key from `.env`, so there is nothing to look up. To check the live headers without changing anything:
+
+```bash
+npm run deploy:caddy -- --check
+```
+
+**Why the verify step is not optional:** a reload that silently kept the old config looks exactly like a successful one. On 2026-08-20 the app was deployed and the `Caddyfile` was not, and the site ran for a while with the headers merged, the deploy reported done, and every response still carrying none of them. Only reading the headers back tells the two apart.
+
+The manual sequence below is what that command does, kept for when something goes wrong in the middle of it.
 
 **Getting onto the VPS from the laptop.** From `C:\Claude\community-bus-maps` (the repo root):
 
