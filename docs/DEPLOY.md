@@ -75,7 +75,25 @@ Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the 
 
 The `Caddyfile` in this repo carries the site's security headers - HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a strict Content-Security-Policy (added 2026-08-19; until then every response carried none of them, `technical-audit_2026-08-19` S1). **This file is not deployed by `deliver-map.mjs`, `deploy.mjs` or the container build.** Caddy runs on the host, outside Docker, so shipping a new app image does nothing to it. If you change the `Caddyfile` you must copy and reload it yourself, or the change simply never happens.
 
-Run these on the **VPS** (`ssh` in first), after copying the repo's `Caddyfile` up to your home directory - `~/Caddyfile` below is wherever you put it, and `/etc/caddy/Caddyfile` is fixed:
+**Getting onto the VPS from the laptop.** From `C:\Claude\community-bus-maps` (the repo root):
+
+```bash
+npm run ssh
+```
+
+That reads `DEPLOY_HOST`, `DEPLOY_SSH_KEY` and `DEPLOY_APP_DIR` out of `.env` and drops you into a shell already in the app directory, so there is no hostname or key path to remember. To run a single command without opening a shell, quote it as one argument after `--`:
+
+```bash
+npm run ssh -- "docker compose ps"
+```
+
+**Copying the Caddyfile up.** Also from `C:\Claude\community-bus-maps`, and note the trailing `:` on the destination - it means "your home directory on that host". `%DEPLOY_HOST%` is a placeholder for whatever `DEPLOY_HOST` is set to in `.env` (of the form `user@host`); substitute it by hand, since `scp` does not read `.env`:
+
+```bash
+scp Caddyfile %DEPLOY_HOST%:
+```
+
+**Then, in the shell that `npm run ssh` opened**, install and reload it. `~/Caddyfile` is where the `scp` above just put it; `/etc/caddy/Caddyfile` is fixed and is where Caddy actually reads from:
 
 ```bash
 sudo cp ~/Caddyfile /etc/caddy/Caddyfile
