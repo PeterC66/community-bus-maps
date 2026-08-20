@@ -21,6 +21,13 @@
     "its current data, then delete its entry here. Do not extend `until` without",
     "writing down what changed.",
     "",
+    "ST NEOTS WAS REMOVED ON 2026-08-20, the day this file was written, because",
+    "its S6 was actually run. A separate session refreshed the town against a",
+    "same-day BODS feed (S3 09:23, then S6 09:26) and the gate now reports it as",
+    "verified rather than deferred. That is the whole intended lifecycle of an",
+    "entry here, and it happened on the first real encounter: run S6, delete the",
+    "row. Seven towns remain.",
+    "",
     "The `until` dates are staggered so eight towns' S6 passes do not all fall",
     "due in the same week."
   ],
@@ -72,14 +79,6 @@
       "dataAsAt": "2026-08-19T04:45",
       "why": "As St Ives: S6 predates the P1-round config pass.",
       "removeBy": "Run S6 for Ramsey against the current S3, then delete this entry."
-    },
-    {
-      "map": "St Neots",
-      "until": "2026-10-06",
-      "s6AsAt": "2026-07-19T04:23",
-      "dataAsAt": "2026-08-19T04:43",
-      "why": "The oldest S6 in the tree at 31 days on the day of the audit. As St Ives otherwise.",
-      "removeBy": "Run S6 for St Neots against the current S3, then delete this entry."
     },
     {
       "map": "Beaconsfield",
