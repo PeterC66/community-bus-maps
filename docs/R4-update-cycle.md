@@ -1,13 +1,15 @@
 ﻿# Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.5 | 2026-08-20 | sha=e97ff4f7 -->
-**v1.5** · updated 20 August 2026
+<!-- docstamp v1.6 | 2026-08-21 | sha=2fae54f1 -->
+**v1.6** · updated 21 August 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
 **Serves:** managing updates · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
 **Purpose.** Keep published maps current as bus services change — the central refresh → **proposed update** → customer **accept** flow (P5). Run monthly (with the BODS cycle), or when a service you know about changes.
+
+> **The plain-English counterpart.** R1, R3 and this runbook are also told as one continuous story for the operator — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\u3a St Ives\Using AI\Buses\Documentation\README - How to publish a map to the portal.md` (the Buses repo). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
 
 The split again: **you** regenerate a town's data centrally (live sources + judgement); the **portal** stages it as a proposed update the customer reviews. Published maps keep serving untouched until the customer accepts — nothing changes under them.
 
