@@ -1,13 +1,15 @@
 ﻿# Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.8 | 2026-08-12 | sha=ce3984b9 -->
-**v1.8** · updated 12 August 2026
+<!-- docstamp v1.9 | 2026-08-21 | sha=28bb5b9e -->
+**v1.9** · updated 21 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned by the right customer and ready for editing + review.
 
 Two halves, and the split is the point (see the Handbook): **making** the map (stages S1–S6 — live data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic, no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
+
+> **The plain-English counterpart.** This runbook, R3 and R4 are also summarised for the operator as one continuous story — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\u3a St Ives\Using AI\Buses\Documentation\README - How to publish a map to the portal.md` (the Buses repo, alongside the guides for the map skills themselves). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
 
 > **Pilot.** Step 3's byte-identical check compares the **generator's** output, which the pilot band does not touch — but the map's rendered sheets *will* carry the band. That is correct for our own demo maps; for a real customer's map, see the note in [R3](R3-review-and-publish.md).
 
