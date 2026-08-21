@@ -1,11 +1,13 @@
 ﻿# Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.5 | 2026-08-20 | sha=895f4b89 -->
-**v1.5** · updated 20 August 2026
+<!-- docstamp v1.6 | 2026-08-21 | sha=419258cc -->
+**v1.6** · updated 21 August 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
 **Purpose.** How a version becomes the **official public map** — the judgement layer over the P4 mechanics. This is the **third approval gate** (publish), and the one that matters most: people rely on the result.
+
+> **The plain-English counterpart.** R1, this runbook and R4 are also told as one continuous story for the operator — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\u3a St Ives\Using AI\Buses\Documentation\README - How to publish a map to the portal.md` (the Buses repo). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.** The review checklist in particular is restated there in plain English, so the two go stale together — [Step 3](#step-3--complete-the-review-checklist) is the authority.
 
 > **Pilot.** Every sheet you publish carries a red **PILOT — SAMPLE MAP** band across the top while `PILOT_MODE` is on. That is correct for our own demo maps. **The wording is wrong for a real customer's map** ("Not published by any organisation") — before signing off the first genuine customer map, decide whether the pilot ends, or the band's wording changes for real maps. Both are one edit in `src/config.js`; see [`PILOT.md`](PILOT.md). Note also that a version renders its band at render time, so a version rendered before the pilot landed publishes **unstamped**. `node scripts/restamp-renders.mjs` (dry run first) tells you.
 
