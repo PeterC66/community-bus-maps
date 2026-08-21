@@ -33,6 +33,23 @@ services:
       # Defaults ON in src/config.js if truly unset, but be explicit here so a
       # blank .env value doesn't accidentally fall through to that default.
       PILOT_MODE: ${PILOT_MODE:-1}
+      # Search-engine indexing, split from PILOT_MODE on 2026-08-21. Defaults
+      # OFF — robots.txt serves `Disallow: /` until this is 1.
+      ALLOW_INDEXING: ${ALLOW_INDEXING:-0}
+      # Separation of duties (technical-audit_2026-08-19 S6). With a single
+      # operator this MUST be 1 or nothing can be published at all; each
+      # publication made under it is stamped `selfApproved: true` in the
+      # decision evidence and the audit row.
+      ALLOW_SELF_APPROVAL: ${ALLOW_SELF_APPROVAL:-}
+      #
+      # WHY EVERY VARIABLE THE APP READS MUST BE NAMED HERE. This service has
+      # no `env_file`. Compose reads .env only to substitute ${VARS} into THIS
+      # file, so a key that is not listed above never reaches the container,
+      # however correctly it is spelled in .env. Both flags above were added on
+      # 2026-08-21 after exactly that trap was found: two PR bodies said "set
+      # ALLOW_SELF_APPROVAL=1 in the host .env", which on its own would have
+      # been a line sitting in .env looking correct while the app ran without
+      # it and refused every publication — with nothing to say so.
     volumes:
       - portal-data:/data
       # Backups written outside DATA_DIR so a backup is never inside the next one.
