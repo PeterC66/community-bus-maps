@@ -145,9 +145,16 @@ if (request && kind !== request.kind) {
 // map — so the portal VENDORS the place engine (engine/place/) and copies it into
 // the map's data folder here. Validate the right shape for the given --kind.
 const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
+// AREA maps fall back to the vendored area engine when the payload carries no
+// generators of its own -- see engine/area/README.md. gen_internal.js is shared
+// with the place engine and is vendored once, in engine/place/.
+const AREA_ENGINE_DIR = fileURLToPath(new URL('../engine/area', import.meta.url));
+const AREA_STYLE = ['radial', 'busway'].includes(arg('external-style'))
+  ? arg('external-style') : 'radial';
 const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
 const AREA_GENS = ['gen_internal.js', 'gen_external.js'];
 const isPlace = kind === 'place';
+let areaFallback = null;  // [[absolutePath, copyAsName], ...] when the payload has none
 
 if (isPlace) {
   if (!existsSync(path.join(SRC, 'routes.json'))) {
@@ -167,12 +174,26 @@ if (isPlace) {
   }
 } else {
   const presentGens = AREA_GENS.filter((g) => existsSync(path.join(SRC, g)));
+  // A payload that carries its own generators still wins, so an older map or a
+  // town with a hand-edited generator imports byte-for-byte as it always did.
+  // Only when it carries NONE do we reach for the vendored engine. Before this
+  // fallback existed the import simply refused, and since the skill stopped
+  // staging generators on 2026-08-04 that meant every real area delivery.
   if (!presentGens.length) {
-    console.error(`✗ --src carries none of the area generators (${AREA_GENS.join(', ')}).`);
-    console.error('  If this is a place map, pass --kind place (its engine is vendored in engine/place/).');
-    process.exit(3);
+    const vendored = [
+      [path.join(PLACE_ENGINE_DIR, 'gen_internal.js'), 'gen_internal.js'],
+      [path.join(AREA_ENGINE_DIR, `gen_external_${AREA_STYLE}.js`), 'gen_external.js'],
+    ];
+    for (const [from, as] of vendored) if (!existsSync(from)) {
+      console.error(`✗ vendored area engine is missing ${path.basename(from)} at ${from}`);
+      process.exit(3);
+    }
+    areaFallback = vendored;
+    console.log(`· --src carries no generators — using the vendored area engine (external style: ${AREA_STYLE}).`);
+    console.log('  Pass --external-style busway if the external map uses the busway template.');
+  } else {
+    for (const g of AREA_GENS) if (!existsSync(path.join(SRC, g))) console.warn(`· note: ${g} not present — that output will be skipped`);
   }
-  for (const g of AREA_GENS) if (!existsSync(path.join(SRC, g))) console.warn(`· note: ${g} not present — that output will be skipped`);
 }
 const slugOwner = getMapBySlug(slug);
 if (slugOwner && slugOwner.id !== (request ? request.id : null)) {
@@ -241,6 +262,10 @@ for (const f of readdirSync(SRC)) {
   if (!keep) continue;
   cpSync(path.join(SRC, f), path.join(dest, f));
   copied++;
+}
+if (areaFallback) {
+  for (const [from, as] of areaFallback) { cpSync(from, path.join(dest, as)); copied++; }
+  console.log(`· staged the vendored area engine into ${dest}`);
 }
 if (isPlace) {
   for (const g of PLACE_GENS) { cpSync(path.join(PLACE_ENGINE_DIR, g), path.join(dest, g)); copied++; }
