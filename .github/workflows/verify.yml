@@ -93,7 +93,7 @@ jobs:
           sparse-checkout-cone-mode: true
 
       # 24 to match the Dockerfile's base image.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
 
