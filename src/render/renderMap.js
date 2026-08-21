@@ -84,6 +84,17 @@ export function generateSvg({
   // baseline (P0 gate) is unaffected.
   if (editorKeys) env.EDITOR_KEYS = '1';
   if (sheetVersion) env.LEAFLET_SHEET_VERSION = String(sheetVersion);
+  // STRICT_GUARDS: the generators carry guards that REFUSE to draw a label they
+  // cannot place safely, and then exit 0 — declining was, from their point of
+  // view, the job. The sheet is missing something the config asked for and
+  // nothing on it says so; only stderr does. And the block below reads stderr
+  // ONLY when the status is non-zero, so on the success path — which is the
+  // path a refusing guard takes — the whole stream was discarded unread. These
+  // are the bytes that go public: an import, an accepted proposed update, a
+  // customer preview. Setting this makes a refusal a non-zero exit, so the
+  // existing throw below becomes load-bearing and catches it with no other
+  // change. See Development Docs/stderr-guard-capture-plan_2026-08-21.md.
+  env.STRICT_GUARDS = '1';
 
   const res = spawnSync(process.execPath, [genPath], {
     cwd: dataDir,
