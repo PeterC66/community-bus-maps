@@ -10,21 +10,25 @@
 // 3b: measured no better than the search gen_external_places.js already had),
 // so it stays real per-fixture config, not something this gate should force.
 //
-// Skips cleanly (exit 0) when PLACE_FIXTURE_DIR is unset or missing.
+// FIXTURES: resolved by ./lib/fixtures.mjs, and it FAILS rather than skips when
+// there is nothing to run against (technical-audit_2026-08-19 V2).
 
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINE_DIR, generateSvg } from '../src/render/renderMap.js';
+import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
 
-const FIXTURE = process.env.PLACE_FIXTURE_DIR;
+// Fixture resolution and the no-skip rule live in ./lib/fixtures.mjs
+// (technical-audit_2026-08-19 V2).
+const FIXTURE = resolveFixtures('place').fixtures[0];
 const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
 const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
 
-if (!FIXTURE || !existsSync(FIXTURE)) {
-  console.log('· verify-reproduce-place-defaults: PLACE_FIXTURE_DIR not set or missing — skipping.');
-  process.exit(0);
+if (!FIXTURE) {
+  reportNoFixture('place');
+  process.exit(0); // only reached under --allow-skip
 }
 
 const KEYS = [

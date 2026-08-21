@@ -1,7 +1,7 @@
 ﻿# Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.4 | 2026-08-15 | sha=617895b1 -->
-**v1.4** · updated 15 August 2026
+<!-- docstamp v1.5 | 2026-08-20 | sha=895f4b89 -->
+**v1.5** · updated 20 August 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -12,6 +12,10 @@
 ## The rule — separation of duties
 
 The **editor** who makes a change **submits** it; a platform **approver** (or admin) **publishes** it. Even when you are both, act in the right seat — submit as the editor, then switch to the approver view. The audit depends on it. Approvers can **read/inspect any** map but **never edit** one.
+
+**Enforced since 2026-08-20, and honestly bounded.** The server compares the request's submitter to the approver and returns `409 self-approval` when they are the same person. That check had never existed: this document, the README and `src/publish/index.js` all described the control, and the code checked the role, the request's status and the checklist, and never once compared the two user ids — so all 41 publications up to that date were self-approved (`technical-audit_2026-08-19` S6). A one-operator deployment sets `ALLOW_SELF_APPROVAL=1` to keep working, and then **every self-approval is stamped `selfApproved: true`** in the stored evidence, the audit row and the API response. The review screen says so before you tick anything. Unset the override the day a second person holds `approver`; the point of the flag is that the trail can tell the two eras apart.
+
+**Publishing needs a fresh sign-in.** Whatever your session's age, approving needs a sign-in from the **last 30 minutes** — a stale cookie cannot make a map public. A refusal comes back as `403 step-up-required`; sign out, follow a new sign-in link, and the review is exactly where you left it. Note for scripted work: `scripts/accept-publish-batch.mjs` runs against a session you mint for the task, which is fresh by construction — see the mint-and-revoke note in the operations handbook.
 
 ## Step 1 — Editor submits (freezes the head)
 

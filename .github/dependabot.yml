@@ -33,3 +33,15 @@ updates:
     schedule:
       interval: monthly
     labels: [dependencies]
+
+  # The Dockerfile's FROM is pinned by digest (technical-audit_2026-08-19 V6), so
+  # it no longer picks up base-image security patches on its own. This entry is
+  # the other half of that trade: the pin stops the bytes moving unannounced, and
+  # this stops the pin quietly ageing into an unpatched Debian. Monthly, because
+  # a base-image bump is not a merge-on-green change -- it needs `npm run verify`
+  # and the digest recorded in CHANGELOG.md.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies]

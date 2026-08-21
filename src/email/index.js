@@ -8,6 +8,7 @@
 // PROVIDERS below and pointing EMAIL_PROVIDER at its key.
 
 import { sendViaResend } from './resend.js';
+import { recordSendFailure, recordSendSuccess } from './health.js';
 
 const PROVIDERS = { resend: sendViaResend };
 
@@ -43,8 +44,26 @@ export async function sendMagicLink({ to, link, kind = 'signin' }) {
  */
 export async function sendEmail({ to, subject, text, html }) {
   const provider = process.env.EMAIL_PROVIDER;
+  // Not a failure: no provider is the documented dev default, and the caller
+  // falls back to printing the link. Counting it as a send failure would make
+  // every development run look like a broken mail server.
   if (!provider) return { sent: false, reason: 'EMAIL_PROVIDER not set' };
   const send = PROVIDERS[provider];
-  if (!send) throw new Error(`Unknown EMAIL_PROVIDER "${provider}" — supported: ${Object.keys(PROVIDERS).join(', ')}`);
-  return send({ to, from: fromAddress(), subject, text, html });
+  if (!send) {
+    const e = new Error(`Unknown EMAIL_PROVIDER "${provider}" — supported: ${Object.keys(PROVIDERS).join(', ')}`);
+    recordSendFailure(e);
+    throw e;
+  }
+  // Every outcome of a CONFIGURED provider is counted, here rather than at each
+  // call site, because there are three call sites and the one that mattered
+  // (the magic link) is the one that silently swallowed its failures for
+  // months — technical-audit_2026-08-19 O4. See ./health.js.
+  try {
+    const r = await send({ to, from: fromAddress(), subject, text, html });
+    recordSendSuccess();
+    return r;
+  } catch (e) {
+    recordSendFailure(e);
+    throw e;
+  }
 }

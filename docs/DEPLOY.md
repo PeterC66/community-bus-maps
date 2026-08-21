@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.19 | 2026-08-20 | sha=b534506c -->
-**v1.19** · updated 20 August 2026
+<!-- docstamp v1.22 | 2026-08-21 | sha=86ed4412 -->
+**v1.22** · updated 21 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -36,6 +36,8 @@ Copy `.env.example`. The ones that matter in production:
 | `STATUS_TOKEN` | set to accept `POST /api/admin/status` (the laptop's `push-status.mjs`); unset and it 404s |
 | `PILOT_MODE` | **defaults ON.** Banner on every page and a band on every rendered sheet. Set to `0` to switch all of it off — see [`PILOT.md`](PILOT.md). Does **not** control indexing; that is `ALLOW_INDEXING` below |
 | `ALLOW_INDEXING` | **defaults OFF.** While off, `robots.txt` serves `Disallow: /` and the site cannot be found in a search engine. Set to `1` to become discoverable. Independent of `PILOT_MODE` since 2026-08-21, so the site can be indexed while still honestly labelled a pilot — see `src/config.js` §INDEXING |
+| `ALLOW_SELF_APPROVAL` | **must be `1` on this host today, or nothing can be published.** Since 2026-08-20 an approver who submitted a version is refused when they approve it (`technical-audit_2026-08-19` S6). With one operator that means every publication, so the override is set — and each publication made under it is stamped `selfApproved: true` in the evidence and the audit row. Unset it the day a second person holds `approver`. |
+| `ADMIN_EMAIL` | the address `npm run smoke:signin` sends its one real magic link to after a deploy. Must be a **registered, active** user, or no send is attempted and the check cannot pass. |
 
 ## 3. Run it
 
@@ -136,9 +138,21 @@ There is a way to test the whole header block without touching the live site or 
 curl -fsS localhost:5180/health?deep=1 | head -40
 ```
 
-`?deep=1` is the **readiness** probe, not a ping: it queries the database, writes and deletes a probe file in `DATA_DIR`, checks the vendored engine files (including the P7 expert styles) and rasterises a tiny image through sharp. It returns **503** if any of those fail, so it is what a load balancer and the container `HEALTHCHECK` should use.
+`?deep=1` is the **readiness** probe, not a ping: it queries the database, writes and deletes a probe file in `DATA_DIR`, checks the vendored engine files (including the P7 expert styles), rasterises a tiny image through sharp, and — since 2026-08-20 — checks that email is **configured** (`technical-audit_2026-08-19` O4: sign-in is the only door into this system, and a deployment that cannot email is one nobody can sign in to). It returns **503** if any of those fail, so it is what a load balancer and the container `HEALTHCHECK` should use.
 
-This URL is also monitored from outside. An **Uptime Robot** check polls `https://busmaps.uk/health?deep=1` every five minutes and alerts by email (set up 2026-08-20, `technical-audit_2026-08-19` O2 — the alert address is recorded in `community-bus-maps-ops`, not here). Two things to keep in mind when touching this route: it is not a free ping, so tightening the interval multiplies the rasterisations this box does; and **S4 — putting `?deep=1` behind `METRICS_TOKEN` — must update the monitor in the same change**, or it will start returning 401 and paging about a fault that is not there. There is a note to that effect beside the handler in `src/server.js`.
+**What it tells whom (S4, done 2026-08-20).** An anonymous caller now gets four fields — `status`, `service`, `version`, `time` — and nothing else. It used to hand anybody the git SHA, the build time, the exact sharp and libvips versions, the object-store path and eleven business counts, which is a CVE-targeting aid plus a public read-out of how small the operation is. Add `?token=$METRICS_TOKEN` (or a `Bearer` header, or an admin session) to get the whole thing back, including `checks{}`.
+
+**The verdict stayed public on purpose, so nothing had to be reconfigured.** `?deep=1` still runs for an anonymous caller and still returns 503 when a dependency is down; only the per-check detail is gated. That is what the warning in the previous version of this section was about — gating the verdict would have turned every Uptime Robot poll into a 401 and paged about a fault that did not exist. Do not undo that without changing the monitor and the Dockerfile `HEALTHCHECK` in the same commit.
+
+This URL is monitored from outside: an **Uptime Robot** check polls `https://busmaps.uk/health?deep=1` every five minutes and alerts by email (set up 2026-08-20, `technical-audit_2026-08-19` O2 — the alert address is recorded in `community-bus-maps-ops`, not here). It is not a free ping, so tightening the interval multiplies the rasterisations this box does.
+
+**Readiness is not proof that anyone can sign in.** It checks that email is configured, not that the provider will accept a message today. `npm run deploy` therefore ends by running:
+
+```bash
+npm run smoke:signin
+```
+
+from the repo root on the laptop (`C:\Claude\community-bus-maps`). It POSTs one real sign-in request for `ADMIN_EMAIL` to the running service and then reads the **server log** for `magic link emailed` — the HTTP response is deliberately identical whether or not the address is registered, so it cannot be the evidence. It exits non-zero on a 503, on a provider that threw, on a link that went to the console instead of an inbox, and on no matching log line at all. `npm run deploy -- --skip-signin` skips it, and then nothing has proved a real sign-in email can be sent.
 
 Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
 
@@ -205,6 +219,22 @@ Removes staged payloads of **settled** monthly refreshes and the data an accepte
 Sessions expire themselves (the server purges hourly). Nothing else grows unbounded except renders, which are kept on purpose — every version stays downloadable.
 
 ## 7. Upgrading the app
+
+**Two things about the image changed on 2026-08-20 and both bite silently if missed.**
+
+The Dockerfile's `FROM` is now **pinned by digest** (`node:24-slim@sha256:3638d9a6…`), because it said "pinned by digest-able tag" above a floating tag and a rebuild months apart could move the very bytes the product guarantees — which is not hypothetical, it is what the Liberation Mono incident was (`technical-audit_2026-08-19` V6). Bump it from Dependabot's monthly `docker` PR or with `docker buildx imagetools inspect node:24-slim`, run from anywhere; record the new digest in `CHANGELOG.md`, and re-run `npm run verify` before deploying, because a base-image change is a rasteriser change until proved otherwise.
+
+**After any rasteriser change — a `sharp` bump or a base-image bump — check the sheets you have already published**, on the host, where the bytes actually live:
+
+```bash
+npm run ssh -- "cd /opt/community-bus-maps && docker compose run --rm portal node scripts/rerasterize-stored.mjs --check"
+```
+
+Run from the repo root on the laptop (`C:\Claude\community-bus-maps`); `/opt/community-bus-maps` is `DEPLOY_APP_DIR` on the host. It writes nothing — it re-rasterises each stored SVG to a scratch file and reports whether the bytes would change. If any would, **look at one of the changed sheets before doing anything else**: the Liberation Mono incident moved bytes too, and every sheet was wrong. Then `--apply` to bring the stored files back in line, and record it in `CHANGELOG.md`.
+
+**The rule when byte continuity and a security patch pull apart: the patch wins.** `sharp` carried a high-severity advisory for weeks on the grounds that the bytes are a product guarantee. A re-baseline is a normal, announced, recoverable event; an unpatched image parser in production is not. (In the event, `0.34.5 → 0.35.3` moved no bytes at all — but that was the outcome, not the reason.)
+
+The image also copies a new top-level **`views/`** directory holding the signed-in app's HTML shells, which moved out of `public/` so `@fastify/static` can no longer serve them (S7 — `/app/admin.html` returned 200 to anyone while `/app/admin` correctly redirected). Miss that `COPY` line and every `/app` page 404s while the public site looks perfectly fine.
 
 1. `npm ci` (respect the lockfile — see the sharp warning below), then **`npm test`**.
 2. **`npm run verify`** with `FIXTURE_DIR` + `PLACE_FIXTURE_DIR` pointing at the private fixtures. This is the release gate: it re-renders the area map, the place map **and the two expert styles** and requires them to be byte-identical.

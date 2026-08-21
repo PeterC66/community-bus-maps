@@ -86,7 +86,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'messages', 'refreshes', 'audit', 'ops'];
+const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'sessions', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -383,6 +383,47 @@ function rowUser(u) {
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${u.id}">Save</button></div>
   </div>`;
 }
+// ---- sessions ---------------------------------------------------------------
+// Who is signed in, and the ability to end it (technical-audit_2026-08-19 S5).
+// Before this there was neither: `purgeExpiredSessions` removes only the
+// already-dead, so a token that escaped stayed a valid credential until its own
+// clock ran out and nobody could do anything about it.
+LOADERS.sessions = async () => {
+  const box = $('sessions');
+  const { body } = await jget('/api/admin/sessions');
+  if (!body || !body.ok) { box.innerHTML = '<div class="empty">Could not load sessions.</div>'; return; }
+  $('sessDays').textContent = body.sessionDays;
+  $('sessStepUp').textContent = body.stepUpMinutes;
+  const rows = body.sessions || [];
+  if (!rows.length) { box.innerHTML = '<div class="empty">Nobody is signed in.</div>'; return; }
+  const columns = [{ label: 'User', key: 'user' }, { label: 'Organisation' }, { label: 'Signed in', key: 'signedInAt' }, { label: 'Last used', key: 'lastSeenAt' }, { label: 'Expires', key: 'expiresAt' }, { label: 'Handle' }, { label: '' }];
+  renderSortable('sessions', box, [24, 18, 14, 14, 14, 10, 6], columns, rows, rowSession, (b) => {
+    b.querySelectorAll('button[data-revoke]').forEach((btn) => btn.addEventListener('click', () => revokeSession(btn.dataset.revoke, btn.dataset.who, btn.dataset.self === '1')));
+  });
+};
+function rowSession(x) {
+  return `<div class="gt-row" role="row" data-session="${esc(x.handle)}">
+    <div class="gt-cell" role="cell"><strong>${esc(x.user.email)}</strong>${x.current ? ' <span class="muted">(this browser)</span>' : ''}<div class="muted">${esc(x.user.role)}</div></div>
+    <div class="gt-cell" role="cell">${esc(x.customer ? x.customer.name : '— platform admin —')}</div>
+    <div class="gt-cell" role="cell">${fmtDate(x.signedInAt)}</div>
+    <div class="gt-cell" role="cell">${fmtDate(x.lastSeenAt)}</div>
+    <div class="gt-cell" role="cell">${fmtDate(x.expiresAt)}</div>
+    <div class="gt-cell" role="cell"><code>${esc(x.handle)}</code></div>
+    <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-revoke="${esc(x.handle)}" data-who="${esc(x.user.email)}" data-self="${x.current ? '1' : '0'}">Revoke</button></div>
+  </div>`;
+}
+async function revokeSession(handle, who, isSelf) {
+  const msg = isSelf
+    ? 'This is the session you are using. Revoking it signs YOU out of this browser immediately.\n\nContinue?'
+    : `Sign ${who} out of this session immediately?\n\nThey can sign in again with a fresh link; anything unsaved in that browser is lost.`;
+  if (!confirm(msg)) return;
+  const { body } = await jsend(`/api/admin/sessions/${encodeURIComponent(handle)}/revoke`, 'POST', {});
+  if (!body.ok) { banner('err', body.error || 'Could not revoke that session.'); return; }
+  if (body.self) { location.href = '/app/login.html'; return; }
+  banner('ok', `Revoked ${esc(who)}'s session.`);
+  LOADERS.sessions();
+}
+
 async function saveUser(id) {
   const tr = $('users').querySelector(`[data-user="${id}"]`);
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);

@@ -1,0 +1,128 @@
+# The byte-identical gate, running somewhere other than one laptop.
+#
+# This is the workflow the audit asked for
+# (Development Docs/technical-audit_2026-08-19.md, finding V2 — "the one thing
+# to fix if only one thing gets fixed"). The product's central technical claim is
+# that the same inputs produce the same bytes. `npm run verify` is what
+# demonstrates that claim, and until 2026-08-20 it could only be demonstrated by
+# the founder, on one machine, because the fixtures it needs were git-ignored —
+# and it printed "skipping" and exited 0 everywhere else, so the absence looked
+# like a pass.
+#
+# Both halves of the fix are needed for this file to mean anything:
+#   1. buses-data now COMMITS an area fixture at Areas/_portal-fixture/, the way
+#      it already committed a place one at Places/_portal-fixture/;
+#   2. scripts/lib/fixtures.mjs FAILS rather than skips when there is no fixture,
+#      so this job cannot go green by finding nothing.
+#
+# WHY THE THREE GATES ARE THREE STEPS rather than one `npm run verify`. They
+# answer different questions and a reader of a red run should not have to open
+# the log to learn which: verify:area is "does the portal reproduce a shipped
+# TOWN sheet byte-for-byte", verify:place is the same for the vendored PLACE
+# engine, and verify:defaults is "does each of the thirteen design/labels escape
+# hatches still change something" — i.e. is any of them now dead code.
+#
+# WHAT THIS DOES NOT PROVE. Rasterisation. SVG generation is pure JavaScript and
+# is expected to be byte-identical everywhere; the JPGs are not, because glyph
+# outlines differ between Linux and the Windows laptop by design. That is what
+# render-parity.yml is for, and why these gates compare SVGs only.
+#
+# REQUIRES the secret CROSS_REPO_PAT: a GitHub PAT with read access to
+# PeterC66/buses-data. Both repositories are private, and a job's own
+# GITHUB_TOKEN is scoped to this repository alone. The preflight step below says
+# so in one line if it is missing or under-scoped, rather than letting it surface
+# as a checkout `Not Found` that reads like a deleted repository — which is
+# exactly how the sibling workflow in buses-data managed to stay red for twelve
+# days without anyone noticing.
+
+name: verify (byte-identical)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Daily, because this gate can break without anyone touching this repository:
+  # the fixture lives in buses-data and moves when the engine does.
+  schedule:
+    - cron: '35 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Preflight — can the PAT see buses-data?
+        env:
+          PAT: ${{ secrets.CROSS_REPO_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::error::CROSS_REPO_PAT is not set on this repository. Add it under Settings -> Secrets and variables -> Actions, with read access to PeterC66/buses-data."
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/PeterC66/buses-data")
+          if [ "$code" != "200" ]; then
+            echo "::error::CROSS_REPO_PAT cannot read PeterC66/buses-data (HTTP $code). Widen the token's repository access."
+            exit 1
+          fi
+          echo "  ok   PeterC66/buses-data"
+
+      - name: Checkout the portal
+        uses: actions/checkout@v4
+        with:
+          path: community-bus-maps
+
+      # Sparse: the fixtures are a few MB, the rest of that repository is
+      # hundreds. cone mode with two directories keeps the checkout to what the
+      # gates actually read.
+      - name: Checkout buses-data (the fixtures)
+        uses: actions/checkout@v4
+        with:
+          repository: PeterC66/buses-data
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: buses-data
+          sparse-checkout: |
+            Areas/_portal-fixture
+            Places/_portal-fixture
+          sparse-checkout-cone-mode: true
+
+      # 24 to match the Dockerfile's base image.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        working-directory: community-bus-maps
+        run: npm ci
+
+      # Named out loud so a red run's cause is legible from the step list.
+      # If this ever reports "no fixture", the sparse-checkout above is wrong —
+      # that is a broken job, not a passing one, and the scripts say so.
+      - name: Fixtures present?
+        run: |
+          echo "Areas/_portal-fixture:"; ls -la buses-data/Areas/_portal-fixture
+          echo "Places/_portal-fixture:"; ls -la buses-data/Places/_portal-fixture
+
+      - name: verify:area — the portal reproduces a shipped town sheet
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run verify:area
+
+      - name: verify:place — the vendored place engine reproduces a shipped place sheet
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run verify:place
+
+      - name: verify:defaults — every design/labels escape hatch is still live code
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run verify:defaults

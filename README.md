@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.13 | 2026-08-17 | sha=e69c9c50 -->
-**v1.13** · updated 17 August 2026
+<!-- docstamp v1.14 | 2026-08-20 | sha=ce80b1b3 -->
+**v1.14** · updated 20 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -44,14 +44,17 @@ cp .env.example .env      # then edit if you like
 npm run dev               # serves the shopfront on http://127.0.0.1:5180
 ```
 
-Prove the renderer reproduces a real leaflet byte-for-byte (needs the separate Buses data repo):
+Prove the renderer reproduces a real leaflet byte-for-byte. Run from this repository's root, with the separate `buses-data` repo cloned next to it (or `BUSES_DIR` set in `.env` to wherever it is):
 
 ```bash
-# point FIXTURE_DIR at one staged town render folder, then:
 npm run verify
 ```
 
-Note that `verify` **exits 0 with "skipping" when `FIXTURE_DIR` is unset** — a green run in a fresh clone proves nothing about the renderer. Set it (and `PLACE_FIXTURE_DIR`) first.
+Nothing else to configure: the gates read a **committed fixture** — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in `buses-data` — so a fresh clone proves the claim. Set `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` only to point a gate at something else, normally the live render tree.
+
+**With no fixture at all, `verify` FAILS.** It used to print "skipping" and exit 0, which meant a fresh clone, a CI run and a second developer all got a green result from a check that had not executed — the finding [`technical-audit_2026-08-19`](../../u3a%20St%20Ives/Using%20AI/Buses/Development%20Docs/technical-audit_2026-08-19.md) called the single most important structural item in the report (V2), on the grounds that the byte-identical guarantee is what the product is sold on and it could be verified by exactly one person on one machine. `npm run verify -- --allow-skip` is the escape hatch for a clone of the portal alone, and it says out loud that it proved nothing.
+
+The same three gates run in CI on every push and pull request, and nightly — [`.github/workflows/verify.yml`](.github/workflows/verify.yml).
 
 **Before you change any code, read [`docs/DEVELOPING.md`](docs/DEVELOPING.md)** — the determinism contract, the three approval gates, the vendored-engine hand-off, the generator env contract, and which gates to run.
 
@@ -73,7 +76,7 @@ Then `npm run dev` and open **http://127.0.0.1:5180/app**. You'll be sent to a *
 
 As an **editor**, open a map to recolour routes, tick/untick landmarks, choose which **outputs** it produces, and **Save new version** for print-ready SVG + JPG. Version **1.0 is the imported baseline** (empty overrides ⇒ byte-identical to the shipped leaflet); each save bumps the minor and keeps every earlier version. Use **Request a map** to ask for a new area/place map within your quota.
 
-Each version stays a private **draft** until it is reviewed. In the editor's **Publish** panel, hit **Submit for publication** (editing then freezes) — then, as the **approver** or **admin**, open **/app/review**, check the change summary, inspect the print-ready JPGs, complete the **review checklist** and **Publish**. Publishing sets the map's **official public version** (retiring the previous one) and records the whole thing in the admin **Audit** tab. The editor who makes a change never publishes it — that's a deliberate separation of duties.
+Each version stays a private **draft** until it is reviewed. In the editor's **Publish** panel, hit **Submit for publication** (editing then freezes) — then, as the **approver** or **admin**, open **/app/review**, check the change summary, inspect the print-ready JPGs, complete the **review checklist** and **Publish**. Publishing sets the map's **official public version** (retiring the previous one) and records the whole thing in the admin **Audit** tab. The editor who makes a change never publishes it — that's a deliberate separation of duties, and since 2026-08-20 it is **enforced in code**: an approver who submitted a version is refused when they try to approve it. A one-operator deployment can set `ALLOW_SELF_APPROVAL=1` to publish anyway, and every publication made that way is stamped `selfApproved` in the audit trail — because a control that is documented and not implemented is worse than one that is honestly bounded (`technical-audit_2026-08-19` S6). Publishing also needs a sign-in from the last 30 minutes, so a long-lived cookie is not by itself enough to make a map public.
 
 As the **admin**, open **/app/admin** to review **applications** (approve → creates a customer + editor + invite link), work the **map-request** queue, and adjust **customer** quotas. Approving the seeded *Ramsey Town Council* application prints an invite link to the console — sign in with it to see the new customer's empty dashboard.
 

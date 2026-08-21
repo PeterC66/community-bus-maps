@@ -1,7 +1,7 @@
 ﻿# Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.4 | 2026-08-17 | sha=52c349c3 -->
-**v1.4** · updated 17 August 2026
+<!-- docstamp v1.5 | 2026-08-20 | sha=e97ff4f7 -->
+**v1.5** · updated 20 August 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -16,6 +16,18 @@ The split again: **you** regenerate a town's data centrally (live sources + judg
 The monthly BODS refresh.
 
 > **Claude-assisted shortcut:** the Buses side mines **upcoming changes** (`gtfs_upcoming.py` — the ≥42-day-ahead feed + a month-over-month diff → a per-town upcoming-changes report) so you know *which* towns actually changed before regenerating anything. Work those first; skip the unchanged. `npm run check-upcoming` cross-references that report against the portal's own maps and queues a `refresh-flag` message (Admin → Messages) for every LIVE map — demo or real customer, treated the same — whose town/place shows upcoming changes, so you don't have to remember which towns have a portal map while reading the report. It does not regenerate anything itself: Step 1 below is still a human (+ Claude) job.
+
+## S6 freshness gates delivery
+
+`npm run deliver` refuses a **town** whose S6 verification pre-dates its own data, before it copies anything to the host (`technical-audit_2026-08-19` V3). The byte gate in step 2 proves the portal reproduces the render exactly; S6 is the different question — **is the map right** — and on 2026-08-19 every town's S6 was 8–31 days stale while all thirteen maps were live. The gate board had been printing `28d STALE` beside each one for weeks and nothing read it.
+
+A refusal costs nothing: it happens first, locally, before the `scp`, so the host is untouched.
+
+**Place maps have no S6** — the place skill runs P1–P5 — and the check says so out loud rather than passing silently. "Did not apply" and "passed" must not look the same at a terminal.
+
+**Deferrals live in `scripts/s6-waivers.json` and expire.** All eight towns were stale on the day the gate landed, so shipping it bare would have made it red on its first run for everything, and a check that is red on day one gets muted inside a week. Each entry carries `until`, `why` and `removeBy`, and `deliver-map.mjs` refuses an expired entry as loudly as a missing one. To clear one: run the town's S6 stage against its current data, then delete the entry. Do not extend `until` without writing down what changed.
+
+The one-off escape hatch is `npm run deliver -- … --s6-unchecked "<reason>"`, which prints the reason and is recorded nowhere else. Use it when you know what you are doing and nowhere near a customer's map.
 
 ## Step 1 — Regenerate the map data (central)
 

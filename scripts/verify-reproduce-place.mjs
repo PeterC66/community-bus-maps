@@ -11,8 +11,12 @@
 //   3. checks each regenerated SVG is BYTE-IDENTICAL to the reference (headline),
 //   4. rasterises + compares the JPG (render parity — informational).
 //
-// Skips cleanly (exit 0) when PLACE_FIXTURE_DIR is unset or missing, so a fresh
-// clone without the data repo still passes.
+// FIXTURES. Same rule as the area gate since 2026-08-20: resolved by
+// scripts/lib/fixtures.mjs — $PLACE_FIXTURE_DIR if it points at anything real,
+// otherwise the committed fixture at Places/_portal-fixture/ — and it FAILS
+// rather than skips when there is nothing (technical-audit_2026-08-19 V2). The
+// place fixture was already committed; what was missing was the refusal to
+// pass without it.
 
 import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
@@ -21,16 +25,16 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
 import { warnIfFileSkew } from './lib/fixture-freshness.mjs';
+import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
 
-const FIXTURE = process.env.PLACE_FIXTURE_DIR;
+const FIXTURE = resolveFixtures('place').fixtures[0];
 const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
 const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
 const n = (x) => Number(x).toLocaleString('en-GB');
 
-if (!FIXTURE || !existsSync(FIXTURE)) {
-  console.log('· verify-reproduce-place: PLACE_FIXTURE_DIR not set or missing — skipping.');
-  console.log('  Point it at a place fixture folder to run it (see .env.example).');
-  process.exit(0);
+if (!FIXTURE) {
+  reportNoFixture('place');
+  process.exit(0); // only reached under --allow-skip
 }
 
 async function pixelCompare(aBuf, bBuf) {
