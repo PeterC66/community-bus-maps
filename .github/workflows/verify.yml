@@ -74,7 +74,7 @@ jobs:
           echo "  ok   PeterC66/buses-data"
 
       - name: Checkout the portal
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: community-bus-maps
 
@@ -82,7 +82,7 @@ jobs:
       # hundreds. cone mode with two directories keeps the checkout to what the
       # gates actually read.
       - name: Checkout buses-data (the fixtures)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: PeterC66/buses-data
           token: ${{ secrets.CROSS_REPO_PAT }}

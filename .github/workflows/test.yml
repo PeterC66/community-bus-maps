@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 24 to match the Dockerfile's base image: node:sqlite is the store, and
       # it is still flagged experimental, so the runtime is not a free variable.
