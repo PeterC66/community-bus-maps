@@ -7,7 +7,7 @@
 # data are involved and this is safe to run in public CI.
 #
 # Two jobs on purpose:
-#   image  — the real deployment target (node:24-slim via the Dockerfile).
+#   image  — the real deployment target (whatever the Dockerfile FROM says).
 #   runner — plain Ubuntu, which has system fonts installed.
 # If `geometry` matches in both but `text` only matches on the runner, the
 # problem is fonts missing from the image, not libvips — a one-line Dockerfile
@@ -36,7 +36,7 @@
 # is NOT the sharp 0.35 bump that PR carried, which is what it looked like at
 # first; and it is not a one-off either. Unexplained as of 2026-08-20.
 #
-# Two things follow. The `image` job -- node:24-slim, the actual deployment
+# Two things follow. The `image` job -- the Dockerfile's own base, the actual deployment
 # target -- has never hung and passes in ~35s, so nothing about deploying is
 # blocked by this; it is the diagnostic control that is flaky, not the thing
 # being controlled. And the timeout is what makes the flakiness survivable:
@@ -83,7 +83,7 @@ permissions:
 
 jobs:
   image:
-    name: node:24-slim (deployment target)
+    name: deployment image (Dockerfile FROM)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -115,7 +115,7 @@ jobs:
         if: always()
         run: |
           {
-            echo '## Deployment image — `node:24-slim`'
+            echo "## Deployment image — \`$(sed -n 's/^FROM \(node:[^@]*\).*/\1/p' Dockerfile | head -1)\`"
             echo
             echo 'The image the VPS will actually run.'
             echo

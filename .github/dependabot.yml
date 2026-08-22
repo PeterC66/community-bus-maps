@@ -44,4 +44,10 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    labels: [dependencies]
+    # needs-rebaseline is not decoration. A base-image bump can change the
+    # rasterised TEXT pixels with identical SVG bytes going in and the same
+    # sharp/libvips versions reported -- measured on #64 (node 26-slim), where
+    # the text probe moved and every check still went green, because the image
+    # job gates on --strict-fonts and not on the pixel comparison. The label is
+    # what stops that PR looking like a routine bump in the list.
+    labels: [dependencies, needs-rebaseline]
