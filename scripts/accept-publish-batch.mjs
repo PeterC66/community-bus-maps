@@ -109,9 +109,9 @@ function mintSession() {
   if (!HOST || !APP_DIR) throw new Error('--mint needs DEPLOY_HOST and DEPLOY_APP_DIR set (.env).');
   if (!ADMIN_EMAIL) throw new Error('--mint needs ADMIN_EMAIL set (.env) to know which user to mint a session for.');
   const script = `
-    const Database = require('better-sqlite3');
+    const { DatabaseSync } = require('node:sqlite');
     const crypto = require('crypto');
-    const db = new Database('/data/portal.sqlite');
+    const db = new DatabaseSync('/data/portal.sqlite');
     const user = db.prepare('SELECT id, email, role FROM user WHERE email = ? AND status = ?').get(${JSON.stringify(ADMIN_EMAIL)}, 'active');
     if (!user) { console.error('NO_SUCH_ADMIN'); process.exit(1); }
     if (user.role !== 'admin') { console.error('NOT_ADMIN:' + user.role); process.exit(1); }
@@ -131,8 +131,8 @@ function mintSession() {
 function revokeSession(token) {
   if (!HOST || !APP_DIR) return { revoked: false, reason: 'no host config' };
   const script = `
-    const Database = require('better-sqlite3');
-    const db = new Database('/data/portal.sqlite');
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync('/data/portal.sqlite');
     db.prepare('DELETE FROM session WHERE token = ?').run(${JSON.stringify(token)});
     const back = db.prepare('SELECT token FROM session WHERE token = ?').get(${JSON.stringify(token)});
     console.log(back ? 'STILL_PRESENT' : 'GONE');

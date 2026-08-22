@@ -167,6 +167,16 @@ app.addHook('preHandler', async (req, reply) => {
 // treats 401 as "signed out" would otherwise throw them back to the login page
 // having lost whatever they had typed. `code: 'step-up-required'` is what the
 // UI keys on.
+// When this session's step-up freshness runs out, as an absolute ISO time, or null
+// if it cannot be worked out. Mirrors stepUpFresh()'s anchor (session creation) so
+// the two can never disagree about the same session.
+function stepUpDeadline(user) {
+  if (!user || !user.sessionCreatedAt) return null;
+  const t = new Date(`${String(user.sessionCreatedAt).replace(' ', 'T')}Z`).getTime();
+  if (!Number.isFinite(t)) return null;
+  return new Date(t + STEP_UP_MINUTES * 60_000).toISOString();
+}
+
 function requireStepUp(req, reply, what) {
   if (stepUpFresh(req.user)) return true;
   req.log.warn({ userId: req.user && req.user.id, what }, 'step-up required');
@@ -1796,6 +1806,18 @@ app.get('/api/review/:id', async (req, reply) => {
       // rather than one lets the UI say which of the two situations it is.
       selfReview: pr.requested_by != null && Number(pr.requested_by) === Number(user.id),
       selfApprovalAllowed: ALLOW_SELF_APPROVAL,
+      // Step-up belongs in that same "before ticking anything" set, and was missing
+      // from it. Publishing needs a sign-in from the last STEP_UP_MINUTES, and the
+      // only thing that ever said so was the 403 from the Publish button — raised
+      // after the approver had opened every sheet and ticked the checklist, which is
+      // the entire cost of a review. Reported from the operator's seat 2026-08-22.
+      // A DEADLINE rather than a boolean, deliberately: step-up is anchored on the
+      // session's CREATION and the sliding window never moves it, so the freshness
+      // can expire *during* a review. A flag captured at page load would go quietly
+      // stale exactly when it mattered; an absolute time stays true.
+      stepUpFresh: stepUpFresh(user),
+      stepUpExpiresAt: stepUpDeadline(user),
+      stepUpMinutes: STEP_UP_MINUTES,
       reviewedBy: pr.reviewed_by_email || null, reviewedAt: pr.reviewed_at || null,
       decisionNote: pr.decision_note || '',
       evidence: decided ? parseJson(pr.evidence_json) : null,
