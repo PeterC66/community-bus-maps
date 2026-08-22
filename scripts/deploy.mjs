@@ -87,9 +87,11 @@ if (!DRY_RUN) {
 
 // 3. Build — the old container keeps serving throughout.
 console.log('\n-- 3. docker compose build portal (stamping GIT_SHA/BUILT_AT)');
+// Hoisted out of the block so step 5 can state which commit it actually built.
+let gitSha = null, builtAt = null;
 if (!DRY_RUN) {
-  const gitSha = sshCapture(`cd ${APP_DIR} && git rev-parse --short HEAD`).stdout;
-  const builtAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  gitSha = sshCapture(`cd ${APP_DIR} && git rev-parse --short HEAD`).stdout;
+  builtAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   const rc = sshRun(`cd ${APP_DIR} && export GIT_SHA=${gitSha} BUILT_AT=${builtAt} && docker compose build portal`);
   if (rc !== 0) { console.error('✗ build failed — the old container is still serving, nothing to roll back.'); process.exit(1); }
 }
@@ -110,9 +112,23 @@ if (!DRY_RUN) {
 // left the service unhealthy still printed a tick. `curl -f` returns non-zero on
 // the 503 that /health?deep=1 gives when a dependency is down, and that is the
 // whole point of asking.
+// `gitSha`, `builtAt` and the per-check `checks{}` are GATED behind
+// opsAuthorised() — a METRICS_TOKEN bearer/query param, or an admin session — so
+// an unauthenticated curl gets the short form and none of the three, however
+// green everything is. This step used to close by telling the operator to read
+// "gitSha, builtAt, and every check green" out of output that structurally could
+// not contain any of them, which meant the deploy never once confirmed WHICH
+// COMMIT it had just put live. That is the §3a lesson in miniature: nothing
+// failed and nothing said so. Send the token when there is one, and either way
+// print the sha this script resolved and built with, so there is a real value to
+// read back against instead of an absent field.
 console.log('\n-- 5. /health?deep=1');
 if (!DRY_RUN) {
-  const rc = sshRun('sleep 3 && curl -fsS localhost:5180/health?deep=1');
+  console.log(`   built and deployed: gitSha=${gitSha} builtAt=${builtAt}`);
+  const tok = process.env.METRICS_TOKEN;
+  if (!tok) console.log('   (no METRICS_TOKEN set — gitSha/builtAt/checks are gated OUT of the reply below)');
+  const q = tok ? `?deep=1&token=${encodeURIComponent(tok)}` : '?deep=1';
+  const rc = sshRun(`sleep 3 && curl -fsS "localhost:5180/health${q}"`);
   if (rc !== 0) {
     console.error('\n✗ the new container is not READY (curl returned ' + rc + ').');
     console.error('  The deploy has happened. Read the output above, then decide whether to roll back —');
@@ -140,4 +156,8 @@ if (!DRY_RUN && !has('skip-signin')) {
   console.log('   SKIPPED (--skip-signin) — nothing has proved a real sign-in email can be sent.');
 }
 
-console.log('\n✓ deploy sequence complete — read the /health output above: gitSha, builtAt, and every check green.');
+console.log('\n✓ deploy sequence complete.');
+console.log(`  Deployed ${gitSha || '(dry run)'} at ${builtAt || '(dry run)'}.`);
+console.log('  Read the /health output above — and if it carries no gitSha/checks, that is the');
+console.log('  METRICS_TOKEN gate, not a healthy answer. Confirm the commit independently before');
+console.log('  calling it done: curl a file that only the new build serves (docs/DEPLOY.md §3a).');
