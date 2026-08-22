@@ -9,6 +9,39 @@ const fmtDate = (s) => {
   const d = new Date(String(s).replace(' ', 'T') + (String(s).includes('Z') ? '' : 'Z'));
   return isNaN(d) ? s : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
+const fmtTime = (s) => {
+  if (!s) return '';
+  const d = new Date(s);
+  return isNaN(d) ? '' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+};
+
+/**
+ * Say up front whether this sign-in is fresh enough to publish with.
+ *
+ * Publishing needs a sign-in from the last `stepUpMinutes`, and until 2026-08-22
+ * the only thing that ever mentioned it was the 403 raised by the Publish button —
+ * i.e. after opening every sheet and ticking the whole checklist, which is the
+ * entire cost of a review, and then having to redo it. The server has always known
+ * the answer; the screen just never asked.
+ *
+ * Phrased against the DEADLINE rather than a yes/no, because the window is anchored
+ * on when the session was created and can therefore run out midway through a review.
+ * "Good until 14:05" stays true as the clock moves; "you are fine" would not.
+ */
+function stepUpHtml(r) {
+  if (r.stepUpFresh === undefined) return '';           // older server, say nothing
+  if (!r.stepUpFresh) {
+    return `<p class="rd-note rd-warn"><strong>You will not be able to publish this without signing in again.</strong>
+      Publishing needs a sign-in from the last ${esc(r.stepUpMinutes)} minutes and yours is older.
+      <strong>Do it before you start reviewing</strong> — sign out, follow a fresh sign-in link and come back here,
+      or you will tick the whole checklist and be turned away at the last step. Sending it back to the editor still works.</p>`;
+  }
+  const until = fmtTime(r.stepUpExpiresAt);
+  return until
+    ? `<p class="rd-note">Your sign-in lets you publish until <strong>${esc(until)}</strong>. After that you will need a fresh sign-in link.</p>`
+    : '';
+}
+
 async function jget(url) { const r = await fetch(url); return { status: r.status, body: await r.json().catch(() => ({})) }; }
 async function jsend(url, method, data) {
   const r = await fetch(url, { method, headers: data ? { 'Content-Type': 'application/json' } : undefined, body: data ? JSON.stringify(data) : undefined });
@@ -110,6 +143,7 @@ async function openReview(id) {
       ${!decided && r.selfReview ? (r.selfApprovalAllowed
         ? '<p class="rd-note"><strong>You submitted this version.</strong> There is no second pair of eyes on this review, so publishing it will be recorded in the audit trail as a self-approval.</p>'
         : '<p class="rd-note"><strong>You submitted this version, so you cannot publish it.</strong> Another approver has to review it. You can still send it back to the editor.</p>') : ''}
+      ${!decided ? stepUpHtml(r) : ''}
     </div>
 
     <div class="rd-section">
@@ -175,7 +209,17 @@ function wireDecision(id, version) {
       current = null; await loadQueue(); await loadPublished();
       $('detail').innerHTML = '<div class="empty">Published. Pick the next submission to review.</div>';
     } else {
-      const m = $('reviewMsg'); m.className = 'notice err show'; m.textContent = (body && body.error) || 'Publish failed.';
+      const m = $('reviewMsg'); m.className = 'notice err show';
+      // src/server.js's requireStepUp() says `code: 'step-up-required'` "is what the
+      // UI keys on". Nothing did, until 2026-08-22 — the raw sentence was shown and
+      // the ticked checklist was left on screen with no hint it would survive. It
+      // does: signing in again in another tab and pressing Publish once more works,
+      // and saying so is the difference between a re-review and a reload.
+      if (status === 403 && body && body.code === 'step-up-required') {
+        m.innerHTML = `${esc(body.error)}<br><strong>Your ticks are kept.</strong> Sign in again in another tab, come back to this one and press Publish — you do not have to review it a second time.`;
+      } else {
+        m.textContent = (body && body.error) || 'Publish failed.';
+      }
       approve.disabled = false; approve.textContent = `Publish version ${version}`;
     }
   });
