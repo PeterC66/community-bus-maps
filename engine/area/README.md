@@ -1,5 +1,8 @@
 # `engine/area/` — the vendored AREA generators
 
+<!-- docstamp v1.0 | 2026-08-21 | sha=d1944d98 -->
+**v1.0** · updated 21 August 2026
+
 Area (town) maps used to carry their own generators inside the delivered
 payload: `import-map.mjs` required `gen_internal.js` and `gen_external.js` in
 `--src`, and refused the import without them. The map skill stopped staging a
