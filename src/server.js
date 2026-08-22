@@ -797,7 +797,8 @@ function notFoundPage(what) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Not found — BusMaps.uk</title><link rel="stylesheet" href="/css/styles.css">
-<script src="/js/site-banner.js" defer></script></head>
+<script src="/js/site-banner.js" defer></script>
+<script src="/js/nav-current.js" defer></script></head>
 <body><header class="site-header"><div class="container"><nav class="nav">
 <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
 <a class="navlink" href="/maps">Published maps</a></nav></div></header>

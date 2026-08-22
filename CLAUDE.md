@@ -237,7 +237,8 @@ the AREA fixture's own bundled copy) is now also recorded as a fourth trap in th
 ## RESOLVED — `FIXTURE_DIR` is a list, and the gate that reads it wrong told nobody — 2026-08-18
 
 **One fixture can't test thirteen keys, once a fix elsewhere changes what any single town needs.**
-The Buses-side legend measurement fix (see `open-actions.md`'s "In progress" section, same date)
+The Buses-side legend measurement fix (written up in `open-actions.md` at the time; that file was cut
+back to a pure open-items list on 2026-08-20, so the account is now in its git history at `546cd62`)
 narrowed every external legend panel by ~5mm, which let it *fit* where Beaconsfield and St Ives
 already configure it — so `design.legendPlace:false` stopped changing anything on those two towns
 specifically. Not dead code: measured across all eight towns, `legendPlace` bites on Huntingdon
