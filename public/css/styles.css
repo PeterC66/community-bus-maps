@@ -518,3 +518,23 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   .viewer-stage { max-height: 60vh; }
   .viewer-hint { width: 100%; }
 }
+
+/* The nav link for the page you are on (nav-current.js sets aria-current).
+   Two signals, and neither of them is colour on its own: the link goes to full
+   text colour AND gains a rule beneath it. The rule is an absolutely positioned
+   ::after rather than a border, padding or font-weight change, so marking a link
+   current cannot alter its box and nudge the rest of the header sideways. */
+.nav a.navlink[aria-current="page"] { color: var(--text); position: relative; }
+.nav a.navlink[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -7px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--primary);
+}
+/* The "Apply to join" button is already solid, so a coloured rule would vanish
+   into it — it gets a ring in the text colour instead. */
+.nav a.btn[aria-current="page"] { outline: 2px solid var(--text); outline-offset: 2px; }
