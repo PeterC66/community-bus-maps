@@ -92,10 +92,27 @@ jobs:
             Places/_portal-fixture
           sparse-checkout-cone-mode: true
 
-      # 24 to match the Dockerfile's base image.
+      # Read the major out of the Dockerfile rather than hardcoding it. This job
+      # exists to run the gates on the same Node the deployment image runs, and a
+      # hardcoded major keeps passing after a base-image bump while quietly
+      # testing the wrong runtime -- a green check that has stopped meaning what
+      # its name says. Fails loudly if the FROM line cannot be read, because
+      # silently falling back to a default is the same bug again.
+      - name: What Node does the deployment image use?
+        id: nodever
+        working-directory: community-bus-maps
+        run: |
+          major=$(sed -n 's/^FROM node:\([0-9][0-9]*\).*/\1/p' Dockerfile | head -1)
+          if [ -z "$major" ]; then
+            echo "::error::could not read a Node major from the Dockerfile FROM line"
+            exit 1
+          fi
+          echo "  Dockerfile FROM node:$major-slim -> testing on Node $major"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: ${{ steps.nodever.outputs.major }}
 
       - name: Install dependencies
         working-directory: community-bus-maps
