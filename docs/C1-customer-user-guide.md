@@ -32,7 +32,7 @@ Open a map to make it yours. You can change:
 
 - **Route colours** — pick from a colour-blind-friendly palette.
 - **Landmarks (points of interest)** — switch icons on or off.
-- **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. The tube-map-style **diagram** is the exception: it is positioned by hand rather than generated, so it is quoted separately and shown with an **Ask us** button instead of a tick-box. Press it and we will come back to you with what it would involve.
+- **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. Two are the exception, and both show an **Ask us** button instead of a tick-box. The tube-map-style **diagram** is positioned by hand rather than generated, so it is quoted separately. **Where to board** — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press either button and we will come back to you with what it would involve.
 
 You see a **live preview** as you change things. When you're happy, **Save new version**. Your first version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the earlier ones. Bigger changes — moving things, the diagram layout, the geography — are done by us; ask if you need one.
 

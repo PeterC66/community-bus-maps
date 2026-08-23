@@ -239,6 +239,9 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 /* examples gallery */
 .example { padding: 0; overflow: hidden; }
 .example .imgs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--border); }
+/* One sheet, not a pair: the boarding plan is a single artefact, so its card
+   must not leave half the strip empty. */
+.example .imgs.one { grid-template-columns: 1fr; }
 .example .imgs a { display: block; background: var(--surface-2); }
 .example img { width: 100%; height: auto; display: block; }
 .example .body { padding: 16px 18px 18px; }

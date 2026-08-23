@@ -31,7 +31,7 @@ const { defaultOutputs, effectiveOutputs, chooseOutputs, resolveGen, hasRoutesKe
 
 // --- 1. the expert engine is vendored ---------------------------------------
 console.log('\nvendored expert engine');
-for (const f of ['gen_internal_schematic.js', 'gen_internal_diagram.js', 'schematize_internal.js', 'diagram_internal.js']) {
+for (const f of ['gen_internal_schematic.js', 'gen_internal_diagram.js', 'schematize_internal.js', 'diagram_internal.js', 'gen_boarding.js']) {
   check(`${f} present in engine/expert`, existsSync(path.join(EXPERT_DIR, f)));
 }
 
@@ -51,6 +51,14 @@ writeFileSync(path.join(styled, 'routes.json'), JSON.stringify({
 }));
 for (const g of ['gen_internal.js', 'gen_external.js']) writeFileSync(path.join(styled, g), '// stub\n');
 
+// A PLACE that opts into the boarding plan. `requiresConfig` is only half of its
+// gate: the generator also reads a stand register and a destination index, and
+// exits non-zero without them — which would fail the whole map's render rather
+// than this one sheet. `requiresFiles` is what turns that into "unavailable".
+const boarding = path.join(scratch, 'boarding');
+mkdirSync(boarding, { recursive: true });
+writeFileSync(path.join(boarding, 'routes.json'), JSON.stringify({ palette: { 1: '#000' }, boardingPlan: { frameRadiusM: 200 } }));
+
 check('schematic unavailable without internalSchematic', resolveGen(OUTPUTS.internal_schematic, plain) === null);
 check('diagram unavailable without internalDiagram', resolveGen(OUTPUTS.internal_diagram, plain) === null);
 check('schematic resolves from engine/expert when opted in', String(resolveGen(OUTPUTS.internal_schematic, styled)).startsWith(EXPERT_DIR));
@@ -59,10 +67,19 @@ check('hasRoutesKey reads the opt-in', hasRoutesKey(styled, 'internalDiagram') &
 // `internalSchematic: false` is an explicit opt-OUT, not a config.
 writeFileSync(path.join(plain, 'routes.json'), JSON.stringify({ palette: { 1: '#000' }, internalSchematic: false }));
 check('a falsy config key does not enable the style', resolveGen(OUTPUTS.internal_schematic, plain) === null);
+check('boarding plan unavailable without boardingPlan', resolveGen(OUTPUTS.boarding_plan, plain) === null);
+check('boarding plan unavailable with the config but no stand register',
+  resolveGen(OUTPUTS.boarding_plan, boarding) === null);
+writeFileSync(path.join(boarding, 'stands.json'), '{"verdict":"OK","stands":[]}');
+check('…still unavailable with only half the data', resolveGen(OUTPUTS.boarding_plan, boarding) === null);
+writeFileSync(path.join(boarding, 'boarding_index.json'), '{"destinations":[],"stands":[]}');
+check('boarding plan resolves from engine/expert once the config AND the data are there',
+  String(resolveGen(OUTPUTS.boarding_plan, boarding)).startsWith(EXPERT_DIR));
 
 console.log('\ndefault + effective enablement');
 eq('expert styles are OFF by default (visibility, not build)', defaultOutputs(), {
   internal_geographic: true, external: true, internal_schematic: false, internal_diagram: false,
+  boarding_plan: false,
 });
 eq('the schematic is a buildAlways output — it renders once the config is present, before any enablement',
   effectiveOutputs({}, styled).map((o) => o.key), ['internal_geographic', 'external', 'internal_schematic']);
@@ -87,12 +104,24 @@ eq('the diagram opt-in stays off for a map without the config; buildAlways does 
 // rule that actually holds, so it is asserted here and the route is checked to
 // be using it.
 console.log('\nrequest-only diagram');
-const ALL = ['internal_geographic', 'external', 'internal_schematic', 'internal_diagram'];
+const ALL = ['internal_geographic', 'external', 'internal_schematic', 'internal_diagram', 'boarding_plan'];
 const asCustomer = (incoming, current = {}) => chooseOutputs(incoming, { current, available: ALL, isAdmin: false });
 const asAdmin = (incoming, current = {}) => chooseOutputs(incoming, { current, available: ALL, isAdmin: true });
 
 check('the diagram is marked request-only', OUTPUTS.internal_diagram.requestOnly === true);
-check('no other output is', ALL.filter((k) => OUTPUTS[k].requestOnly).length === 1);
+// The boarding plan joined it on 2026-08-23, for a related but not identical
+// reason: not hand-placed pins, but a frame radius, an empty-stand rule and a
+// locator's landmarks that are decided per place and then maintained.
+check('the boarding plan is request-only too', OUTPUTS.boarding_plan.requestOnly === true);
+eq('and those two are the only ones', ALL.filter((k) => OUTPUTS[k].requestOnly),
+  ['internal_diagram', 'boarding_plan']);
+{
+  const r = asCustomer({ internal_geographic: true, external: true, boarding_plan: true });
+  check('a customer posting boarding_plan:true does not get it', r.outputs.boarding_plan === false, JSON.stringify(r));
+  eq('…and is told', r.refused, ['boarding_plan']);
+  check('an admin CAN grant the boarding plan',
+    asAdmin({ internal_geographic: true, external: true, boarding_plan: true }).outputs.boarding_plan === true);
+}
 {
   const r = asCustomer({ internal_geographic: true, external: true, internal_diagram: true });
   check('a customer posting internal_diagram:true does not get it', r.outputs.internal_diagram === false, JSON.stringify(r));

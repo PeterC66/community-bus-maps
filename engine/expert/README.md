@@ -11,6 +11,7 @@ The third and fourth outputs of a map — the **octolinear schematic** and the *
 | `diagram_internal.js` | `make-bus-leaflet/assets/diagram_internal.js` (verbatim) | the same idea, topology-only: collapses corridors to straight runs into a `diagram/` workspace, honours the expert's `diagram-layout.json` pins, writes `diagram/solved-nodes.json` |
 | `gen_internal_schematic.js` | new (portal) | thin wrapper so the pre-stage behaves like a normal portal generator |
 | `gen_internal_diagram.js` | new (portal) | ditto for the diagram |
+| `gen_boarding.js` | `make-bus-leaflet/assets/gen_boarding.js` (verbatim) | the fifth output, **"Where to board"** — a place's stops at walking scale plus a destination-keyed index naming the stand. Not a pre-stage and not a wrapper: it is the whole sheet, and it draws no route lines at all |
 
 ## Why the wrappers exist
 
@@ -19,6 +20,17 @@ Three small things, all of which would otherwise bite:
 1. **Artefact naming.** `src/render/renderMap.js` maps a generator to the SVG it writes; the wrappers are named for `internal-schematic.svg` / `internal-diagram.svg`.
 2. **A loud failure.** Both pre-stages are opt-in (`routes.json` → `internalSchematic` / `internalDiagram`) and exit 0 with "nothing to do" when the key is absent, which would leave the portal copying a file that was never written. The wrappers exit non-zero instead — though in practice `resolveGen()` reports the output as *unavailable* for such a map, so it is never attempted.
 3. **`LEAFLET_DIR` must not reach the child.** The portal always sets `LEAFLET_DIR` to the map's data folder. A pre-stage spawns `gen_internal.js` with `cwd` = the **workspace** and inherits the environment — and `gen_internal` prefers `LEAFLET_DIR` over `cwd`, so an inherited value sends that render back to the parent folder and silently reproduces the ordinary geographic map. The wrappers delete it for the child and pass everything else (`SKILL_ASSETS` for icons, `OVERRIDES_FILE` for the customer's recolours/POI hides) straight through — which is why a customer's safe-subset edits show up on these sheets too.
+
+## The boarding plan (2026-08-23)
+
+`gen_boarding.js` is here for the same reason the two pre-stages are — it is portal-owned, identical for every map, and no map's render folder ever carried it — but it is otherwise unlike them. It does not re-run `gen_internal.js`, it needs no wrapper (its own name already yields `boarding.svg` through `renderMap.js`), and it reads two inputs nothing else reads: `stands.json` (the NaPTAN stand register for the frame, written by `naptan_stands.py`) and `boarding_index.json` (the destination → stand decision, written by `boarding_index.py`). Both travel with the map's payload, exactly as `routes.json` does; the portal never runs the Python that produces them.
+
+Its output is gated **twice**. `requiresConfig: 'boardingPlan'` is the ordinary opt-in. `requiresFiles: ['stands.json', 'boarding_index.json']` is new, and exists because this generator *exits non-zero* on a missing input rather than drawing an empty sheet — which, without the second gate, would fail the whole map's render instead of leaving one output unavailable.
+
+Two things about it are worth knowing before changing it:
+
+- **A customer's `routeColors` reach it** (2026-08-23), so a route recoloured in the editor is the same colour on all five sheets. **`hiddenOperators` deliberately does not**: the stand a destination is boarded at was decided across every route serving it, so dropping routes here can strand a destination still reachable elsewhere. The generator refuses under `STRICT_GUARDS` rather than half-apply it. If that ever needs to work, the index has to be rebuilt, not filtered.
+- **It declines rather than guess.** No `boardingPlan` block, or a stands verdict other than `OK`, and it writes nothing and exits non-zero. That is the same posture `requiresConfig` gives an output whose config key is absent, and it is the product rule: a stand letter we invented is worse than no letter at all.
 
 ## Place-map support (2026-08-08)
 
@@ -30,7 +42,7 @@ Both pre-stages work for a **place** map too, not just area: they detect one by 
 
 ## Provenance & the gate
 
-Byte-for-byte copies of the skill assets as of the vendor date. `scripts/verify-reproduce.mjs` picks both styles up automatically when the fixture's `routes.json` opts in, and requires the regenerated SVG **and** the re-rendered print JPG to be byte-identical to the shipped ones (proved on St Ives v6.6: schematic 253,112 B / 1,054,471 B, diagram 252,096 B / 1,077,051 B). Re-vendor — re-copy and re-run the gate — if the skill engines change.
+Byte-for-byte copies of the skill assets as of the vendor date. `scripts/verify-reproduce-place.mjs` picks the boarding plan up when a place fixture's `routes.json` carries a `boardingPlan` block — proved on `Places/_portal-fixture/High Wycombe High Street` (67,252 B SVG, pixel-identical JPG), and watched go red on a one-character change to the vendored file. `scripts/verify-reproduce.mjs` picks both styles up automatically when the fixture's `routes.json` opts in, and requires the regenerated SVG **and** the re-rendered print JPG to be byte-identical to the shipped ones (proved on St Ives v6.6: schematic 253,112 B / 1,054,471 B, diagram 252,096 B / 1,077,051 B). Re-vendor — re-copy and re-run the gate — if the skill engines change.
 
 > **Pilot.** The schematic and diagram sheets carry a `PILOT — SAMPLE MAP` band, added to the finished SVG outside the engine (`src/render/pilotStamp.js`). Nothing here knows about it and the gated outputs stay byte-identical — see [`../../docs/PILOT.md`](../../docs/PILOT.md).
 

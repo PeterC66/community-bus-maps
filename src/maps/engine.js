@@ -31,8 +31,17 @@ export const EXPERT_DIR = path.join(ENGINE_DIR, 'expert');
  */
 export function resolveGen(meta, dataDir) {
   const gens = meta.gens || (meta.gen ? [meta.gen] : []);
-  // Expert styles (P7) live in the portal's engine, not in the map's data — and
-  // are only offered when the map's routes.json opts into them.
+  // Some outputs need data files the payload may simply not carry (the boarding
+  // plan's stand register and destination index). Its generator exits non-zero
+  // on a missing input, and a throwing generator fails the map's whole render —
+  // so an absent file has to mean "this output is unavailable", exactly as an
+  // absent config key does. Checked for every output, not only the expert ones.
+  for (const f of meta.requiresFiles || []) {
+    if (!existsSync(path.join(dataDir, f))) return null;
+  }
+  // Portal-owned generators (the P7 expert styles, and the boarding plan) live in
+  // the portal's engine rather than in the map's data — and are only offered when
+  // the map's routes.json opts into them.
   if (meta.engine === 'expert') {
     if (meta.requiresConfig && !hasRoutesKey(dataDir, meta.requiresConfig)) return null;
     for (const g of gens) {
