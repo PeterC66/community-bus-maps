@@ -59,12 +59,18 @@ const PUBLIC_LABELS = {
     external: 'Buses to nearby places',
     internal_schematic: 'Simplified street map',
     internal_diagram: 'Network diagram',
+    boarding_plan: 'Where to catch your bus',
   },
   place: {
     internal_geographic: 'Buses serving this place',
     external: 'Where those buses go',
     internal_schematic: 'Simplified street map',
     internal_diagram: 'Network diagram',
+    // The editor calls this "Where to board", which is the register its four
+    // siblings sit in. A reader landing on the page is not choosing between
+    // outputs, they are asking a question — and the sheet's own title asks it
+    // back to them, so the page and the artwork say the same thing.
+    boarding_plan: 'Where to catch your bus',
   },
 };
 export function publicLabel(key, kind) {

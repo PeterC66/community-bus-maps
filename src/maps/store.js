@@ -148,11 +148,35 @@ export function ensureProposedDirs(id, pid) {
 // since both are abstractions of the same geography. The sheet's own corner note moved
 // with it: the schematic now prints "Simplified — not to scale" where it used to claim,
 // alongside the diagram, to be a "Diagram".
+//
+// `requiresFiles` is the same idea as `requiresConfig` one level down: an output
+// whose generator needs DATA the payload may not carry. The boarding plan reads a
+// stand register and a destination index that only a place built through the
+// skill's Phase 3 has, and its generator exits non-zero when they are missing —
+// which would fail the whole map's render, not just this sheet. Listing the files
+// makes the output *unavailable* instead, which is the behaviour a customer and
+// an importer both want. See resolveGen() (engine.js).
+//
+// 2026-08-23 — `boarding_plan`, the fifth output. "Where to board" answers the
+// question the other four leave open: not "where do the buses go" but "I have
+// decided to go to Bedford — which of these five identically-named stops do I
+// stand at?" It is a third sheet on an existing PLACE map, not a new map kind:
+// the index is keyed on DESTINATION (the standing criticism of spider maps is
+// that they are keyed on route), and every boarding point is printed verbatim
+// from NaPTAN, so the letter on the sheet is the letter on the flag. It is
+// `requestOnly` for the same reason the tube-map diagram is — the frame radius,
+// the empty-stand rule and the locator's landmarks are judgement calls we make
+// per place, not a tick-box — and `requiresConfig: 'boardingPlan'` gives the
+// decline-when-unavailable behaviour a place without lettered stops needs.
+// Development Docs/boarding-plan-product_2026-08-22.md is the whole argument.
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true },
   external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Simplified street map', portal: true, buildAlways: true },
   internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
+  boarding_plan:       { gens: ['gen_boarding.js'],           engine: 'expert', expert: true, requiresConfig: 'boardingPlan',
+                         requiresFiles: ['stands.json', 'boarding_index.json'],
+                         base: 'boarding', label: 'Where to board', placeLabel: 'Where to board', portal: true, requestOnly: true },
 };
 
 // Files a rendered version can hold, with content types (derived from OUTPUTS).

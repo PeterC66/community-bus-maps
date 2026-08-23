@@ -28,6 +28,12 @@ const SVG_OUT = {
   // workspace and copy the result out under their own artefact name.
   'gen_internal_schematic.js': 'internal-schematic.svg',
   'gen_internal_diagram.js': 'internal-diagram.svg',
+  // The boarding plan (2026-08-23). Named explicitly even though the fallback
+  // below would derive the same name, because the fallback is a convention and
+  // this file is the contract: renderVersion() copies `${base}.svg` out of the
+  // data dir, and a generator that wrote something else would leave it copying a
+  // file nobody had written.
+  'gen_boarding.js': 'boarding.svg',
 };
 
 function svgNameFor(generator) {

@@ -27,12 +27,17 @@ import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
 import { warnIfFileSkew } from './lib/fixture-freshness.mjs';
 import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
 
-const FIXTURE = resolveFixtures('place').fixtures[0];
+// EVERY committed fixture, not just the first. It took [0] from the day the
+// list existed, which was harmless while there was one place fixture and quietly
+// wrong the moment there were two: a second fixture — the one carrying the sheet
+// a change is actually about — would sit in the repo being skipped, and the gate
+// would go green having never opened it.
+const { fixtures: FIXTURES } = resolveFixtures('place');
 const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.url));
 const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
 const n = (x) => Number(x).toLocaleString('en-GB');
 
-if (!FIXTURE) {
+if (!FIXTURES.length) {
   reportNoFixture('place');
   process.exit(0); // only reached under --allow-skip
 }
@@ -80,6 +85,8 @@ async function checkOne(scratch, refDir, generator, svgName, jpgName, overridesF
   return r;
 }
 
+/** Run the whole gate against ONE fixture. @returns {{ok:boolean, ran:number}} */
+async function runFixture(FIXTURE) {
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-place-'));
 cpSync(FIXTURE, scratch, { recursive: true });
 // Vendor the place engine into the payload, exactly as scripts/import-map.mjs does.
@@ -130,6 +137,14 @@ if (routesJson.internalSchematic) {
 if (routesJson.internalDiagram) {
   targets.push([path.join(EXPERT, 'gen_internal_diagram.js'), 'internal-diagram.svg', 'internal-diagram.jpg']);
 }
+// The boarding plan (2026-08-23). Portal-owned like the two expert styles above,
+// opt-in on the same `requiresConfig` pattern, and the only output whose
+// generator is run by the portal against inputs no other sheet reads
+// (stands.json, boarding_index.json). checkOne() returns null when the fixture
+// carries no reference SVG, so a place without one is silently skipped.
+if (routesJson.boardingPlan) {
+  targets.push([path.join(EXPERT, 'gen_boarding.js'), 'boarding.svg', 'boarding.jpg']);
+}
 
 warnIfFileSkew(FIXTURE, targets.flatMap(([, svg, jpg]) => [svg, jpg]));
 
@@ -159,11 +174,20 @@ for (const [gen, svg, jpg] of targets) {
 }
 
 if (ran === 0) console.log('No matching generators/SVGs found in the fixture — nothing to check.');
+rmSync(scratch, { recursive: true, force: true });
+return { ok: headlineOK, ran };
+}
+
+let allOK = true;
+let totalRan = 0;
+for (const f of FIXTURES) {
+  const r = await runFixture(f);
+  if (!r.ok) allOK = false;
+  totalRan += r.ran;
+}
 console.log(
-  headlineOK && ran > 0
-    ? 'RESULT: PASS — the vendored place engine reproduces the skill-rendered leaflet byte-for-byte.'
+  allOK && totalRan > 0
+    ? `RESULT: PASS — the vendored place engine reproduces ${totalRan} skill-rendered sheet(s) byte-for-byte, across ${FIXTURES.length} fixture(s).`
     : 'RESULT: see above.',
 );
-
-rmSync(scratch, { recursive: true, force: true });
-process.exit(headlineOK && ran > 0 ? 0 : 1);
+process.exit(allOK && totalRan > 0 ? 0 : 1);
