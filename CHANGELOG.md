@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.72 | 2026-08-22 | sha=ee5504b8 -->
-**v1.72** · updated 22 August 2026
+<!-- docstamp v1.73 | 2026-08-23 | sha=9114523b -->
+**v1.73** · updated 23 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -19,7 +19,8 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **Proved, not asserted.** `verify:place` now runs **every** committed place fixture, not just the first — it took `fixtures[0]` from the day the list existed, which was harmless with one fixture and would have quietly skipped the second. `buses-data` commits a new one, `Places/_portal-fixture/High Wycombe High Street`, whose 54-destination boarding sheet the portal reproduces **byte-identically (67,252 B) and pixel-identically**. Watched go red on a one-character change to the vendored engine, and green again on restoring it. The four sheets built by the skill were re-rendered before and after the generator changes and came out byte-for-byte unchanged.
 - **The shopfront says so.** The home page's *Four outputs* section is *Five*, with the boarding plan given a wide card of its own beneath the four — it answers a different question from its siblings and does not belong in their row. New FAQ entry (`/faq.html#boarding`), a worked example on `/examples.html#boarding` (High Wycombe High Street, six stands, 54 destinations), and a *Costs Extra* line on `/pricing.html` that says what it is and where it cannot be offered. **No price is quoted** — that decision is open, and the pricing page is honest about the pilot.
 - **Where it cannot be offered, and the page says it.** Stand lettering is an authority's policy, not a national standard: Buckinghamshire letters its town-centre streets in one town-wide series, Cambridgeshire letters only its bus stations, and some places letter nothing. Where the stops around a place cannot each be named unambiguously the generator declines rather than guess, and `requiresConfig` turns that into an output the customer is simply not offered.
-- **Still to come, and not blocked by this.** Nothing is live yet: no published map carries a boarding sheet, so `/examples.html` shows a static example rather than a live one. The two live boarding sheets (St Ives Bus Station, St Neots Town Centre) are a re-render behind the engine, which is a re-delivery decision. And `/m/<slug>/services` — the accessible text equivalent — does not yet carry the boarding index, which is the one place this sheet would beat a PDF spider map outright.
+- **LIVE the same day.** <https://busmaps.uk/m/st-neots-town-centre> **v6.1** carries the first published boarding sheet. The sequence is worth recording because it is not one act: accept the delivered update (which is what puts `boardingPlan` into the map's LIVE `routes.json`), *then* grant `boarding_plan` — it cannot be granted before, the toggle is gated on the live data — *then* save a version, because `PATCH outputs` sets a flag and renders nothing. Only then submit and approve.
+- **Still to come, and not blocked by this.** `/examples.html` shows a static High Wycombe example plus a link to the live St Neots one — High Wycombe is the harder case and the better example, so that is deliberate rather than a stopgap. The two live boarding sheets (St Ives Bus Station, St Neots Town Centre) are a re-render behind the engine, which is a re-delivery decision. And `/m/<slug>/services` — the accessible text equivalent — does not yet carry the boarding index, which is the one place this sheet would beat a PDF spider map outright.
 
 ### The header says where you are, and Pricing says what accessibility you get — 2026-08-22
 
