@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>An organisation’s bus maps — BusMaps.uk</title>
-  <meta name="description" content="The bus maps published by one organisation through BusMaps.uk, a pilot system.">
+  <title>What's new — BusMaps.uk</title>
+  <meta name="description" content="Updates to BusMaps.uk that affect what a published map can do.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
   <script src="/js/site-banner.js" defer></script>
   <script src="/js/nav-current.js" defer></script>
   <script src="/js/auth-status.js" defer></script>
+  <script src="/js/whats-new.js" defer></script>
 </head>
 <body>
   <!-- nav:start -->
@@ -28,15 +29,10 @@
   <!-- nav:end -->
 
   <main>
-    <section><div class="container">
-      <p class="crumb"><a href="/maps">Published maps</a></p>
-      <div id="head"><h2 class="mt-0">Loading…</h2></div>
-      <div id="grid" class="grid cols-2"></div>
-      <div id="err" class="form-note" hidden></div>
-      <div class="lead-cta">
-        <a class="btn btn-primary" href="/apply.html">Register your interest</a>
-        <a class="btn btn-ghost" href="/maps">All published maps</a>
-      </div>
+    <section><div class="container" style="max-width:640px">
+      <h2 class="mt-0">What's new</h2>
+      <p class="section-intro">Updates to BusMaps.uk that change what a published map can do or show. For the day-to-day development log, see the project's own records — this list only covers changes that affect what you see or get.</p>
+      <div data-whats-new="full">Loading…</div>
     </div></section>
   </main>
 
@@ -52,7 +48,5 @@
     </div>
   </div></div></footer>
   <!-- footer:end -->
-
-  <script src="/js/public-org.js"></script>
 </body>
 </html>

@@ -53,7 +53,7 @@ import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseR
 import { logAudit } from './audit/index.js';
 import { writePlacesSidecar } from './search/place-index.js';
 import { searchPlaces, bumpSearchIndex } from './search/index.js';
-import { PILOT, INDEXING } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING stays
+import { PILOT, INDEXING, ENVIRONMENT } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { robotsTxt } from './public/robots.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { sendMagicLink } from './email/index.js';
@@ -61,6 +61,7 @@ import { signInSendable } from './email/health.js';
 import { notify, appUrl } from './email/notify.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(HERE, '..');
 const PUBLIC_DIR = path.resolve(HERE, '../public');
 // The signed-in app's HTML shells. OUTSIDE public/ on purpose
 // (technical-audit_2026-08-19 S7): @fastify/static serves the whole of
@@ -721,6 +722,29 @@ const PILOT_BANNER_JS = !PILOT.on ? '' : `(function () {
 })();
 `;
 
+// Local/dev instance banner — separate from the pilot banner above and NOT
+// removed with it. The pilot banner says "this is a pilot"; this one says
+// "this isn't even the public site", which stays true after the pilot ends.
+// See SITE_BANNER_JS below for why it must be concatenated after PILOT_BANNER_JS.
+const LOCAL_BANNER_JS = ENVIRONMENT.isProduction ? '' : `(function () {
+  var d = document;
+  function mount() {
+    if (d.getElementById('localBanner')) return;
+    var b = d.createElement('div');
+    b.id = 'localBanner';
+    b.className = 'local-banner';
+    b.setAttribute('role', 'note');
+    b.innerHTML = '<div class="container local-banner-inner">'
+      + '<span class="local-badge">Local</span>'
+      + '<span class="local-text">This is a local/dev copy, not the public BusMaps.uk site.</span>'
+      + '</div>';
+    d.body.insertBefore(b, d.body.firstChild);
+  }
+  if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', mount);
+  else mount();
+})();
+`;
+
 // GO-LIVE.md §5, surfaces 3 and 4: a muted footer line and a machine-readable
 // <meta> tag, both from this one generated script so a screenshot — or a
 // script run against a deployed page — can say which build served it.
@@ -748,7 +772,10 @@ const VERSION_BADGE_JS = `(function () {
 })();
 `;
 
-const SITE_BANNER_JS = PILOT_BANNER_JS + VERSION_BADGE_JS;
+// Order matters: each banner's mount() does insertBefore(..., body.firstChild),
+// so whichever script runs LAST ends up visually topmost. LOCAL_BANNER_JS runs
+// last so it sits above the pilot banner when both are present.
+const SITE_BANNER_JS = PILOT_BANNER_JS + LOCAL_BANNER_JS + VERSION_BADGE_JS;
 
 // Single-quoted JS string literal contents (the banner script builds HTML).
 function jsStr(s) {
@@ -776,7 +803,7 @@ app.get('/robots.txt', async (req, reply) => {
 // every visitor, which is not privacy, just inconsistency. (What actually keeps it
 // unindexed is robots.txt saying `Disallow: /`, which it does until ALLOW_INDEXING=1
 // — a decision now independent of PILOT_MODE. See src/config.js §INDEXING.)
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html', '/accessibility.html'];
+const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html', '/accessibility.html', '/changelog.html'];
 
 app.get('/sitemap.xml', async (req, reply) => {
   const base = baseUrl(req);
@@ -1213,6 +1240,40 @@ app.get('/app/review-services.html', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
   if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
   return reply.sendFile('app/review-services.html', VIEWS_DIR);
+});
+
+// Admin-only view of the developer CHANGELOG.md. NOT public: entries there
+// name real past security findings (e.g. the S6 self-approval bypass, the S4
+// /health disclosure) in the same detail as the rest of this repo's docs, so
+// publishing it verbatim would hand a visitor a list of things that used to
+// be wrong. Rendered as escaped plain text, not parsed markdown — this is a
+// read-only convenience for Peter, not a document worth a markdown dependency
+// for. The public-facing counterpart is /changelog.html, fed by the small
+// curated file at public/data/whats-new.json instead of this one.
+app.get('/app/changelog', async (req, reply) => {
+  if (!req.user) return reply.redirect('/app/login.html');
+  if (req.user.role !== 'admin') return reply.redirect('/app');
+  let body;
+  try {
+    body = readFileSync(path.join(ROOT_DIR, 'CHANGELOG.md'), 'utf8');
+  } catch {
+    body = '(CHANGELOG.md not found on this instance.)';
+  }
+  reply.type('text/html; charset=utf-8');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Changelog (admin) — BusMaps.uk</title>
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/app/app.css">
+<script src="/js/site-banner.js" defer></script></head>
+<body><header class="site-header"><div class="container"><nav class="nav">
+<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
+<a class="navlink" href="/app/admin">Admin</a></nav></div></header>
+<main class="app-main"><div class="app-sub"><h1>Changelog (admin)</h1><span class="spacer"></span></div>
+<p class="hint-line">The raw developer CHANGELOG.md, for reference only — not shown to visitors. The public "What's new" is /changelog.html, edited separately.</p>
+<pre style="white-space:pre-wrap;font-size:.85rem;line-height:1.5;max-width:900px;">${xmlEscape(body)}</pre>
+</main></body></html>`;
 });
 
 app.get('/api/maps', async (req, reply) => {
