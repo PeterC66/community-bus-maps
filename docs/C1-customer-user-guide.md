@@ -1,11 +1,11 @@
 ﻿# Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.6 | 2026-08-23 | sha=cb0b55da -->
-**v1.6** · updated 23 August 2026
+<!-- docstamp v1.7 | 2026-08-24 | sha=0d944905 -->
+**v1.7** · updated 24 August 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
-**Last reviewed:** 2026-07-25 · **Applies to:** the portal at `0.8.0-P7`
+**Last reviewed:** 2026-08-24 · **Applies to:** the portal at `0.9.4-pilot`
 
 > **This is a pilot.** The system works end to end, but you would be among the first organisations to use it — there is no track record behind it yet, no service level, and no charge. Things may change, and we may pause or withdraw parts of it (with reasonable notice; you keep any sheets you have already downloaded). In exchange we want to hear what does not work. Everything below describes how the system is built to work.
 
@@ -50,31 +50,16 @@ Publishing makes a version *official*; a separate **listing** switch controls wh
 
 ## Your map online
 
-Once a map is published *and* listed, it has its own page — `/m/<your-map>` — that you can link to
-from anywhere: your website, a newsletter, a QR code on a noticeboard. You don't have to host
-anything, and the page always shows the version currently published, so a correction or a monthly
-update reaches everyone who follows that link.
+Once a map is published *and* listed, it has its own page — `/m/<your-map>` — that you can link to from anywhere: your website, a newsletter, a QR code on a noticeboard. You don't have to host anything, and the page always shows the version currently published, so a correction or a monthly update reaches everyone who follows that link.
 
-The page shows the map itself rather than a flat picture of it: readers can drag it about and zoom
-in for the detail, on a phone as well as a laptop, and it stays sharp however far they zoom. Both
-sheets are there (the one for within your area and the one for journeys out of it), and the print
-files are a click away.
+The page shows the map itself rather than a flat picture of it: readers can drag it about and zoom in for the detail, on a phone as well as a laptop, and it stays sharp however far they zoom. Both sheets are there (the one for within your area and the one for journeys out of it), and the print files are a click away.
 
 Two things worth knowing:
 
-- **Every map is also published as text.** Below the map is a link to its **service list** — every
-  route, its operator, the days it runs, the stops it serves and where it goes, written out. That is
-  what a blind reader gets instead of the map, and it is what makes the page safe for a council or
-  school to link to. Please link to it alongside the map if you put ours on your own site;
-  [`/accessibility.html`](../public/accessibility.html) has a paragraph you can paste into your own
-  accessibility statement.
-- **The page says how old the information is.** It shows the month your map's data is correct as at,
-  and after a while without an update it tells readers plainly that it may be out of date and to
-  check with the operator. That's deliberate: a page on the internet looks current in a way a
-  leaflet on a noticeboard doesn't. Accepting the monthly updates is what keeps the notice away.
+- **Every map is also published as text.** Below the map is a link to its **service list** — every route, its operator, the days it runs, the stops it serves and where it goes, written out. That is what a blind reader gets instead of the map, and it is what makes the page safe for a council or school to link to. Please link to it alongside the map if you put ours on your own site; [`/accessibility.html`](../public/accessibility.html) has a paragraph you can paste into your own accessibility statement.
+- **The page says how old the information is.** It shows the month your map's data is correct as at, and after a while without an update it tells readers plainly that it may be out of date and to check with the operator. That's deliberate: a page on the internet looks current in a way a leaflet on a noticeboard doesn't. Accepting the monthly updates is what keeps the notice away.
 
-Putting the map *inside* a page on your own website — rather than linking to ours — isn't available
-yet. It's the next piece of work; tell us if you want it and we'll know it matters.
+Putting the map *inside* a page on your own website — rather than linking to ours — isn't available yet. It's the next piece of work; tell us if you want it and we'll know it matters.
 
 ## Downloading print-ready sheets
 
@@ -83,6 +68,8 @@ For any version you can download the **print-ready files** — an SVG and a 300 
 ## Monthly updates
 
 Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed. You get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual review), or **Decline** to keep what you have. You stay in control of what gets published.
+
+Accepting doesn't send the new version for review straight away — it lands back on your dashboard as a fresh draft, carrying your existing choices over. If you'd like to revise anything — colours, landmarks, which outputs it produces — this is your chance to edit before you submit it for review, just as you would with any other draft.
 
 ## If something looks wrong
 
