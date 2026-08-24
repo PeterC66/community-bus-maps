@@ -50,6 +50,11 @@ const KEYS = [
   ['iconSet', { design: { iconSet: false } }],
   ['printSafe', { design: { printSafe: false } }],
   ['labels.engine', { labels: { engine: 'v1' } }],
+  // Promoted by the opt-in rebase, 2026-08-24. `howToUse` is NOT here and is not dead:
+  // the panel lives in gen_external_radial.js, which no place generator is, so there is
+  // nothing on a place sheet for it to change. Same reasoning as hubFit above.
+  ['sheetQr', { design: { sheetQr: false } }],
+  ['keyCols', { design: { keyCols: 1 } }],
 ];
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-place-defaults-'));

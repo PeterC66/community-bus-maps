@@ -102,6 +102,14 @@ const KEYS = [
   ['iconSet', { design: { iconSet: false } }],
   ['printSafe', { design: { printSafe: false } }],
   ['labels.engine', { labels: { engine: 'v1' } }],
+  // Promoted by the opt-in rebase, 2026-08-24. NOTE THE TWO THAT ARE NOT `false`-shaped:
+  // `keyCols` is a NUMBER, so its escape hatch is the old value 1 — `keyCols:false`
+  // reads as 0 and falls straight back through `|| 2` to the default, which would make
+  // this row assert nothing. `sheetQr` only draws where `design.sheetUrl` is set, so a
+  // future fixture cut from a map with no address would report it dead when it is not.
+  ['sheetQr', { design: { sheetQr: false } }],
+  ['keyCols', { design: { keyCols: 1 } }],
+  ['howToUse', { design: { howToUse: false } }],
 ];
 
 console.log('Escape-hatch reproduce test — proves EACH design:{key:false} / labels:{engine:"v1"} still changes the output on its own');
