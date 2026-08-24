@@ -169,8 +169,25 @@ export function ensureProposedDirs(id, pid) {
 // per place, not a tick-box — and `requiresConfig: 'boardingPlan'` gives the
 // decline-when-unavailable behaviour a place without lettered stops needs.
 // Development Docs/boarding-plan-product_2026-08-22.md is the whole argument.
+//
+// 2026-08-24 - `internal_geographic` gains `requiresFiles` too, and a BOARDING-ONLY
+// PLACE IS THE REASON. High Wycombe Town Centre and High Wycombe High Street ship a
+// boarding plan and no internal or external sheet, so their payload has no
+// `routes_paths.json` - but `import-map.mjs` copies the vendored place engine into
+// EVERY place map, which makes `gen_internal_place.js` resolve and therefore makes
+// the output look renderable. It then dies on the missing file and takes the whole
+// import with it, leaving a half-built map row. Two of the four boarding sheets we
+// hold could not be put on the portal at all.
+//
+// MEASURED BEFORE MAKING IT, because this changes what every existing map is
+// offered: all 23 payload directories under data/maps carry routes_paths.json
+// beside routes.json, as do both non-boarding fixtures. The only payload in the
+// system without one is Places/_portal-fixture/High Wycombe High Street - the
+// boarding-only fixture, which is exactly the case this is for. So the change is
+// inert everywhere except where it is needed.
 export const OUTPUTS = {
-  internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true },
+  internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true,
+                         requiresFiles: ['routes_paths.json'] },
   external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Simplified street map', portal: true, buildAlways: true },
   internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },

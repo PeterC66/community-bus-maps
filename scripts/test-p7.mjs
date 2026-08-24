@@ -42,6 +42,12 @@ const plain = path.join(scratch, 'plain');
 mkdirSync(plain, { recursive: true });
 writeFileSync(path.join(plain, 'routes.json'), JSON.stringify({ palette: { 1: '#000' }, internalRoads: true }));
 for (const g of ['gen_internal.js', 'gen_external.js']) writeFileSync(path.join(plain, g), '// stub\n');
+// `internal_geographic` gained `requiresFiles: ['routes_paths.json']` on 2026-08-24,
+// so a synthetic payload now has to carry one to stand in for a real map. All 23
+// payload directories under data/maps do, and so do both non-boarding fixtures; the
+// only payload in the system without one is the boarding-only fixture, which is the
+// case the requirement exists for (asserted below).
+writeFileSync(path.join(plain, 'routes_paths.json'), '{}');
 
 // The same, opted into both expert styles.
 const styled = path.join(scratch, 'styled');
@@ -50,6 +56,7 @@ writeFileSync(path.join(styled, 'routes.json'), JSON.stringify({
   palette: { 1: '#000' }, internalRoads: true, internalSchematic: {}, internalDiagram: { edgeMin: 8 },
 }));
 for (const g of ['gen_internal.js', 'gen_external.js']) writeFileSync(path.join(styled, g), '// stub\n');
+writeFileSync(path.join(styled, 'routes_paths.json'), '{}');
 
 // A PLACE that opts into the boarding plan. `requiresConfig` is only half of its
 // gate: the generator also reads a stand register and a destination index, and
@@ -75,6 +82,21 @@ check('…still unavailable with only half the data', resolveGen(OUTPUTS.boardin
 writeFileSync(path.join(boarding, 'boarding_index.json'), '{"destinations":[],"stands":[]}');
 check('boarding plan resolves from engine/expert once the config AND the data are there',
   String(resolveGen(OUTPUTS.boarding_plan, boarding)).startsWith(EXPERT_DIR));
+
+// A BOARDING-ONLY PLACE HAS NO ROUTE GEOMETRY AND MUST NOT BE OFFERED AN INTERNAL
+// SHEET. `import-map.mjs` copies the vendored place engine into every place map, so
+// `gen_internal_place.js` is present and the output LOOKED renderable; it then died
+// on the missing `routes_paths.json` (ENOENT, exit 1) and took the whole import down
+// with it, leaving a half-built map row. Two of the four boarding sheets we hold
+// could not reach the portal at all. Measured on the real fixture 2026-08-24.
+// The generator is written here deliberately: it proves the FILE is what decides,
+// not the generator simply being absent from a bare fixture.
+writeFileSync(path.join(boarding, 'gen_internal_place.js'), '// stub\n');
+check('a boarding-only payload is not offered an internal sheet',
+  resolveGen(OUTPUTS.internal_geographic, boarding) === null);
+writeFileSync(path.join(boarding, 'routes_paths.json'), '{}');
+check('…and is offered one as soon as route geometry is there',
+  resolveGen(OUTPUTS.internal_geographic, boarding) === 'gen_internal_place.js');
 
 console.log('\ndefault + effective enablement');
 eq('expert styles are OFF by default (visibility, not build)', defaultOutputs(), {
