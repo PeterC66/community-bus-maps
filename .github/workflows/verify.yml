@@ -27,13 +27,28 @@
 # outlines differ between Linux and the Windows laptop by design. That is what
 # render-parity.yml is for, and why these gates compare SVGs only.
 #
-# REQUIRES the secret CROSS_REPO_PAT: a GitHub PAT with read access to
+# REQUIRES the secret CROSS_REPO_PAT2: a GitHub PAT with read access to
 # PeterC66/buses-data. Both repositories are private, and a job's own
 # GITHUB_TOKEN is scoped to this repository alone. The preflight step below says
 # so in one line if it is missing or under-scoped, rather than letting it surface
 # as a checkout `Not Found` that reads like a deleted repository — which is
 # exactly how the sibling workflow in buses-data managed to stay red for twelve
 # days without anyone noticing.
+#
+# THIS REPOSITORY NEEDS THE SECRET IN TWO STORES, NOT ONE. This job runs on
+# `pull_request`, and a pull request opened by Dependabot reads the DEPENDABOT
+# secret store, never the Actions one. A token added only under Actions leaves
+# every Dependabot PR failing at the preflight below while every human PR passes
+# -- so add it under Settings -> Secrets and variables -> BOTH Actions and
+# Dependabot, and change them together.
+#
+# ONE token, FOUR stores, and they renew together: this repo's Actions and
+# Dependabot stores, buses-data Actions, and claude-skills Actions. The
+# 2026-08-21 rotation updated three and missed the fourth, which cost six weeks
+# of a gate that could not run. CROSS_REPO_PAT2 expires Sunday 22 November 2026;
+# when it does, this job and both repos' `Bus leaflet gates` fail at once. Its
+# predecessor CROSS_REPO_PAT is no longer named by any workflow in any of the
+# three repos (migrated 2026-08-24).
 
 name: verify (byte-identical)
 
@@ -57,10 +72,10 @@ jobs:
     steps:
       - name: Preflight — can the PAT see buses-data?
         env:
-          PAT: ${{ secrets.CROSS_REPO_PAT }}
+          PAT: ${{ secrets.CROSS_REPO_PAT2 }}
         run: |
           if [ -z "$PAT" ]; then
-            echo "::error::CROSS_REPO_PAT is not set on this repository. Add it under Settings -> Secrets and variables -> Actions, with read access to PeterC66/buses-data."
+            echo "::error::CROSS_REPO_PAT2 is not set on this repository. Add it under Settings -> Secrets and variables -> Actions, with read access to PeterC66/buses-data."
             exit 1
           fi
           code=$(curl -s -o /dev/null -w '%{http_code}' \
@@ -68,7 +83,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/PeterC66/buses-data")
           if [ "$code" != "200" ]; then
-            echo "::error::CROSS_REPO_PAT cannot read PeterC66/buses-data (HTTP $code). Widen the token's repository access."
+            echo "::error::CROSS_REPO_PAT2 cannot read PeterC66/buses-data (HTTP $code). Widen the token's repository access."
             exit 1
           fi
           echo "  ok   PeterC66/buses-data"
@@ -85,7 +100,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: PeterC66/buses-data
-          token: ${{ secrets.CROSS_REPO_PAT }}
+          token: ${{ secrets.CROSS_REPO_PAT2 }}
           path: buses-data
           sparse-checkout: |
             Areas/_portal-fixture
