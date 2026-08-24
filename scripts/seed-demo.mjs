@@ -17,7 +17,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   getUserByEmail, insertUser, getCustomerByName, insertCustomer, setCustomerDemo, getMapBySlug,
-  insertApplication, listApplications, insertMap,
+  insertApplication, listApplications, insertMap, setMapOutputs,
   nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap, getOpenProposedForMap,
   insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion,
   setMapStatus, recordAudit, getCustomer, setCustomerBranding, insertMessage, listMessages,
@@ -68,6 +68,18 @@ const DEMO = [
   { customer: 'Oakfield Community Transport Trust (demo)', type: 'charity-nt', editor: 'coordinator@oakfield-ctt.example',
     name: 'High Wycombe Aldi', slug: 'highwycombe-aldi', kind: 'place', subject: 'Aldi, Tannery Road, High Wycombe',
     renderParent: 'Areas/High Wycombe/Places/High Wycombe Aldi/S5-render' },
+  // Two boarding-plan place maps (2026-08-23 feature): both opt into
+  // `boardingPlan` in routes.json and carry stands.json/boarding_index.json,
+  // so `boarding_plan` resolves as a fifth output (P7, request-only) once an
+  // admin switches it on. St Neots is the one the home page strip pins
+  // (feat/home-boarding-plan-showcase) — it is the clean case with no
+  // route/colour clash on its index.
+  { customer: 'Oakfield Community Transport Trust (demo)', type: 'charity-nt', editor: 'coordinator@oakfield-ctt.example',
+    name: 'St Ives Bus Station', slug: 'st-ives-bus-station', kind: 'place', subject: 'Bus Station, St Ives',
+    renderParent: 'Areas/St Ives/Places/St Ives Bus Station/S5-render' },
+  { customer: 'Oakfield Community Transport Trust (demo)', type: 'charity-nt', editor: 'coordinator@oakfield-ctt.example',
+    name: 'St Neots Town Centre', slug: 'st-neots-town-centre', kind: 'place', subject: 'Town Centre, St Neots',
+    renderParent: 'Areas/St Neots/Places/St Neots Town Centre/S5-render' },
 ];
 
 function ensureUser(email, role, customerId, name) {
@@ -205,6 +217,45 @@ function publishBaseline(slug, editorEmail) {
 publishBaseline('march', 'clerk@fenmarsh-dc.example');
 // A PLACE map too, so /maps shows both kinds publicly (P6).
 publishBaseline('highwycombe-aldi', 'coordinator@oakfield-ctt.example');
+
+// Boarding plan (P7, request-only): the plain baseline import renders with
+// `defaultOutputs()`, which is boarding OFF (it's an expert style, opted in
+// per map — see engine.js). So a baseline publish alone would never carry
+// boarding.svg/jpg. Instead, enable the output on the map row, render a fresh
+// v1.1 that includes it, and publish THAT version — same P4 round trip as
+// publishBaseline, just skipping the plain v1.0. This is what lets
+// /api/public/maps report a boarding_plan output with a previewUrl, which is
+// what public/js/published-strip.js (feat/home-boarding-plan-showcase) looks
+// for on st-neots-town-centre.
+async function publishWithBoardingPlan(slug, editorEmail) {
+  const m = getMapBySlug(slug);
+  if (!m || !m.current_version_id) { console.log(`· ${slug} not seeded — skipping boarding plan`); return; }
+  if (m.published_version_id) { console.log(`· ${slug} already published — leaving boarding plan as-is`); return; }
+  const outputs = { ...defaultOutputs(), boarding_plan: true };
+  setMapOutputs(m.id, outputs);
+  const { major, minor } = nextVersion(m.id);
+  const key = `v${major}.${minor}`;
+  console.log(`· rendering ${slug} ${key} with the boarding plan enabled…`);
+  await renderVersion(m.id, {}, key, outputs);
+  const vid = insertVersion({ map_id: m.id, major, minor, note: 'Demo: enabled the boarding plan output', overrides: {}, storage_key: key });
+  setCurrentVersion(m.id, vid);
+  const summary = { base: 'baseline', unchanged: true, routes: [], poisHidden: [], poisShown: [] };
+  const reqId = insertPublishRequest({ map_id: m.id, version_id: vid, requested_by: editors[slug], note: 'Demo: initial publication, with the boarding plan sheet switched on.' });
+  setVersionState(vid, 'pending');
+  recordAudit({ actorId: editors[slug], actorEmail: editorEmail, action: 'version.submit', mapId: m.id, versionId: vid, detail: { version: key } });
+  decidePublishRequest(reqId, {
+    status: 'approved', reviewedBy: approverId, decisionNote: 'Demo: approved — boarding plan sheet is accurate and legible.',
+    evidence: { checklistVersion: CHECKLIST_VERSION, checklist: fullChecklist(), changeSummary: summary, decidedAt: new Date().toISOString() },
+  });
+  setVersionState(vid, 'published');
+  setPublishedVersion(m.id, vid);
+  setMapStatus(m.id, 'published');
+  recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: m.id, versionId: vid, detail: { version: key, changeSummary: summary } });
+  console.log(`· published ${slug} ${key} with the boarding plan output on (SAMPLE org — public page + home strip can show it)`);
+}
+
+await publishWithBoardingPlan('st-neots-town-centre', 'coordinator@oakfield-ctt.example');
+await publishWithBoardingPlan('st-ives-bus-station', 'coordinator@oakfield-ctt.example');
 
 // St Ives: a real customer edit (recolour a route) saved as v1.1 and submitted
 // for review, so the review queue is non-empty with a genuine change.
