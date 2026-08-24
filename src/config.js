@@ -54,3 +54,17 @@ export const PILOT = {
 export const INDEXING = {
   allowed: process.env.ALLOW_INDEXING === '1',
 };
+
+// Which instance is this — the public site, or a local/dev copy of it? A
+// separate question from PILOT (that's "is this a real service"; this is
+// "is this even the real deployment"), and from INDEXING. Matters because a
+// pilot-mode banner looks the same locally and in production, so someone
+// screen-sharing or reviewing a build could mistake one for the other.
+//
+// compose.yaml sets NODE_ENV=production for the deployed container; nothing
+// else does. Same fail-direction as PILOT above: an unset or unrecognised
+// NODE_ENV must read as local, not as production, so a missing env var makes
+// the banner louder rather than making it vanish.
+export const ENVIRONMENT = {
+  isProduction: process.env.NODE_ENV === 'production',
+};

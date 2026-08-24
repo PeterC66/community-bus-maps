@@ -441,6 +441,47 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 
 @media print { .pilot-banner { display: none; } }
 
+/* ---------- local/dev instance banner ----------
+   Injected by /js/site-banner.js whenever NODE_ENV isn't "production" — see
+   ENVIRONMENT in src/config.js. Deliberately NOT var(--accent): it must stay
+   visually distinct from the pilot banner even where both are shown, and
+   must not fade if the brand accent colour ever changes. */
+.local-banner {
+  background: #b91c1c;
+  border-bottom: 1px solid #7f1d1d;
+  color: #fff;
+  font-size: .88rem;
+  line-height: 1.45;
+  padding: 9px 0;
+}
+.local-banner-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.local-badge {
+  flex: none;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff;
+  color: #b91c1c;
+}
+.local-text { flex: 1 1 320px; min-width: 0; }
+
+@media print { .local-banner { display: none; } }
+
+/* ---------- "What's new" — public/js/whats-new.js ---------- */
+.whats-new-item { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.whats-new-item:last-child { border-bottom: none; }
+.whats-new-date { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.whats-new-title { font-weight: 700; margin-top: 2px; }
+.whats-new-body { margin: 4px 0 0; }
+
 /* ---------- P8a: the public sheet viewer ---------- */
 /* The sheet is A4 landscape; the stage keeps that shape (capped so it can never
    eat a whole laptop screen) and the map is transformed inside it. */
