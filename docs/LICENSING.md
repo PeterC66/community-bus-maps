@@ -28,7 +28,7 @@ A licence obligation is only met if a reader sees it. Today:
 
 - **On every printed sheet** — the map generator prints the OSM + BODS attribution and a "check live times" line onto the sheet itself, so a photocopy on a noticeboard still carries it. *This is the load-bearing one: it survives being detached from the website.*
 - **On a boarding-plan sheet specifically** — a second footer line and an in-map note additionally credit NaPTAN, since that sheet (and only that sheet) prints stand codes, bay numbers and bearings taken directly from the register. Confirmed present on the shipped St Ives Bus Station boarding sheet.
-- **On every public page** — the footer of the shopfront, `/maps`, `/m/<slug>`, `/o/<slug>` (P6) repeats the OSM + BODS statement site-wide. It does not currently name NaPTAN — every page carries it identically regardless of whether that page's map has a boarding plan, so adding it there is a site-wide-vs-per-map judgement call, not done as part of this pass.
+- **On every public page** — the footer of the shopfront, `/maps`, `/m/<slug>`, `/o/<slug>` (P6) repeats the OSM + BODS + NaPTAN statement site-wide, woven into the existing attribution sentence rather than an added line (`scripts/lib/site-chrome.mjs` `FOOTER_HTML`, propagated to all 15 pages via `apply-chrome.mjs`). It names NaPTAN identically on every page regardless of whether that page's map carries a boarding plan — accepted as the simpler, always-correct statement rather than making the footer conditional per map.
 - **`/legal.html`** — the fuller explanation of the sources, plus how the sheets may be reused.
 - **`NOTICE`** — for anyone redistributing the software.
 
@@ -71,7 +71,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | BODS (OGL) credit — on **web** | ✅ present on all public pages | Claude | 2026-07-25 |
 | NaPTAN (OGL) as a source — in `NOTICE` / `legal.html` / this table | ✅ added — was missing since NaPTAN entered the pipeline (2026-08-22) | Claude | 2026-08-25 |
 | NaPTAN credit — on the **boarding-plan sheet** | ✅ present (footer line + in-map note) | Claude | 2026-08-25 |
-| NaPTAN credit — on the **site-wide web footer** | ☐ not done — see §2; currently a per-sheet-only credit | | |
+| NaPTAN credit — on the **site-wide web footer** | ✅ present on all 15 public pages, woven into the existing attribution sentence | Claude | 2026-08-25 |
 | OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
 | Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
 | bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
