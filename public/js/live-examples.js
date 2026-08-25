@@ -22,19 +22,34 @@
 // broken image falls back to the committed file rather than showing the browser's
 // torn-page icon on the front page. The committed files are deliberately kept for
 // exactly that reason, so do not delete them when they next look redundant.
+//
+// RACE NOTE (found 2026-08-25): this script runs on `defer`, but an eager
+// (non-lazy) <img> starts fetching the instant the parser meets its tag — on a
+// fast/local response it can already have fired and lost its 'error' event
+// before this script attaches a listener. `img.complete && naturalWidth === 0`
+// after a real src is the tell for "already failed"; check every image for
+// that state as well as listening for errors still to come.
 (function () {
   'use strict';
+  function swap(img, fallback) {
+    if (img.getAttribute('src') === fallback) return;
+    img.setAttribute('src', fallback);
+    var link = img.closest('a[data-fallback-href]');
+    if (link) link.setAttribute('href', link.getAttribute('data-fallback-href'));
+  }
   function attach(img) {
     var fallback = img.getAttribute('data-fallback');
     if (!fallback) return;
+    if (img.complete && img.naturalWidth === 0) {
+      // Already failed before this script ran — the error event is gone for good.
+      swap(img, fallback);
+      return;
+    }
     img.addEventListener('error', function onError() {
       // Once only: if the fallback itself 404s, let the browser show that rather
       // than loop between two dead URLs.
       img.removeEventListener('error', onError);
-      if (img.getAttribute('src') === fallback) return;
-      img.setAttribute('src', fallback);
-      var link = img.closest('a[data-fallback-href]');
-      if (link) link.setAttribute('href', link.getAttribute('data-fallback-href'));
+      swap(img, fallback);
     });
   }
   var imgs = document.querySelectorAll('img[data-fallback]');
