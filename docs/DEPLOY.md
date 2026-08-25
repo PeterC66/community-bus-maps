@@ -38,6 +38,7 @@ Copy `.env.example`. The ones that matter in production:
 | `ALLOW_INDEXING` | **defaults OFF.** While off, `robots.txt` serves `Disallow: /` and the site cannot be found in a search engine. Set to `1` to become discoverable. Independent of `PILOT_MODE` since 2026-08-21, so the site can be indexed while still honestly labelled a pilot — see `src/config.js` §INDEXING |
 | `ALLOW_SELF_APPROVAL` | **must be `1` on this host today, or nothing can be published.** Since 2026-08-20 an approver who submitted a version is refused when they approve it (`technical-audit_2026-08-19` S6). With one operator that means every publication, so the override is set — and each publication made under it is stamped `selfApproved: true` in the evidence and the audit row. Unset it the day a second person holds `approver`. |
 | `ADMIN_EMAIL` | the address `npm run smoke:signin` sends its one real magic link to after a deploy. Must be a **registered, active** user, or no send is attempted and the check cannot pass. |
+| `BACKUP_RECIPIENT` | an **age public key** (`age1…`). Set it and `scripts/backup.mjs` writes the database copy encrypted, as `portal.sqlite.age`; leave it unset and the backup still runs but writes the database in the clear and says so on every run (`technical-audit_2026-08-25` N3). The matching **private key never goes on this host** — it lives in the operator's password manager, which is the whole point of an asymmetric key here. §5 below has the restore command. |
 
 ## 3. Run it
 
@@ -168,6 +169,14 @@ Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, p
 npm run backup -- --out /backups --keep 14        # or: docker compose run --rm backup
 ```
 
+**The database copy is encrypted** when `BACKUP_RECIPIENT` is set (an age public key — see §2). The file is then `portal.sqlite.age` and every restore below starts with one extra command, run **on the laptop, from wherever the backup folder is**, using the private key from your password manager:
+
+```bash
+age -d -i backup-age-key.txt -o portal.sqlite portal.sqlite.age
+```
+
+`backup-age-key.txt` is the identity file holding that private key; `portal.sqlite.age` is the encrypted copy inside the snapshot folder you are restoring from. `manifest.json` in that folder records which public key it was encrypted to, under `dbEncryptedTo`, so a snapshot found in two years says which key opens it. Only the database is encrypted — `maps/` is published material and restores unchanged (`technical-audit_2026-08-25` N3).
+
 The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent** copy of a committed state while the server is running — copying `portal.sqlite` with `cp` under WAL can capture a torn file plus a stale `-wal`, so don't. Each run writes `<out>/<timestamp>/` with `portal.sqlite`, `maps/<id>/{data,renders,overrides.json}` and a `manifest.json`, then prunes to `--keep` newest. Run it from cron/a timer daily, and keep at least one copy **off the box**.
 
 ### Restore drill (do it once, before you need it)
@@ -185,7 +194,7 @@ docker run --rm -v community-bus-maps_portal-data:/data \
   -v /opt/community-bus-maps/backups:/backups:ro alpine sh -c '
     mkdir -p /tmp/broken && cp -a /data/portal.sqlite* /tmp/broken/ 2>/dev/null
     rm -f /data/portal.sqlite /data/portal.sqlite-wal /data/portal.sqlite-shm
-    cp -a /backups/<timestamp>/portal.sqlite /data/
+    cp -a /backups/<timestamp>/portal.sqlite /data/   # decrypt first if it is portal.sqlite.age
     cp -a /backups/<timestamp>/maps /data/ 2>/dev/null || true
     chown -R 1000:1000 /data
   '
@@ -213,6 +222,25 @@ so a safe moment to actually destroy and restore rather than merely rehearse): s
 deleted `portal.sqlite` from the running volume, restored from that day's `docker compose run --rm
 backup` snapshot, restarted, and `/health?deep=1`'s `users: 1` confirmed the admin account survived
 the round trip.
+
+### 5b. A data subject's request — what you hold, and erasing it
+
+`application` and `message` hold names, email addresses, phone numbers and free text that members of the public typed into the apply and contact forms. Since 2026-08-25 they have a retention window and an erasure path (`technical-audit_2026-08-25` N8); before that date nothing ever deleted a row from either, and the privacy statement described an intention rather than a mechanism.
+
+**Retention runs by itself.** The server purges `application` and `message` rows older than **24 months** once a day, logging what it took. An application that belongs to a **live customer is exempt** and kept as long as the account is: it is the record of how that organisation came to hold one, and the evidence behind the vetting decision. To see what is due, or to run it on demand:
+
+```bash
+node scripts/personal-data.mjs --retention
+```
+
+Run that from the repo root — `C:\Claude\community-bus-maps` on the laptop, or `docker compose exec portal node scripts/personal-data.mjs --retention` from `/opt/community-bus-maps` on the VPS. It is a dry run; `--yes` makes it delete.
+
+**Answering a request.** Four steps, in this order:
+
+1. **Look**, before anything else. `node scripts/personal-data.mjs --show someone@example.org` lists every application, message and user account matching that address, case-insensitively — people apply under one spelling and write in under another.
+2. **Erase the form submissions.** `node scripts/personal-data.mjs --erase someone@example.org` is a dry run; add `--yes` to delete. Whole rows go, not blanked fields: a record with the name removed and the free text left is usually still personal data, and half an erasure is harder to defend than a whole one.
+3. **Handle the account separately, if there is one.** The script deliberately does not touch `user`, because deleting that row orphans the audit trail — who published which map, who approved which organisation — which the service is obliged to keep. Instead: set the user to `disabled` in **admin → Users**, revoke their sessions with **admin → Users → revoke all sessions**, and if the name itself must go, replace it with `Former user #<id>`. The audit rows keep pointing at an id that no longer names anybody.
+4. **Deal with the backups, and write down a date.** This is the step that is easy to skip and the one that makes the erasure real: a restore from any backup taken before today brings the person back. Nothing rewrites a backup in place — the encrypted ones cannot be edited at all — so the erasure completes when the last copy holding them rotates out: **14 days** on the VPS, **90 days** on the laptop mirror. Record that date, and the request itself, in `community-bus-maps-ops/P3-incident-log.md`. That log is outside the database the person asked to be removed from, which is the only place a record of the removal can honestly live.
 
 ## 6. Housekeeping
 

@@ -2,6 +2,7 @@
 // The DB file lives under DATA_DIR (git-ignored) — never in the repo.
 
 import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +36,16 @@ db.exec(readFileSync(path.join(HERE, 'schema.sql'), 'utf8'));
 function tableColumns(table) {
   return db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
 }
+// Declared ABOVE the migration that uses it, and that is not tidiness.
+// hashStoredTokens() is called from inside migrate() below; `const` in a module
+// is in the temporal dead zone until its own line runs, so with this sitting
+// under the function the app threw `Cannot access 'LOOKS_HASHED' before
+// initialization` on boot -- but ONLY against a database that had rows, because
+// `[].filter(fn)` never calls fn and every test database starts empty. Green
+// suite, dead production. Found by booting the server against a database with a
+// session in it; there is now a test that does the same (test-migration-boot).
+const LOOKS_HASHED = /^[0-9a-f]{64}$/;
+
 (function migrate() {
   const mapCols = tableColumns('map');
   if (!mapCols.includes('customer_id')) db.exec('ALTER TABLE map ADD COLUMN customer_id INTEGER');
@@ -103,7 +114,45 @@ function tableColumns(table) {
   for (const c of db.prepare("SELECT id, name FROM customer WHERE slug IS NULL OR slug = ''").all()) {
     ensureCustomerSlug(c.id, c.name);
   }
+
+  hashStoredTokens();
 })();
+
+/**
+ * 2026-08-25, technical-audit_2026-08-25 N3: replace every stored raw bearer
+ * token with its SHA-256, in place.
+ *
+ * NOBODY IS SIGNED OUT BY THIS. The tokens were stored in the clear, so the
+ * migration can compute each hash from the value it is replacing; the cookie in
+ * the user's browser goes on matching, because getSession now hashes it before
+ * looking. That is the one and only benefit of the bug being fixed — after this
+ * runs, the same migration could never be written again.
+ *
+ * IDEMPOTENT BY SHAPE, not by a flag. A stored value is already migrated exactly
+ * when it is 64 lowercase hex characters; a live token is 43 characters of
+ * base64url (32 random bytes), which cannot be mistaken for one. So this is safe
+ * to run on every boot, safe to run twice, and safe on a database restored from
+ * a backup taken either side of the change — which matters, because there is no
+ * schema_version table to ask instead (that is the audit's N13, still open).
+ */
+export function hashStoredTokens() {
+  for (const table of ['session', 'magic_link']) {
+    const rows = db.prepare(`SELECT token FROM ${table}`).all();
+    const stale = rows.filter((r) => !LOOKS_HASHED.test(String(r.token)));
+    if (!stale.length) continue;
+    const upd = db.prepare(`UPDATE ${table} SET token = ? WHERE token = ?`);
+    for (const r of stale) {
+      // A collision with a row that already holds this hash would throw on the
+      // PRIMARY KEY. It cannot happen — that would mean the same token was
+      // stored twice — but a migration that throws mid-way through boot takes
+      // the service down, so one bad row is skipped and reported rather than
+      // being allowed to stop the other rows migrating.
+      try { upd.run(createHash('sha256').update(String(r.token)).digest('hex'), r.token); }
+      catch (e) { console.error(`[migrate] ${table}: could not hash one row — ${e.message}`); }
+    }
+    console.log(`[migrate] ${table}: hashed ${stale.length} stored token(s) (technical-audit_2026-08-25 N3)`);
+  }
+}
 
 /**
  * One-off: fill data_change_json for versions accepted before the column existed.
@@ -867,8 +916,22 @@ export function updateUserAdmin(id, f) {
   return true;
 }
 
+/**
+ * SHA-256 of a bearer token, lowercase hex — what `session.token` and
+ * `magic_link.token` actually hold since 2026-08-25 (technical-audit_2026-08-25
+ * N3; see the comment on those two tables in schema.sql).
+ *
+ * EVERY function below takes the RAW token and hashes it here rather than asking
+ * its caller to, and that indirection is the whole safety property: no caller
+ * can forget, and there is no path that writes a raw token into the table by
+ * accident. The single exception is the admin revoke path, which starts from a
+ * displayed handle and never holds a raw token at all — hence
+ * deleteSessionByHash, which is the only function here taking a hash.
+ */
+const tokenHash = (token) => createHash('sha256').update(String(token)).digest('hex');
+
 export function insertSession(token, userId, expiresAt) {
-  db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, Number(userId), expiresAt);
+  db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(tokenHash(token), Number(userId), expiresAt);
 }
 export function getSession(token) {
   // returns the joined user row when the session is live, else undefined
@@ -878,15 +941,19 @@ export function getSession(token) {
       // (stepUpFresh in ../auth/index.js). It was missing from this list when
       // step-up landed, which made EVERY session look stale and refused every
       // privileged action — caught by scripts/test-audit-p1.mjs, not by reading.
-      `SELECT s.token, s.created_at, s.expires_at,
+      `SELECT s.token AS token_hash, s.created_at, s.expires_at,
               u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id
          FROM session s JOIN user u ON u.id = s.user_id
         WHERE s.token = ? AND s.expires_at > datetime('now')`,
     )
-    .get(token);
+    .get(tokenHash(token));
 }
 export function deleteSession(token) {
-  db.prepare('DELETE FROM session WHERE token = ?').run(token);
+  db.prepare('DELETE FROM session WHERE token = ?').run(tokenHash(token));
+}
+/** Revoke one session known only by its stored hash — the admin Sessions view. */
+export function deleteSessionByHash(hash) {
+  return db.prepare('DELETE FROM session WHERE token = ?').run(String(hash)).changes;
 }
 export function purgeExpiredSessions() {
   db.prepare("DELETE FROM session WHERE expires_at <= datetime('now')").run();
@@ -899,22 +966,23 @@ export function purgeExpiredSessions() {
 export function touchSession(token, expiresAt) {
   const r = db
     .prepare("UPDATE session SET expires_at = ? WHERE token = ? AND expires_at > datetime('now')")
-    .run(expiresAt, token);
+    .run(expiresAt, tokenHash(token));
   return r.changes > 0;
 }
 
 /**
  * Every live session, newest first, with the user it belongs to.
  *
- * The raw token is returned so the CALLER can derive a stable handle from it
- * (src/auth/index.js sessionHandle) — it must never leave the server, because a
- * session token is a bearer credential and a list of them is a list of accounts
- * anyone holding it can become. technical-audit_2026-08-19 S5.
+ * Returns the stored HASH, not a token — since 2026-08-25 there is no raw token
+ * on the server to return (N3). The caller still derives the display handle from
+ * it, and the handle is unchanged: it was always sha256(token) truncated to 12,
+ * which is exactly a prefix of what this column now holds.
+ * technical-audit_2026-08-19 S5, technical-audit_2026-08-25 N3.
  */
 export function listSessions() {
   return db
     .prepare(
-      `SELECT s.token, s.created_at, s.expires_at,
+      `SELECT s.token AS token_hash, s.created_at, s.expires_at,
               u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id,
               c.name AS customer_name
          FROM session s
@@ -932,16 +1000,130 @@ export function deleteSessionsForUser(userId) {
 }
 
 export function insertMagicLink(token, email, expiresAt) {
-  db.prepare('INSERT INTO magic_link (token, email, expires_at) VALUES (?, ?, ?)').run(token, String(email).toLowerCase(), expiresAt);
+  db.prepare('INSERT INTO magic_link (token, email, expires_at) VALUES (?, ?, ?)').run(tokenHash(token), String(email).toLowerCase(), expiresAt);
+}
+/**
+ * Look at a magic link WITHOUT consuming it (technical-audit_2026-08-25 N7).
+ *
+ * The sign-in confirmation step needs to say whose link this is before the user
+ * clicks, and it must not burn the link to find out — otherwise an attacker
+ * could destroy a real user's sign-in link simply by making their browser fetch
+ * it, which turns a CSRF defence into a denial of service.
+ */
+export function peekMagicLink(token) {
+  return db
+    .prepare("SELECT email, expires_at FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
+    .get(tokenHash(token));
 }
 export function consumeMagicLink(token) {
   // atomically mark a valid, unused, unexpired token as used; return its row or undefined
+  const hash = tokenHash(token);
   const row = db
     .prepare("SELECT * FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
-    .get(token);
+    .get(hash);
   if (!row) return undefined;
-  db.prepare("UPDATE magic_link SET used_at = datetime('now') WHERE token = ?").run(token);
+  db.prepare("UPDATE magic_link SET used_at = datetime('now') WHERE token = ?").run(hash);
   return row;
+}
+
+// ---------------------------------------------------------------------------
+// Retention and erasure for personal data (technical-audit_2026-08-25 N8).
+//
+// `application` and `message` are the two tables holding personal data that a
+// member of the public typed into a form: names, email addresses, phone numbers
+// and free text. Until 2026-08-25 nothing ever deleted a row from either, and
+// `grep -rn "DELETE FROM"` found sessions and maps and nothing else — so the
+// privacy statement's "we keep it while your organisation uses the service"
+// described an intention rather than a mechanism.
+//
+// THE WINDOW IS 24 MONTHS, and it runs from the row's own age. Long enough that
+// an enquiry which turns into a customer eighteen months later is still on file
+// with its context, short enough to be a real limit.
+//
+// LIVE CUSTOMERS ARE EXEMPT, and that exemption is the part worth being careful
+// about. An `application` that became a customer is the record of how that
+// organisation came to hold an account: it is the lawful basis for the
+// relationship, the evidence behind the vetting decision, and something a
+// dispute two years later would turn on. So a row with a `customer_id` pointing
+// at a customer that still exists is kept for as long as the account does, and
+// the clock only starts if that customer is ever removed.
+//
+// WHAT IS DELETED IS THE ROW, not a redaction. A row with the name and email
+// blanked but the free text left behind is still personal data most of the time
+// — "we spoke to the clerk at the parish council on the Wednesday" identifies
+// somebody — and a half-erased record is harder to defend than a deleted one.
+const RETENTION_MONTHS = 24;
+
+/**
+ * What a purge WOULD delete, without deleting it. Every caller of the purge
+ * should be able to see the count first: a retention job whose dry run has never
+ * been read is a deletion job nobody has reviewed.
+ */
+export function retentionDue(months = RETENTION_MONTHS) {
+  const cutoff = `-${Number(months)} months`;
+  return {
+    months: Number(months),
+    applications: db.prepare(
+      `SELECT COUNT(*) AS c FROM application
+        WHERE created_at <= datetime('now', ?)
+          AND (customer_id IS NULL OR customer_id NOT IN (SELECT id FROM customer))`,
+    ).get(cutoff).c,
+    messages: db.prepare(
+      "SELECT COUNT(*) AS c FROM message WHERE created_at <= datetime('now', ?)",
+    ).get(cutoff).c,
+  };
+}
+
+/** Delete everything `retentionDue` reports. Returns the same shape, as counts deleted. */
+export function purgeExpiredPersonalData(months = RETENTION_MONTHS) {
+  const cutoff = `-${Number(months)} months`;
+  const applications = db.prepare(
+    `DELETE FROM application
+      WHERE created_at <= datetime('now', ?)
+        AND (customer_id IS NULL OR customer_id NOT IN (SELECT id FROM customer))`,
+  ).run(cutoff).changes;
+  const messages = db.prepare(
+    "DELETE FROM message WHERE created_at <= datetime('now', ?)",
+  ).run(cutoff).changes;
+  return { months: Number(months), applications, messages };
+}
+
+/**
+ * Everything held about one email address, across every table that holds one.
+ *
+ * This is the first half of an erasure request and the whole of a subject access
+ * request, and it is deliberately a SEARCH rather than a lookup: the same person
+ * may have applied under one address, sent a message under another spelling of
+ * it, and hold a user account. Matching is case-insensitive because the forms
+ * never normalised what was typed.
+ */
+export function personalDataFor(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return { email: '', applications: [], messages: [], users: [] };
+  return {
+    email: e,
+    applications: db.prepare('SELECT * FROM application WHERE lower(email) = ?').all(e),
+    messages: db.prepare('SELECT * FROM message WHERE lower(email) = ?').all(e),
+    users: db.prepare('SELECT id, email, name, role, status, customer_id FROM user WHERE lower(email) = ?').all(e),
+  };
+}
+
+/**
+ * Erase one person's form submissions. Returns what went.
+ *
+ * DOES NOT TOUCH `user`, and that is not an oversight. Deleting a user row
+ * orphans the audit trail — who published which map, who approved which
+ * organisation — which is a record the service is obliged to keep and which
+ * names an ACCOUNT rather than describing a person. The runbook
+ * (docs/DEPLOY.md §5b) covers the account separately: disable it, revoke its
+ * sessions, and rename it if the name itself must go.
+ */
+export function erasePersonalDataFor(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return { email: '', applications: 0, messages: 0 };
+  const applications = db.prepare('DELETE FROM application WHERE lower(email) = ?').run(e).changes;
+  const messages = db.prepare('DELETE FROM message WHERE lower(email) = ?').run(e).changes;
+  return { email: e, applications, messages };
 }
 
 export function authCounts() {

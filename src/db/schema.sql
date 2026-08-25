@@ -73,17 +73,39 @@ CREATE TABLE IF NOT EXISTS user (
   status        TEXT NOT NULL DEFAULT 'active'   -- active|disabled
 );
 
--- Server-side sessions: the cookie holds only an opaque random token.
+-- Server-side sessions: the cookie holds an opaque random token, and this table
+-- holds only its SHA-256.
+--
+-- WHY THE COLUMN IS STILL CALLED `token` (2026-08-25, technical-audit_2026-08-25
+-- N3). Until that date it held the token itself, so this table was a live cookie
+-- for every signed-in user — and scripts/backup.mjs copies the database
+-- unencrypted to a laptop where the copies are kept. Storing the hash and
+-- looking up by hash leaves the token in the cookie and the email only, and
+-- makes a stolen backup inert.
+--
+-- The column was NOT renamed to `token_hash`, deliberately. docs/DEPLOY.md
+-- promises a rollback to the previous release and rests it on the property that
+-- "the older code's SELECT * tolerates an unknown column" — but a RENAME does
+-- not leave an unknown column, it leaves a MISSING one, and the previous
+-- release's `WHERE s.token = ?` would throw on every request to /api/, /app,
+-- /auth/ and /metrics: a total outage at the exact moment you are rolling back.
+-- Leaving the name alone degrades gently instead — old code compares a raw
+-- cookie against a hash, matches nothing, and everyone signs in again. Every
+-- SELECT in db/index.js aliases it to `token_hash`, so no JavaScript ever holds
+-- a field called `token` that is not one.
 CREATE TABLE IF NOT EXISTS session (
-  token       TEXT PRIMARY KEY,
+  token       TEXT PRIMARY KEY,   -- sha256(session token), lowercase hex. See above.
   user_id     INTEGER NOT NULL REFERENCES user(id),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   expires_at  TEXT NOT NULL
 );
 
 -- Single-use, short-lived passwordless sign-in tokens (the "magic link").
+-- `token` holds sha256(link token) for the same reason and with the same naming
+-- caveat as `session` above. Fifteen minutes is still a window, and a used row
+-- stays in this table indefinitely.
 CREATE TABLE IF NOT EXISTS magic_link (
-  token       TEXT PRIMARY KEY,
+  token       TEXT PRIMARY KEY,   -- sha256(magic-link token), lowercase hex. See above.
   email       TEXT NOT NULL,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   expires_at  TEXT NOT NULL,
