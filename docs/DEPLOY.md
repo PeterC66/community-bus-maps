@@ -325,7 +325,13 @@ Four steps, about five minutes. **Back up first, build second, switch third** �
 
 Then check `/health?deep=1` for the expected `version` + `gitSha` and four green checks, and read the startup log. **Migrations run at import of `src/db/index.js`, before the server binds a port**, so a migration failure crash-loops the container rather than logging quietly — a healthy start with `database: ok` is itself the evidence that a migration succeeded.
 
-**Rollback** is the same loop against the previous SHA (`git checkout <sha>`, rebuild, `up -d`). Schema changes here have been additive (`ALTER TABLE … ADD COLUMN`), and the older code's `SELECT *` tolerates an unknown column, so the database is usable by either build. That is a property worth preserving deliberately, not a coincidence to rely on blindly — check it holds for any new migration before you promise a rollback.
+**Rollback** is the same loop against the previous SHA (`git checkout <sha>`, rebuild, `up -d`). Schema changes here have been additive (`ALTER TABLE … ADD COLUMN`), and the older code's `SELECT *` tolerates an unknown column, so the database is usable by either build.
+
+**Since 2026-08-25 that is tested rather than asserted** (`technical-audit_2026-08-25` N13). `scripts/test-schema-compat.mjs`, in `npm test`, copies `src/db/` out of the previous commit that touched it — the schema you would actually roll back to — and runs BOTH directions in child processes: this code against a database that release built, and that release against a database this code built. It asserts `SELECT *` on every table the app reads, in both directions. Nothing here needs an install, because `src/db/index.js` imports only node builtins. **If you write a migration that is not additive, that gate goes red before the deploy, not during the rollback.** It reports SKIPPED on a shallow clone, which is why the tests workflow checks out with `fetch-depth: 0`.
+
+**What a rollback does to sessions, deliberately.** The `session.token` column holds a SHA-256 since N3 and keeps its old NAME so that older code compares a raw cookie against a hash, matches nothing, and everybody signs in again — a rename would leave a MISSING column and throw on every request at the worst possible moment. The test asserts exactly that: the old release opens the database, reads every table, and simply does not match the session.
+
+**And the database says which generation it is.** `schema_version` (one row) records the `SCHEMA_VERSION` of the code that last migrated it. Reading a database written by a NEWER release — precisely what a rollback leaves behind — logs a warning naming both numbers and carries on. It is never a refusal: an app that will not boot after a rollback turns a bad ten minutes into an outage. **Bump `SCHEMA_VERSION` in `src/db/index.js` when you add a migration.**
 
 **Two traps for an AI assistant driving this:**
 

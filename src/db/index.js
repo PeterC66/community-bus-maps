@@ -46,6 +46,37 @@ function tableColumns(table) {
 // session in it; there is now a test that does the same (test-migration-boot).
 const LOOKS_HASHED = /^[0-9a-f]{64}$/;
 
+/**
+ * The schema generation this code expects (technical-audit_2026-08-25 N13, and
+ * the 2026-08-19 audit's O5 before it).
+ *
+ * BUMP IT WHEN YOU ADD A MIGRATION BELOW. The number is not derived from the
+ * migrations, deliberately: counting them would renumber the history every time
+ * one was tidied away, and the point of this value is that a database carries a
+ * record of which code last touched it.
+ *
+ * WHAT IT IS FOR. Migrations here are additive `ALTER TABLE ... ADD COLUMN`
+ * calls, and docs/DEPLOY.md promises a rollback that rests on the older code's
+ * `SELECT *` tolerating an unknown column. That promise now has a test
+ * (scripts/test-schema-compat.mjs). What it did NOT have was any way for the
+ * running app to say "this database has been through a NEWER release than me",
+ * which is precisely the state a rollback creates and the state in which a
+ * surprising bug is least surprising. It is a warning and never a refusal: an
+ * app that will not boot after a rollback turns a bad ten minutes into an
+ * outage, which is the opposite of what a rollback is for.
+ *
+ * 1 = the schema as it stood on 2026-08-25, after the N3 token-hash migration.
+ */
+export const SCHEMA_VERSION = 1;
+
+/** What the database says it last saw, or null on a database written before this existed. */
+export function recordedSchemaVersion() {
+  try {
+    const row = db.prepare('SELECT version FROM schema_version WHERE id = 1').get();
+    return row ? Number(row.version) : null;
+  } catch { return null; }   // table absent: a database from before N13
+}
+
 (function migrate() {
   const mapCols = tableColumns('map');
   if (!mapCols.includes('customer_id')) db.exec('ALTER TABLE map ADD COLUMN customer_id INTEGER');
@@ -116,6 +147,25 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
   }
 
   hashStoredTokens();
+
+  // Last, so the stamp means "every migration above ran", not "we got here".
+  db.exec(`CREATE TABLE IF NOT EXISTS schema_version (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    version     INTEGER NOT NULL,
+    applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+  const seen = recordedSchemaVersion();
+  if (seen !== null && seen > SCHEMA_VERSION) {
+    // The rollback case, and the only one worth saying out loud. Not fatal:
+    // refusing to boot here would turn a rollback into an outage.
+    console.warn(`[migrate] this database was last written by schema v${seen}; this code is v${SCHEMA_VERSION}.`
+      + ' Reading a newer database with older code is supported (additive columns only) but is'
+      + ' the state a rollback leaves behind — see docs/DEPLOY.md and scripts/test-schema-compat.mjs.');
+  } else if (seen !== SCHEMA_VERSION) {
+    db.prepare(`INSERT INTO schema_version (id, version, applied_at) VALUES (1, ?, datetime('now'))
+                ON CONFLICT(id) DO UPDATE SET version = excluded.version, applied_at = excluded.applied_at`)
+      .run(SCHEMA_VERSION);
+  }
 })();
 
 /**

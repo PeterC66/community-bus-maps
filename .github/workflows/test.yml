@@ -28,7 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # fetch-depth: 0 because scripts/test-schema-compat.mjs reads git history to
+      # find the PREVIOUS schema and runs it against this one. On the default
+      # shallow clone it reports SKIPPED, honestly - and a gate that skips on
+      # every CI run is a gate that has never run (technical-audit_2026-08-25 N13).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # 24 to match the Dockerfile's base image: node:sqlite is the store, and
       # it is still flagged experimental, so the runtime is not a free variable.
