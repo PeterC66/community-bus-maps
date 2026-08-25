@@ -62,6 +62,21 @@ services:
     image: community-bus-maps:local
     environment:
       DATA_DIR: /data
+      # The age PUBLIC key the database copy is encrypted to
+      # (technical-audit_2026-08-25 N3). Named here for the same reason the
+      # portal's two flags above are — and the trap was live again on
+      # 2026-08-25: this service has no `env_file`, cron runs it as
+      # `docker compose run --rm backup`, and the plan was to add
+      # BACKUP_RECIPIENT to the host .env alone. It would never have reached the
+      # container. backup.mjs would have taken its unset branch and every
+      # nightly backup would have gone on writing the database in clear, behind
+      # a warning in a cron log nobody reads, while the key sat in .env looking
+      # correct.
+      #
+      # Empty is a supported state, not a broken one: unset means plaintext and
+      # backup.mjs says so on every run. What must never happen is a key that is
+      # SET and silently not delivered.
+      BACKUP_RECIPIENT: ${BACKUP_RECIPIENT:-}
     volumes:
       - portal-data:/data
       - ./backups:/backups
