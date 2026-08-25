@@ -1,0 +1,154 @@
+{
+  "_comment": [
+    "The vendored engine, and what is allowed to be different (technical-audit_2026-08-25 N14).",
+    "",
+    "engine/ holds byte-for-byte copies of files whose source of truth is one of",
+    "the two map skills. This file is what lets community-bus-maps notice on its",
+    "own that a copy has been edited or has gone stale, without the skill trees",
+    "being present — the gap N14 named: until 2026-08-25 the only drift check",
+    "lived in the SKILLS repository, so a developer working only in the portal",
+    "could not find out that engine/icons.js had diverged from its source.",
+    "",
+    "EVERY .js file under engine/ must appear here, as `vendored` (with a source",
+    "and a hash) or `portal-owned` (with a reason). A file on disk that is not",
+    "named here FAILS scripts/check-vendored.mjs. That rule is the finding: the",
+    "skills-side check listed eleven files while the tree held sixteen, and one of",
+    "the five nobody was watching — area/gen_external_radial.js — had been stale",
+    "since 2026-08-21, missing the March X32 badge-overlap fix and the sheetQr",
+    "default. A list you must remember to extend is not a control.",
+    "",
+    "`sha256` is taken over CRLF-NORMALISED bytes, the same rule the skills'",
+    "sameIgnoringLineEndings() uses, so a checkout under core.autocrlf=true does",
+    "not report the whole tree as drifted.",
+    "",
+    "AFTER A DELIBERATE RE-VENDOR: copy the file, then run",
+    "  node scripts/check-vendored.mjs --update",
+    "from the repository root, and commit the manifest change WITH the file. The",
+    "hash moving in the diff is the point — it is what tells a reviewer that a",
+    "vendored file changed, rather than the change arriving silently.",
+    "",
+    "See engine/README.md, engine/area/README.md, engine/place/README.md and the",
+    "skill's references/changing-the-engine.md §4 for the hand-off itself."
+  ],
+  "skillRootDefault": "C:/u3a St Ives/.claude/skills",
+  "files": [
+    {
+      "path": "font_metrics.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/font_metrics.js",
+      "sha256": "f79f87bcf5f706c875f78536793695eb066a51d6e8f43badf70a4768a2aea3ee",
+      "vendoredOn": "2026-08-25",
+      "note": "labeller.js requires it; a partial vendor throws at require time, not at a byte gate."
+    },
+    {
+      "path": "footer.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/footer.js",
+      "sha256": "3a84357e3e1f981f71b97be61184c10ac06c5da86a574922d5a6813c3714d8fd",
+      "vendoredOn": "2026-08-25",
+      "note": "Resolved through SKILL_ASSETS by every generator; the file that drifted silently in August 2026."
+    },
+    {
+      "path": "icons.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/icons.js",
+      "sha256": "3b0b6188c91d1de35b99279b76605a43acbe23766544c9d5149c8da00bff4efd",
+      "vendoredOn": "2026-08-25"
+    },
+    {
+      "path": "labeller.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/labeller.js",
+      "sha256": "582a94cb0dc8506ad21a079e344ac7fdc58bf969969b26d52656dd0762e538eb",
+      "vendoredOn": "2026-08-25"
+    },
+    {
+      "path": "qr.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/qr.js",
+      "sha256": "2cb8b116b3b9c416d2fa0778cd01670882e12179597ee03bb623e72b030e89ec",
+      "vendoredOn": "2026-08-25",
+      "note": "Required LAZILY by footer.js, and only when a sheet asks for a code, so a missing copy fails one town months later."
+    },
+    {
+      "path": "render.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/render.js",
+      "sha256": "4b875dd168853528661cb3f7ef6b9e4a68e24b966c3db701d336991800d6f435",
+      "vendoredOn": "2026-08-25"
+    },
+    {
+      "path": "area/gen_external_busway.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/gen_external_busway.js",
+      "sha256": "756dd8fd5d62167873e99f4c86a0ec5256900a40124683c175d64f6c2e3d0ffe",
+      "vendoredOn": "2026-08-25",
+      "note": "The busway external template; import-map.mjs copies it in as gen_external.js under --external-style busway."
+    },
+    {
+      "path": "area/gen_external_radial.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/gen_external_radial.js",
+      "sha256": "7b2583daf70c6b9be612df65b0be3006dad7a3e545612a8aefc85eb748f8212c",
+      "vendoredOn": "2026-08-25",
+      "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
+    },
+    {
+      "path": "expert/diagram_internal.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/diagram_internal.js",
+      "sha256": "51bbd2e3f91572af9c0ef557200cf094d2408de094dba4b6362d4964232754ac",
+      "vendoredOn": "2026-08-25",
+      "note": "The tube-map pre-stage, run by the portal-owned gen_internal_diagram.js wrapper."
+    },
+    {
+      "path": "expert/gen_boarding.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/gen_boarding.js",
+      "sha256": "52cc2ce9ec2fbbec45c1515ed4e935491bcc73a1bcf772bd687f7d60f512c014",
+      "vendoredOn": "2026-08-25",
+      "note": "The portal's fifth output since 2026-08-23; portal-owned in the sense that it is not copied into a map's data."
+    },
+    {
+      "path": "expert/schematize_internal.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/schematize_internal.js",
+      "sha256": "c2325a762de9857173c0ba3b70c22dae0d57e5dca2d33e38f690922f569a5b05",
+      "vendoredOn": "2026-08-25",
+      "note": "The octolinear geometry pre-stage, run by the portal-owned gen_internal_schematic.js wrapper."
+    },
+    {
+      "path": "expert/gen_internal_diagram.js",
+      "kind": "portal-owned",
+      "why": "Portal wrapper around diagram_internal.js: names the artefact, fails loudly with no internalDiagram config, and unsets LEAFLET_DIR for the child render. No counterpart in the skill."
+    },
+    {
+      "path": "expert/gen_internal_schematic.js",
+      "kind": "portal-owned",
+      "why": "Portal wrapper around schematize_internal.js, for the same three reasons as gen_internal_diagram.js. No counterpart in the skill."
+    },
+    {
+      "path": "place/gen_external_places.js",
+      "kind": "vendored",
+      "source": "make-place-bus-leaflet/assets/gen_external_places.js",
+      "sha256": "c1337a9b61d81b3ff2226dc2db8a71ff8016e94f93318d6cb92429916fb21c59",
+      "vendoredOn": "2026-08-25"
+    },
+    {
+      "path": "place/gen_internal.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/gen_internal.js",
+      "sha256": "5b83861e99026ec90eb407466c1657e83ea78aec5920a6a644875afe0444483d",
+      "vendoredOn": "2026-08-25",
+      "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
+    },
+    {
+      "path": "place/gen_internal_place.js",
+      "kind": "vendored",
+      "source": "make-place-bus-leaflet/assets/gen_internal_place.js",
+      "sha256": "9f785ce4eb0659979e2c084b6d2334ff3c1334746bd16f379702b702bf800f4d",
+      "vendoredOn": "2026-08-25",
+      "note": "The thin place wrapper around gen_internal.js (title token + version stamp)."
+    }
+  ]
+}
