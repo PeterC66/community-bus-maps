@@ -22,11 +22,18 @@ busmaps.uk, www.busmaps.uk {
 	#
 	# The CSP is the point of the block. public/js/map-viewer.js injects a
 	# published SVG into the page with `canvas.innerHTML = svg`, so that SVG runs
-	# in busmaps.uk's own origin, and the only other thing standing in its way is
-	# the regex denylist in src/public/inlineSvg.js (S9) — a denylist that does
-	# not cover <foreignObject>, <animate attributeName="href"> or entity-encoded
-	# variants. Place names in that SVG come from OpenStreetMap, which anyone in
-	# the world can edit. `script-src 'self'` is what makes that safe.
+	# in busmaps.uk's own origin. Place names in that SVG come from OpenStreetMap,
+	# which anyone in the world can edit, so `script-src 'self'` is load-bearing.
+	#
+	# UPDATED 2026-08-25 (audit N18). The second line of defence used to be a regex
+	# DENYLIST in src/public/inlineSvg.js, and it did not cover <foreignObject>,
+	# <animate attributeName="href">, <set>, an UNQUOTED handler attribute or
+	# entity-encoded variants. It is now an ALLOWLIST parse in
+	# src/public/svgSanitise.js: eight elements and 38 attributes, which is a
+	# census of what the generators actually draw, with everything else removed and
+	# counted. So the CSP is no longer the only thing between an edited OSM place
+	# name and live DOM — but it is still what makes a mistake in that parser
+	# survivable, which is why nothing below gets relaxed.
 	#
 	# Three notes on the specific values:
 	#   script-src has NO 'unsafe-inline'. The three inline <script> blocks that
@@ -40,6 +47,11 @@ busmaps.uk, www.busmaps.uk {
 	#     cannot execute script, and rewriting them as classes across eight live
 	#     pages is a visual-regression risk out of proportion to the gain. Worth
 	#     tidying later; it is not what this block is for.
+	#     The 2026-08-25 audit's sharpest point about this relaxation was that the
+	#     one hole and the one risky sink COINCIDED: the inlined SVG was injected
+	#     with `canvas.innerHTML = svg` and could carry a style attribute. It no
+	#     longer can — `style` is not on the allowlist and neither is <style> — so
+	#     the relaxation now applies only to markup we wrote ourselves.
 	#   img-src allows data: for one reason — the favicon is an inline
 	#     data:image/svg+xml URI in every page's <head>.
 	#

@@ -859,6 +859,10 @@ app.get('/api/public/maps/:slug/inline/:base', async (req, reply) => {
         title: out ? `${row.name} — ${out.label}` : `${row.name} bus map`,
         desc: 'A bus map drawn from open bus data. Every service shown here is also '
           + `written out as text at ${servicesPageUrl(row.slug)}.`,
+        // Nothing our engine draws is ever removed — the sanitiser is proved inert
+        // on the whole corpus — so a drop means the vocabulary has moved and this
+        // sheet is now showing LESS on the web than it does in print. Loud, not silent.
+        onDrop: (what) => req.log.warn(`inline SVG sanitiser removed ${what} from ${row.slug}/${base}`),
       }), 'utf8');
       entry = { raw, gz: gzipSync(raw, { level: 9 }) };
     } catch (e) {

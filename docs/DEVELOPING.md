@@ -114,6 +114,10 @@ npm run check:vendored  # engine/ still matches what it was vendored from
 npm test                # public front (P6)
 ```
 
+### The inlined SVG is allowlisted, and adding to the artwork means adding to the list
+
+`src/public/svgSanitise.js` keeps eight elements and 38 attributes — a census of what the generators actually draw — and removes everything else, counting what it removed. If the engine starts emitting something new (a `<tspan>`, a gradient, a `style` attribute), the web view will silently lose it and `scripts/test-svg-sanitise.mjs` will go red on the fixture corpus. That is the intended prompt: widen the allowlist deliberately, in that file, and re-run `npm run test:svg`. Do **not** widen it to `style` or to any URL-valued attribute without saying why in the Caddyfile's CSP block, which reasons about exactly this sink.
+
 ### `engine/` is vendored, and `engine/vendored.json` is the list
 
 Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one of the two map skills or a portal-owned wrapper, and `engine/vendored.json` says which, with a hash. `npm test` runs `scripts/test-vendored.mjs`, which fails on an edited copy, a missing one, or a file the manifest does not name — so vendoring something new means classifying it, not just copying it. After a deliberate re-vendor run `node scripts/check-vendored.mjs --update` from the repository root and commit the manifest with the file. Run `npm run check:vendored` with no flags on a machine that also has the skill trees and it additionally tells you whether the SOURCE has moved on; in CI that half is skipped and says so. See [`../engine/README.md`](../engine/README.md).
