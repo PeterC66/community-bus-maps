@@ -17,6 +17,7 @@ This is the launch go/no-go the planning documents named: the maps are built fro
 |---|---|---|---|
 | **OpenStreetMap** | streets, rivers, points of interest, the road skeleton behind every internal map | **ODbL 1.0** (© OpenStreetMap contributors) | Credit OSM contributors visibly on anything we publish; the produced maps are a *Produced Work*, so the credit is the main obligation. If we ever publish a **derived database** (e.g. exported geometry), it must be offered under the ODbL too. |
 | **UK Bus Open Data Service (BODS)** | routes, stops, operators, days of operation, validity dates | **Open Government Licence v3.0** | Attribute the source. No share-alike. |
+| **NaPTAN (DfT)** | stop names, stand/bay letters and bearings — printed directly on boarding-plan sheets | **Open Government Licence v3.0** | Attribute the source. No share-alike. A separate Crown dataset from BODS, pulled directly from `naptan.api.dft.gov.uk`; only in use since the boarding plan shipped (August 2026), after this table was last reviewed. |
 | **bustimes.org** | cross-checking a route against an operator's own timetable during central map-making | **confirmed acceptable, no attribution required** (resolved 2026-08-07) | See §3. Central, low-volume, human-in-the-loop use only. |
 | **sharp / libvips, Fastify, Node.js** | the software stack | Apache-2.0 / MIT-family | Preserve their notices (bundled in `node_modules`, not redistributed by us). |
 | **This portal's code** | — | **Business Source License 1.1** (`LICENSE`) | Non-commercial/internal use is free; competing commercial use needs a separate licence from the Licensor until the Change Date (2030-08-09), after which it converts to Apache-2.0. Keep `LICENSE` + `NOTICE` with any redistribution. |
@@ -26,7 +27,8 @@ This is the launch go/no-go the planning documents named: the maps are built fro
 A licence obligation is only met if a reader sees it. Today:
 
 - **On every printed sheet** — the map generator prints the OSM + BODS attribution and a "check live times" line onto the sheet itself, so a photocopy on a noticeboard still carries it. *This is the load-bearing one: it survives being detached from the website.*
-- **On every public page** — the footer of the shopfront, `/maps`, `/m/<slug>`, `/o/<slug>` (P6) repeats the same statement.
+- **On a boarding-plan sheet specifically** — a second footer line and an in-map note additionally credit NaPTAN, since that sheet (and only that sheet) prints stand codes, bay numbers and bearings taken directly from the register. Confirmed present on the shipped St Ives Bus Station boarding sheet.
+- **On every public page** — the footer of the shopfront, `/maps`, `/m/<slug>`, `/o/<slug>` (P6) repeats the OSM + BODS statement site-wide. It does not currently name NaPTAN — every page carries it identically regardless of whether that page's map has a boarding plan, so adding it there is a site-wide-vs-per-map judgement call, not done as part of this pass.
 - **`/legal.html`** — the fuller explanation of the sources, plus how the sheets may be reused.
 - **`NOTICE`** — for anyone redistributing the software.
 
@@ -67,6 +69,9 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 |---|---|---|---|
 | OSM (ODbL) credit — on **web** | ✅ present on all public pages | Claude | 2026-07-25 |
 | BODS (OGL) credit — on **web** | ✅ present on all public pages | Claude | 2026-07-25 |
+| NaPTAN (OGL) as a source — in `NOTICE` / `legal.html` / this table | ✅ added — was missing since NaPTAN entered the pipeline (2026-08-22) | Claude | 2026-08-25 |
+| NaPTAN credit — on the **boarding-plan sheet** | ✅ present (footer line + in-map note) | Claude | 2026-08-25 |
+| NaPTAN credit — on the **site-wide web footer** | ☐ not done — see §2; currently a per-sheet-only credit | | |
 | OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
 | Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
 | bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |

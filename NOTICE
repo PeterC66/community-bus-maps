@@ -20,6 +20,11 @@ The bus maps produced and displayed by this software are derived from:
     UK Bus Open Data Service (BODS), published under the Open Government
     Licence v3.0 (OGL): https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data
 
+  * NaPTAN (National Public Transport Access Nodes) — stop names, stand/bay
+    letters and bearings, printed on boarding-plan sheets. A Department for
+    Transport dataset, separate from BODS, published under the Open
+    Government Licence v3.0 (OGL): https://naptan.api.dft.gov.uk
+
   * Live timetable cross-checks reference bustimes.org during map-making
     (routes it covers that BODS doesn't, stop coordinates OpenStreetMap
     lacks, and sanity-checking BODS-derived data against it). The site
