@@ -113,22 +113,43 @@ if (!DRY_RUN) {
 // the 503 that /health?deep=1 gives when a dependency is down, and that is the
 // whole point of asking.
 // `gitSha`, `builtAt` and the per-check `checks{}` are GATED behind
-// opsAuthorised() — a METRICS_TOKEN bearer/query param, or an admin session — so
-// an unauthenticated curl gets the short form and none of the three, however
-// green everything is. This step used to close by telling the operator to read
+// opsAuthorised() — a METRICS_TOKEN Bearer header, or an admin session — so an
+// unauthenticated curl gets the short form and none of the three, however green
+// everything is. This step used to close by telling the operator to read
 // "gitSha, builtAt, and every check green" out of output that structurally could
 // not contain any of them, which meant the deploy never once confirmed WHICH
 // COMMIT it had just put live. That is the §3a lesson in miniature: nothing
 // failed and nothing said so. Send the token when there is one, and either way
 // print the sha this script resolved and built with, so there is a real value to
 // read back against instead of an absent field.
+//
+// HOW THE TOKEN GETS THERE, CHANGED 2026-08-25 (technical-audit_2026-08-25 N7).
+// It used to go in the URL as `?token=…`, which Caddy's access log then recorded
+// in clear; the server no longer accepts that form at all. It is NOT passed on
+// this command line either, because an argument to `ssh` is visible in `ps` on
+// the host for the life of the call and lands in shell history at both ends.
+// Instead the remote shell sources the host's own .env — the same file compose
+// substitutes from, so the value is already there — and curl reads it from the
+// environment. Note the single-quoted JS string: every `$` below is literal and
+// is expanded by the REMOTE shell, not by this script.
 console.log('\n-- 5. /health?deep=1');
 if (!DRY_RUN) {
   console.log(`   built and deployed: gitSha=${gitSha} builtAt=${builtAt}`);
-  const tok = process.env.METRICS_TOKEN;
-  if (!tok) console.log('   (no METRICS_TOKEN set — gitSha/builtAt/checks are gated OUT of the reply below)');
-  const q = tok ? `?deep=1&token=${encodeURIComponent(tok)}` : '?deep=1';
-  const rc = sshRun(`sleep 3 && curl -fsS "localhost:5180/health${q}"`);
+  if (!process.env.METRICS_TOKEN) {
+    console.log('   (no METRICS_TOKEN in this shell — if the host .env has none either,');
+    console.log('    gitSha/builtAt/checks are gated OUT of the reply below)');
+  }
+  // An explicit if/else, NOT `${METRICS_TOKEN:+-H "Authorization: …"}`. The
+  // parameter-expansion form looks tidier and is wrong: the quotes it produces
+  // are the RESULT of an expansion, so the shell does not honour them and the
+  // header word-splits into four arguments. Quoting only works when it is in the
+  // script text, which is what this is.
+  const url = '"localhost:5180/health?deep=1"';
+  const remote = 'sleep 3 && cd ' + APP_DIR + ' && { set -a; . ./.env 2>/dev/null; set +a; }; '
+    + 'if [ -n "$METRICS_TOKEN" ]; then '
+    + 'curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" ' + url + '; '
+    + 'else curl -fsS ' + url + '; fi';
+  const rc = sshRun(remote);
   if (rc !== 0) {
     console.error('\n✗ the new container is not READY (curl returned ' + rc + ').');
     console.error('  The deploy has happened. Read the output above, then decide whether to roll back —');

@@ -1,3 +1,7 @@
 {
-  "type": "commonjs"
+  "name": "community-bus-maps-engine",
+  "private": true,
+  "type": "commonjs",
+  "license": "SEE LICENSE IN ../LICENSE",
+  "description": "Vendored deterministic map engine — see ./README.md. The `type` field is what makes the vendored generators resolve as CommonJS; the `license` field was added 2026-08-25 (technical-audit_2026-08-25 N10) because a manifest carrying no licence at all, sitting beside Business Source License 1.1 source, reads to an SPDX scanner as unlicensed. The licence here is the repository's: ../LICENSE, with attribution in ../NOTICE."
 }

@@ -7,68 +7,42 @@
 //
 // P9 Part B — the search box above the grid answers "does any map cover my
 // village?" against place names inside the maps (GET /api/public/search), not
-// the 13 map titles. Progressive enhancement: the form is a real GET to /maps
-// and works with JS off; with it on, results filter in place and the URL
-// stays in sync via history so /maps?q=… (or /maps#search) is linkable.
+// the map titles.
+//
+// "PROGRESSIVE ENHANCEMENT" IS TRUE NOW, AND WAS NOT (technical-audit_2026-08-25 N1).
+// The line above used to say "the form is a real GET to /maps and works with JS
+// off". The form was real; nothing on the server had ever read `q`, and the grid
+// itself was built here, so with JavaScript off /maps showed "Loading published
+// maps…" and a ?q= link showed the same. The server renders both the grid and
+// the search results now. What this file does is avoid a page reload — which is
+// what an enhancement is.
+//
+// So: no first render here. The page arrives complete, and this script only
+// takes over when the reader actually types or submits. It imports the same
+// markup module the server imports, so a card looks identical whichever side
+// drew it.
+import { grid as renderGrid } from './shared/map-card.mjs';
+
 (() => {
-  const grid = document.getElementById('grid');
+  const gridEl = document.getElementById('grid');
   const form = document.querySelector('#search .search-form');
   const input = document.getElementById('q');
   const meta = document.getElementById('searchMeta');
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const when = (iso) => {
-    if (!iso) return '';
-    const d = new Date(String(iso).replace(' ', 'T') + (String(iso).endsWith('Z') ? '' : 'Z'));
-    return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
+  if (!gridEl) return;
 
-  function card(m, reason) {
-    const shot = (m.outputs.find((o) => o.previewUrl) || {}).previewUrl;
-    const kind = m.kind === 'place' ? 'Place' : 'Area';
-    return `<article class="card example pub-card">
-      <a class="shot" href="${esc(m.url)}">${shot
-        ? `<img src="${esc(shot)}" loading="lazy" alt="${esc(m.name)} bus map">`
-        : '<span class="shot-none">Map</span>'}</a>
-      <div class="body">
-        <h3>${m.org.isDemo ? '<span class="badge sample">Sample</span> ' : ''}<span class="badge ${m.kind === 'place' ? 'place' : ''}">${kind}</span> <a href="${esc(m.url)}">${esc(m.name)}</a></h3>
-        <p>${esc(m.subject || '')}</p>
-        ${reason ? `<p class="search-hit-reason">${esc(reason)}</p>` : ''}
-        <div class="org-line">
-          <span class="org-badge" style="--org-accent:${esc(m.org.accentHex)}">${esc(m.org.badge)}</span>
-          <span>Published by ${m.org.url ? `<a href="${esc(m.org.url)}">${esc(m.org.name)}</a>` : esc(m.org.name)}${m.org.isDemo ? ' <span class="muted">— a sample organisation, not a real customer</span>' : ''}</span>
-        </div>
-        <div class="outputs">${esc(m.version)} · updated ${esc(when(m.publishedAt))} · ${m.outputs.length} sheet${m.outputs.length === 1 ? '' : 's'}${
-          m.provenance && m.provenance.stale ? ' · <span class="tag">may be out of date</span>' : ''}</div>
-      </div>
-    </article>`;
-  }
-
-  // The no-match path (B6) is the point of the feature, not an error state: a
-  // miss is a lead. No promised timescale, no claimed customers — see
-  // docs/PILOT.md.
-  function noResultBlock(q) {
-    return `<div class="search-noresult">
-      <p>No published map covers <strong>${esc(q)}</strong> yet. Maps are made by local organisations.</p>
-      <p><a class="btn btn-primary" href="/apply.html">Ask for one</a> <a class="btn btn-ghost" href="/contact.html">or tell us who might make it</a></p>
-    </div>`;
+  function paint({ className, html }) {
+    gridEl.className = className;
+    gridEl.innerHTML = html;
   }
 
   async function loadAll() {
     if (meta) meta.hidden = true;
-    grid.className = 'grid cols-2';
-    grid.innerHTML = '<p class="form-note">Loading published maps…</p>';
     try {
       const body = await (await fetch('/api/public/maps')).json();
-      const maps = (body && body.maps) || [];
-      if (!maps.length) {
-        grid.className = '';
-        grid.innerHTML = '<p class="form-note">No maps are published yet. Our <a href="/examples.html">examples</a> show what they look like — and if you would like one for your own area or doorstep, <a href="/apply.html">register your interest</a>.</p>';
-        return;
-      }
-      grid.innerHTML = maps.map((m) => card(m)).join('');
+      paint(renderGrid((body && body.maps) || []));
     } catch {
-      grid.className = '';
-      grid.innerHTML = '<p class="form-note">Sorry — we could not load the published maps just now. Please try again shortly.</p>';
+      gridEl.className = '';
+      gridEl.innerHTML = '<p class="form-note">Sorry — we could not load the published maps just now. Please try again shortly.</p>';
     }
   }
 
@@ -90,22 +64,21 @@
           meta.textContent = `No matches for “${q}”.`;
         }
       }
-      grid.className = results.length ? 'grid cols-2' : '';
-      grid.innerHTML = results.length
-        ? results.map((r) => card(r.map, r.reason)).join('')
-        : noResultBlock(q);
+      paint(renderGrid(results.map((r) => r.map), {
+        reasons: new Map(results.map((r) => [r.map.slug, r.reason])),
+        query: q,
+      }));
     } catch {
       if (meta) meta.textContent = '';
-      grid.className = '';
-      grid.innerHTML = '<p class="form-note">Sorry — search is not available just now. Please try again shortly.</p>';
+      gridEl.className = '';
+      gridEl.innerHTML = '<p class="form-note">Sorry — search is not available just now. Please try again shortly.</p>';
     }
   }
 
-  function apply(q, { push = true } = {}) {
+  function apply(q) {
     const trimmed = (q || '').trim();
-    if (input) input.value = trimmed;
     const url = trimmed ? `/maps?q=${encodeURIComponent(trimmed)}` : '/maps';
-    if (push && location.pathname + location.search !== url) history.replaceState(null, '', url);
+    if (location.pathname + location.search !== url) history.replaceState(null, '', url);
     if (trimmed.length >= 2) runSearch(trimmed);
     else loadAll();
   }
@@ -123,6 +96,4 @@
       t = setTimeout(() => apply(input.value), 300);
     });
   }
-
-  apply(new URLSearchParams(location.search).get('q') || '', { push: false });
 })();

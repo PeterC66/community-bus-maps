@@ -145,6 +145,34 @@ export function logout(req) {
 }
 
 // --- cookies (hand-rolled; the value is an opaque server-side token) ---------
+//
+// THE DECODE MUST NOT THROW (technical-audit_2026-08-25 N6). `decodeURIComponent`
+// raises URIError on any malformed percent-escape — `%`, `%zz`, a lone `%e0` —
+// and until 2026-08-25 that throw escaped resolveUser(), escaped the preHandler
+// in server.js, and surfaced as a 500. Reproduced against production before the
+// fix, and this is the shape of the check that must keep passing:
+//
+//   curl -H 'Cookie: cbm_session=%' https://busmaps.uk/api/me   ->  500  (was)
+//   curl                            https://busmaps.uk/api/me   ->  401
+//
+// Two things made it worse than it first looks. The loop decodes EVERY cookie on
+// the request, not just this one, so any unrelated cookie on the domain carrying
+// a stray `%` took the whole signed-in app down for that browser — every URL
+// under /api/, /app, /auth/ and /metrics — with a 500 and nothing to tell the
+// reader that clearing cookies was the cure. And it was a free unauthenticated
+// error path for anybody who wanted to fill the log.
+//
+// Falling back to the RAW value is the right repair rather than dropping the
+// cookie: a session token is base64url and contains nothing that needs decoding,
+// so the raw value IS the correct one whenever the decode fails. A genuinely
+// malformed cookie then simply fails to match a session, which is a 401.
+function decodeCookieValue(v) {
+  try {
+    return decodeURIComponent(v);
+  } catch {
+    return v;
+  }
+}
 export function parseCookies(header) {
   const out = {};
   if (!header) return out;
@@ -152,7 +180,7 @@ export function parseCookies(header) {
     const i = part.indexOf('=');
     if (i < 0) continue;
     const k = part.slice(0, i).trim();
-    if (k) out[k] = decodeURIComponent(part.slice(i + 1).trim());
+    if (k) out[k] = decodeCookieValue(part.slice(i + 1).trim());
   }
   return out;
 }
