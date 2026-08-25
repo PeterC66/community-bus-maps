@@ -18,13 +18,19 @@
 //      metrics, so a substituted font with different widths can collide — see
 //      hasMetricFont() in public/js/map-viewer.js, which falls back to the
 //      raster sheet when the browser has none of them.
-//   4. Anything active is stripped. The generators emit no scripts and no event
-//      handlers, but inlining turns an inert <img> into live DOM, so this is
-//      belt and braces rather than a response to a known risk.
+//   4. Anything that is not artwork is stripped, by an ALLOWLIST parse in
+//      svgSanitise.js. The generators emit no scripts and no event handlers, but
+//      inlining turns an inert <img> into live DOM. Until 2026-08-25 the strip
+//      was five regular expressions, and audit N18 listed what walked past them
+//      — an UNQUOTED `onload=`, <foreignObject>, <animate>, <set>, and
+//      entity-encoded variants. The allowlist describes the artwork instead of
+//      predicting the attack, and it is inert on every sheet the engine has ever
+//      produced: 1,277 of them pass through byte for byte.
 //
 // Everything else — every path, colour, label and coordinate — is untouched.
 
 import { readFileSync } from 'node:fs';
+import { sanitiseSvg, describeDrops } from './svgSanitise.js';
 
 /** Arial first (it is what the labels were laid out against), then metric twins. */
 export const FONT_STACK = "Arial, 'Liberation Sans', Arimo, Helvetica, 'Nimbus Sans', sans-serif";
@@ -32,23 +38,19 @@ export const FONT_STACK = "Arial, 'Liberation Sans', Arimo, Helvetica, 'Nimbus S
 const escText = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Remove anything executable. Defensive: our generators never emit any of it. */
-function deactivate(svg) {
-  return svg
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<script[^>]*\/>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
-    .replace(/(href|xlink:href)\s*=\s*"\s*javascript:[^"]*"/gi, '');
-}
-
 /**
  * @param {string} file      path to a published <base>.svg
- * @param {{title: string, desc: string, idPrefix?: string}} labels
+ * @param {{title: string, desc: string, idPrefix?: string, onDrop?: (what: string) => void}} labels
+ *        `onDrop` is called with a description when the sanitiser removed
+ *        anything. Our own sheets never trip it, so a call means either an
+ *        attack or — far likelier — the engine has started drawing something
+ *        the allowlist does not know about, which must not vanish silently.
  * @returns {string} the SVG source, ready to be dropped into a page
  */
-export function inlineSvg(file, { title, desc, idPrefix = 'cbm' } = {}) {
-  let svg = deactivate(readFileSync(file, 'utf8'));
+export function inlineSvg(file, { title, desc, idPrefix = 'cbm', onDrop } = {}) {
+  const cleaned = sanitiseSvg(readFileSync(file, 'utf8'));
+  if (!cleaned.clean && typeof onDrop === 'function') onDrop(describeDrops(cleaned.dropped));
+  let svg = cleaned.svg;
 
   const open = svg.match(/<svg\b[^>]*>/i);
   if (!open) throw new Error('not an SVG');
