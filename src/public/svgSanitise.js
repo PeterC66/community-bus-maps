@@ -31,9 +31,29 @@
 // them. Only a tag that lost an attribute is rewritten. That is what lets the
 // corpus test assert byte-identity rather than "looks the same".
 
-/** Elements the generators emit, plus the two accessibility nodes we add. */
+/**
+ * Elements the generators emit, plus the accessibility nodes and the
+ * post-generation layer's own markup.
+ *
+ * `tspan` IS THE ONE THIS LIST WAS MISSING, and how it was missed is the useful
+ * part. The census that produced this allowlist was taken over the map tree —
+ * 1,277 files of GENERATOR output — and no generator emits a tspan. The portal
+ * does: `src/render/pilotStamp.js` writes the band's headline as
+ * `<tspan font-weight="bold">PILOT — SAMPLE MAP</tspan>`, AFTER the generator has
+ * run (see engine/README.md). So the corpus measured was not the population this
+ * function processes, and the first deploy silently deleted the words "PILOT —
+ * SAMPLE MAP" from every inlined sheet while leaving the red band behind them.
+ * Caught by fetching the live SVG before and after and comparing bytes — not by
+ * any test, and not by the corpus, which could not see it.
+ *
+ * So: anything the post-generation layer adds belongs here too. Today that is
+ * `tspan` and nothing else (`pilotStamp.js` also emits g/rect/text, `draftStamp.js`
+ * rewrites an existing text, `watermark.js` builds a separate SVG for the raster
+ * path and is never inlined). `scripts/test-inline-svg.mjs` now runs a real
+ * stamped sheet through, so the next addition fails there instead of on the site.
+ */
 export const ALLOWED_ELEMENTS = new Set([
-  'svg', 'g', 'path', 'rect', 'circle', 'line', 'text', 'clipPath', 'title', 'desc',
+  'svg', 'g', 'path', 'rect', 'circle', 'line', 'text', 'tspan', 'clipPath', 'title', 'desc',
 ]);
 
 /** Attribute names the generators emit, plus the ones inlineSvg() adds. */
