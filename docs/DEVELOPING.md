@@ -110,8 +110,13 @@ npm run verify:area     # area map reproduces a shipped leaflet byte-for-byte
 npm run verify:place    # same for a place map
 npm run test:p7         # expert styles (schematic + diagram), 6 gated outputs
 npm run test:lifecycle  # request → build → publish → revert lifecycle
+npm run check:vendored  # engine/ still matches what it was vendored from
 npm test                # public front (P6)
 ```
+
+### `engine/` is vendored, and `engine/vendored.json` is the list
+
+Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one of the two map skills or a portal-owned wrapper, and `engine/vendored.json` says which, with a hash. `npm test` runs `scripts/test-vendored.mjs`, which fails on an edited copy, a missing one, or a file the manifest does not name — so vendoring something new means classifying it, not just copying it. After a deliberate re-vendor run `node scripts/check-vendored.mjs --update` from the repository root and commit the manifest with the file. Run `npm run check:vendored` with no flags on a machine that also has the skill trees and it additionally tells you whether the SOURCE has moved on; in CI that half is skipped and says so. See [`../engine/README.md`](../engine/README.md).
 
 ### `verify` skips silently — this has caught people out
 
