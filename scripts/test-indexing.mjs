@@ -41,8 +41,19 @@ console.log('robots.txt — indexing ON:');
 check('does NOT block the whole site', !lines(open).includes('Disallow: /'),
   'ALLOW_INDEXING=1 must actually remove the site-wide block');
 check('still blocks /app', lines(open).includes('Disallow: /app'));
-check('still blocks /api/', lines(open).includes('Disallow: /api/'));
 check('still blocks /auth/', lines(open).includes('Disallow: /auth/'));
+
+// The API is no longer blocked wholesale (technical-audit_2026-08-25 N1): the
+// blanket `Disallow: /api/` also covered /api/public/*, the read-only half that
+// /maps and /m/<slug>/services were fetching their entire contents from, so the
+// site published those pages in sitemap.xml and forbade crawlers to fetch what
+// filled them. Both assertions below matter, and the SECOND one is the one worth
+// having — a future tidy-up that restores the blanket rule would keep the first
+// and break the second.
+check('blocks each PRIVATE api prefix', ['/api/admin', '/api/auth', '/api/maps', '/api/me', '/api/review']
+  .every((p) => lines(open).includes(`Disallow: ${p}`)));
+check('does NOT block the public read API', !lines(open).includes('Disallow: /api/'),
+  '/api/public/* must stay fetchable — see src/public/robots.js');
 check('still advertises the sitemap', open.includes(`Sitemap: ${SITEMAP}`));
 
 console.log('the flag is the ONLY difference:');

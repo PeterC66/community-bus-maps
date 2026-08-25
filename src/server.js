@@ -17,6 +17,7 @@
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -31,6 +32,13 @@ import {
   publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
 } from './public/index.js';
 import { factsForPublicMap, publicServices, servicesPageUrl } from './public/services.js';
+import { setInner, setAttr, setClass, removeBooleanAttr } from './public/shell.js';
+// The two public pages' markup, shared with the browser rather than written
+// twice (technical-audit_2026-08-25 N1). These live under public/ because they
+// are ALSO served to browsers as static assets; importing them from here is what
+// keeps the server's HTML and the client's HTML the same HTML.
+import { grid } from '../public/js/shared/map-card.mjs';
+import { servicesView } from '../public/js/shared/services-view.mjs';
 import { readFactsSnapshot, buildFacts } from './maps/facts.js';
 import { inlineSvg } from './public/inlineSvg.js';
 import {
@@ -104,7 +112,35 @@ const isEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 const isHttps = (req) => req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
 const parseOutputs = (json) => { try { return JSON.parse(json || '{}') || {}; } catch { return {}; } };
 const slugify = (s) => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-const authLink = (req, token) => `${req.protocol}://${req.headers.host}/auth/verify?token=${token}`;
+
+// THE ABSOLUTE BASE FOR EVERY LINK THIS SERVER BUILDS.
+//
+// Configured first, request header only as a fallback. It used to be the other
+// way round for the auth links, and the difference is an account-takeover class
+// (technical-audit_2026-08-25 N5): `req.headers.host` is a value the CALLER
+// chooses. A request to POST /api/auth/request carrying `Host: attacker.example`
+// produced a genuine, valid sign-in email whose link handed the single-use token
+// to the attacker's server — the victim clicks a real link from a real address
+// and is phished with this system's own credential.
+//
+// It did not land in production, and it is worth being precise about WHY,
+// because the reason was not the application: Caddy's site block matches only
+// busmaps.uk and www.busmaps.uk, so a spoofed Host never reached this process at
+// all (verified — `curl -H 'Host: evil.example.com' https://busmaps.uk/` returns
+// Caddy's own empty 200, not ours). That is a real mitigation and it was also
+// the ENTIRE mitigation: an implicit property of a reverse-proxy config,
+// asserted by no test, mentioned in no comment, that disappears the moment
+// anyone adds a wildcard site, a staging hostname, or exposes 127.0.0.1:5180 to
+// debug something.
+//
+// So the app defends itself now. PUBLIC_BASE_URL is already set in production
+// (compose.yaml passes it; robots.txt and sitemap.xml have always used it) and
+// baseUrl() already preferred it — the auth links simply were not going through
+// baseUrl(). They do now, and every absolute URL this file builds comes from one
+// function.
+const BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+const baseUrl = (req) => BASE_URL || `${req.protocol}://${req.headers.host}`;
+const authLink = (req, token) => `${baseUrl(req)}/auth/verify?token=${token}`;
 
 // trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
 // otherwise the proxy's, not the client's — breaking authLink()'s https URLs
@@ -119,12 +155,27 @@ const authLink = (req, token) => `${req.protocol}://${req.headers.host}/auth/ver
 const app = Fastify({
   // P9 B8 — search queries are never logged, and an access log counts as a
   // log: the default request serializer logs req.url including its query
-  // string, so strip `q` off this one route before it ever reaches the log.
+  // string, so strip `q` off the search routes before it ever reaches the log.
   // Every other route's request line is unchanged.
+  //
+  // `/maps` JOINED THAT LIST on 2026-08-25. The search form has always been a
+  // real GET to /maps, but until then nothing on the server read `q`, so the
+  // only way to reach it was with JavaScript off. Server-rendering the results
+  // (technical-audit_2026-08-25 N1) makes /maps?q=<a place someone is looking
+  // for> a first-class URL, and the B8 rule has to follow the feature rather
+  // than the route it first appeared on.
+  //
+  // WHAT THIS DOES NOT COVER, said plainly rather than left to be discovered:
+  // Caddy keeps its own access log (see the Caddyfile) and records the full URI,
+  // which this serialiser cannot touch. So a JS-off search still leaves the term
+  // in /var/log/caddy/busmaps.access.log. Closing that means a `log { }` filter
+  // in the Caddyfile; it is logged as a follow-on rather than done here, because
+  // it is a change to the proxy's config and belongs in its own deploy.
   logger: {
     serializers: {
       req(req) {
-        const url = req.url && req.url.startsWith('/api/public/search') ? req.url.split('?')[0] : req.url;
+        const bare = req.url && (req.url.startsWith('/api/public/search') || req.url.startsWith('/maps?'));
+        const url = bare ? req.url.split('?')[0] : req.url;
         return { method: req.method, url, host: req.host, remoteAddress: req.ip, remotePort: req.socket ? req.socket.remotePort : undefined };
       },
     },
@@ -150,6 +201,39 @@ app.addHook('preHandler', async (req, reply) => {
   if (req.user && req.user.sessionSlid) {
     reply.header('Set-Cookie', sessionCookie(req.user.sessionToken, { secure: isHttps(req) }));
   }
+});
+
+// WHICH BUILD SERVED THIS? (technical-audit_2026-08-25 N2)
+//
+// On every response, from every route, without JavaScript. That sentence is the
+// whole point, because until 2026-08-25 the answer lived only in two places a
+// machine could not reach:
+//
+//   - `/health`, where gitSha and builtAt were correctly gated behind
+//     opsAuthorised() when S4 was closed on 2026-08-20; and
+//   - VERSION_BADGE_JS further down this file, which injects a <meta> and a
+//     footer line — from a SCRIPT, so only a browser ever sees them.
+//
+// The consequence was found the hard way: the live site sat one commit behind
+// `main`, the missing commit was the one crediting NaPTAN in legal.html, and
+// establishing that took a headless browser. Nothing in the estate compared the
+// deployed commit with the branch. Closing S4 had removed the only external
+// signal and nothing replaced it — a security fix quietly costing an operational
+// control, which is how a well-run system goes blind.
+//
+// A HEADER, NOT A GATED FIELD, because this is not a secret. It is a build
+// identifier: the repository is private, the SHA lets an attacker do nothing,
+// and the same string was already on the page for anyone running JavaScript.
+// What S4 was actually about was the eleven business counts, the object-store
+// path and the exact sharp/libvips versions — those stay gated. Gating the build
+// id alongside them was over-correction.
+//
+// The consumer is the daily gate board (make-bus-leaflet/assets/status.js),
+// which fetches this header and reports BEHIND when it does not match
+// origin/main.
+const APP_BUILD = `${APP_VERSION}+${GIT_SHA}`;
+app.addHook('onSend', async (req, reply) => {
+  reply.header('X-App-Version', APP_BUILD);
 });
 
 // STEP-UP AUTHENTICATION for the three actions the audit named: publishing a
@@ -213,14 +297,48 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
   return rec.n > max;
 }
 
+// A CREDENTIAL BELONGS IN A HEADER, NEVER IN A URL (technical-audit_2026-08-25 N7).
+//
+// Both ops tokens used to be accepted as `?token=...` as well as a Bearer header.
+// The Caddyfile turns on an access log, and Caddy's request line records the
+// FULL URI including its query string — so every use of the query form wrote a
+// live credential, in clear, into /var/log/caddy/busmaps.access.log: a file in
+// no backup, rotated by nothing here, and covered by no retention rule. Query
+// strings also reach Referer headers, browser history and shell history.
+//
+// This project had already reasoned it through correctly for a LESS sensitive
+// value: the custom log serialiser at the top of this file strips `q` off
+// /api/public/search because "search queries are never logged, and an access log
+// counts as a log". A token deserves the argument more — and the app's own
+// serialiser could not have helped anyway, because the leak was in Caddy's log,
+// not Fastify's.
+//
+// The query form is GONE rather than deprecated. Its only caller was
+// scripts/deploy.mjs, changed in the same commit; bus-work's push-status.mjs has
+// always sent an Authorization header.
+//
+// Constant-time comparison while we are here. Over a network the timing signal
+// is mostly noise, but `===` on a secret is a two-line fix and there is no
+// argument for keeping it. timingSafeEqual throws on unequal lengths, so the
+// length check comes first; that is not itself a leak worth minding, because the
+// token's length is fixed by us and not by the attacker's guess.
+function tokenMatches(supplied, expected) {
+  if (!expected || !supplied) return false;
+  const a = Buffer.from(String(supplied), 'utf8');
+  const b = Buffer.from(String(expected), 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+/** The Bearer token on this request, or ''. */
+const bearerToken = (req) => String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+
 // Is the caller allowed to see operational DETAIL? Same gate as /metrics: a
-// METRICS_TOKEN (Bearer header or ?token=) or a signed-in admin. Factored out
-// because /health and /metrics want the same answer, and two hand-rolled copies
-// of one authorisation rule are two chances to drift apart.
+// METRICS_TOKEN Bearer header, or a signed-in admin. Factored out because
+// /health and /metrics want the same answer, and two hand-rolled copies of one
+// authorisation rule are two chances to drift apart.
 function opsAuthorised(req) {
-  const token = process.env.METRICS_TOKEN;
-  const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const viaToken = Boolean(token) && (bearer === token || (req.query && req.query.token === token));
+  const viaToken = tokenMatches(bearerToken(req), process.env.METRICS_TOKEN);
   const viaAdmin = Boolean(req.user) && req.user.role === 'admin';
   return viaToken || viaAdmin;
 }
@@ -314,9 +432,11 @@ app.post('/api/admin/status', async (req, reply) => {
   // reused here: /metrics and /health?deep=1 are read-only, this one WRITES the
   // snapshot the worklist trusts. Keeping the credentials separate stops a read
   // token from quietly becoming a write token.
-  const token = process.env.STATUS_TOKEN;
-  const bearer = String((req.headers.authorization || '')).replace(/^Bearer\s+/i, '');
-  const viaToken = token && (bearer === token || (req.query && req.query.token === token));
+  //
+  // Bearer header only, constant-time, since 2026-08-25 — same change and same
+  // reasoning as opsAuthorised() above (N7). This one never had a caller using
+  // the query form: bus-work's push-status.mjs has always sent a header.
+  const viaToken = tokenMatches(bearerToken(req), process.env.STATUS_TOKEN);
   const viaAdmin = req.user && req.user.role === 'admin';
   if (!viaToken && !viaAdmin) return reply.code(404).send({ ok: false });
 
@@ -387,19 +507,59 @@ app.post('/api/contact', async (req, reply) => {
 // publishing never re-renders (P4).
 // ===========================================================================
 
-const BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-const baseUrl = (req) => BASE_URL || `${req.protocol}://${req.headers.host}`;
+// BASE_URL / baseUrl() used to be declared here, beside their first public-page
+// caller. They moved to the top of this file on 2026-08-25 so that the AUTH
+// links could go through them too — see the note there
+// (technical-audit_2026-08-25 N5).
 
 // Pretty public URLs. The HTML is a static shell; it fetches the JSON below.
 // Unknown/unpublished slugs 404 with the same shell (so a link that stops being
 // public does not silently render an empty page or leak that a draft exists).
-app.get('/maps', async (req, reply) => reply.sendFile('maps.html'));
+// THE PUBLISHED-MAPS CATALOGUE, RENDERED HERE (technical-audit_2026-08-25 N1).
+//
+// This route was `reply.sendFile('maps.html')` until 2026-08-25 and the grid was
+// filled entirely by public/js/public-maps.js. So the page a crawler received
+// carried the words "Loading published maps…" and NO link to any map — 4,479
+// bytes of chrome — while /maps sat in sitemap.xml and indexing had just been
+// switched on. Worse, the data it needed came from /api/public/maps, and
+// robots.txt said `Disallow: /api/`: the site was telling compliant crawlers not
+// to fetch its own catalogue.
+//
+// ?q= IS SERVER-SIDE TOO, and that is not a bonus. public-maps.js's own header
+// has claimed since P9 that "the form is a real GET to /maps and works with JS
+// off". It did not, because nothing on the server had ever read `q`. It does
+// now, so the claim is true for the first time. The client still intercepts the
+// submit to avoid a page reload, which is what an enhancement is.
+//
+// The markup comes from public/js/shared/map-card.mjs, imported by this file AND
+// by the browser, so there is exactly one copy of it. See that file's header for
+// why sharing beat writing it twice.
+app.get('/maps', async (req, reply) => {
+  const q = str((req.query || {}).q, 100);
+  let maps = publicMaps(listPublicMaps());
+  let reasons = null;
+  if (q.length >= 2) {
+    const { results } = searchPlaces(q);
+    reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
+    maps = results.map((r) => r.map);
+  }
+  const { className, html } = grid(maps, { reasons, query: q.length >= 2 ? q : '' });
+  let page = setInner(shell('maps.html'), 'grid', html);
+  page = setClass(page, 'grid', className);
+  // Read the query back into the box, so a /maps?q=… link says what it searched
+  // for with or without JavaScript.
+  if (q) page = setAttr(page, 'q', 'value', q);
+  reply.type('text/html; charset=utf-8');
+  return reply.send(page);
+});
 
-// P8a — the map pages are still static shells filled in by their fetch, but a
+// P8a — the per-map pages complete their <head> SERVER-side: real title,
+// description, canonical and Open Graph tags, and a JSON-LD block, because a
 // crawler, a link preview and a screen reader all read the HTML as delivered.
-// So the shell's <head> is completed SERVER-side for the two per-map pages: real
-// title, description, canonical and Open Graph tags, and a JSON-LD block. The
-// client-side render is unchanged and simply agrees with what is already there.
+//
+// Since 2026-08-25 the /services page completes its BODY here as well (N1). The
+// <head> had been doing the right thing for weeks while the body still said
+// "Loading…", which is the more visible half of the same argument.
 const shellCache = new Map();
 function shell(name) {
   if (!shellCache.has(name)) shellCache.set(name, readFileSync(path.join(PUBLIC_DIR, name), 'utf8'));
@@ -408,16 +568,22 @@ function shell(name) {
 const htmlAttr = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function sendShell(reply, name, head) {
+function sendShell(reply, name, head, fillBody = null) {
   // Drop the shell's own placeholder <title>/description/og tags first, so the
   // page has exactly one of each and the browser does not just take whichever
   // came first in the file.
-  const stripped = shell(name)
+  let page = shell(name)
     .replace(/[ \t]*<title>[\s\S]*?<\/title>\r?\n?/i, '')
     .replace(/[ \t]*<meta\s+name="description"[^>]*>\r?\n?/i, '')
     .replace(/[ \t]*<meta\s+property="og:(?:title|description|url|image)"[^>]*>\r?\n?/gi, '');
+  page = page.replace('</head>', `${head}\n</head>`);
+  // `fillBody` is where the /services page puts its content (N1). Optional
+  // because /m/:slug still fills its own body in the browser — that page's
+  // content is the SVG sheet itself, which is a 472 KB fetch that would be the
+  // wrong thing to inline into every HTML response.
+  if (fillBody) page = fillBody(page);
   reply.type('text/html; charset=utf-8');
-  return reply.send(stripped.replace('</head>', `${head}\n</head>`));
+  return reply.send(page);
 }
 
 /** The <head> completion for one public map page. */
@@ -467,12 +633,41 @@ app.get('/m/:slug', async (req, reply) => {
 // carry it, so the same facts are published as ordinary HTML: route, operator,
 // days, termini, the stops inside the area and where each service goes. 404s
 // (rather than showing an empty page) when the payload lists no services.
+//
+// FULLY RENDERED HERE since 2026-08-25 (technical-audit_2026-08-25 N1). It was a
+// shell whose body was the word "Loading…" until then — 4,716 bytes — which
+// meant this page, the one the accessibility statement points at, the one a
+// public body relies on to meet its own WCAG 2.2 AA duty, and nineteen of whose
+// URLs are in sitemap.xml, delivered nothing at all to a reader not executing
+// JavaScript. The facts come from exactly the two calls the JSON API makes, so
+// the page and the API can never disagree, and the markup comes from the module
+// the browser imports.
 app.get('/m/:slug/services', async (req, reply) => {
   const row = getPublicMapBySlug(str(req.params.slug, 120));
   if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));
   const m = publicMap(row);
   if (!m.servicesUrl) return reply.code(404).type('text/html').send(notFoundPage('services list'));
-  return sendShell(reply, 'services.html', mapHead(req, m, { services: true }));
+  const services = publicServices(row, factsForPublicMap(row));
+  // The same condition the API applies: a map with no service list has no text
+  // alternative to show, and an empty page is worse than an honest 404.
+  if (!services || !services.routes.length) {
+    return reply.code(404).type('text/html').send(notFoundPage('services list'));
+  }
+  const v = servicesView(m, services);
+  return sendShell(reply, 'services.html', mapHead(req, m, { services: true }), (page) => {
+    let p = setInner(page, 'headline', v.headline);
+    p = setInner(p, 'intro', v.intro);
+    p = setInner(p, 'pills', v.pills);
+    p = setInner(p, 'services', v.services);
+    if (v.stale) {
+      p = setInner(p, 'staleNote', v.stale);
+      p = setClass(p, 'staleNote', 'notice notice-warn');
+      p = removeBooleanAttr(p, 'staleNote', 'hidden');
+    }
+    p = setAttr(p, 'mapLink', 'href', v.mapUrl);
+    p = setAttr(p, 'backToMap', 'href', v.mapUrl);
+    return p;
+  });
 });
 // An organisation only has a public page while it has a publicly-visible map —
 // the same condition the API applies, so the page and its data never disagree.
@@ -745,9 +940,15 @@ const LOCAL_BANNER_JS = ENVIRONMENT.isProduction ? '' : `(function () {
 })();
 `;
 
-// GO-LIVE.md §5, surfaces 3 and 4: a muted footer line and a machine-readable
-// <meta> tag, both from this one generated script so a screenshot — or a
-// script run against a deployed page — can say which build served it.
+// GO-LIVE.md §5, surfaces 3 and 4: a muted footer line and a <meta> tag, both
+// from this one generated script, so a screenshot says which build served it.
+//
+// "or a script run against a deployed page" used to be part of that sentence and
+// was wrong: this IS a script, so only a browser ever sees either surface — and
+// that is exactly how a stale deployment went unnoticed
+// (technical-audit_2026-08-25 N2). The machine-readable answer is now the
+// `X-App-Version` response header set by the onSend hook near the top of this
+// file. These two surfaces are for humans; keep them, do not rely on them.
 const VERSION_BADGE_JS = `(function () {
   var d = document;
   function go() {
@@ -897,7 +1098,10 @@ app.post('/api/auth/request', async (req, reply) => {
 
   const token = requestMagicLink(email);
   if (token) {
-    const link = `${req.protocol}://${req.headers.host}/auth/verify?token=${token}`;
+    // authLink(), not a hand-built URL: this was the third copy of the same
+    // string and the one that mattered most, because it is the sign-in email
+    // (technical-audit_2026-08-25 N5).
+    const link = authLink(req, token);
     try {
       const r = await sendMagicLink({ to: email, link, kind: 'signin' });
       if (r.sent) {
@@ -2193,8 +2397,11 @@ app.get('/api/admin/summary', async (req, reply) => {
 // when the caller is a terminal on another machine.
 app.get('/api/admin/worklist', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
-  const baseUrl = `${req.protocol}://${req.headers.host}`;
-  return { ok: true, worklist: buildWorklist({ baseUrl }) };
+  // Through the shared baseUrl(), which prefers PUBLIC_BASE_URL and only falls
+  // back to the request's own Host. This route is admin-only so the header was
+  // never a takeover risk here, but it was the last hand-built absolute URL in
+  // the file, and leaving one behind is how the pattern comes back (N5).
+  return { ok: true, worklist: buildWorklist({ baseUrl: baseUrl(req) }) };
 });
 
 app.get('/api/admin/applications', async (req, reply) => {

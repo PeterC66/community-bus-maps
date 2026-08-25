@@ -28,10 +28,25 @@ export function robotsTxt({ indexable, sitemapUrl }) {
     // removed — they are NEVER indexable, whatever this flag says.
     ...(indexable ? [] : ['Disallow: /']),
     // Always disallowed, independently of the flag above: the signed-in app, the
-    // API and the auth endpoints. None of them is public content, and a crawler
-    // following them wastes its budget on 401s at best.
+    // private half of the API, and the auth endpoints. None of them is public
+    // content, and a crawler following them wastes its budget on 401s at best.
+    //
+    // NARROWED FROM `Disallow: /api/` ON 2026-08-25 (technical-audit_2026-08-25 N1).
+    // The blanket rule covered /api/public/* as well, which is the read-only,
+    // unauthenticated half — and it was the half /maps and /m/<slug>/services
+    // fetched their entire contents from. So the site was simultaneously
+    // publishing those pages in sitemap.xml, delivering them as empty shells,
+    // and forbidding compliant crawlers from fetching what would have filled
+    // them. Both pages are server-rendered now, so nothing DEPENDS on this any
+    // more; the rule is narrowed anyway, because a public read endpoint being
+    // fetchable is the honest description of what it is, and the next page that
+    // uses one should not have to rediscover this.
     'Disallow: /app',
-    'Disallow: /api/',
+    'Disallow: /api/admin',
+    'Disallow: /api/auth',
+    'Disallow: /api/maps',
+    'Disallow: /api/me',
+    'Disallow: /api/review',
     'Disallow: /auth/',
     // The sitemap line stays even while the site is disallowed. That is deliberate
     // and standards-conformant: it costs nothing, it keeps this file a one-flag
