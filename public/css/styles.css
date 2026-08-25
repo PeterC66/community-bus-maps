@@ -337,7 +337,13 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   width: 30px; height: 30px; flex: none; border-radius: 50%;
   background: color-mix(in srgb, var(--org-accent) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--org-accent) 45%, transparent);
-  color: var(--org-accent); font-weight: 700; font-size: .82rem; line-height: 1;
+  /* Tint-on-tint: the badge sits on a 18% wash of its OWN accent, so the accent
+     itself is not a legible ink on it -- the same trap --accent-tint-ink exists to
+     solve for the amber badges. A fixed token cannot serve here because the accent
+     is per-organisation, so darken whatever it is. At 80% every hue in ACCENTS
+     (src/branding/index.js) clears WCAG AA with headroom; teal and amber were at
+     3.8:1 undarkened. scripts/test-contrast.mjs holds the whole palette to 4.5:1. */
+  color: color-mix(in srgb, var(--org-accent) 80%, black); font-weight: 700; font-size: .82rem; line-height: 1;
 }
 .org-badge.lg { width: 46px; height: 46px; font-size: 1.15rem; }
 /* The accent palette is picked for light backgrounds; lift it in dark mode so a

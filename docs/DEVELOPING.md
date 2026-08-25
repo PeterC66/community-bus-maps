@@ -147,6 +147,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | Per-customer branding | `src/branding/` — a server-enforced whitelist. It decorates the **page**, not the printed sheet |
 | The diagram pin editor | `src/expert/` + `public/app/diagram.js` (admin-only). Handles are drawn in the **sheet's** frame, not the solver's — `measureHandleFrame()` recovers the difference by fitting the tagged stop ticks; don't re-derive the generators' transforms by hand |
 | Badge legibility after a recolour | `src/render/badgeContrast.js` (+ the mirrored rule in `public/app/editor.js`), `scripts/fix-badge-contrast.mjs` |
+| Contrast of a tinted chip on a web page (badges, pills, the organisation badge) | `public/css/styles.css` tokens `--accent-tint-ink` / the `.org-badge` ink, gated by `scripts/test-contrast.mjs` |
 | Ops: health, metrics, backup | `src/ops/`, `scripts/backup.mjs`, `scripts/prune-staged.mjs` |
 | **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/server.js` — see [`PILOT.md`](PILOT.md) |
 | Whether a demo org is labelled "Sample" | `customer.is_demo` → `src/branding/index.js` → `src/public/` → `public/js/public-*.js` |
