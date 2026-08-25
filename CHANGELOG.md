@@ -7,6 +7,17 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 ## [Unreleased]
 
+### The rollback promise is tested, and the database says which generation it is — 2026-08-25
+
+`Development Docs/technical-audit_2026-08-25.md` in `buses-data`, finding N13 (P2), and the 2026-08-19 audit's O5 for the `schema_version` half.
+
+- **`scripts/test-schema-compat.mjs` runs both directions in `npm test`.** `docs/DEPLOY.md` promised a rollback and rested it on a property it stated candidly and did not check — "the older code's `SELECT *` tolerates an unknown column … a property worth preserving deliberately, not a coincidence to rely on blindly". The test copies `src/db/` out of the previous commit that touched it and runs **this code against that release's database, and that release against this code's database**, asserting `SELECT *` on every table the app reads. It needs no install: `src/db/index.js` imports only node builtins, so a copy from an old commit runs as it is.
+- **It became load-bearing the same day it was written about.** N3 changed what `session.token` MEANS while keeping its name, precisely so a rollback degrades to "everybody signs in again" instead of throwing on every request. The test now asserts both halves of that: a session written before the migration still signs in after the upgrade, and the old release opens the database, reads every table and simply does not match it.
+- **`schema_version` records which generation last touched the database.** Reading one written by a NEWER release — exactly what a rollback leaves behind — logs a warning naming both numbers and carries on. Never a refusal: an app that will not boot after a rollback turns a bad ten minutes into an outage. Bump `SCHEMA_VERSION` when adding a migration.
+- **Proved red by making the change the schema comment forbids.** A temporary `ALTER TABLE session RENAME COLUMN token TO token_hash` in the migration turned the gate red immediately. Worth being exact about what that proved: it failed in the UPGRADE direction, because the rename breaks the current code's own queries first — which is the same defect arriving one step earlier, not a different one.
+- **The tests workflow now checks out with `fetch-depth: 0`.** Without history the gate reports SKIPPED, honestly — and a gate that skips on every CI run is a gate that has never run.
+- **Three drafts of the probe, and each failure was the same shape.** It first called the exported helpers and died on `insertVersion`, whose signature changed between the releases — an API difference, not a schema one. It then hard-coded column lists and died on a column that had never existed. It now builds its INSERTs from `PRAGMA table_info`, so it describes the schema in front of it rather than the one somebody remembered. The first version of the warning assertion also searched **stdout** for something `console.warn` writes to stderr, and reported a warning that was printing perfectly well as missing.
+
 ### The inline SVG is filtered by an allowlist, not a denylist — 2026-08-25
 
 `Development Docs/technical-audit_2026-08-25.md` in `buses-data`, finding N18 (P2).
