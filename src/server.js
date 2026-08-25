@@ -23,7 +23,7 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import {
-  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionsForUser,
+  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionByHash, deleteSessionsForUser, purgeExpiredPersonalData, retentionDue, peekMagicLink,
 } from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
@@ -55,7 +55,8 @@ import {
 } from './expert/index.js';
 import { readiness, metricsText, opsSnapshot } from './ops/index.js';
 import {
-  requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie, sessionHandle, stepUpFresh, STEP_UP_MINUTES, SESSION_DAYS,
+  requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie, sessionHandle, handleFromHash, sessionTokenHash, stepUpFresh, STEP_UP_MINUTES, SESSION_DAYS,
+  COOKIE_NAME, CSRF_COOKIE, CSRF_HEADER, newCsrfToken, csrfCookie, csrfOk, sameSiteRequest, parseCookies,
 } from './auth/index.js';
 import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
 import { logAudit } from './audit/index.js';
@@ -201,6 +202,56 @@ app.addHook('preHandler', async (req, reply) => {
   if (req.user && req.user.sessionSlid) {
     reply.header('Set-Cookie', sessionCookie(req.user.sessionToken, { secure: isHttps(req) }));
   }
+});
+
+// CSRF (technical-audit_2026-08-25 N7). One hook, not a per-route decoration.
+//
+// THE FAILURE THIS SHAPE AVOIDS is the one this project keeps meeting: a rule
+// applied by enumeration, where the list is right on the day it is written and
+// the eighty-sixth route added next year is not on it. There is no allowlist of
+// guarded routes here — every state-changing method is guarded, and the two
+// exemptions are stated as PROPERTIES of the request rather than as paths.
+//
+// EXEMPTION 1: no session cookie. Cross-site request forgery is the abuse of a
+// credential the browser attaches automatically. A request carrying no session
+// cookie has no such credential to abuse, so the public apply and contact forms
+// are unaffected and a visitor who has never signed in cannot be locked out of
+// them by a cookie they do not have.
+//
+// EXEMPTION 2: an Authorization header. Bearer tokens are never sent
+// automatically by a browser, so `push-status.mjs` and the metrics scrape are
+// not forgeable this way and must not be made to carry a token they have no way
+// to obtain.
+//
+// PLUS ONE ROUTE THAT IS GUARDED ANYWAY: POST /auth/verify, which by definition
+// runs for somebody who has no session yet. That is the confirmation step of the
+// sign-in flow below, and it is precisely the request that must not be
+// forgeable — see the GET handler for why it exists at all.
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const ALWAYS_CSRF = new Set(['/auth/verify']);
+app.addHook('preHandler', async (req, reply) => {
+  if (!MUTATING.has(req.method)) return;
+  const always = ALWAYS_CSRF.has(req.url.split('?')[0]);
+  if (!always) {
+    if (req.headers.authorization) return;
+    if (!parseCookies(req.headers.cookie)[COOKIE_NAME]) return;
+  }
+  if (csrfOk(req)) return;
+  req.log.warn({ url: req.url, method: req.method }, 'csrf refused');
+  return reply.code(403).send({
+    ok: false,
+    code: 'csrf',
+    error: 'This request could not be verified as coming from BusMaps.uk. Reload the page and try again.',
+  });
+});
+
+// Hand every visitor a CSRF cookie if they do not already have one, so the page
+// they are about to use can echo it. Done in onRequest rather than per-page,
+// because the page that needs it may be any of them.
+app.addHook('onRequest', async (req, reply) => {
+  if (parseCookies(req.headers.cookie)[CSRF_COOKIE]) return;
+  if (req.url.startsWith('/renders/') || req.url.startsWith('/metrics')) return;
+  reply.header('Set-Cookie', csrfCookie(newCsrfToken(), { secure: isHttps(req) }));
 });
 
 // WHICH BUILD SERVED THIS? (technical-audit_2026-08-25 N2)
@@ -1125,13 +1176,74 @@ app.post('/api/auth/request', async (req, reply) => {
   return { ok: true, message: 'If that address is registered, a sign-in link has been sent.' };
 });
 
-app.get('/auth/verify', async (req, reply) => {
-  const token = str((req.query || {}).token, 400);
+// LOGIN-CSRF, and why this route has two halves (technical-audit_2026-08-25 N7).
+//
+// The attack: an attacker requests a magic link for their OWN account, then gets
+// the victim's browser to follow it — an <img> tag, a redirect, anything that
+// makes a top-level GET. The victim is now silently signed in as the attacker,
+// and everything they do next lands in the attacker's account where the attacker
+// can read it. `SameSite=Lax` does not help, because this is exactly the
+// top-level GET that Lax exists to allow.
+//
+// The obvious fix — refuse a cross-site request — breaks the product. A link
+// clicked in Gmail, Outlook.com or any other webmail arrives with
+// `Sec-Fetch-Site: cross-site`, indistinguishable from the attack. Refusing it
+// would mean sign-in worked from a desktop mail client and nowhere else, which
+// is most users locked out to close a hole almost nobody was going to exploit.
+//
+// So: a request the USER started (`none`, `same-origin`, `same-site`, or a
+// browser too old to say) signs in as before, one click, no change. A cross-site
+// one gets a confirmation page on OUR origin naming the account, whose button
+// POSTs back with the double-submit token an attacker's page cannot read. One
+// extra click for webmail, and the attack needs the victim to read a page that
+// says whose account it is and press a button anyway.
+//
+// The GET never consumes the link. peekMagicLink exists for that: burning it
+// here would let anyone destroy a real user's sign-in link by making their
+// browser fetch it once.
+// Attribute-safe, because the token goes into a value="" — `escText` in
+// inlineSvg.js is text-node-safe only, and the difference is a quote character.
+const escapeHtml = (v) => String(v == null ? '' : v)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+const verifyPage = (token, email) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Confirm sign-in — BusMaps.uk</title><link rel="stylesheet" href="/css/styles.css"></head>
+<body><main><section><div class="container" style="max-width:34rem">
+<h2 class="mt-0">Confirm sign-in</h2>
+<p>You are about to sign in to BusMaps.uk as <strong>${escapeHtml(email)}</strong>.</p>
+<p class="form-note">This step appears because the link was opened from another site — normally your email. If you did not ask to sign in, close this page: nothing has happened yet, and the link stays unused.</p>
+<form method="POST" action="/auth/verify" id="f">
+  <input type="hidden" name="token" value="${escapeHtml(token)}">
+  <button class="btn btn-primary" type="submit">Sign in as ${escapeHtml(email)}</button>
+</form>
+<script src="/js/verify-confirm.js"></script>
+</div></section></main></body></html>`;
+
+const openSession = (req, reply, token) => {
   const res = token ? verifyMagicLink(token) : null;
   if (!res) return reply.redirect('/app/login.html?error=expired');
   reply.header('Set-Cookie', sessionCookie(res.sessionToken, { secure: isHttps(req) }));
   req.log.info({ userId: res.user.id }, 'session opened');
   return reply.redirect('/app');
+};
+
+app.get('/auth/verify', async (req, reply) => {
+  const token = str((req.query || {}).token, 400);
+  if (sameSiteRequest(req)) return openSession(req, reply, token);
+
+  const link = token ? peekMagicLink(token) : null;
+  if (!link) return reply.redirect('/app/login.html?error=expired');
+  req.log.info({ site: req.headers['sec-fetch-site'] }, 'sign-in confirmation shown');
+  return reply.type('text/html; charset=utf-8').send(verifyPage(token, link.email));
+});
+
+// The other half. Guarded by ALWAYS_CSRF in the hook above, so it cannot be
+// posted from anywhere but a page that read our cookie.
+app.post('/auth/verify', async (req, reply) => {
+  const token = str((req.body || {}).token, 400);
+  return openSession(req, reply, token);
 });
 
 app.post('/api/auth/logout', async (req, reply) => {
@@ -2691,14 +2803,16 @@ app.get('/api/admin/proposed-updates', async (req, reply) => {
 // ---------------------------------------------------------------------------
 app.get('/api/admin/sessions', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
-  const mine = req.user.sessionToken;
+  // The stored hash of MY session. The list holds hashes now (N3), so "current"
+  // is a hash-to-hash comparison and no raw token is involved on either side.
+  const mine = sessionTokenHash(req.user.sessionToken);
   return {
     ok: true,
     stepUpMinutes: STEP_UP_MINUTES,
     sessionDays: SESSION_DAYS,
     sessions: listSessions().map((r) => ({
-      handle: sessionHandle(r.token),
-      current: r.token === mine,
+      handle: handleFromHash(r.token_hash),
+      current: r.token_hash === mine,
       user: { id: r.user_id, email: r.email, name: r.name, role: r.role, status: r.status },
       customer: r.customer_id ? { id: r.customer_id, name: r.customer_name } : null,
       signedInAt: r.created_at,
@@ -2714,10 +2828,10 @@ app.get('/api/admin/sessions', async (req, reply) => {
 app.post('/api/admin/sessions/:handle/revoke', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   const handle = str(req.params.handle, 64);
-  const row = listSessions().find((r) => sessionHandle(r.token) === handle);
+  const row = listSessions().find((r) => handleFromHash(r.token_hash) === handle);
   if (!row) return reply.code(404).send({ ok: false, error: 'No such live session (it may already have expired).' });
-  const self = row.token === req.user.sessionToken;
-  deleteSession(row.token);
+  const self = row.token_hash === sessionTokenHash(req.user.sessionToken);
+  deleteSessionByHash(row.token_hash);
   req.log.info({ handle, userId: row.user_id, self }, 'session revoked by admin');
   logAudit(req, 'session.revoke', { detail: { handle, userId: row.user_id, email: row.email, self } });
   // Revoking your own session really does sign you out — clear the cookie so
@@ -2797,6 +2911,21 @@ if (process.env.CBM_NO_LISTEN === '1') {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
     setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
+    // Retention for personal data (technical-audit_2026-08-25 N8). Daily, beside
+    // the hourly session prune rather than in a separate cron, for the reason
+    // the backup dead-man switch taught: a job that lives somewhere else is a
+    // job that can stop without anything noticing. It LOGS what it deleted even
+    // when that is nothing, so the log can answer "is retention running?" —
+    // which is the question an erasure request actually asks first.
+    const purgePersonalData = () => {
+      try {
+        const n = purgeExpiredPersonalData();
+        if (n.applications || n.messages) app.log.info(n, 'retention purge');
+        else app.log.debug(n, 'retention purge (nothing due)');
+      } catch (e) { app.log.error({ err: e }, 'retention purge failed'); }
+    };
+    purgePersonalData();
+    setInterval(purgePersonalData, 86_400_000).unref();
     setInterval(() => { try { sweepHits(); } catch {} }, 300_000).unref();
   } catch (err) {
     app.log.error(err);

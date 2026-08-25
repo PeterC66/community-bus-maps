@@ -24,6 +24,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-test-audit-p1-'));
@@ -197,10 +198,20 @@ const mapId = db.insertMap({ customer_id: custId, slug: 'test-town', name: 'Test
 const versionId = db.insertVersion({ map_id: mapId, major: 1, minor: 0, storage_key: 'v1.0', overrides: {} });
 const requestId = db.insertPublishRequest({ map_id: mapId, version_id: versionId, requested_by: submitterId });
 
+// The CSRF pair a real browser sends (technical-audit_2026-08-25 N7). A
+// cookie-authenticated POST without it is refused with 403 `csrf` before it ever
+// reaches the handler, which would turn every assertion below into the same
+// wrong answer. Sent here so these tests keep measuring what they are named
+// after; the CSRF rule itself has its own tests in test-audit-2026-08-25.mjs.
+const CSRF = 'test-csrf-token-value';
 const post = async (url, token, body) => {
   const r = await app.inject({
     method: 'POST', url, payload: body || {},
-    headers: { cookie: `cbm_session=${token}`, 'content-type': 'application/json' },
+    headers: {
+      cookie: `cbm_session=${token}; cbm_csrf=${CSRF}`,
+      'x-csrf-token': CSRF,
+      'content-type': 'application/json',
+    },
   });
   let json = null;
   try { json = r.json(); } catch { /* not JSON */ }
@@ -236,7 +247,12 @@ const version2 = db.insertVersion({ map_id: map2, major: 1, minor: 0, storage_ke
 const request2 = db.insertPublishRequest({ map_id: map2, version_id: version2, requested_by: submitterId });
 const staleTok = `tok-stale-${Math.random().toString(36).slice(2)}`;
 db.insertSession(staleTok, otherId, sqlPlus(7 * 86_400_000));
-db.db.prepare('UPDATE session SET created_at = ? WHERE token = ?').run(sqlPlus(-3 * 3600_000), staleTok);
+// `session.token` holds sha256(token) since 2026-08-25 (N3), so this ages the
+// row by the value actually stored. Written raw rather than through a helper
+// because the property under test is that AGE decides, and the age is not
+// settable through any API.
+db.db.prepare('UPDATE session SET created_at = ? WHERE token = ?')
+  .run(sqlPlus(-3 * 3600_000), createHash('sha256').update(staleTok).digest('hex'));
 const stale = await post(`/api/review/${request2}/approve`, staleTok, ticked);
 eq('a three-hour-old session cannot publish', stale.status, 403);
 eq('…and says why', stale.json.code, 'step-up-required');

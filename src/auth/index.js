@@ -94,9 +94,26 @@ export function verifyMagicLink(token) {
  * So the sessions view names each session by the first 12 hex of its SHA-256
  * instead, which is enough to point at one and revoke it, and worth nothing to
  * anyone who copies it down.
+ *
+ * That reasoning was right and stopped one hop short of the store, which is
+ * technical-audit_2026-08-25 N3: the table itself held every live token in the
+ * clear, and unencrypted copies of it left the box nightly. Since 2026-08-25 it
+ * holds the hash — so there is no raw token on the server left to name, and the
+ * handle is byte-for-byte what it always was, because it was already a prefix of
+ * exactly this hash. Nothing the admin sees changed.
  */
 export function sessionHandle(token) {
-  return crypto.createHash('sha256').update(String(token)).digest('hex').slice(0, 12);
+  return handleFromHash(sessionTokenHash(token));
+}
+
+/** The full stored hash of a raw token — what `session.token` holds since N3. */
+export function sessionTokenHash(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+/** The same handle, for callers holding the stored hash rather than a token. */
+export function handleFromHash(hash) {
+  return String(hash).slice(0, 12);
 }
 
 /** Resolve the logged-in user for a request from its session cookie, or null. */
@@ -194,4 +211,69 @@ export function sessionCookie(token, { secure = false } = {}) {
 }
 export function clearCookie({ secure = false } = {}) {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0` + (secure ? '; Secure' : '');
+}
+
+// ---------------------------------------------------------------------------
+// CSRF — double submit (technical-audit_2026-08-25 N7)
+//
+// `SameSite=Lax` on the session cookie was the whole defence. It is a good one
+// and it is not the same as having a token: Lax is a browser default that a
+// browser may relax (it has been softened before, for two-minute-old top-level
+// POSTs), it does nothing for a browser that predates it, and it leaves
+// login-CSRF via a top-level GET wide open — which is the hole /auth/verify sat
+// in.
+//
+// DOUBLE SUBMIT, because this service has no server-side per-form state and
+// adding some for one header would be the larger change. The cookie is readable
+// by script ON PURPOSE — that is the mechanism, not an oversight: our own page
+// can read it and echo it in a header, and a page on another origin cannot,
+// because the same-origin policy stops it reading our cookies. HttpOnly here
+// would make the whole scheme impossible, so it is deliberately absent and this
+// value is deliberately NOT a credential: it authenticates nothing, it only
+// proves the request came from a page that could read our cookie jar.
+export const CSRF_COOKIE = 'cbm_csrf';
+export const CSRF_HEADER = 'x-csrf-token';
+
+export function newCsrfToken() {
+  return crypto.randomBytes(24).toString('base64url');
+}
+
+export function csrfCookie(token, { secure = false } = {}) {
+  // No HttpOnly (see above). SameSite=Lax and a session-length Max-Age so it
+  // survives the sign-in round trip and expires with the session it guards.
+  return `${CSRF_COOKIE}=${token}; Path=/; SameSite=Lax; Max-Age=${SESSION_DAYS * 86_400}` + (secure ? '; Secure' : '');
+}
+
+/**
+ * Does this request carry a matching cookie/header pair?
+ *
+ * Constant-time, and length-checked first because timingSafeEqual THROWS on
+ * unequal lengths — a comparison that crashes on the attacker's input is not a
+ * comparison. Same reasoning as the ops-token compare closed in the P0 block.
+ */
+export function csrfOk(req) {
+  const cookie = parseCookies(req.headers.cookie)[CSRF_COOKIE];
+  const header = req.headers[CSRF_HEADER];
+  if (!cookie || !header || typeof header !== 'string') return false;
+  const a = Buffer.from(cookie), b = Buffer.from(header);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/**
+ * Was this request initiated from our own site?
+ *
+ * `Sec-Fetch-Site` is set by the browser and cannot be forged by a page. The
+ * value that matters is `none`: a top-level navigation the USER started — typed,
+ * bookmarked, or followed from a desktop mail client. `cross-site` is what a
+ * link clicked in webmail produces, which is why nothing here refuses outright
+ * on that value; see the /auth/verify handler for what happens instead.
+ *
+ * Absent means an older browser. Treated as same-site, because refusing every
+ * browser that does not send the header would fail closed on the wrong axis —
+ * the header is a bonus signal, and the double-submit token above is the
+ * defence that does not depend on it.
+ */
+export function sameSiteRequest(req) {
+  const site = req.headers['sec-fetch-site'];
+  return !site || site === 'same-origin' || site === 'same-site' || site === 'none';
 }

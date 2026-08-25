@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.16 | 2026-08-20 | sha=793c2b7b -->
-**v1.16** · updated 20 August 2026
+<!-- docstamp v1.17 | 2026-08-25 | sha=4c0a6935 -->
+**v1.17** · updated 25 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -56,7 +56,19 @@ At launch **you wear three hats** — Admin, Approver, and central map-maker. Th
 | Per-customer branding of public pages | Customer (or you) | `/app/branding` |
 | Expert diagram pin editing | **Admin** | `/app/maps/:id/diagram` |
 
-**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it. **This is now enforced, not just asked for.** `POST /api/review/:id/approve` refuses when the approver is the submitter, unless `ALLOW_SELF_APPROVAL=1` is set on the host — which it currently is, because with one operator the alternative is that nothing can be published at all. Every publication made under that override is stamped `selfApproved: true` in the decision evidence and the audit row, so the trail says which publications had a second pair of eyes and which did not. Unset it the day a second person holds `approver`.
+**Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it. **This is now enforced, not just asked for.** `POST /api/review/:id/approve` refuses when the approver is the submitter, unless `ALLOW_SELF_APPROVAL=1` is set on the host — which it currently is, because with one operator the alternative is that nothing can be published at all. Every publication made under that override is stamped `selfApproved: true` in the decision evidence and the audit row, so the trail says which publications had a second pair of eyes and which did not. Unset it the day a second person holds `approver` — item 1 of §3b below, and the only entry there that no amount of work closes.
+
+### 3b. Before the first real customer
+
+A short list kept deliberately apart from `open-actions.md`. Each of these is something a paying customer's first week would expose, and the backlog is where such items go to be postponed (`technical-audit_2026-08-25` N15).
+
+| # | What | Why it cannot wait on the backlog | State |
+|---|---|---|---|
+| 1 | **A second person holds `approver`**, and `ALLOW_SELF_APPROVAL` is unset on the host | The control above has never operated: every publication to date is stamped `selfApproved: true`. A customer publishing their own map is precisely when a second pair of eyes starts to matter, and it is the first thing an acquirer's reviewer tests. Recruiting a person is not a code change and cannot be done in the week it is noticed. | ☐ **open — needs a person, not a commit** |
+| 2 | **The privacy statement is out of draft** and names a data controller | It read "Working draft — to be confirmed before the service opens publicly" while the apply form was already asking organisations for names, emails and phone numbers. | ☑ 2026-08-25 (audit N8) |
+| 3 | **Retention and erasure actually run** for `application` and `message` | A UK erasure request needs a code path and a runbook that reaches the backups too, not a sentence promising one. | ☑ 2026-08-25 (audit N8) |
+| 4 | **Backups are encrypted before they leave the VPS** | Until 2026-08-25 an unencrypted copy of every name, email and phone number in the database was pulled to a laptop and kept indefinitely. | ☑ 2026-08-25 (audit N3) |
+| 5 | **The S6 correctness waivers are cleared**, by running S6 rather than by moving the dates | Seven of the eight live towns are published under one (`scripts/s6-waivers.json`, `until` 15 Sept – 6 Oct), so every live map has passed a reproducibility check and not a correctness check since its data last moved. | ☐ open — six S6 runs (audit N16) |
 
 **Sessions and step-up.** Sign-in sessions last **7 days** and slide forward on use, so an unused account loses its credential within a week (they were fixed 30-day sessions until 2026-08-20). Three actions need a sign-in from the **last 30 minutes** whatever the session's own age: publishing a version, changing an organisation's settings or quota, and changing a user's role or organisation. If one is refused with `step-up-required`, sign out and follow a fresh sign-in link. **Admin → Sessions** lists everyone signed in and revokes any of them on the spot; that is the tool for a lost laptop or a token that has been somewhere it should not, and it replaces keeping a live admin cookie in a file.
 

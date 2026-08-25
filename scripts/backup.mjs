@@ -19,8 +19,13 @@
 // Backups land in `<DATA_DIR>/../backups/<timestamp>/` by default (outside
 // DATA_DIR, so a backup never ends up inside the next backup) with a manifest,
 // and older ones beyond --keep are removed. Restore instructions: docs/DEPLOY.md.
+//
+// Set BACKUP_RECIPIENT to an age public key and the database copy is written
+// encrypted, as portal.sqlite.age — see the block above the encryption function
+// below for what that covers and why the key is asymmetric.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { DATA_DIR } from '../src/db/index.js';
@@ -51,14 +56,74 @@ if (!existsSync(dbPath)) {
 mkdirSync(dest, { recursive: true });
 say(`Backing up → ${dest}`);
 
+// ---------------------------------------------------------------------------
+// Encryption at rest (technical-audit_2026-08-25 N3).
+//
+// WHAT IS ENCRYPTED, AND WHAT DELIBERATELY IS NOT. Only `portal.sqlite`. That
+// file is the whole of the finding: it holds `application` and `message` — names,
+// email addresses, phone numbers and free text submitted through public forms —
+// and, until the other half of the same finding, a live session cookie for every
+// signed-in user. The `maps/` tree beside it is published sheets and their
+// generators: material anyone can fetch from busmaps.uk. Encrypting that too
+// would add nothing and would make the restore drill in docs/DEPLOY.md §5
+// harder, which is a real cost paid at the worst possible moment.
+//
+// THE KEY MODEL IS ASYMMETRIC ON PURPOSE. BACKUP_RECIPIENT holds an age PUBLIC
+// key, so the VPS writes a backup that nobody on the VPS can read; the private
+// key lives on the laptop and in a password manager and never touches the
+// server. A symmetric passphrase would have to sit on the box it is protecting
+// against, which is most of the way back to no encryption at all.
+//
+// UNSET MEANS PLAINTEXT, LOUDLY. With no BACKUP_RECIPIENT this behaves exactly
+// as before — the backup still runs and still succeeds, because a box that stops
+// taking backups over a missing key is worse off than one taking readable ones.
+// It warns on every run, and `manifest.dbEncryptedTo: null` records the fact for
+// whoever reads the folder later.
+const RECIPIENT = (process.env.BACKUP_RECIPIENT || '').trim();
+const AGE_BIN = process.env.AGE_BIN || 'age';
+
+function encryptDatabase(plainPath) {
+  if (!RECIPIENT) {
+    console.warn("! BACKUP_RECIPIENT is not set — this backup's database is UNENCRYPTED (technical-audit_2026-08-25 N3).");
+    return null;
+  }
+  if (!/^age1[0-9a-z]{20,}$/.test(RECIPIENT)) {
+    console.error(`✗ BACKUP_RECIPIENT does not look like an age public key ("${RECIPIENT.slice(0, 12)}…").`);
+    process.exit(1);
+  }
+  const encPath = plainPath + '.age';
+  const r = spawnSync(AGE_BIN, ['-r', RECIPIENT, '-o', encPath, plainPath], { stdio: ['ignore', 'ignore', 'pipe'] });
+  if (r.error || r.status !== 0) {
+    // Exit rather than fall back to plaintext. A key was configured, so somebody
+    // is relying on this; quietly writing the readable copy they asked not to
+    // have is the one outcome worse than no backup at all.
+    console.error(`✗ age failed (${r.error ? r.error.message : `exit ${r.status}`}): ${String(r.stderr || '').trim()}`);
+    console.error('  Fix age or unset BACKUP_RECIPIENT, then run again.');
+    rmSync(plainPath, { force: true });
+    rmSync(encPath, { force: true });
+    process.exit(1);
+  }
+  // Read the artefact back before deleting the only readable copy. An `age` that
+  // exits 0 having written nothing would otherwise destroy the very backup this
+  // function exists to protect — check the file, not the exit code.
+  if (!existsSync(encPath) || statSync(encPath).size < 100) {
+    console.error('✗ age reported success but produced no usable file — keeping the plaintext copy and stopping.');
+    process.exit(1);
+  }
+  rmSync(plainPath, { force: true });
+  return encPath;
+}
+
 // 1) database — VACUUM INTO gives a consistent copy of a live DB.
-const dbOut = path.join(dest, 'portal.sqlite');
+let dbOut = path.join(dest, 'portal.sqlite');
 {
   const src = new DatabaseSync(dbPath, { readOnly: true });
   try {
     src.exec(`VACUUM INTO '${dbOut.replace(/'/g, "''")}'`);
   } finally { src.close(); }
   say(`· database  ${mb(statSync(dbOut).size)}`);
+  const enc = encryptDatabase(dbOut);
+  if (enc) { dbOut = enc; say(`· encrypted  ${path.basename(enc)}  (${mb(statSync(enc).size)}, recipient ${RECIPIENT})`); }
 }
 
 // 2) object store — per map: data/ (+ renders/ unless --no-renders)
@@ -88,6 +153,11 @@ if (existsSync(MAPS_DIR)) {
 }
 
 manifest.dbBytes = statSync(dbOut).size;
+manifest.dbFile = path.basename(dbOut);
+// The RECIPIENT is a public key and belongs in the manifest: a person holding
+// this folder in two years needs to know which private key opens it, and the
+// alternative is guessing. Absent means the copy is plaintext.
+manifest.dbEncryptedTo = RECIPIENT || null;
 manifest.totalBytes = dirSize(dest);
 writeFileSync(path.join(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 
@@ -104,5 +174,7 @@ for (const name of olds) {
 }
 
 say(`\n✓ backup complete — ${copied} map(s), ${mb(manifest.totalBytes)} total, keeping ${keep}.`);
-say('  Restore: stop the server, put portal.sqlite + maps/ back under DATA_DIR (see docs/DEPLOY.md).');
+say(RECIPIENT
+  ? '  Restore: age -d -i <your-key.txt> -o portal.sqlite portal.sqlite.age, then put it + maps/ back under DATA_DIR (docs/DEPLOY.md §5).'
+  : '  Restore: stop the server, put portal.sqlite + maps/ back under DATA_DIR (see docs/DEPLOY.md).');
 process.exit(0);

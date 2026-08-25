@@ -94,7 +94,7 @@ FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f935954
 # Mono. A byte count cannot tell you WHICH face was chosen; only naming the
 # resolved family can.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates tini fonts-liberation fontconfig \
+ && apt-get install -y --no-install-recommends ca-certificates tini fonts-liberation fontconfig age \
  && fc-cache -f \
  && rm -rf /var/lib/apt/lists/*
 

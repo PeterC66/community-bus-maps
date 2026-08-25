@@ -116,9 +116,15 @@ function mintSession() {
     if (!user) { console.error('NO_SUCH_ADMIN'); process.exit(1); }
     if (user.role !== 'admin') { console.error('NOT_ADMIN:' + user.role); process.exit(1); }
     const token = crypto.randomBytes(32).toString('base64url');
+    // The table holds the token's SHA-256, not the token (technical-audit_2026-08-25
+    // N3). Inserting the raw value here would write a row the server can never
+    // match, so the mint would appear to succeed and the first API call would 401
+    // with nothing to explain it. The COOKIE still carries the raw token; only
+    // the stored row is hashed.
+    const stored = crypto.createHash('sha256').update(token).digest('hex');
     const expires = new Date(Date.now() + 20 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
-    db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, user.id, expires);
-    const back = db.prepare('SELECT token FROM session WHERE token = ?').get(token);
+    db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(stored, user.id, expires);
+    const back = db.prepare('SELECT token FROM session WHERE token = ?').get(stored);
     if (!back) { console.error('INSERT_NOT_READABLE_BACK'); process.exit(1); }
     console.log('TOKEN:' + token);
   `.replace(/\n\s*/g, ' ');
@@ -133,8 +139,10 @@ function revokeSession(token) {
   const script = `
     const { DatabaseSync } = require('node:sqlite');
     const db = new DatabaseSync('/data/portal.sqlite');
-    db.prepare('DELETE FROM session WHERE token = ?').run(${JSON.stringify(token)});
-    const back = db.prepare('SELECT token FROM session WHERE token = ?').get(${JSON.stringify(token)});
+    const crypto = require('crypto');
+    const stored = crypto.createHash('sha256').update(${JSON.stringify(token)}).digest('hex');
+    db.prepare('DELETE FROM session WHERE token = ?').run(stored);
+    const back = db.prepare('SELECT token FROM session WHERE token = ?').get(stored);
     console.log(back ? 'STILL_PRESENT' : 'GONE');
   `.replace(/\n\s*/g, ' ');
   const r = sshRun(`cd ${APP_DIR} && docker compose exec -T portal node -e "${script.replace(/"/g, '\\"')}"`);
