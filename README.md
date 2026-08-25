@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.15 | 2026-08-23 | sha=022df1db -->
-**v1.15** · updated 23 August 2026
+<!-- docstamp v1.16 | 2026-08-25 | sha=84eba695 -->
+**v1.16** · updated 25 August 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
