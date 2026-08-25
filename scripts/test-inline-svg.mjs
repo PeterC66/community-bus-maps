@@ -46,6 +46,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { sanitiseSvg, describeDrops, ALLOWED_ELEMENTS } from '../src/public/svgSanitise.js';
 import { resolveFixtures } from './lib/fixtures.mjs';
+import { stampPilot } from '../src/render/pilotStamp.js';
 
 let failures = 0;
 function check(name, cond, extra) {
@@ -189,6 +190,22 @@ console.log('\ninert on real artwork:');
   check('nothing was dropped from it', r.clean === true, describeDrops(r.dropped));
   check('every element it uses is in the allowlist',
     ['svg', 'rect', 'clipPath', 'g', 'line', 'circle', 'path', 'text'].every((e) => ALLOWED_ELEMENTS.has(e)));
+}
+
+console.log('\ninert on what the PORTAL adds after the generator has run:');
+{
+  // The population this suite first missed. The allowlist was a census of
+  // GENERATOR output; the portal stamps the pilot band on afterwards, and that
+  // band's headline is a <tspan> no generator has ever written. The first deploy
+  // therefore deleted the words "PILOT - SAMPLE MAP" from every inlined sheet
+  // and left the red band behind them, which no test here could see and the
+  // corpus could not either. Run the real stamp, not a copy of its markup.
+  const stamped = stampPilot(REAL);
+  const r = sanitiseSvg(stamped);
+  check('a pilot-stamped sheet survives byte for byte', r.svg === stamped, describeDrops(r.dropped));
+  check('nothing was dropped from it', r.clean === true, describeDrops(r.dropped));
+  check('the band headline is still there', r.svg.includes('PILOT'), r.svg.slice(-400));
+  check('…and it is still bold, i.e. the tspan itself survived', /<tspan font-weight="bold">/.test(r.svg));
 }
 
 console.log('\ninert across the fixture corpus:');
