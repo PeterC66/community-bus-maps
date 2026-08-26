@@ -1,17 +1,18 @@
 # engine/ — the deterministic renderer (vendored reference)
 
-<!-- docstamp v1.1 | 2026-08-09 | sha=7382c6fb -->
-**v1.1** · updated 9 August 2026
+<!-- docstamp v1.3 | 2026-08-26 | sha=85fcfbe7 -->
+**v1.3** · updated 26 August 2026
 
 These are the generic, publishable pieces of the map engine:
 
 - **`render.js`** — rasterises an SVG (declaring `width="3508" height="2480"`) to a print-ready A4 landscape JPG at 300 dpi, using `sharp`. `node render.js in.svg out.jpg`.
 - **`icons.js`** — shared point-of-interest icon paths (`icon(cat, x, y, s)`), required by the per-map generators.
+- **`lane_normals.js`** — orients each road corridor so a bundle of parallel route lanes cannot mirror around its own centreline. Required at LOAD by `place/gen_internal.js`, before it reads anything, so this file and that one must arrive together or neither: a generator vendored without it throws `MODULE_NOT_FOUND` on the first internal render of any map. Added 2026-08-26 with `design.laneOrientation`; the key defaults off and the off path is byte-identical to what shipped before it.
 
 **An AREA map's generators travel *with each map's data* in the object store where the payload carries them** — they are customised per town, and a payload that brings its own still wins. Since 2026-08-21 the portal also vendors the two external templates in [`area/`](area/README.md) as the fallback for a payload that carries none, which is every payload the skill has staged since 2026-08-04. A generator is env/flag driven:
 
 - `LEAFLET_DIR` — the folder holding the map's data (all inputs read from here, SVG written here).
-- `SKILL_ASSETS` — folder to resolve `icons.js` from (falls back to a sibling `icons.js`).
+- `SKILL_ASSETS` — folder to resolve the shared modules from, falling back to a sibling of the same name. `renderMap.js` always passes `engine/` itself, and the generator copy planted in a map's `data/` has no siblings, so in the portal this arm fires every time. **Five modules resolve through it, not one:** `icons.js`, `footer.js`, `labeller.js`, `font_metrics.js` and `lane_normals.js` — and `qr.js` behind `footer.js`. `scripts/check-vendored.mjs` now reads those requires out of the code and reports `UNRESOLVED` when one of them is not here, because a module the portal has never been given is in neither the manifest nor the tree and so could not be a row in either.
 - `OVERRIDES_FILE` — a customer's saved edits; **absent/empty ⇒ byte-identical baseline output.**
 
 `src/render/renderMap.js` wraps this: it runs the generator, then rasterises with the same `sharp` parameters as `render.js`, so the portal's output is identical to the desktop pipeline's. The `npm run verify` script proves that byte-for-byte against an already-shipped leaflet.
@@ -24,13 +25,15 @@ Everything under `engine/` is either a **byte-for-byte copy** of a file whose so
 
 `npm test` runs `scripts/test-vendored.mjs`, which fails when a vendored copy has been edited without being re-vendored, when a vendored file has gone missing, and — the part that matters most — when a `.js` file appears under `engine/` that the manifest does not name. That last rule is why the manifest exists at all: the older drift check lived in the skills repository, listed eleven files by hand, and went green for four days while `area/gen_external_radial.js` was stale, because nobody had added its row (`technical-audit_2026-08-25` N14).
 
-**After a deliberate re-vendor**, copy the file and then run this from the repository root:
+**To re-vendor**, run this from the repository root (`C:\Claude\community-bus-maps`) on the laptop, where the skill tree is present:
 
 ```bash
-node scripts/check-vendored.mjs --update
+npm run vendor:engine
 ```
 
-That restamps the hash and the date in `vendored.json`; commit it *with* the file it describes, so the change arrives in a diff a reviewer can see rather than silently.
+It copies every `vendored` row from its skill source, restamps the hash and the date in `vendored.json`, and then re-runs the audit. Add `--dry-run` to see what would move first. Commit the manifest *with* the files it describes, so the change arrives in a diff a reviewer can see rather than silently, and then prove it with `npm run verify:place` — the one gate that actually loads `engine/place/*` (`npm test` stubs its generators, and `verify:area` runs the fixture's own).
+
+If you copied a file by hand instead, `node scripts/check-vendored.mjs --update` restamps without copying. **It only restamps rows that already exist** — a file being vendored for the FIRST time needs its entry written into `vendored.json` by hand, in the same commit.
 
 **What this check cannot tell you** is whether the skill has moved on without us — that needs both trees on one machine, and CI has only this one. `status.js` in the skills repository asks that question daily, reading the same `vendored.json` so the two cannot disagree about which files exist. Run `node scripts/check-vendored.mjs` (no flags) on the laptop to ask both questions at once.
 
