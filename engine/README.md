@@ -1,7 +1,7 @@
 # engine/ — the deterministic renderer (vendored reference)
 
-<!-- docstamp v1.1 | 2026-08-09 | sha=7382c6fb -->
-**v1.1** · updated 9 August 2026
+<!-- docstamp v1.2 | 2026-08-25 | sha=8e7188ed -->
+**v1.2** · updated 25 August 2026
 
 These are the generic, publishable pieces of the map engine:
 

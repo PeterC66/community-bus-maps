@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.18 | 2026-08-25 | sha=296cb6a1 -->
-**v1.18** · updated 25 August 2026
+<!-- docstamp v1.19 | 2026-08-26 | sha=0fd080dd -->
+**v1.19** · updated 26 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 

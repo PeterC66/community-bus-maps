@@ -1,7 +1,7 @@
 # `engine/area/` — the vendored AREA generators
 
-<!-- docstamp v1.0 | 2026-08-21 | sha=d1944d98 -->
-**v1.0** · updated 21 August 2026
+<!-- docstamp v1.1 | 2026-08-25 | sha=dc0656f4 -->
+**v1.1** · updated 25 August 2026
 
 Area (town) maps used to carry their own generators inside the delivered payload: `import-map.mjs` required `gen_internal.js` and `gen_external.js` in `--src`, and refused the import without them. The map skill stopped staging a generator into S3/S4 on 2026-08-04, so a modern `S5-render` folder has no `.js` in it at all and every real area delivery failed its pre-flight until somebody copied the two files in by hand.
 
