@@ -24,23 +24,13 @@ A self-serve portal that lets **approved organisations** (councils first, then s
 
 ## 2. Vocabulary
 
-| Term | Meaning |
-|---|---|
-| **Customer** | An approved organisation. Has a `type` (council/shop/school/…), a `status`, and a `quota`. |
-| **Editor** | A customer's user. Signs in, edits the safe subset, saves versions, submits for publication. **Cannot publish.** |
-| **Approver** | A *platform* reviewer. Reviews submissions at `/app/review`. Can **read/inspect any** map but **never edit** one. |
-| **Admin** | The *platform* operator (you). Approves applications + map requests, sets quotas, runs the console, and can do everything. |
-| **Area map** | A whole town / parish / part of a town (e.g. *St Ives*, *March*). |
-| **Place map** | Centred on a single point — a shop, school, station, centre (e.g. *High Wycombe Aldi*). |
-| **Output** | One of four renderings a map can produce: **internal geographic**, **internal schematic** (octolinear), **internal diagram** (tube-map), **external** (where the buses go). A customer chooses which are on — **except the diagram**, which is *request-only*: hand-pinned, quoted separately, and granted by us. See §4b. |
-| **Overrides / safe subset** | The *only* edits a customer can make: **recolour a route** (from the palette) and **toggle a POI** on/off. Rebuilt from scratch and validated on every save — server-enforced in `safeSubset.js`, not just hidden in the UI. Everything else (geometry, pins, straightening, curation) is expert-only. |
-| **Baseline (v1.0)** | The imported version with **empty overrides** ⇒ **byte-identical** to the shipped desktop leaflet. The guarantee the whole system rests on. |
-| **Version review state** | `draft` → `pending` (submitted) → `published`; a superseded public version becomes `superseded`; a sent-back one `rejected`. |
-| **Two pointers** | `current_version_id` = the **working head** (moves on every save). `published_version_id` = the **public-current** official version (moves only on review). They are deliberately separate. |
-| **Proposed update** | A staged monthly refresh (`propose-update.mjs`) a customer **accepts** (re-applies their overrides onto fresh data as a new major draft) or **declines**. |
-| **Quota** | How many area + place maps a customer may hold (default 1 area + a few places; per-customer, editable). |
-| **Magic link** | Passwordless sign-in: a one-time link (printed to the **server console** in dev; needs `EMAIL_PROVIDER` in production) → an httpOnly session cookie. No passwords are ever held. |
-| **Object store** | Per-map data at `DATA_DIR/maps/<id>/` — `data/` (generators + inputs), `overrides.json`, `renders/v*/`. **Never in git.** |
+**One glossary, and it is not in this repo.** `Documentation/README - Glossary of terms.md` in **buses-data** (`C:\u3a St Ives\Using AI\Buses\Documentation\`) is the shared vocabulary for the whole system — every part of every sheet, the pipeline stages, the portal's own words, and the phrase to use instead when writing to a customer. Read it there. Every term this section used to define is in it, with more detail and an audience label saying who the word is safe with.
+
+**This section was a second, shorter glossary of fifteen terms until 26 August 2026, and the reason it is gone is that it had drifted.** It said a map produces *four* outputs; there are **five** — `boarding_plan` landed on 2026-08-23 and `src/maps/OUTPUTS` in `src/maps/store.js` is the authority. Six other terms it defined (*Editor*, *Approver*, *Admin*, *Area map*, *Place map*, *Proposed update*) had been reworded in the glossary and not here. **Two vocabularies that overlap by half do not stay in step**, and the drift is invisible from either side, because each document stays perfectly consistent with itself.
+
+Nothing was lost. The eight terms that lived **only** here — *customer*, *quota*, *overrides and the safe subset*, *baseline (v1.0)*, *review state*, *the two pointers*, *magic link* and *object store* — were moved into the glossary's §8, which is its portal section. The glossary's *review state* entry was corrected in the same pass: there are five states, not the three it claimed.
+
+Where the **code** is the authority rather than either document, this handbook says so and names the file: `src/maps/safeSubset.js` decides what an editor may actually change, `src/maps/store.js` lists the outputs, and §4 below has the approval gates.
 
 ## 3. Roles & who does what
 
@@ -150,6 +140,19 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | **C1** customer user guide | `docs/C1-customer-user-guide.md` | hand to each customer | ✅ |
 | **Pol1** vetting & quota policy | `docs/Pol1-vetting-and-quota-policy.md` | who qualifies, default quotas | ✅ |
 | **P1–P4** register / logs / notes | `ops/` (local-only) | customers, vetting, incidents, business | ⏳ templates created (Tier 0) |
+
+**And the half of the system that is not in this repo.** The index above called itself canonical while listing nothing at all from **buses-data**, which is where the maps, the map-making guides and the shared vocabulary actually live — so a reader following it would never find them. Paths below are under `C:\u3a St Ives\Using AI\Buses\`.
+
+| Doc | Home (buses-data) | What it's for | Status |
+|---|---|---|---|
+| **Glossary of terms** | `Documentation/README - Glossary of terms.md` | **the one vocabulary** — every part of every sheet keyed to two annotated examples, plus the pipeline, portal, repo and failure words, each with an audience label and the phrase to use with a customer | ✅ the authority; §2 above points here |
+| **Failure shapes we have named** | `Documentation/README - Failure shapes we have named.md` | twenty-nine ways this system has run, reported success and been wrong — read it before trusting a gate | ✅ split out of the glossary 2026-08-26 |
+| Folder structure | `Documentation/README - Folder structure.md` | what is tracked, what is generated, and why | ✅ |
+| How to enhance the system | `Documentation/README - How to enhance the system.md` | changing the engine, the layout logic or the data sources | ✅ |
+| How to make a bus leaflet / a place leaflet / audit one | `Documentation/README - How to make a bus leaflet.md` and its two siblings | using the system through Claude, in plain English | ✅ |
+| How to publish a map to the portal | `Documentation/README - How to publish a map to the portal.md` | the laptop end of deliver → accept → publish | ✅ |
+| Retention and pruning | `Documentation/README - Retention and pruning.md` | what is kept, what is deleted, and when | ✅ |
+| **Open actions** | `Development Docs/open-actions.md` | the strategic backlog — only what is genuinely still outstanding | ✅ live |
 
 ## 8. Continuity — resuming cold
 
