@@ -41,6 +41,37 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+// The generators resolve their shared modules through one uniform idiom:
+//
+//   const _ICONS = (()=>{ const local=path.join(__dirname,'icons.js');
+//     try{ if(fs.existsSync(local)) return local; }catch(e){}
+//     return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'icons.js')
+//          : '<the skill path>/icons.js'; })();
+//
+// renderMap.js always passes SKILL_ASSETS = engine/, and the copy import-map.mjs
+// plants in a map's data/ folder has no sibling, so the SKILL_ASSETS arm is the
+// one that fires in the portal — every time, for every map.
+//
+// THE `?` IS LOAD-BEARING, and matching without it gives a false positive on day
+// one. Two engine files use a different idiom for a different purpose:
+//
+//   const cand = [path.join(DIR, 'gen_internal.js'),
+//     process.env.SKILL_ASSETS && path.join(process.env.SKILL_ASSETS, 'gen_internal.js'),
+//     path.join(__dirname, 'gen_internal.js')].filter(Boolean);
+//   const gen = cand.find(f => fs.existsSync(f));
+//   if (!gen) { console.error('gen_internal.js not found …'); process.exit(1); }
+//
+// `?` says *this is the answer* — the value goes straight into `require()` and a
+// missing file is MODULE_NOT_FOUND at load. `&&` says *this is one candidate* —
+// `existsSync` picks among three and the file reports its own miss. Only the
+// first is the failure this scan exists to catch, and only the first belongs in
+// engine/ root: `gen_internal.js` is deliberately vendored at engine/place/,
+// where the candidate list finds it via the map's own data folder. Flagging the
+// `&&` form would open this check red, and a check that is red on day one gets
+// muted rather than fixed.
+const SKILL_ASSETS_REQUIRE =
+  /process\.env\.SKILL_ASSETS\s*\?\s*path\.join\(\s*process\.env\.SKILL_ASSETS\s*,\s*['"]([A-Za-z0-9_.-]+\.js)['"]/g;
+
 /** Bytes as they are compared: line endings normalised, nothing else touched. */
 export function normalised(file) {
   return readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
@@ -63,6 +94,60 @@ export function listEngineFiles(engineDir) {
   };
   walk(engineDir, '');
   return out;
+}
+
+/**
+ * Which modules does each engine file require through SKILL_ASSETS, and are they
+ * all here?
+ *
+ * THE HOLE THIS COVERS, which is not the one the hash check covers. On
+ * 2026-08-26 `gen_internal.js` gained a `require` of a NEW sibling,
+ * `lane_normals.js`, at load — before it reads a thing. A portal given
+ * `gen_internal.js` alone throws `MODULE_NOT_FOUND` on the first internal render
+ * of any map, area or place, whatever any config key says.
+ *
+ * Nothing above could have said so. `UNLISTED` walks the tree and asks what is
+ * here that the manifest does not name; `MISSING` walks the manifest and asks
+ * what it names that is not here. A file that is in NEITHER — because nobody has
+ * copied it across yet — is not a row in either direction, so it cannot be red.
+ * The one row you did see, `place/gen_internal.js DRIFTED`, looked like an
+ * ordinary stale vendor and said nothing about the new dependency riding with
+ * it. So the population to enumerate is not the tree and not the manifest: it is
+ * what the vendored CODE asks for.
+ *
+ * TWO THINGS THIS CANNOT SEE, both already manifest rows with notes saying so:
+ *   • `font_metrics.js` — reached by `path.dirname(_LABELLER)` arithmetic rather
+ *     than a literal, so no string in the file names it.
+ *   • `qr.js` — required lazily INSIDE footer.js, only when a sheet asks for a
+ *     code, so a missing copy fails one town months later.
+ * Both are caught by MISSING if they are deleted; neither would be caught if a
+ * future edit introduced them for the first time. That is a smaller hole than
+ * the one this closes, and it is stated rather than papered over.
+ *
+ * @returns {Array<{file: string, kind: string, status: string, note: string}>}
+ *          one row per unresolvable module (empty when everything resolves)
+ */
+export function requireScan({ engineDir }) {
+  const wanted = new Map(); // module name -> [engine files that require it]
+  for (const rel of listEngineFiles(engineDir)) {
+    const text = readFileSync(path.join(engineDir, rel), 'utf8');
+    for (const m of text.matchAll(SKILL_ASSETS_REQUIRE)) {
+      if (!wanted.has(m[1])) wanted.set(m[1], []);
+      const by = wanted.get(m[1]);
+      if (!by.includes(rel)) by.push(rel);
+    }
+  }
+  const rows = [];
+  for (const [name, by] of [...wanted].sort()) {
+    if (existsSync(path.join(engineDir, name))) continue;
+    rows.push({
+      file: name,
+      kind: 'required',
+      status: 'UNRESOLVED',
+      note: `required through SKILL_ASSETS by ${by.join(', ')} — vendor it and add its manifest row`,
+    });
+  }
+  return rows;
 }
 
 /**
@@ -138,6 +223,11 @@ export function auditVendored({ engineDir, manifestPath, skillRoot }) {
       rows.push({ file: entry.path, kind: entry.kind, status: 'MISSING', note: 'named in the manifest, absent from engine/' });
     }
   }
+
+  // What the vendored CODE asks for, which is neither the tree nor the manifest.
+  // Runs on hashes and file existence alone, so it works in CI exactly as it
+  // works on the laptop.
+  rows.push(...requireScan({ engineDir }));
 
   rows.sort((a, b) => a.file.localeCompare(b.file));
   const ok = rows.every((r) => r.status === 'OK');

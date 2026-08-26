@@ -39,6 +39,7 @@ import {
 import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
 import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
+import { requireScan } from './lib/vendored.mjs';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 
@@ -155,6 +156,22 @@ const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_pl
 const AREA_GENS = ['gen_internal.js', 'gen_external.js'];
 const isPlace = kind === 'place';
 let areaFallback = null;  // [[absolutePath, copyAsName], ...] when the payload has none
+
+// The checks below ask whether the GENERATORS are vendored. Neither can ask
+// whether the modules those generators require are, and on 2026-08-26 that was
+// the difference between an import that works and one that dies at render:
+// gen_internal.js had started requiring lane_normals.js AT LOAD, the copy planted
+// in a map's data/ has no sibling to resolve it from, and the SKILL_ASSETS arm
+// points at an engine/ that had never been given the file. A half-vendored engine
+// should fail HERE, naming the file, rather than three steps later as a
+// MODULE_NOT_FOUND stack trace out of a spawned child.
+const ENGINE_ROOT = fileURLToPath(new URL('../engine', import.meta.url));
+const unresolvedModules = requireScan({ engineDir: ENGINE_ROOT });
+if (unresolvedModules.length) {
+  for (const r of unresolvedModules) console.error(`✗ vendored engine is missing ${r.file} — ${r.note}`);
+  console.error('  Run: node scripts/vendor-engine.mjs   (then commit engine/vendored.json with it)');
+  process.exit(1);
+}
 
 if (isPlace) {
   if (!existsSync(path.join(SRC, 'routes.json'))) {

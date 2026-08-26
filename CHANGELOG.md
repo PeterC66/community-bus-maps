@@ -1,11 +1,23 @@
 # Changelog
 
-<!-- docstamp v1.78 | 2026-08-25 | sha=87eec2bf -->
-**v1.78** · updated 25 August 2026
+<!-- docstamp v1.79 | 2026-08-26 | sha=6e8e1f89 -->
+**v1.79** · updated 26 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
 ## [Unreleased]
+
+### A module the portal was never given could not be a row — 2026-08-26
+
+`Development Docs/open-actions.md` in `buses-data`, OA-119 (and OA-070, whose Option B this finishes).
+
+- **`engine/lane_normals.js` is vendored, and `engine/place/gen_internal.js` is current again.** The generator started requiring the new module AT LOAD on 2026-08-26, before it reads anything, so a portal given the generator alone throws `MODULE_NOT_FOUND` on the first internal render of any map, area or place, whatever any config key says. The module belongs at the engine ROOT, beside `icons.js`: `renderMap.js` passes `SKILL_ASSETS = engine/`, and the copy `import-map.mjs` plants in a map's `data/` folder has no sibling to resolve first.
+- **Byte-inert, and measured rather than assumed.** `design.laneOrientation` defaults off and no fixture sets it, so `npm run verify:place` reproduces all four place sheets across both fixtures byte-for-byte, and `npm run verify` passes whole. Rendering the area fixture through `628a881` — the skill commit immediately before the lane change — and through the new engine gives the identical md5, which is what makes "the key is the only thing that moves" a measurement instead of a claim.
+- **Watched red first.** Copying `gen_internal.js` alone turned `verify:place` red with the exact `MODULE_NOT_FOUND` this predicted, on both place fixtures' internal sheets while their external and boarding sheets stayed byte-identical. The green afterwards is the same command on the same fixtures.
+- **`check-vendored.mjs` enumerates a THIRD population: what the vendored code asks for.** `UNLISTED` walks the tree and asks what is here that the manifest does not name; `MISSING` walks the manifest and asks what it names that is not here. A file in neither — because nobody has copied it across yet — is not a row in either direction, which is why the only red row on the morning of the 26th was `place/gen_internal.js DRIFTED`, indistinguishable from an ordinary stale vendor. `requireScan()` reads every `process.env.SKILL_ASSETS ? path.join(…,'x.js')` literal out of every engine file and reports `UNRESOLVED` when the target is absent. In the precise state OA-119 described it prints one row naming the file and its requirer.
+- **The `?` in that pattern is load-bearing, and matching without it opens the check red.** `diagram_internal.js` and `schematize_internal.js` write `SKILL_ASSETS && path.join(…, 'gen_internal.js')` as one candidate in an `existsSync` list that reports its own miss — a different idiom for a different purpose. The first draft flagged it and would have started red on day one, which is how a check gets muted rather than fixed. Two blind spots remain and are stated in the code: `font_metrics.js`, reached by `path.dirname(_LABELLER)` arithmetic, and `qr.js`, required lazily inside `footer.js`.
+- **`npm run vendor:engine` copies the manifest's files from the skill tree, restamps, and then audits.** The July 2026 engine-deduplication proposal recommended a drift check *and* a vendor script; only the check was built, and five weeks later the missing script cost exactly what the proposal predicted. It refuses when the skill tree is not on the machine — vendoring from nowhere would rewrite nothing and report success. It cannot invent a row for a module nobody has listed, which is why it and `requireScan()` are documented as a pair: one moves the bytes, the other notices when the set of bytes should have grown.
+- **`import-map.mjs` fails on a half-vendored engine before it starts.** Its existing guards ask whether the GENERATORS are present; neither could ask whether the modules those generators require are. It now runs the same scan and exits naming the file, rather than dying three steps later as a stack trace out of a spawned child.
 
 ### The rollback promise is tested, and the database says which generation it is — 2026-08-25
 
