@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.86 | 2026-08-27 | sha=ab7b93f7 -->
-**v1.86** · updated 27 August 2026
+<!-- docstamp v1.87 | 2026-08-27 | sha=e6170b6a -->
+**v1.87** · updated 27 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-08-27** — [A gate that asks what actually loaded, rather than what the source looks like](CHANGELOG.d/2026-08-27-a-gate-that-asks-what-actually-loaded.md)
+- **2026-08-27** — [One dead primitive out, and eleven notes about what nothing draws](CHANGELOG.d/2026-08-27-one-dead-primitive-out-and-eleven-notes-in.md)
 - **2026-08-27** — [The changelog is one file per entry, and the last two months are archived](CHANGELOG.d/2026-08-27-the-changelog-is-one-file-per-entry.md)
 - **2026-08-27** — [The require scan had gone blind to the way two generators ask for a module](CHANGELOG.d/2026-08-27-the-require-scan-had-gone-blind-to-the.md)
 - **2026-08-27** — [The Services panel becomes a module of its own, and an entire layout turns out to be drawn by nobody](CHANGELOG.d/2026-08-27-the-services-panel-becomes-a-module-of-its-own.md)
