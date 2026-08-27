@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-08-27** — [The changelog is one file per entry, and the last two months are archived](CHANGELOG.d/2026-08-27-the-changelog-is-one-file-per-entry.md)
+- **2026-08-27** — [The require scan had gone blind to the way two generators ask for a module](CHANGELOG.d/2026-08-27-the-require-scan-had-gone-blind-to-the.md)
 - **2026-08-26** — [A module the portal was never given could not be a row](CHANGELOG.d/2026-08-26-a-module-the-portal-was-never-given-could.md)
 - **2026-08-26** — [All seven S6 waivers were run, and the gate that asked for it reads dates, not verdicts](CHANGELOG.d/2026-08-26-all-seven-s6-waivers-were-run-and-the.md)
 - **2026-08-25** — [The audit's P0 block: two public pages that were empty, and a deployment nobody could see](CHANGELOG.d/2026-08-25-the-audit-s-p0-block-two-public-pages.md)

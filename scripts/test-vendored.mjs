@@ -160,6 +160,55 @@ console.log('\nthe tree walk:');
   check('it ignores the manifest itself and anything that is not .js', !files.some((f) => f.endsWith('.json')));
 }
 
+console.log('\nhow the vendored code ASKS for a module — all three idioms:');
+{
+  // The scan's population is "what the vendored code requires", so it has to
+  // recognise every way the engine writes a resolver. It has not always: on
+  // 2026-08-27 gen_internal.js was re-vendored carrying four new requires
+  // written through its _dep() helper, and this check reported "every module
+  // they require is here". gen_boarding.js had been invisible the same way for
+  // as long as it has used _dep, and gen_external_places.js writes a third form
+  // that pattern 1 never matched either.
+  const t = makeTree('idioms');
+  const forms = {
+    'ternary.js': "const p = process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'wanted_a.js') : 'x';",
+    'ifreturn.js': "function d(){ if (process.env.SKILL_ASSETS) return path.join(process.env.SKILL_ASSETS,'wanted_b.js'); }",
+    'factored.js': "const _dep = (n) => path.join(process.env.SKILL_ASSETS, n);\nrequire(_dep('wanted_c.js'));",
+  };
+  for (const [file, body] of Object.entries(forms)) {
+    writeFileSync(path.join(t.engineDir, file), body + '\n');
+    writeFileSync(path.join(t.srcDir, file), body + '\n');
+  }
+  const m = JSON.parse(readFileSync(t.manifestPath, 'utf8'));
+  for (const file of Object.keys(forms)) {
+    m.files.push({ path: file, kind: 'vendored', source: 'make-bus-leaflet/assets/' + file,
+      sha256: hashOf(path.join(t.engineDir, file)), vendoredOn: '2026-08-27' });
+  }
+  writeFileSync(t.manifestPath, JSON.stringify(m, null, 2));
+
+  const r = auditVendored(t);
+  check('the ternary form is seen', statusOf(r, 'wanted_a.js') === 'UNRESOLVED', statusOf(r, 'wanted_a.js'));
+  check('the if-return form is seen', statusOf(r, 'wanted_b.js') === 'UNRESOLVED', statusOf(r, 'wanted_b.js'));
+  check('the factored _dep form is seen — the one that went blind', statusOf(r, 'wanted_c.js') === 'UNRESOLVED', statusOf(r, 'wanted_c.js'));
+  check('and the audit fails rather than reporting all clear', r.ok === false);
+
+  // The && candidate-list form is EXCLUDED on purpose: it is one of three
+  // candidates existsSync() chooses between, and the file reports its own miss.
+  // Flagging it would open this check red on diagram_internal.js and
+  // schematize_internal.js, which is how a check gets muted rather than fixed.
+  const t2 = makeTree('candidates');
+  const cand = "const c = [process.env.SKILL_ASSETS && path.join(process.env.SKILL_ASSETS, 'not_here.js'), path.join(__dirname, 'not_here.js')].filter(Boolean);";
+  writeFileSync(path.join(t2.engineDir, 'candidates.js'), cand + '\n');
+  writeFileSync(path.join(t2.srcDir, 'candidates.js'), cand + '\n');
+  const m2 = JSON.parse(readFileSync(t2.manifestPath, 'utf8'));
+  m2.files.push({ path: 'candidates.js', kind: 'vendored', source: 'make-bus-leaflet/assets/candidates.js',
+    sha256: hashOf(path.join(t2.engineDir, 'candidates.js')), vendoredOn: '2026-08-27' });
+  writeFileSync(t2.manifestPath, JSON.stringify(m2, null, 2));
+  const r2 = auditVendored(t2);
+  check('a && candidate list is NOT flagged, and the tree still passes', r2.ok === true,
+    JSON.stringify(r2.rows.filter((x) => x.status !== 'OK')));
+}
+
 console.log('\nthe REAL engine tree (this is the gate CI runs):');
 {
   const r = auditVendored({
