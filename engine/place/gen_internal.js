@@ -176,6 +176,9 @@ const { svgPrimitives } = require(_dep('svg_primitives.js'));
 const { linearFeatures } = require(_dep('linear_features.js'));
 const { labelPlacer } = require(_dep('label_placer.js'));
 const { drawServicesPanel } = require(_dep('services_panel.js'));
+const { complexityLadder, coreBoxGeometry, thinKeep } = require(_dep('complexity_ladder.js'));
+const { northArrow } = require(_dep('north_arrow.js'));
+const { featureLabels } = require(_dep('feature_labels.js'));
 // The internal map's own footer notes are fixed (not per-town), so the footer plate's
 // top edge is a known constant — computed once here and used both by the mapNotes
 // collision check below and the footerBand() call at the very end of this file. Keep
@@ -608,83 +611,14 @@ const dropHidden = arr => HIDDEN_ROUTES.size ? arr.filter(r=>!HIDDEN_ROUTES.has(
 const order = dropHidden(RJ.routeOrder || Object.keys(C));
 // Services-panel list order. Default = draw order.
 const panelOrder = dropHidden(RJ.panelOrder || order);
-// ====== internalCorridors — RUNG 1 of the complexity ladder (P2, 2026-07-28) ==
-// routes.json "internalCorridors": { "<lead>": ["1","1A","1B"] }
-//                              or   { "<lead>": {routes:["1","1A","1B"]} }
-// Draw a family of CO-RUNNING services as ONE line carrying a STACK of badges
-// instead of one coloured line each. The internal twin of external[].routes.
-// Why: the colour-blind-safe palettes hold ~12 usable hues; past that the
-// palette repeats and colour stops identifying a route (High Wycombe v1.0 drew
-// 31 lines in 12 colours). See references/complexity-triage.md.
-//
-// HOW IT WORKS — and why the bundle cannot state something false:
-// every member KEEPS ITS OWN GEOMETRY. Bundling changes only two things:
-//   (a) COLOUR — every member takes the lead's colour (and text colour);
-//   (b) LANE — members count as ONE lane in the corridor offset maths, so where
-//       they co-run they land on the same centreline and overdraw into a single
-//       visible line, and where they DIVERGE they simply separate again, because
-//       nothing merged their coordinates.
-// So "the bundle must split back where the routes diverge" is satisfied BY
-// CONSTRUCTION rather than by a rule someone has to remember. What a divergence
-// does cost is identity — both branches are now the same colour — so the badge
-// logic below stacks the badges of the members actually co-running AT that point
-// and lets a member badge its own divergent branch alone. `corridors_report.json`
-// records the shared fraction per member so S6 can flag a weak family.
-//
-// Absent => every derived value is a no-op identity and output is byte-identical.
-// The config KEY is always the lead: it keys the colour, the overrides and the
-// badge-stack order, regardless of how the member list happens to be written.
-// Shared by internalCorridors (rung 1) and corridorPalette (rung 3).
-function parseFamilies(raw){
-  if(!raw || raw===true) return null;
-  const fam={}, lead={};
-  for(const k of Object.keys(raw)){
-    const v=raw[k];
-    const members=Array.isArray(v)?v:((v&&v.routes)||[]);
-    const list=[k].concat(members.filter(r=>r!==k));
-    if(list.length<2) continue;
-    fam[k]=list; for(const m of list) lead[m]=k;
-  }
-  return Object.keys(fam).length?{fam,lead}:null;
-}
-// Colour aliasing. Only routes ALREADY in the palette are touched, so
-// Object.keys(C) — and therefore the default `order` computed above — cannot
-// change. Applied after routeColors, so recolouring the lead moves the family.
-function aliasColours(g){ if(!g) return;
-  for(const l of Object.keys(g.fam)) for(const m of g.fam[l]){
-    if(m===l) continue;
-    if(m in C) C[m] = C[l];
-    if(TXT && (m in TXT)) TXT[m] = TXT[l];
-  }
-}
-const CORR = parseFamilies(RJ.internalCorridors);
-// lane identity: a family draws as ONE lane keyed by its lead. Identity map when
-// internalCorridors is absent, which is what keeps every existing town unchanged.
-const laneKey = CORR ? (r=>CORR.lead[r]||r) : (r=>r);
-aliasColours(CORR);
-// ====== corridorPalette — RUNG 3 of the complexity ladder (P3, 2026-07-28) ===
-// routes.json "corridorPalette": { "<lead>": ["31","41"] }  (same shape as
-// internalCorridors; also accepted: { "<lead>": {routes:[...]} })
-//
-// Colour by CORRIDOR rather than by route. The members keep their own line and
-// their own lane — only the colour is shared — so this is the remedy for routes
-// that follow the same corridor but do NOT co-run closely enough to bundle
-// (High Wycombe's 31 and 41 overlap 0.40/0.46: one corridor, two real lines).
-//
-// THIS RETIRES A LOCKED DESIGN DECISION and is bounded: "one colour per route,
-// consistent across both maps and across updates" no longer holds for the towns
-// that use it. Approved 2026-07-28 for towns drawing more than 12 lines only. It
-// is never a default and never inferred — the groups are declared, so a data
-// refresh cannot silently reshuffle the town's colours.
-//
-// Because colour no longer identifies a route here, IDENTITY MUST COME FROM THE
-// BADGES, so the badge pass below guarantees every colour-grouped line at least
-// one badge rather than letting collision detection drop it silently.
-const CPAL = parseFamilies(RJ.corridorPalette);
-aliasColours(CPAL);
-// A route whose colour is shared with another DRAWN LINE (rung 3, or a rung-1
-// family that has diverged). Used to guarantee a badge.
-const colourShared = r => !!(CPAL && CPAL.lead[r]);
+// ====== THE COMPLEXITY LADDER — rungs 1, 2, 2b and 3 (P2/P3, 2026-07-28) ====
+// internalCorridors bundles co-running services onto one line; coreBox replaces
+// the congested centre with a labelled box; stopThinning draws only the stops
+// that earn their place; corridorPalette colours by corridor rather than by
+// route. The argument for each rung, and the "absent => identity" property that
+// keeps every other town byte-identical, are in complexity_ladder.js.
+// This call ALIASES COLOURS IN PLACE: C and TXT go in and are mutated.
+const { CORR, CPAL, laneKey, colourShared, CBOX, THIN } = complexityLadder({ RJ, C, TXT });
 
 // ====== blue-cyan belongs to the water (plan §5.2) ===========================
 // Colour on this sheet is supposed to mean ROUTE and nothing else — the argument
@@ -757,41 +691,6 @@ const colourShared = r => !!(CPAL && CPAL.lead[r]);
   }
 }
 
-// ====== coreBox — RUNG 2 of the complexity ladder (P3, 2026-07-28) ===========
-// routes.json "coreBox": { "radius": 600, "label": "town centre" }
-//   optional: "sublabel", "at":[x,y], "w", "h", "fill", "stroke", "textSize"
-//
-// Replace the congested town centre with a plain labelled box that routes run TO
-// and stop at, instead of drawing the knot. This is the single most decisive
-// move on a commercial operator's own big-town map (Carousel's High Wycombe
-// sheet deletes its 1.21 km² core outright), and it is the only remedy that
-// attacks a TRUNK-CORRIDOR congestion (D5 > 3 km) — a fisheye lens cannot.
-//
-// `radius` is in METRES from `anchor`, matching how complexity_score.js models
-// rung 2, so the predicted score and the drawn sheet mean the same thing. The
-// page-space rectangle is derived by projecting a real geographic circle of that
-// radius and taking its bounding box — exact under any fisheye or lens, with no
-// assumption about local scale. Everything inside the rectangle is suppressed or
-// covered: route lines are CUT at the boundary (so each ends flush against the
-// box rather than being hidden under it), and stop ticks, POIs, road labels, the
-// anchor label and route badges inside it are dropped.
-const CBOX = RJ.coreBox ? (RJ.coreBox===true?{}:RJ.coreBox) : null;
-
-// ====== stopThinning — RUNG 2b of the complexity ladder (P3, 2026-07-28) =====
-// routes.json "stopThinning": true  or  { minLines:2, termini:true,
-//                                         keep:["ATCO",…], drop:["ATCO",…] }
-//
-// Draw only the stops that earn their place: interchanges (served by `minLines`
-// or more DRAWN LINES) plus every line's two end stops. Label load is
-// independent of route count — a town can clear R, K5 and D5 and still be
-// unreadable because 300 stop ticks and their names fight for the same square
-// centimetre — so without this the ladder cannot finish (High Wycombe stays RED
-// on S alone however well rungs 0-2 do). The rule is deliberately the SAME one
-// complexity_score.js models for rung 2b, so the prediction and the sheet agree.
-//
-// Counted per LANE, not per route: a stop served only by a bundled 1/1A/1B is
-// served by one drawn line, not three.
-const THIN = RJ.stopThinning ? (RJ.stopThinning===true?{}:RJ.stopThinning) : null;
 // Internal Services-panel descriptions {route:[title,subtitle]}.
 const INTDESC = RJ.internalDesc || {};
 // Orientation route for road-name labels: the town circular if named, else the
@@ -883,128 +782,12 @@ const { esc, gk, badgeHalfW, badgeXW, badgeXWs, badge, badgeStack, cross } = svg
 });
 
 // ---- linear features: paths + labels (honour overrides.features[key]) ----
-// The geometry and the ink are in linear_features.js. drawFeatureLabel stays
-// here, below, because siting a feature's NAME needs the coreBox, the panel
-// edge, the footer plate and the auto-label solver — none of which the line
-// itself knows anything about.
+// The geometry and the ink are in linear_features.js; siting the NAME is in
+// feature_labels.js, and its factory is called 900 lines below this one because
+// it needs the auto-label solver, which does not exist yet.
 const { featOv, featStyle, featSegs, drawFeature } = linearFeatures({
   out, gk, OV, FEATURE_STYLES, RAIL_CHEQUER, XY,
 });
-function drawFeatureLabel(f){
-  const ov=featOv(f), lov=ov.label||{};
-  if(ov.hide || lov.hide || !f.labelPos) return;
-  // labelPos:"auto" — the position was solved and reserved in the reserve pass, so
-  // just draw it. A feature whose auto search found nowhere has no entry and is
-  // skipped: it already said so on stderr, and a name printed on top of the map
-  // because nothing fitted is worse than the name being absent.
-  if(isAuto(f)){
-    const got = AUTOPOS[f.key];
-    if(!got) return;
-    const txt = lov.text!=null?lov.text:f.label;
-    const it = f.labelItalic!==false, sz = f.labelSize||4;
-    out(`<text x="${got.x.toFixed(2)}" y="${got.y.toFixed(2)}" font-family="Arial" ${it?'font-style="italic" ':''}font-size="${sz}" text-anchor="middle" fill="${f.labelColor||'#7fb0d8'}">${esc(txt)}</text>`);
-    return;
-  }
-  let x=f.labelPos.x, y=f.labelPos.y;
-  x+=(ov.move&&ov.move.dx)||0; y+=(ov.move&&ov.move.dy)||0;               // follow the feature nudge
-  if(lov.pos){ x=lov.pos.x; y=lov.pos.y; } else if(lov.offset){ x+=lov.offset.dx; y+=lov.offset.dy; }
-  const text=lov.text!=null?lov.text:f.label;
-  // coreBox: a feature label is placed by hand (labelPos) and has no collision
-  // logic of its own, so one sited on the town centre would print INSIDE the
-  // box. Drop it and say so — the fix is to move labelPos, not to hide the river.
-  if(inCore([x,y])){
-    console.error('coreBox: feature label "'+text+'" sits inside the town-centre box and was not '
-      +'drawn — move its labelPos (routes.json features[] / overrides internal.features).');
-    return;
-  }
-  // Same trap on the other side of the sheet, and it had actually happened: a
-  // feature label is drawn OUTSIDE the map's clip group, so a labelPos right of
-  // the frame lands in the Services panel and prints through the route list.
-  // Wisbech shipped for months with "River Nene" struck across "46 Wisbech –
-  // March" and "A47" adrift in the blank space under the Key. Neither the panel
-  // metric (which counts point labels) nor the byte gate can see it, so refuse
-  // to draw it and say why — as with coreBox, the fix is the labelPos.
-  if(x>MX1+2){
-    refuse('panel: feature label "'+text+'" sits at x='+x.toFixed(0)+', right of the map frame '
-      +'(x'+MX1+') and inside the Services panel — not drawn. Move its labelPos '
-      +'(routes.json features[] / overrides internal.features).');
-    return;
-  }
-  // And the third edge, found 2026-08-15 the same way the Wisbech one was — by
-  // asking why a number would not move. Six sheets were shipping a river, canal
-  // or railway label sited BELOW the frame, at y=196..200 against a footer plate
-  // starting at 195.16: drawn, then covered, so those features went unlabelled
-  // and no-one could see why. footerSafe does not help, because a feature label
-  // is drawn outside the map's clip group. Refuse it and say so, as above.
-  if(FOOTER_SAFE && y>FOOTER_PLATE_TOP-1.5){
-    refuse('footer: feature label "'+text+'" sits at y='+y.toFixed(0)+', under the footer plate '
-      +'(top y'+FOOTER_PLATE_TOP.toFixed(1)+') where it is painted and then covered — not drawn. '
-      +'Move its labelPos (routes.json features[] / overrides internal.features).');
-    return;
-  }
-  // THE FOURTH QUESTION, and the one the three guards above never asked: is the
-  // label anywhere near the thing it names? Each of those refuses a label that
-  // lands somewhere it cannot be READ; none checks whether it lands somewhere it
-  // means anything. Seven were stranded across the board when the sheets were
-  // printed on 2026-08-16 — Beaconsfield's "A355" 106mm from the A355 on a 190mm
-  // frame, High Wycombe's "Chiltern Main Line" 78mm from its railway, and Ramsey's
-  // "River Nene (Old Course)" 82mm from the river on the very sheet whose write-up
-  // records the label as having been moved "onto the river it names". It was moved
-  // out of the corner; nothing checked where it landed. A guard on one edge wants
-  // all the edges enumerated, and a guard on legibility wants the question about
-  // meaning asked beside it.
-  //
-  // A warning, not a refusal: unlike the three above, the label is legible and
-  // the remedy is a judgement about where the feature reads best. 25mm matches
-  // quality_metrics.js's featureLabelMaxMm so the build and the gate agree.
-  {
-    // Report the REMEDY, not only the fault, and report it about the ink the READER
-    // can see. The guard used to say a label named nothing and leave whoever read it
-    // to find the feature by eye on a 297x210 sheet — most of why six towns still
-    // carried a stranded label a day after the guard was written.
-    //
-    // MEASURED INSIDE THE FRAME, because a feature polyline does not stop at the map
-    // edge — it is CLIPPED there. Huntingdon's Great Ouse runs on to y=277 on a sheet
-    // whose frame ends at 182, so the nearest ink to its label was 28mm below the
-    // bottom of the page: the unclipped measure said 29mm and looked survivable, and
-    // the reader sees no river within reach of the words at all. The clipped measure
-    // is the one that matches the artwork, and the suggested spot has to be a place
-    // the feature is actually drawn.
-    const inFrame = q => q[0]>=MX0 && q[0]<=MX1 && q[1]>=MY0 && q[1]<=MY1;
-    let best = Infinity, nearest = null, anyInk = false, seen = 0;
-    const mids = [];
-    for(const seg of featSegs(f)){
-      const vis = [];
-      for(let i=0;i<seg.length-1;i++){
-        const a=seg[i], b=seg[i+1], vx=b[0]-a[0], vy=b[1]-a[1], l2=vx*vx+vy*vy;
-        anyInk = true;
-        // Sample the segment rather than only testing its ends: a long span can cross
-        // the frame without either endpoint being inside it.
-        const n = Math.max(2, Math.min(64, Math.ceil(Math.hypot(vx,vy)/2)));
-        for(let k=0;k<=n;k++){
-          const px=a[0]+vx*k/n, py=a[1]+vy*k/n;
-          if(!inFrame([px,py])) continue;
-          seen++; vis.push([px,py]);
-          const d = Math.hypot(px-x, py-y);
-          if(d < best){ best = d; nearest = [px,py]; }
-        }
-      }
-      if(vis.length) mids.push(vis[Math.floor(vis.length/2)]);
-    }
-    const at = p => '('+p[0].toFixed(0)+','+p[1].toFixed(0)+')';
-    if(!anyInk)
-      refuse('feature: label "'+text+'" has no geometry of its own on this sheet at all — check the features[] key against the drawn data.');
-    else if(!seen)
-      refuse('feature: label "'+text+'" has geometry, but none of it lands inside the map frame ('+MX0+','+MY0+' to '+MX1+','+MY1.toFixed(0)+') — '
-        +'every part of it is clipped away, so the label names nothing that is drawn. Drop it from features[], or check the projection.');
-    else if(best > 25)
-      refuse('feature: label "'+text+'" at '+at([x,y])+' is '+best.toFixed(0)+'mm from the nearest DRAWN '+(f.key||f.type)+' ink — it names nothing where it sits. '
-        +'Inside the frame the ink runs through '+mids.slice(0,4).map(at).join(' ')+(mids.length>4?' …':'')+'; nearest drawn point '+at(nearest)+'. '
-        +'Move its labelPos there (routes.json features[] / overrides internal.features).');
-  }
-  const italic=f.labelItalic!==false, size=f.labelSize||4, anchor=lov.anchor||null;
-  out(`<text x="${x}" y="${y}" font-family="Arial" ${italic?'font-style="italic" ':''}font-size="${size}"${anchor?` text-anchor="${anchor}"`:''} fill="${f.labelColor||'#7fb0d8'}">${esc(text)}</text>`);
-}
 
 // ---- label de-collision: reserved boxes + greedy placement ----
 // In label_placer.js, which owns the shared `placed` list every pass on this
@@ -1110,84 +893,12 @@ let TRIM=null, SKEL=null;         // internalRoads artefacts used later (arrows/
 let CORUN=null;                   // MEMR: r -> {segIdx:[routes physically co-running there]}
 const inFrame=p=>p[0]>=MX0&&p[0]<=MX1&&p[1]>=MY0&&p[1]<=MY1;
 
-// ---- coreBox geometry (rung 2). Null unless routes.json coreBox is set. ------
-// Project a real geographic circle of `radius` metres around the anchor and take
-// its page-space bounding box. Doing it this way, rather than converting metres
-// to mm through a scale factor, is exact under the focus fisheye and any extra
-// lenses[] — which is the whole difficulty, since those deliberately make the
-// centre's scale different from everywhere else.
-const CORE = (function(){
-  if(!CBOX) return null;
-  const all = atco2ll[ANCHOR];
-  if(!all){ refuse('coreBox: anchor '+ANCHOR+' has no coordinate — box not drawn'); return null; }
-  const R = (CBOX.radius!=null?CBOX.radius:600)/1000;           // km
-  const latKm = 110.574, lonKm = 111.320*Math.cos(all[0]*Math.PI/180);
-  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
-  for(let i=0;i<72;i++){ const a=i/72*2*Math.PI;
-    const p=XY([all[0]+R*Math.cos(a)/latKm, all[1]+R*Math.sin(a)/lonKm]);
-    if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
-  if(CBOX.w!=null){ const cx=(x0+x1)/2; x0=cx-CBOX.w/2; x1=cx+CBOX.w/2; }
-  if(CBOX.h!=null){ const cy=(y0+y1)/2; y0=cy-CBOX.h/2; y1=cy+CBOX.h/2; }
-  if(CBOX.at){ const w=x1-x0, h=y1-y0;                          // re-centre by hand
-    x0=CBOX.at[0]-w/2; x1=CBOX.at[0]+w/2; y0=CBOX.at[1]-h/2; y1=CBOX.at[1]+h/2; }
-  return { x0,y0,x1,y1, label:(CBOX.label!=null?CBOX.label:'town centre'), sublabel:CBOX.sublabel||null };
-})();
-const inCore = p => !!CORE && p[0]>=CORE.x0 && p[0]<=CORE.x1 && p[1]>=CORE.y0 && p[1]<=CORE.y1;
-// ---- stopThinning: the set of stops that keep their tick (null => all) -------
-const THINKEEP = (function(){
-  if(!THIN) return null;
-  const minLines = THIN.minLines!=null?THIN.minLines:2;
-  const keep = new Set(THIN.keep||[]);
-  const lanes = {};
-  for(const r of order){ const chain=routes[r]; if(!chain||!chain.length) continue;
-    if(THIN.termini!==false){ keep.add(chain[0]); keep.add(chain[chain.length-1]); }
-    const lane=laneKey(r);
-    for(const a of new Set(chain)) (lanes[a]=lanes[a]||new Set()).add(lane); }
-  for(const a of Object.keys(lanes)) if(lanes[a].size>=minLines) keep.add(a);
-  keep.add(ANCHOR);                                    // the interchange always stays
-  for(const a of (THIN.drop||[])) keep.delete(a);
-  return keep;
-})();
+// ---- the ladder in page space: the coreBox rectangle and the stop-tick set --
+// Neither could be computed with the config above: CORE needs the projection,
+// and THINKEEP needs the laneKey the config read returned. complexity_ladder.js.
+const { CORE, inCore, clipOutCore } = coreBoxGeometry({ CBOX, ANCHOR, atco2ll, XY, refuse });
+const THINKEEP = thinKeep({ THIN, order, routes, laneKey, ANCHOR });
 const keepStop = a => !THINKEEP || THINKEEP.has(a);
-// Where does the segment out->inn cross the box boundary? Axis-aligned, so test
-// the four planes and keep the first crossing that actually lands on an edge.
-function coreEdge(outP,innP){
-  const cand=[];
-  if(innP[0]!==outP[0]){ cand.push((CORE.x0-outP[0])/(innP[0]-outP[0])); cand.push((CORE.x1-outP[0])/(innP[0]-outP[0])); }
-  if(innP[1]!==outP[1]){ cand.push((CORE.y0-outP[1])/(innP[1]-outP[1])); cand.push((CORE.y1-outP[1])/(innP[1]-outP[1])); }
-  let best=1, e=1e-6;
-  for(const t of cand){ if(!(t>=0&&t<=1)) continue;
-    const p=[outP[0]+(innP[0]-outP[0])*t, outP[1]+(innP[1]-outP[1])*t];
-    if(p[0]>=CORE.x0-e&&p[0]<=CORE.x1+e&&p[1]>=CORE.y0-e&&p[1]<=CORE.y1+e && t<best) best=t; }
-  return [outP[0]+(innP[0]-outP[0])*best, outP[1]+(innP[1]-outP[1])*best];
-}
-// Split a polyline into the runs OUTSIDE the box, each ending exactly on the
-// boundary. A route that crosses the centre and comes out the other side yields
-// two runs — which is the point: it visibly runs TO the box from both sides.
-//
-// A run shorter than `coreBox.minRun` mm is DROPPED. Town-centre one-way loops
-// make a route's matched path poke a few millimetres back out of the box and in
-// again, and that orphan stub — a line fragment attached to nothing, with the
-// route's terminus badge stack planted on it — reads as a real branch (High
-// Wycombe v2.0 draft: 102/103/104/105 each left a 5 mm stub west of the box
-// carrying a six-badge stack). Only reachable when coreBox is set.
-const MINRUN = CBOX ? (CBOX.minRun!=null?CBOX.minRun:2.5) : 0;
-const runLen = rn => { let L=0; for(let i=1;i<rn.length;i++) L+=Math.hypot(rn[i][0]-rn[i-1][0], rn[i][1]-rn[i-1][1]); return L; };
-function clipOutCore(pts){
-  if(!CORE) return [pts];
-  const runs=[]; let cur=[];
-  for(let i=0;i<pts.length;i++){
-    if(!inCore(pts[i])){
-      if(!cur.length && i>0) cur.push(coreEdge(pts[i], pts[i-1]));   // leaving the box
-      cur.push(pts[i]);
-    } else if(cur.length){
-      cur.push(coreEdge(cur[cur.length-1], pts[i]));                 // entering the box
-      runs.push(cur); cur=[];
-    }
-  }
-  if(cur.length) runs.push(cur);
-  return runs.filter(rn=>rn.length>=2 && runLen(rn)>=MINRUN);
-}
 // r -> the endpoints of the runs actually DRAWN, so a terminus badge is never
 // planted on a stub that clipOutCore threw away. Null without a coreBox.
 const CORERUNS = CORE ? {} : null;
@@ -1688,23 +1399,13 @@ out(`</g>`);
 // ---- reserve protected areas so labels avoid them ----
 reserve(197,0,297,210);                 // right service panel
 reserve(0,0,86,26);                     // title block
-// ---- the north arrow's home -------------------------------------------------
-// It is drawn at the very END of the file, so nothing used to know it was there:
-// on High Wycombe it printed straight through route 130's terminus badge and
-// across the railway (Peter, G2, 2026-08-15). It does not need a chosen spot,
-// only a blank one (Peter, same day), so under v2 the engine finds one — see the
-// search in the labels block below, which runs once the ink is known. `NORTH` is
-// the resolved base point; `northBox()` is the footprint of the whole device.
-const NORTH_ON = !!(IR && IR.northArrow!==false);
-const NA = (IR && IR.northArrow && IR.northArrow!==true) ? IR.northArrow : {};
-const NORTH_LEN = NA.len||8;
-const NORTH_ANG = NA.angle!=null ? NA.angle*Math.PI/180
-                : Math.atan2(-Math.cos(-theta), Math.sin(-theta));
-function northBox(bx,by){                 // base, tip, arrowhead and the "N"
-  const tx = bx+Math.cos(NORTH_ANG)*NORTH_LEN, ty = by+Math.sin(NORTH_ANG)*NORTH_LEN;
-  return [Math.min(bx,tx)-3.4, Math.min(by,ty)-4.6, Math.max(bx,tx)+3.4, Math.max(by,ty)+4.6];
-}
-const NORTH = { x: NA.x!=null?NA.x:14, y: NA.y!=null?NA.y:150, auto:false };
+// ---- the north arrow --------------------------------------------------------
+// DEFAULT ON for internalRoads; internalRoads.northArrow:false suppresses it, and
+// {x,y,len,angle} positions it by hand. The whole device — its angle, its
+// footprint, the blank-space search that sites it and the drawing itself — is in
+// north_arrow.js, which explains why those three happen at three different
+// moments in this file. `NORTH.at` is the resolved base point and it MOVES.
+const NORTH = northArrow({ IR, theta });
 
 /* ---- design.scaleBar: a scale bar, or an honest refusal to draw one ---------
  *
@@ -1877,6 +1578,13 @@ const AUTOPOS = {};                       // feature key -> {x,y,anchor,box}
 // from the river with no way to say otherwise short of inventing a features[] whose
 // geometry file that town does not have. Absent both keys, nothing changes.
 const isAuto = f => f && (f.labelPos === 'auto' || !!DESIGN.featureLabelAuto);
+// ---- feature NAMES: four guards, three about legibility and one about meaning
+// In feature_labels.js. Built here rather than beside linearFeatures() because
+// AUTOPOS and isAuto are the two things it cannot be given any earlier.
+const drawFeatureLabel = featureLabels({
+  out, esc, refuse, warn: m=>console.error(m), featOv, featSegs, isAuto, autoPos: AUTOPOS,
+  inCore, MX0, MY0, MX1, MY1, FOOTER_SAFE, FOOTER_PLATE_TOP,
+});
 // Occupancy read straight off the SVG built so far, on the SAME test the point-label
 // placer uses: a route colour, or any stroke both wide and dark. A pale river or road
 // casing is deliberately NOT ink by that measure — a river name is meant to lie along
@@ -2701,19 +2409,7 @@ if(LAB){
     }
     return best ? { x:best.bx, y:best.by, auto:true, want } : { x:null, y:null, auto:false, want };
   };
-  if(NORTH_ON){
-    const got = spotSearch(northBox, NORTH.x, NORTH.y, 0.02);
-    if(got.auto){
-      process.stderr.write('northArrow: '+(got.want===null?'the configured spot is blocked':
-        'the configured spot is '+(got.want*100).toFixed(0)+'% covered by ink')
-        +' — placed automatically at '+got.x+','+got.y+' (nearest clear corner).\n');
-      NORTH.x=got.x; NORTH.y=got.y; NORTH.auto=true;
-    } else if(got.x===null){
-      process.stderr.write('northArrow: no clear spot found on this sheet; left at the configured '
-        +NORTH.x+','+NORTH.y+'. Set internalRoads.northArrow:false, or make room.\n');
-    }
-    reserve(...northBox(NORTH.x, NORTH.y));
-  }
+  if(NORTH.on) NORTH.site(spotSearch, reserve, m=>process.stderr.write(m));
   if(SCALE_BAR_ON) drawScaleDevice(spotSearch);
   if(process.env.DBG_LABELS) for(const r of LAB.solve()){
     console.error('  '+(r.placed?'placed':'UNPLACED').padEnd(9)
@@ -2765,29 +2461,10 @@ drawServicesPanel({
   FTIER, FTIER_LABEL, IR, ICON_INK, ICON_SET,
 });
 
-// ---- north arrow (DEFAULT ON for internalRoads; disable with northArrow:false)
-// The internal map is rotated (rotationDeg / PCA) to fill the page, so "up" is
-// not north — a small arrow shows which way north actually is. Drawn on EVERY
-// internalRoads map by default (Peter's ask 2026-07-20, "north arrow on every
-// map"); set internalRoads.northArrow:false to suppress, or pass {x,y,len,angle}
-// to position it. Still gated by IR so non-internalRoads gate towns are
-// unaffected. Direction: the SCREEN bearing of increasing latitude under the
-// active rotation (theta); the schematic passes a precomputed `angle` (deg)
-// because its coords are pre-rotated and run at rotationDeg 0, so it can't
-// re-derive north from theta.
-if (NORTH_ON) {
-  // Position resolved above: the configured {x,y} when it is clear, otherwise the
-  // nearest blank corner (v2 only — a v1 sheet never runs that search, so its
-  // arrow stays exactly where its config puts it and the output is byte-identical).
-  // north planar step (0,-1) through the same rot() the projection uses:
-  // rot(0,-1) = [sin(-theta), -cos(-theta)] in screen space (y down).
-  const bx = NORTH.x, by = NORTH.y, L = NORTH_LEN, ang = NORTH_ANG;
-  const c=Math.cos(ang), s=Math.sin(ang), tx=bx+c*L, ty=by+s*L;
-  const px=-s, py=c, ah=2.4, aw=1.4;                     // arrowhead
-  out(`<line x1="${bx.toFixed(2)}" y1="${by.toFixed(2)}" x2="${tx.toFixed(2)}" y2="${ty.toFixed(2)}" stroke="#666" stroke-width="0.8"/>`);
-  out(`<path d="M${tx.toFixed(2)} ${ty.toFixed(2)}L${(tx-c*ah+px*aw).toFixed(2)} ${(ty-s*ah+py*aw).toFixed(2)}L${(tx-c*ah-px*aw).toFixed(2)} ${(ty-s*ah-py*aw).toFixed(2)}Z" fill="#666"/>`);
-  out(`<text x="${(tx+c*3).toFixed(2)}" y="${(ty+s*3+1).toFixed(2)}" font-family="Arial" font-weight="bold" font-size="3.4" fill="#666" text-anchor="middle">N</text>`);
-}
+// ---- north arrow: the line, the arrowhead and the N (north_arrow.js) --------
+// Last, so it sits on top of everything; sited earlier, in the labels block, so
+// it lands on blank paper rather than through a terminus badge.
+if (NORTH.on) NORTH.draw(out);
 
 // footer band: attribution note + version + BusMaps.uk (shared across all four map types — footer.js)
 const _ver = process.env.LEAFLET_VERSION || RJ.version;
