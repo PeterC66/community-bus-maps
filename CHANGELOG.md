@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-08-27** — [A gate that asks what actually loaded, rather than what the source looks like](CHANGELOG.d/2026-08-27-a-gate-that-asks-what-actually-loaded.md)
+- **2026-08-27** — [A published map tracks the engine now, and one command is what makes that true](CHANGELOG.d/2026-08-27-a-published-map-tracks-the-engine.md)
 - **2026-08-27** — [One dead primitive out, and eleven notes about what nothing draws](CHANGELOG.d/2026-08-27-one-dead-primitive-out-and-eleven-notes-in.md)
 - **2026-08-27** — [The changelog is one file per entry, and the last two months are archived](CHANGELOG.d/2026-08-27-the-changelog-is-one-file-per-entry.md)
 - **2026-08-27** — [The dark register is a grep, so every member has to match it](CHANGELOG.d/2026-08-27-the-dark-register-is-a-grep.md)

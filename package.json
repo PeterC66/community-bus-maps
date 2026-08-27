@@ -16,6 +16,7 @@
     "chrome:apply": "node scripts/apply-chrome.mjs",
     "chrome:check": "node scripts/check-chrome.mjs",
     "check:vendored": "node scripts/check-vendored.mjs",
+    "track:engine": "node scripts/track-engine.mjs",
     "vendor:engine": "node scripts/vendor-engine.mjs",
     "test:vendored": "node scripts/test-vendored.mjs",
     "test:selfsufficient": "node --env-file-if-exists=.env scripts/test-engine-selfsufficient.mjs",
