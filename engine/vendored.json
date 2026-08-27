@@ -105,24 +105,24 @@
       "path": "expert/diagram_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/diagram_internal.js",
-      "sha256": "51bbd2e3f91572af9c0ef557200cf094d2408de094dba4b6362d4964232754ac",
-      "vendoredOn": "2026-08-25",
+      "sha256": "cecb9b2ae27d222ce22a9726c2ba9dd9a51f1f38b56b67b75ea63c79e1fef606",
+      "vendoredOn": "2026-08-27",
       "note": "The tube-map pre-stage, run by the portal-owned gen_internal_diagram.js wrapper."
     },
     {
       "path": "expert/gen_boarding.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_boarding.js",
-      "sha256": "52cc2ce9ec2fbbec45c1515ed4e935491bcc73a1bcf772bd687f7d60f512c014",
-      "vendoredOn": "2026-08-25",
+      "sha256": "4d0afd6445af452f6394e69c32cbef03a1c6021b58bcaf748c8493b5aa3a6330",
+      "vendoredOn": "2026-08-27",
       "note": "The portal's fifth output since 2026-08-23; portal-owned in the sense that it is not copied into a map's data."
     },
     {
       "path": "expert/schematize_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/schematize_internal.js",
-      "sha256": "c2325a762de9857173c0ba3b70c22dae0d57e5dca2d33e38f690922f569a5b05",
-      "vendoredOn": "2026-08-25",
+      "sha256": "ce24f2664ea57c2936e27bfb46da8ac8d8ee6cbcf21150446c06ea713ae9aee0",
+      "vendoredOn": "2026-08-27",
       "note": "The octolinear geometry pre-stage, run by the portal-owned gen_internal_schematic.js wrapper."
     },
     {
