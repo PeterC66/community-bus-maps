@@ -1,0 +1,7 @@
+---
+date: 2026-08-25
+title: "The organisation badge reads at AA, and a gate now says so"
+---
+
+- **`.org-badge` painted a customer’s accent on an 18% wash of that same accent**, which is the fault the impeccable round-2 review found in `.badge.place` and `.badge.extra` and which `--accent-tint-ink` fixed for those two. A fixed token cannot serve here, because the accent is chosen per organisation, so the ink is now `color-mix(in srgb, var(--org-accent) 80%, black)` — darken whatever it happens to be. Measured across the whole closed `ACCENTS` palette: **teal was 3.99:1 and amber 4.04:1 on a card, 3.79:1 and 3.81:1 on a surface strip** (AA wants 4.5:1 for text this size); the worst case is now 5.31:1, and the hue is still plainly the organisation’s own. Dark mode already lifted the ink towards white and was never below 7.5:1.
+- **New `scripts/test-contrast.mjs`, wired into `npm test`.** It composites each tinted chip the way the browser does and holds 35 cases to AA, reading the real declarations out of `styles.css` rather than a copy of the numbers, and importing `ACCENTS` so an accent added later is covered the day it is added. It was proved red three ways before being trusted: reverting the `.org-badge` darkening (4 failures), pointing `--accent-tint-ink` back at the raw accent (6 failures, reproducing the review’s original 2.31:1 and 2.37:1 almost exactly), and renaming a selector it names — which makes it **exit non-zero rather than quietly pass**, because a check that cannot find its subject must never report clear.

@@ -116,4 +116,4 @@ commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the co
 - **Safe subset is server-enforced** in `src/maps/safeSubset.js`; POI keys are enumerated from the generator (`EDITOR_KEYS=1`), never reconstructed from `pois.json`.
 - **Data hygiene:** map data, customer PII and secrets never enter this (public) repo — see the root `.gitignore`.
 - **Deploy note:** pin a `sharp`/libvips build compatible with the desktop pipeline to keep byte-parity.
-- See `CHANGELOG.md` for the **P0–P5** lessons learned.
+- See [`_archive/CHANGELOG-to-2026-08-19.md`](_archive/CHANGELOG-to-2026-08-19.md) for the **P0–P5** lessons learned. `CHANGELOG.md` itself now carries only the last few days; everything older was split out on 2026-08-27.

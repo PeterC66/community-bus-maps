@@ -115,7 +115,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
   Private operator records live in a separate local-only folder, never synced.
 - Server-enforced always; client-side checks are UX, not security.
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
-- Update `CHANGELOG.md` with what changed and why.
+- Record what changed and why as a **fragment** in `CHANGELOG.d/` — `YYYY-MM-DD-slug.md`, with `date:` and `title:` front matter — then run `npm run changelog` from the repository root to rebuild the index. **Do not write into `CHANGELOG.md` itself; it is generated and your entry will be overwritten.** One file per entry is what stops two sessions conflicting over the same file on the same day. `npm test` fails if the index is out of date. See [`CHANGELOG.d/README.md`](CHANGELOG.d/README.md).
 
 ## Review checklist & admin to-do — 2026-08-15 session
 
@@ -280,7 +280,7 @@ rendering 28px wide, unusable — which was found, fixed and deployed within tha
 `CHANGELOG.md`). That second critique (`2026-08-15T05-10-40Z__public-index-html.md`) also found two
 WCAG contrast fails (`.badge.place`, `.badge.extra` — amber-on-tint text, ~2.3:1) and a soft
 cognitive-load call on the "Who it's for" 5-card grid — **both fixed and deployed 2026-08-15** (see
-`CHANGELOG.md`'s "impeccable round-2 findings" entry): a new `--accent-tint-ink` token replaced
+[`docs/_archive/CHANGELOG-to-2026-08-19.md`](docs/_archive/CHANGELOG-to-2026-08-19.md)'s "impeccable round-2 findings" entry): a new `--accent-tint-ink` token replaced
 `var(--accent)` as text-on-tint wherever that pattern occurred (including `.pill.amber`, which shared
 the bug but wasn't named in the critique), and the grid dropped to 4 cards. Remaining open items from
 that snapshot are P2/P3 only (uncontrolled emoji icon system, succession-risk section not bridging

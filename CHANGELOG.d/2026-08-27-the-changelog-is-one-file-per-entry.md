@@ -1,0 +1,14 @@
+---
+date: 2026-08-27
+title: "The changelog is one file per entry, and the last two months are archived"
+---
+
+`Development Docs/open-actions.md` in `buses-data`, OA-129 Phase 1.
+
+- **`CHANGELOG.md` went from 2,407 lines to 34, and is now generated.** It was touched by **65 of the last 200 commits**, which is two problems in one file: two sessions appending on the same day conflict every time, and anyone opening it to read the last week paid for two months of history to get there. Each entry's prose now lives in `CHANGELOG.d/<YYYY-MM-DD>-<slug>.md` and `CHANGELOG.md` carries a generated index between two markers. Concurrent sessions write different paths, so git has nothing to merge.
+- **The prose is never copied up into the index.** Only date, title and link. Duplicating the entries into `CHANGELOG.md` would have made this the same 2,407 lines wearing a new hat, which is the obvious way to get the split wrong.
+- **The generated block is deterministic** — sorted by date descending, then filename — so two sessions regenerating it independently produce identical bytes and cannot conflict over the index either.
+- **Everything before 2026-08-19 moved to `docs/_archive/CHANGELOG-to-2026-08-19.md`, archived rather than deleted, and the reason is the finding.** Peter asked for the old changelog to be dropped. Three documents cite entries in it *by name*, and deleting the text would have left all three still resolving and still lying: `CLAUDE.md` cites the "impeccable round-2 findings" entry for the `--accent-tint-ink` token, `docs/DEPLOY.md`'s deploy history cites "the live host rendered every sheet in monospace" for the `fontconfig` fix at `3254c02`, and `docs/ROADMAP.md` sends readers to this file for the P0–P5 lessons learned. All three now point at the archive. Git history would have held the bytes either way; what it would not have held is a pointer anyone could follow.
+- **A bad fragment is a hard error, not a skipped row.** Missing front matter, a malformed date, a filename whose date disagrees with its own `date:` — each stops the run and names the file. Silently dropping an entry from the index is exactly the failure this directory exists to prevent, and a dropped row is indistinguishable from nobody having written one.
+- **Falsified before being trusted**, all four ways: an unindexed fragment makes `--check` exit 1; a fragment with no front matter and one whose filename disagrees with its `date:` both exit 2 naming the file; and a clean tree exits 0. The first cut let those two throws reach the top level and print a Node stack trace with the real message buried four lines up, which is how someone concludes the tool is broken rather than their file — so they are caught and printed in one line now.
+- `npm run changelog` rewrites the index, `npm run changelog:check` is the read-only form, and the check is folded into `npm test` so an entry cannot land without the index catching up.
