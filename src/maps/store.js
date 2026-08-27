@@ -185,6 +185,48 @@ export function ensureProposedDirs(id, pid) {
 // system without one is Places/_portal-fixture/High Wycombe High Street - the
 // boarding-only fixture, which is exactly the case this is for. So the change is
 // inert everywhere except where it is needed.
+// What each sheet actually SHOWS, in one sentence: the hover text on the tabs
+// that select it, in the editor's preview and on a reader's public page alike.
+//
+// 2026-08-27, Peter: on the public page it was "not obvious that all 3 tabs are
+// buttons", and in the editor "not very obvious they are tabs" — which costs
+// most in the editor, where the whole point of the row is that the customer
+// REVIEWS every output before sending the map for publication. The tabs were
+// restyled to read as buttons (public/css/styles.css, public/app/app.css) and
+// given these descriptions.
+//
+// ONE table, not two, even though the LABELS above are deliberately two: a
+// reader and an editor are told different things about the same sheet, but what
+// is drawn ON the sheet does not change with who is looking at it, and a second
+// copy is a second thing to forget. `place` is present only where the sheet is
+// genuinely a different picture on a place map; everything else falls back to
+// `area` rather than restating it.
+export const OUTPUT_HINTS = {
+  internal_geographic: {
+    area:  'The street map: every bus route drawn along the roads it really uses, with the stops and local landmarks marked, so you can see where a bus actually goes through the area.',
+    place: 'The close-up street map: the bus stops immediately around this place, and which routes call at each of them.',
+  },
+  external: {
+    area:  'The onward-travel diagram: each route drawn out to the end of its line, so you can see which towns and villages you can reach from here, and on which bus.',
+    place: 'Where you can get to from here: each destination shown once, with the buses that take you there.',
+  },
+  internal_schematic: {
+    area:  'The same streets straightened and simplified — quicker to follow at a glance, and deliberately not to scale.',
+  },
+  internal_diagram: {
+    area:  'The network drawn tube-map style: routes as coloured lines and interchanges as nodes, with geography set aside altogether.',
+  },
+  boarding_plan: {
+    area:  'Which stop or stand to wait at, listed by where you want to GO rather than by route number.',
+  },
+};
+
+/** The one-sentence description of an output, for the tab that selects it. */
+export function outputHint(key, kind) {
+  const h = OUTPUT_HINTS[key] || {};
+  return (kind === 'place' && h.place) || h.area || '';
+}
+
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true,
                          requiresFiles: ['routes_paths.json'] },

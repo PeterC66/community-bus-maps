@@ -15,7 +15,7 @@
 import path from 'node:path';
 import { existsSync, statSync } from 'node:fs';
 import sharp from 'sharp';
-import { versionDir, OUTPUTS } from '../maps/store.js';
+import { versionDir, OUTPUTS, outputHint } from '../maps/store.js';
 import { brandingForPublic } from '../branding/index.js';
 import { factsForPublicMap, provenanceFor, servicesPageUrl } from './services.js';
 
@@ -93,6 +93,9 @@ export function publicOutputs(row) {
       key,
       base: meta.base,
       label: publicLabel(key, row.kind) || meta.label,
+      // The sentence under the tabs, and the tab's own hover text. The LABELS
+      // differ between the app and the page on purpose; the description does not.
+      hint: outputHint(key, row.kind),
       svgUrl: existsSync(svg) ? fileUrl(row.slug, `${meta.base}.svg`) : null,
       jpgUrl: existsSync(jpg) ? fileUrl(row.slug, `${meta.base}.jpg`) : null,
       jpgBytes: existsSync(jpg) ? statSync(jpg).size : null,

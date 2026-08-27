@@ -67,6 +67,10 @@ const isDirty = () => sig(staged) !== savedSig;
 
 const enabledOutputs = () => detail.outputs.filter((o) => o.available && o.enabled);
 const labelForBase = (base) => (detail.outputs.find((o) => o.base === base) || {}).label || base;
+// The one-sentence description of a sheet (src/maps/store.js OUTPUT_HINTS). It
+// is the tab's tooltip AND the line under the tab row: an editor is asked to
+// review every output, and a tooltip reaches neither a keyboard nor a phone.
+const hintForBase = (base) => (detail.outputs.find((o) => o.base === base) || {}).hint || '';
 const isLocked = () => detail && detail.editable === false; // frozen while awaiting review
 
 // Download labels were a hard-coded table of abbreviations ("Within · SVG") that
@@ -282,12 +286,22 @@ function buildPois() {
 function buildTabs() {
   const outs = enabledOutputs();
   if (!outs.some((o) => o.base === activeMap)) activeMap = outs.length ? outs[0].base : null;
-  $('tabs').innerHTML = outs.map((o) => `<button class="tab ${o.base === activeMap ? 'active' : ''}" data-map="${esc(o.base)}" role="tab">${esc(o.label)}</button>`).join('');
+  $('tabs').innerHTML = outs.map((o) => `<button class="tab ${o.base === activeMap ? 'active' : ''}" data-map="${esc(o.base)}" role="tab" aria-selected="${o.base === activeMap}" title="${esc(o.hint || o.label)}">${esc(o.label)}</button>`).join('');
   $('tabs').querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
-    $('tabs').querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
-    t.classList.add('active'); activeMap = t.dataset.map; showStage();
+    $('tabs').querySelectorAll('.tab').forEach((x) => { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); });
+    t.classList.add('active'); t.setAttribute('aria-selected', 'true');
+    activeMap = t.dataset.map; setTabHint(); showStage();
   }));
+  setTabHint();
   showStage();
+}
+
+function setTabHint() {
+  const el = $('tabHint');
+  if (!el) return;
+  const h = hintForBase(activeMap);
+  el.textContent = h;
+  el.hidden = !h;
 }
 
 // ---- preview (single-flight, debounced) --------------------------------------
@@ -823,7 +837,7 @@ function buildUpdatePanel() {
 // old-vs-new comparison dialog
 let cmpData = null, cmpBase = null;
 function buildCompareTabs(bases) {
-  $('compareTabs').innerHTML = bases.map((b) => `<button class="tab ${b === cmpBase ? 'active' : ''}" data-map="${esc(b)}" role="tab">${esc(labelForBase(b))}</button>`).join('');
+  $('compareTabs').innerHTML = bases.map((b) => `<button class="tab ${b === cmpBase ? 'active' : ''}" data-map="${esc(b)}" role="tab" aria-selected="${b === cmpBase}" title="${esc(hintForBase(b) || labelForBase(b))}">${esc(labelForBase(b))}</button>`).join('');
   $('compareTabs').querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => { cmpBase = t.dataset.map; showCompare(); }));
 }
 function showCompare() {

@@ -14,7 +14,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber } from './store.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber, outputHint } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { buildFacts, FACTS_FILE } from './facts.js';
 
@@ -139,6 +139,9 @@ export function outputsForClient(config, id, kind) {
   const cfg = config && typeof config === 'object' ? config : {};
   return Object.entries(OUTPUTS).map(([key, meta]) => ({
     key, base: meta.base, label: (kind === 'place' && meta.placeLabel) || meta.label, portal: !!meta.portal,
+    // What this sheet shows — the editor puts it on the tab's tooltip and under
+    // the tab row, because the customer is being asked to review every one.
+    hint: outputHint(key, kind),
     expert: !!meta.expert,
     // Locked to the customer: shown, never switched by them (see chooseOutputs).
     requestOnly: !!meta.requestOnly,

@@ -5,7 +5,7 @@
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
-**Last reviewed:** 2026-08-24 · **Applies to:** the portal at `0.9.4-pilot`
+**Last reviewed:** 2026-08-24 · **Applies to:** the portal at `0.10.0-pilot`
 
 > **This is a pilot.** The system works end to end, but you would be among the first organisations to use it — there is no track record behind it yet, no service level, and no charge. Things may change, and we may pause or withdraw parts of it (with reasonable notice; you keep any sheets you have already downloaded). In exchange we want to hear what does not work. Everything below describes how the system is built to work.
 

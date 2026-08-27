@@ -20,6 +20,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-27** — [The governing law is confirmed, and the placeholder comes off the live page](CHANGELOG.d/2026-08-27-the-governing-law-is-confirmed-and.md)
 - **2026-08-27** — [The require scan had gone blind to the way two generators ask for a module](CHANGELOG.d/2026-08-27-the-require-scan-had-gone-blind-to-the.md)
 - **2026-08-27** — [The Services panel becomes a module of its own, and an entire layout turns out to be drawn by nobody](CHANGELOG.d/2026-08-27-the-services-panel-becomes-a-module-of-its-own.md)
+- **2026-08-27** — [The unchosen tabs now look like buttons, and every tab says what it shows](CHANGELOG.d/2026-08-27-the-unchosen-tabs-now-look-like-buttons.md)
 - **2026-08-27** — [The last three blocks out of the internal generator](CHANGELOG.d/2026-08-27-three-last-blocks-out-of-the-internal-generator.md)
 - **2026-08-27** — [Three more modules out of the internal generator, and the require scan caught them itself](CHANGELOG.d/2026-08-27-three-more-modules-out-of-the-internal-generator.md)
 - **2026-08-26** — [A module the portal was never given could not be a row](CHANGELOG.d/2026-08-26-a-module-the-portal-was-never-given-could.md)
