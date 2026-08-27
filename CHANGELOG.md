@@ -17,6 +17,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-27** — [The changelog is one file per entry, and the last two months are archived](CHANGELOG.d/2026-08-27-the-changelog-is-one-file-per-entry.md)
 - **2026-08-27** — [The dark register is a grep, so every member has to match it](CHANGELOG.d/2026-08-27-the-dark-register-is-a-grep.md)
 - **2026-08-27** — [The documentation tracker held the only pointer to an open legal gate](CHANGELOG.d/2026-08-27-the-documentation-tracker-held-the-only.md)
+- **2026-08-27** — [The governing law is confirmed, and the placeholder comes off the live page](CHANGELOG.d/2026-08-27-the-governing-law-is-confirmed-and.md)
 - **2026-08-27** — [The require scan had gone blind to the way two generators ask for a module](CHANGELOG.d/2026-08-27-the-require-scan-had-gone-blind-to-the.md)
 - **2026-08-27** — [The Services panel becomes a module of its own, and an entire layout turns out to be drawn by nobody](CHANGELOG.d/2026-08-27-the-services-panel-becomes-a-module-of-its-own.md)
 - **2026-08-27** — [The last three blocks out of the internal generator](CHANGELOG.d/2026-08-27-three-last-blocks-out-of-the-internal-generator.md)
