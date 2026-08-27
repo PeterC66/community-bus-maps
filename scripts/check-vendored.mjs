@@ -14,6 +14,17 @@
 // not present — CI, or a second developer's machine — the source half of the
 // audit is SKIPPED and says so by name; it never silently passes.
 //
+// Three populations are enumerated, not one, and the third was added on
+// 2026-08-26 because the first two between them could not see a real hand-off:
+//   • the TREE      — a .js under engine/ the manifest does not name  (UNLISTED)
+//   • the MANIFEST  — a row naming a file that is not on disk        (MISSING)
+//   • what the CODE ASKS FOR — a module a vendored file requires through
+//     SKILL_ASSETS that was never vendored at all                    (UNRESOLVED)
+// A file in neither the tree nor the manifest is not a row in either direction.
+// That is exactly the state `lane_normals.js` was in: `gen_internal.js` required
+// it at load, the portal had never been given it, and the only red row was
+// `place/gen_internal.js DRIFTED`, which looks like an ordinary stale vendor.
+//
 // Exit 1 on any row that is not OK. `process.exitCode` rather than
 // `process.exit()`, because status.js aborted on Windows (UV_HANDLE_CLOSING)
 // the first time a gate here tore its own process down mid-teardown.
@@ -85,6 +96,8 @@ if (flag('update')) {
     console.error('  EDITED    → the portal copy changed: revert it, or re-vendor and run --update');
     console.error('  DRIFTED   → the skill source moved: re-vendor (changing-the-engine.md §4) and run --update');
     console.error('  MISSING   → a vendored file is gone; a require() will throw, not a byte gate');
+    console.error('  UNRESOLVED→ a vendored file requires a module the portal has NEVER been given:');
+    console.error('              vendor it too, IN THE SAME COMMIT, and add its manifest row by hand');
     process.exitCode = 1;
   }
 }

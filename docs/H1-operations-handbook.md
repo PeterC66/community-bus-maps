@@ -1,6 +1,6 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.19 | 2026-08-26 | sha=0fd080dd -->
+<!-- docstamp v1.19 | 2026-08-26 | sha=916f85f5 -->
 **v1.19** · updated 26 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
@@ -146,7 +146,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | Doc | Home (buses-data) | What it's for | Status |
 |---|---|---|---|
 | **Glossary of terms** | `Documentation/README - Glossary of terms.md` | **the one vocabulary** — every part of every sheet keyed to two annotated examples, plus the pipeline, portal, repo and failure words, each with an audience label and the phrase to use with a customer | ✅ the authority; §2 above points here |
-| **Failure shapes we have named** | `Documentation/README - Failure shapes we have named.md` | twenty-nine ways this system has run, reported success and been wrong — read it before trusting a gate | ✅ split out of the glossary 2026-08-26 |
+| **Failure shapes we have named** | `Documentation/README - Failure shapes we have named.md` | the named ways this system has run, reported success and been wrong — read it before trusting a gate | ✅ split out of the glossary 2026-08-26 |
 | Folder structure | `Documentation/README - Folder structure.md` | what is tracked, what is generated, and why | ✅ |
 | How to enhance the system | `Documentation/README - How to enhance the system.md` | changing the engine, the layout logic or the data sources | ✅ |
 | How to make a bus leaflet / a place leaflet / audit one | `Documentation/README - How to make a bus leaflet.md` and its two siblings | using the system through Claude, in plain English | ✅ |
