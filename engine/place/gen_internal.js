@@ -1762,10 +1762,40 @@ if(IR){
   // worse. quality_metrics.js cannot see a lane mirror at all, so there is no
   // instrument to settle it with. Until there is, the key is adopted one map at
   // a time on the evidence of a rendered crop.
-  const ORIENT=DESIGN.laneOrientation===true
-    ? LN.orientSegments(SEG,CORPAIRS.concat(LN.chainPairs(SEG,{cosAngle:-1})),[])
+  // The two edge kinds go in SEPARATE arguments, and that is not cosmetic.
+  // orientSegments counts a conflict only over `lateral`; a chain edge is a
+  // BRIDGE, applied when it joins two components nothing else connects and
+  // dropped when both ends already share one. Until 2026-08-27 this call
+  // concatenated the chain pairs INTO the lateral argument and passed [] as the
+  // chain, so every cycle-closing chain edge was counted as a conflict on its
+  // way past. The drawn artwork was never affected -- union() returns without
+  // merging when the roots already match, so the edge was skipped either way,
+  // and all 17 maps with an internal sheet render byte-identically under both
+  // forms -- but the NUMBER was a mixture of two populations and no gate could
+  // be built on it. As reported: 160 on High Wycombe, 85 on St Ives, non-zero
+  // on 14 of 17 maps. Lateral only: 50 on St Ives, ZERO on the other sixteen.
+  // That second number is the one that means "this corridor has no consistent
+  // orientation to find", and it is what the S4 warning below reads.
+  const ORIENT=DESIGN.laneOrientation!==false
+    ? LN.orientSegments(SEG,CORPAIRS,LN.chainPairs(SEG,{cosAngle:-1}))
     : {sign:null,components:0,conflicts:0,bridges:0};
-  if(process.env.DBG_LANES) console.error(`LANEFIELD on=${DESIGN.laneOrientation===true} segs=${SEG.length} lateral=${CORPAIRS.length} components=${ORIENT.components} bridges=${ORIENT.bridges} conflicts=${ORIENT.conflicts} flipped=${ORIENT.sign?ORIENT.sign.reduce((a,b)=>a+(b<0?1:0),0):0}`);
+  if(process.env.DBG_LANES) console.error(`LANEFIELD on=${DESIGN.laneOrientation!==false} segs=${SEG.length} lateral=${CORPAIRS.length} components=${ORIENT.components} bridges=${ORIENT.bridges} conflicts=${ORIENT.conflicts} flipped=${ORIENT.sign?ORIENT.sign.reduce((a,b)=>a+(b<0?1:0),0):0}`);
+  // A LATERAL conflict means two segments running alongside each other were
+  // given contradictory directions and the corridor has no consistent
+  // orientation to find -- so some lane bundles here keep the old mirrored
+  // behaviour whatever the key says. It cannot be resolved, only reported.
+  //
+  // WARN, not BLOCKING: the sheet is not wrong, it is a sheet the automatic
+  // repair cannot fully reach. St Ives is the only built map that reports any
+  // -- 50 of them -- and it declines the key for exactly this reason. The
+  // other sixteen report zero, which is what lets this start green instead of
+  // arriving red and being muted. Chain edges are NOT counted; see the note
+  // on the orientSegments call above for why that distinction is the whole
+  // reason this warning can exist at all.
+  if(ORIENT.conflicts>0) console.error('lanes: '+ORIENT.conflicts+' corridor adjacencies on this sheet '
+    +'disagree about which way their street runs, so design.laneOrientation cannot straighten every lane '
+    +'bundle here. Every other built map reports zero. Look at the lanes where two streets meet at both '
+    +'ends before shipping; set design.laneOrientation:false to keep the pre-2026-08-26 behaviour instead.');
   // reference direction for a lane-bundle at a point: the local heading of the
   // bundle's lowest-order route (r0), ORIENTED TO ITS CORRIDOR by
   // lane_normals.js. Using ONE shared reference per location (not each route's
