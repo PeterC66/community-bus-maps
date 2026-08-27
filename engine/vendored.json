@@ -162,7 +162,7 @@
       "path": "strict_guards.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/strict_guards.js",
-      "sha256": "e650c9198ac7559f4469ab71a4fc422594e2d74c1e826856a4fd7a0eeb2e7447",
+      "sha256": "fc71ea5745c4dd9f6334769af8e4623812527280d82f125f440ae7d9a31249da",
       "vendoredOn": "2026-08-27",
       "note": "The refusal contract. Required at LOAD by gen_internal.js and gen_boarding.js, so a partial vendor throws before either reads an input."
     },
@@ -194,7 +194,7 @@
       "path": "svg_primitives.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/svg_primitives.js",
-      "sha256": "3bfdfd5dda45f79e3e7dc99456fd2b85af1d478f01cf06ed2fb32e48eca5a630",
+      "sha256": "d9f1db57563ecca97ce1add6c8b5e969d7a9c708ba120a9a5f851eb16621c300",
       "vendoredOn": "2026-08-27",
       "note": "The eight small marks the internal sheet is drawn out of — esc, gk, the badge measurements, badge/badgeStack/cross. Required at load by gen_internal.js."
     },
@@ -210,7 +210,7 @@
       "path": "label_placer.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/label_placer.js",
-      "sha256": "483d304df6449df4e78530e11fb8d64833fd462e85e34b6d43ffb8d86f4dd60a",
+      "sha256": "e0bdb9683d9c690171e4bb90ca8111b9f9f151f8bac41f49c5a09328e82c3530",
       "vendoredOn": "2026-08-27",
       "note": "The shared reserved-box list, both label placers, and the route-ink contrast floor. Required at load by gen_internal.js."
     },
@@ -242,7 +242,7 @@
       "path": "feature_labels.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/feature_labels.js",
-      "sha256": "02502dfefd53b5b9d36f904109c6badc5079b5b8371f6df30fa4103e71e947d0",
+      "sha256": "58c7e813b5944d60bf7c09c0829098e100ff8e3b1f6a56e17d609b6c87975f4d",
       "vendoredOn": "2026-08-27",
       "note": "Siting the NAME of a river, road, railway or canal, and the four guards that refuse a name nobody can read or that names nothing. Required at load by gen_internal.js."
     }
