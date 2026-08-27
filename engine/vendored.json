@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "3eef6cc2e1b6ba898d3fd45ca9d3a42676317e8b005dd774d2ff8e7dee7ba918",
+      "sha256": "fbd52c578ce46b99ede0b64d5422b216a418715809a13cf09022c04840e3e1b1",
       "vendoredOn": "2026-08-27",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -221,6 +221,30 @@
       "sha256": "ecb8d7702ca519ee8447f78b4080c6d3db7fb30b1f8920b230236db13850e3a5",
       "vendoredOn": "2026-08-27",
       "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
+    },
+    {
+      "path": "complexity_ladder.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/complexity_ladder.js",
+      "sha256": "e4f1ab83100e830f00a23335b95800b1fb6faa1bf476adb9e945106238355a22",
+      "vendoredOn": "2026-08-27",
+      "note": "The four rungs that make a big town readable: internalCorridors, coreBox, stopThinning, corridorPalette. Required at load by gen_internal.js."
+    },
+    {
+      "path": "north_arrow.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/north_arrow.js",
+      "sha256": "7785709337362bd3684f95938425909a628ed0c81a3e15d98ab6a195c6b6abd9",
+      "vendoredOn": "2026-08-27",
+      "note": "The compass: its angle, its footprint, the blank-space search that sites it and the drawing. Required at load by gen_internal.js."
+    },
+    {
+      "path": "feature_labels.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/feature_labels.js",
+      "sha256": "02502dfefd53b5b9d36f904109c6badc5079b5b8371f6df30fa4103e71e947d0",
+      "vendoredOn": "2026-08-27",
+      "note": "Siting the NAME of a river, road, railway or canal, and the four guards that refuse a name nobody can read or that names nothing. Required at load by gen_internal.js."
     }
   ]
 }
