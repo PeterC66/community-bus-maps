@@ -18,6 +18,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-27** — [The dark register is a grep, so every member has to match it](CHANGELOG.d/2026-08-27-the-dark-register-is-a-grep.md)
 - **2026-08-27** — [The documentation tracker held the only pointer to an open legal gate](CHANGELOG.d/2026-08-27-the-documentation-tracker-held-the-only.md)
 - **2026-08-27** — [The governing law is confirmed, and the placeholder comes off the live page](CHANGELOG.d/2026-08-27-the-governing-law-is-confirmed-and.md)
+- **2026-08-27** — [The orphan river that stopped seven published maps from ever being updated](CHANGELOG.d/2026-08-27-the-orphan-river-that-stopped-seven-maps-publishing.md)
 - **2026-08-27** — [The require scan had gone blind to the way two generators ask for a module](CHANGELOG.d/2026-08-27-the-require-scan-had-gone-blind-to-the.md)
 - **2026-08-27** — [The Services panel becomes a module of its own, and an entire layout turns out to be drawn by nobody](CHANGELOG.d/2026-08-27-the-services-panel-becomes-a-module-of-its-own.md)
 - **2026-08-27** — [The unchosen tabs now look like buttons, and every tab says what it shows](CHANGELOG.d/2026-08-27-the-unchosen-tabs-now-look-like-buttons.md)
