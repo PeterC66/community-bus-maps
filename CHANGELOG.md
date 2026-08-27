@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.82 | 2026-08-27 | sha=6f07f650 -->
-**v1.82** · updated 27 August 2026
+<!-- docstamp v1.83 | 2026-08-27 | sha=24e515db -->
+**v1.83** · updated 27 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-27** — [A gate that asks what actually loaded, rather than what the source looks like](CHANGELOG.d/2026-08-27-a-gate-that-asks-what-actually-loaded.md)
 - **2026-08-27** — [The changelog is one file per entry, and the last two months are archived](CHANGELOG.d/2026-08-27-the-changelog-is-one-file-per-entry.md)
 - **2026-08-27** — [The require scan had gone blind to the way two generators ask for a module](CHANGELOG.d/2026-08-27-the-require-scan-had-gone-blind-to-the.md)
 - **2026-08-26** — [A module the portal was never given could not be a row](CHANGELOG.d/2026-08-26-a-module-the-portal-was-never-given-could.md)
