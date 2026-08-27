@@ -55,6 +55,14 @@ const KEYS = [
   // nothing on a place sheet for it to change. Same reasoning as hubFit above.
   ['sheetQr', { design: { sheetQr: false } }],
   ['keyCols', { design: { keyCols: 1 } }],
+  // Promoted 2026-08-27 (OA-120). This is the ONLY gate that can see this key.
+  // verify-reproduce-defaults.mjs runs the AREA fixture's own gen_internal.js --
+  // a pre-2026-08-04 snapshot with no knowledge of lane_normals.js -- so a row
+  // added there would report DIFFERS on nothing and assert precisely zero. The
+  // place gate vendors engine/place/gen_internal.js in, so it exercises the
+  // real code. Its escape hatch IS `false`: the engine tests `!== false`, so a
+  // missing key is now adoption and only an explicit false declines.
+  ['laneOrientation', { design: { laneOrientation: false } }],
 ];
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-place-defaults-'));
