@@ -172,6 +172,9 @@ const LN = require(_dep('lane_normals.js'));
 const { selectPois } = require(_dep('poi_select.js'));
 const { fitSet } = require(_dep('fit_set.js'));
 const { projection } = require(_dep('projection.js'));
+const { svgPrimitives } = require(_dep('svg_primitives.js'));
+const { linearFeatures } = require(_dep('linear_features.js'));
+const { labelPlacer } = require(_dep('label_placer.js'));
 // The internal map's own footer notes are fixed (not per-town), so the footer plate's
 // top edge is a known constant — computed once here and used both by the mapNotes
 // collision check below and the footerBand() call at the very end of this file. Keep
@@ -512,8 +515,15 @@ const FEATURE_STYLES = {
 // symbol's rhythm along the line, which is what makes it read as a railway at
 // arm's length. Comparison on all four railway towns, with 300 dpi crops:
 // Development Docs\railway-weight-options_2026-08-15.html.
-// NOTE the base railway `stroke` stays #333333, so the places — still on the tie
-// symbol until the Phase 8 re-vendor — are untouched by this.
+// The base railway `stroke` stays #333333, so a feature that does NOT opt in is
+// untouched by any of this. That used to be worth saying because the place
+// sheets were still on the tie symbol; MEASURED 2026-08-27 by instrumenting
+// every branch and running all 18 maps that have an internal sheet, they are
+// not. All SIX maps with a railway take the chequer, the two place sheets
+// included, so the tie symbol, its tieEvery/tieLen/tieWidth keys and the
+// minSegLen stub filter are drawn by NO committed map at all. They are live
+// features today's data does not select, not dead code — but the byte gate
+// cannot certify any of them, and only test/linear_features.test.js does.
 const RAIL_CHEQUER = { width:1.6, ties:false, dash:null, minSegLen:0, stroke:'#4a4a4a',
   coreWidth:0.88, coreColor:'#ffffff', chequer:'2.3 2.3',
   railStitch:0.5, railStitchTurn:60, railMerge:1.5, railMinRun:6 };
@@ -863,220 +873,22 @@ const XYS=a=> baseXY(a);            // base accessor (anchor / road labels share
 
 // ---------- svg helpers ----------
 const W=297,H=210; let s=''; const out=x=>{s+=x+'\n';};
-const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-// editor-only element keys (no-op unless EDITOR_KEYS=1, so normal output is unchanged)
-const gk=(kind,key,inner)=> EDK ? `<g data-kind="${kind}" data-key="${esc(key)}">${inner}</g>` : inner;
-/* ---- design.badgeFit: a 4-character route key does not fit a disc ------------
- * badge() has always drawn its text at font-size = the badge RADIUS. That is
- * right for one to three characters and wrong for four: "301S" is 5.6mm of Arial
- * Bold in a 4.8mm stop badge, 7.0mm in a 6.0mm terminus badge and 9.3mm in the
- * 8.0mm Services-panel one, so it spilled over BOTH edges and the number read as
- * sitting ON the disc rather than IN it. Found 2026-08-15 on Ramsey (301S / 301V
- * / 301X); March (ZIP2) and St Ives (VL14) have it too, on their external sheets
- * as well as their internal ones.
- *
- * The fix is the SHAPE, not the type. Shrinking the font to fit the disc is the
- * smaller change and it fails exactly where it matters most: fitting "301S"
- * inside a 2.4mm-radius stop badge needs 1.8mm type, well under the 2.4mm print
- * legibility floor `quality_metrics.js` enforces. So the badge grows sideways
- * into a stadium — what operator maps do with a lettered route number — and the
- * type stays the size it was.
- *
- * `badgeHalfW(route, rad)` is the single source of truth for how wide a badge is,
- * and `badgeXW` is the same thing as an EXTRA over the radius. Every pitch, clamp
- * and reserve box below is expressed as `<the old literal> + <extra>`, never
- * recomputed from the half-width, so a town with no long key adds a floating
- * zero and stays bit-for-bit identical (invariant 2). Absent the key `badgeXW` is
- * 0 everywhere and none of it runs at all.
- */
-const BFIT = BADGE_FIT;
-// Overflow is measured against the DIAMETER, not against a chord: "X31" pokes a
-// hair outside the circle at the corners of its cap band and has always looked
-// fine, and tightening the test to the chord would turn three-character keys
-// that ship today into pills. 0.3mm of inset keeps the widest shipped
-// three-character key (X31, 4.27mm in a 4.8mm disc) a disc.
-const badgeHalfW = (r,rad)=>{
-  if(!BFIT) return rad;
-  const w = FONT.textWidth(blab(r), rad, true);   // font-size == rad, Arial Bold
-  return (w <= 2*rad-0.3) ? rad : w/2 + 0.35*rad;
-};
-const badgeXW = (r,rad)=> BFIT ? badgeHalfW(r,rad)-rad : 0;
-// widest EXTRA over a set of routes drawn at one radius — needed before the draw,
-// because several call sites test for collisions and then decide whether to badge.
-const badgeXWs = (list,rad)=> BFIT ? Math.max(0,...list.map(r=>badgeXW(r,rad))) : 0;
-function badge(x,y,r,rad=4.6){
-  const hw=badgeHalfW(r,rad);
-  if(hw>rad) out(`<rect x="${(x-hw).toFixed(2)}" y="${(y-rad).toFixed(2)}" width="${(2*hw).toFixed(2)}" height="${(2*rad).toFixed(2)}" rx="${rad}" fill="${C[r]||'#888'}" stroke="#fff" stroke-width="0.7"/>`);
-  else out(`<circle cx="${x}" cy="${y}" r="${rad}" fill="${C[r]||'#888'}" stroke="#fff" stroke-width="0.7"/>`);
-  out(`<text x="${x}" y="${y}" font-family="Arial" font-weight="bold" font-size="${(rad).toFixed(2)}" fill="${TXT[r]||'#fff'}" text-anchor="middle" dominant-baseline="central">${esc(blab(r))}</text>`);
-  return hw-rad;}
-// A bundled corridor's badge is a vertical STACK of its members' badges (the
-// convention every operator's own big-town map uses: one line, many identities).
-// A one-element list reduces to exactly badge() at the same centre, so an
-// unbundled town is byte-identical. Returns the stack's half-height in mm, and
-// (under design.badgeFit) how much wider than the disc its widest member drew,
-// so the caller can reserve the right box.
-function badgeStack(x,y,list,rad){
-  if(list.length===1){ const xw=badge(x,y,list[0],rad); return {h:rad, xw}; }
-  const pitch=rad*2+0.5, y0=y-(list.length-1)/2*pitch;
-  let xw=0;
-  list.forEach((r,i)=>{ xw=Math.max(xw, badge(x, y0+i*pitch, r, rad)); });
-  return {h:(list.length-1)/2*pitch + rad, xw};
-}
-function cross(x,y,col){const a=1.0,b=2.6;out(`<rect x="${x-a/2}" y="${y-b/2}" width="${a}" height="${b}" fill="${col}"/><rect x="${x-b/2}" y="${y-a/2}" width="${b}" height="${a}" fill="${col}"/>`);}
+// The eight primitives every mark on this sheet is made of live in
+// svg_primitives.js, along with the design.badgeFit reasoning. They append
+// through `out` and return measurements, so the document stays here.
+const { esc, gk, badgeHalfW, badgeXW, badgeXWs, badge, badgeStack, cross } = svgPrimitives({
+  out, palette: C, textOn: TXT, badgeLabel: blab, font: FONT,
+  badgeFit: BADGE_FIT, editorKeys: EDK,
+});
 
 // ---- linear features: paths + labels (honour overrides.features[key]) ----
-const featOv = f => (OV.features||{})[f.key]||{};
-const featStyle = f => {
-  const base = FEATURE_STYLES[f.type]||FEATURE_STYLES.generic;
-  const own  = Object.assign({}, f.style||{}, featOv(f).style||{});
-  // rail:"chequer" layers its defaults BETWEEN the type default and the town's
-  // own style, so the town keeps the last word on any individual key.
-  const mid  = (own.rail||base.rail)==='chequer' ? RAIL_CHEQUER : {};
-  return Object.assign({}, base, mid, own);
-};
-function featSegs(f){              // page-mm polylines, honouring straighten/move overrides
-  const ov=featOv(f); let segs;
-  if(ov.segments) segs = ov.segments.map(s=>s.map(p=>[p[0],p[1]]));      // straighten (page mm)
-  else if(ov.points) segs = [ov.points.map(p=>[p[0],p[1]])];
-  else segs = f.geo.map(seg=>seg.map(p=>XY(p)));                          // project geo -> page mm
-  const dx=(ov.move&&ov.move.dx)||0, dy=(ov.move&&ov.move.dy)||0;         // nudge whole feature
-  if(dx||dy) segs = segs.map(s=>s.map(p=>[p[0]+dx,p[1]+dy]));
-  return segs;
-}
-// segLen / ptToSeg / ptToPoly: shared by the stitch and merge passes below.
-const segLen=s=>{ let L=0; for(let i=1;i<s.length;i++) L+=Math.hypot(s[i][0]-s[i-1][0],s[i][1]-s[i-1][1]); return L; };
-function ptToSeg(p,a,b){
-  const dx=b[0]-a[0], dy=b[1]-a[1], L2=dx*dx+dy*dy;
-  if(!L2) return Math.hypot(p[0]-a[0],p[1]-a[1]);
-  let t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2; t=Math.max(0,Math.min(1,t));
-  return Math.hypot(p[0]-(a[0]+t*dx), p[1]-(a[1]+t*dy));
-}
-const ptToPoly=(p,poly)=>{ let d=Infinity; for(let i=1;i<poly.length;i++) d=Math.min(d,ptToSeg(p,poly[i-1],poly[i])); return d; };
-function turnAt(s, i){           // degrees the line turns through at vertex i
-  if(i<1 || i>=s.length-1) return 0;
-  const a=Math.atan2(s[i][1]-s[i-1][1], s[i][0]-s[i-1][0]);
-  const b=Math.atan2(s[i+1][1]-s[i][1], s[i+1][0]-s[i][0]);
-  return Math.abs(((b-a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI)*180/Math.PI;
-}
-// railStitch (page mm): join polylines whose endpoints meet, so a line broken
-// into several OSM ways becomes one path. Matters for the chequer symbol, whose
-// dash phase restarts at each path — without this a white block can straddle a
-// join. Also lets the merge pass below judge whole lines rather than fragments.
-// maxTurn guards against the failure this had on first run: the four parallel
-// tracks through St Neots station all begin and end at the same throat, so their
-// endpoints are within tol of each other and they were chained into one path
-// that doubled back on itself four times — four superimposed strokes with
-// different dash phases, which renders as a solid white core. A real
-// continuation carries on in roughly the same direction; a doubling-back does
-// not, so reject any join that turns more than maxTurn degrees.
-function stitchSegs(segs, tol, maxTurn){
-  const out = segs.map(s=>s.slice());
-  for(let joined=true; joined; ){
-    joined=false;
-    scan:
-    for(let i=0;i<out.length;i++) for(let j=i+1;j<out.length;j++){
-      const A=out[i], B=out[j], near=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1])<=tol;
-      const cands=[];
-      if(near(A[A.length-1],B[0]))               cands.push([A.concat(B.slice(1)), A.length-1]);
-      if(near(A[A.length-1],B[B.length-1]))      cands.push([A.concat(B.slice(0,-1).reverse()), A.length-1]);
-      if(near(A[0],B[0]))                        cands.push([A.slice(1).reverse().concat(B), A.length-2]);
-      if(near(A[0],B[B.length-1]))               cands.push([B.concat(A.slice(1)), B.length-1]);
-      for(const [m,jn] of cands){
-        if(turnAt(m, jn) > maxTurn) continue;
-        out.splice(j,1); out.splice(i,1,m); joined=true; break scan;
-      }
-    }
-  }
-  return out;
-}
-function densify(s, step){       // even sampling, so coverage is judged along the
-  const out=[s[0]];              // line rather than at whatever vertices OSM gave us
-  for(let i=1;i<s.length;i++){
-    const a=s[i-1], b=s[i], n=Math.max(1, Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/step));
-    for(let k=1;k<=n;k++) out.push([a[0]+(b[0]-a[0])*k/n, a[1]+(b[1]-a[1])*k/n]);
-  }
-  return out;
-}
-function dropCollinear(s, eps){  // undo densify's padding without moving the line
-  if(s.length<3) return s;
-  const out=[s[0]];
-  for(let i=1;i<s.length-1;i++) if(ptToSeg(s[i], out[out.length-1], s[i+1])>eps) out.push(s[i]);
-  out.push(s[s.length-1]);
-  return out;
-}
-// railMerge (page mm): OSM maps a double-track line as two ways, plus loops,
-// sidings and platform lines, and we were drawing every one of them with its own
-// casing and its own ties (36 polylines / 1434 tie strokes on the St Neots
-// diagram sheet). Take the longest line first and, for each later one, keep only
-// the stretches that are NOT already within tol of a line already kept — trimmed,
-// not dropped whole, because a siding that runs alongside for 90% of its length
-// and then diverges would otherwise survive entirely and re-double the main line.
-// (That is not hypothetical: it is what the first cut of this did on St Neots,
-// where two coincident lines' dash phases interleaved into a solid white core.)
-// Trimmed stretches shorter than minRun are dropped as floating fragments.
-// Length order with an index tiebreak keeps the output deterministic.
-function mergeSegs(segs, tol, minRun){
-  const kept=[], step=Math.max(0.4, tol/3);
-  for(const {s} of segs.map((s,i)=>({s,i,L:segLen(s)})).sort((a,b)=>b.L-a.L||a.i-b.i)){
-    if(!kept.length){ kept.push(s); continue; }
-    const runs=[]; let run=[];
-    for(const p of densify(s, step)){
-      if(kept.some(k=>ptToPoly(p,k)<=tol)){ if(segLen(run)>=minRun) runs.push(run); run=[]; }
-      else run.push(p);
-    }
-    if(segLen(run)>=minRun) runs.push(run);
-    for(const r of runs) kept.push(dropCollinear(r, 0.02));
-  }
-  return kept;
-}
-function drawFeature(f){
-  if(featOv(f).hide) return;
-  const st=featStyle(f); let segs=featSegs(f);
-  if(st.railStitch) segs = stitchSegs(segs, st.railStitch, st.railStitchTurn!=null?st.railStitchTurn:60);
-  if(st.railMerge)  segs = mergeSegs(segs, st.railMerge, st.railMinRun!=null?st.railMinRun:6);
-  if(st.minSegLen){                              // drop short stubs (e.g. rail crossovers) — see FEATURE_STYLES
-    segs = segs.filter(s=>s.length>1 && segLen(s)>=st.minSegLen);
-  }
-  const dash = st.dash ? ` stroke-dasharray="${st.dash}"` : '';
-  const lines=[];
-  for(const seg of segs){
-    const d=seg.map((p,i)=>(i?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');
-    if(st.chequer){                              // black casing + white blocks on top
-      lines.push(`<path d="${d}" fill="none" stroke="${st.stroke}" stroke-width="${st.width}" stroke-linecap="butt" stroke-linejoin="round"/>`);
-      // The white core needs the SAME linejoin as the casing under it. It had none, so
-      // it took SVG's default — miter — and a miter spike is width/sin(turn/2) long: on
-      // GEOGRAPHIC geometry the turns are gentle and nothing showed, but the diagram
-      // engine warps the line into turns up to 148 deg, where a 0.88 mm core throws a
-      // 3.2 mm spike out past a 1.6 mm casing. That is High Wycombe's "malformed railway
-      // segments (white too large)" (Peter, 2026-08-24) — white blocks bursting out of
-      // the dark band at every bend, and the pattern reading as an outline rather than a
-      // chequer. Round joins clip the spike back inside the casing. Byte-inert on any
-      // sheet whose railway has no sharp turn, which is every geographic internal.
-      lines.push(`<path d="${d}" fill="none" stroke="${st.coreColor}" stroke-width="${st.coreWidth}" stroke-dasharray="${st.chequer}" stroke-linecap="butt" stroke-linejoin="round"/>`);
-      continue;
-    }
-    // A dashed feature needs a BUTT cap for the same reason the chequer above does
-    // and the external generators' dashed spokes do: a round cap adds width/2 of ink
-    // past each end of every dash, so any pattern whose gap is narrower than the
-    // stroke fuses into a solid scalloped line. The `canal` default ("3 1.6" at
-    // w2.4) is exactly such a pattern — latent today because no town has a canal yet.
-    const cap = st.dash ? 'butt' : 'round';
-    lines.push(`<path d="${d}" fill="none" stroke="${st.stroke}" stroke-width="${st.width}"${dash} stroke-linecap="${cap}" stroke-linejoin="round"/>`);
-  }
-  if(st.ties){                     // railway cross-ties (perpendicular ticks)
-    const t = st.tieLen!=null ? st.tieLen : st.width*0.9;   // OS-style: longer, bolder,
-    const step = st.tieEvery!=null ? st.tieEvery : 2.2;     // evenly-spaced crossbars.
-    const tw = st.tieWidth!=null ? st.tieWidth : 0.5;       // (defaults = legacy behaviour)
-    for(const seg of segs) for(let i=0;i<seg.length-1;i++){
-      const [x0,y0]=seg[i],[x1,y1]=seg[i+1], L=Math.hypot(x1-x0,y1-y0); if(!L) continue;
-      const nx=-(y1-y0)/L, ny=(x1-x0)/L;
-      for(let dd=step*0.5; dd<L; dd+=step){ const cx=x0+(x1-x0)*dd/L, cy=y0+(y1-y0)*dd/L;
-        lines.push(`<path d="M${(cx-nx*t).toFixed(2)} ${(cy-ny*t).toFixed(2)}L${(cx+nx*t).toFixed(2)} ${(cy+ny*t).toFixed(2)}" stroke="${st.stroke}" stroke-width="${tw}"/>`); }
-    }
-  }
-  out(gk('feature', f.key, lines.join('\n')));
-}
+// The geometry and the ink are in linear_features.js. drawFeatureLabel stays
+// here, below, because siting a feature's NAME needs the coreBox, the panel
+// edge, the footer plate and the auto-label solver — none of which the line
+// itself knows anything about.
+const { featOv, featStyle, featSegs, drawFeature } = linearFeatures({
+  out, gk, OV, FEATURE_STYLES, RAIL_CHEQUER, XY,
+});
 function drawFeatureLabel(f){
   const ov=featOv(f), lov=ov.label||{};
   if(ov.hide || lov.hide || !f.labelPos) return;
@@ -1194,99 +1006,12 @@ function drawFeatureLabel(f){
 }
 
 // ---- label de-collision: reserved boxes + greedy placement ----
-const placed=[];                 // [x0,y0,x1,y1]
-// design.reserveIcons: boxes contributed by POI ICONS rather than by text. They are
-// ordinary members of `placed` for the first placement attempt, but a placer that
-// finds nowhere at all falls back to a second pass that ignores them — so a label
-// that could only ever have sat on a symbol still prints exactly where it used to.
-// That keeps the change strictly a GAIN: labels that can dodge a symbol now do, and
-// none is lost. (`rollout.js` refuses to publish a label loss, by design.)
-const iconBoxes=new Set();
-const hit=(b,o)=>!(b[2]<o[0]||b[0]>o[2]||b[3]<o[1]||b[1]>o[3]);
-const overlaps=(b,skip)=>placed.some(o=>o!==skip && hit(b,o));
-const overlapsNoIcons=(b)=>placed.some(o=>!iconBoxes.has(o) && hit(b,o));
-// labels.engine:"v2" — one shared placer for the point labels (labeller.js). It is fed
-// from the SAME reserve() calls the old placer uses, so nothing has to be remembered
-// twice, plus the route ink read straight off the SVG this file has already emitted.
-// Solved and drawn in one block near the end (the "two-phase draw"): every symbol,
-// badge, pill and tick has claimed its space before the first label is positioned,
-// which retires the whole class of "a later thing painted over an earlier label".
-// bounds repeat the old placer's own page test (`b[0]<1 || b[2]>MX1+2`) as a hard
-// limit — without it a name at the left edge of the map runs off the paper, because
-// straying outside the frame is only COSTED, and on a congested edge the cost is
-// sometimes the cheapest thing going (caught in the first St Ives v2 render).
-const LAB = V2 ? new Labeller({ page:[297,210], frame:{x0:MX0,y0:MY0,x1:MX1,y1:MY1},
-                                bounds:{x0:1, y0:1, x1:MX1+2, y1:FOOTER_PLATE_TOP-0.4} }) : null;
-function reserve(x0,y0,x1,y1){placed.push([x0,y0,x1,y1]); if(LAB) LAB.block([x0,y0,x1,y1]);}
-
-/* A ROUTE COLOUR IS CHOSEN TO BE SEEN AS A 1.7 mm RIBBON, NOT READ AS 2.7 mm TYPE.
- *
- * The "to <somewhere>" terminus labels are drawn in their route's own colour, which is
- * what ties the words to the line and is worth keeping. But the palettes are
- * colour-blind-safe sets built for AREA contrast, and their pale members are hopeless as
- * ink on white: Ely Co-op's route 129 is #DDCC77, which scores 1.62:1 against the page —
- * below even the 3:1 floor for large text — so "to Littleport" was, in Peter's words on
- * 2026-08-24, "very hard to read". The white halo every placeLabel carries makes it
- * worse, not better, because the halo is the background bleeding into the letterforms.
- *
- * Darken the INK only, never the line: the hue is preserved (every channel scales by the
- * same factor) so the label still reads as that route's colour, just deep enough to be
- * type. Anything already above the floor is returned untouched, so the strong hues —
- * magenta 6.09, red 5.19, wine 8.73, the navies — are byte-identical.
- * design.labelInkMinContrast tunes the floor; 3.5 was chosen because it lifts the six
- * genuinely unreadable palette entries (yellow 1.95, cyan 1.84, grey 1.92, amber 2.25,
- * light cyan 2.21, orange 2.87) and leaves the rest of the board alone. */
-const INK_MIN_CONTRAST = (DESIGN.labelInkMinContrast != null) ? +DESIGN.labelInkMinContrast : 3.5;
-const _srgb = v => v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
-const _lum = hex => { const c=[1,3,5].map(i=>_srgb(parseInt(hex.substr(i,2),16)/255));
-  return 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]; };
-const _scaleHex = (hex,f) => '#' + [1,3,5].map(i=>{
-  const v = Math.max(0, Math.min(255, Math.round(parseInt(hex.substr(i,2),16)*f)));
-  return v.toString(16).padStart(2,'0'); }).join('');
-function inkOnWhite(hex, min){
-  const floor = (min!=null) ? min : INK_MIN_CONTRAST;
-  if(!/^#[0-9a-fA-F]{6}$/.test(String(hex))) return hex;
-  let f = 1, out = hex;
-  for(let i=0; i<40 && 1.05/(_lum(out)+0.05) < floor; i++){ f *= 0.93; out = _scaleHex(hex, f); }
-  return out;
-}
-// `self` = this label's OWN icon box, excluded from the collision test: placement puts a
-// label 2.6 mm from a 4.2 mm symbol by design, so its own symbol is not a defect (the
-// same exclusion quality_metrics.js makes when it counts "label over a foreign icon").
-function placeLabel(x,y,text,sz=2.6,col='#222',italic=false,lov=null,self=null,opt=null){
-  if(LAB){                                     // v2: queue it, solve them all together
-    LAB.add(Object.assign({ id:(opt&&opt.id)||('L'+text+'@'+x.toFixed(1)+','+y.toFixed(1)),
-      at:[x,y], text, size:sz, fill:col, italic, own:self||null,
-      fixed: (lov&&lov.offset) ? {x:x+lov.offset.dx, y:y+lov.offset.dy, anchor:lov.anchor||'start'} : null,
-    }, opt||{}));
-    return true;                               // the caller only uses this to decide whether
-  }                                            // to draw a fallback; v2 never silently drops
-  const w=text.length*sz*0.52, h=sz;
-  let chosen=null;
-  if(lov && lov.offset){                       // manual label placement (skip de-collision)
-    const anc=lov.anchor||'start'; chosen=[x+lov.offset.dx, y+lov.offset.dy, anc];
-  } else {
-    const cands=[[x+2.6,y+0.9,'start'],[x-2.6,y+0.9,'end'],[x,y-2.6,'middle'],[x,y+3.6,'middle'],
-                 [x+2.6,y-2.2,'start'],[x-2.6,y-2.2,'end'],[x+2.6,y+3.4,'start'],[x-2.6,y+3.4,'end']];
-    const box=([lx,ly,anc])=>{ const bx = anc==='start'?lx : anc==='end'?lx-w : lx-w/2;
-      return [bx-0.4,ly-h,bx+w+0.4,ly+1]; };
-    const onPage=b=>!(IR && (b[0]<1 || b[2]>MX1+2));   // keep labels on the page / off the panel
-    for(const c of cands){ const b=box(c);
-      if(!onPage(b)) continue;
-      if(!overlaps(b,self)){ placed.push(b); chosen=c; break; }
-    }
-    if(!chosen && iconBoxes.size){             // nowhere clear of the symbols: fall back to
-      for(const c of cands){ const b=box(c);   // the pre-reserveIcons behaviour rather than drop
-        if(!onPage(b)) continue;
-        if(!overlapsNoIcons(b)){ placed.push(b); chosen=c; break; }
-      }
-    }
-  }
-  if(!chosen){ return false; }                // give up rather than overlap
-  const [lx,ly,anc]=chosen;
-  out(`<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" font-family="Arial" font-size="${sz}" ${italic?'font-style="italic" ':''}fill="${col}" text-anchor="${anc}" stroke="#fff" stroke-width="0.7" paint-order="stroke">${esc(text)}</text>`);
-  return true;
-}
+// In label_placer.js, which owns the shared `placed` list every pass on this
+// sheet reserves into, both placers, and — as a lodger — the route-ink
+// contrast floor.
+const { placed, iconBoxes, hit, overlaps, overlapsNoIcons, LAB, reserve, placeLabel, inkOnWhite } = labelPlacer({
+  out, esc, Labeller, DESIGN, V2, IR, MX0, MY0, MX1, MY1, FOOTER_PLATE_TOP,
+});
 // Where a POI's symbol lands, and whether it is drawn at all — split out of poiMark so
 // the icon-reservation pre-pass and the drawing pass cannot disagree about either.
 const POI_HALF=2.1;                             // icon(p.cat,x,y,2.1) => a 4.2 mm box
