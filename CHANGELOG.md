@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.92 | 2026-08-28 | sha=033160ca -->
-**v1.92** · updated 28 August 2026
+<!-- docstamp v1.93 | 2026-08-28 | sha=67d51ca7 -->
+**v1.93** · updated 28 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-28** — [Correction: the seven maps were never actually blocked — the fault was in the measurement](CHANGELOG.d/2026-08-28-the-seven-maps-that-were-never-actually-blocked.md)
 - **2026-08-27** — [A gate that asks what actually loaded, rather than what the source looks like](CHANGELOG.d/2026-08-27-a-gate-that-asks-what-actually-loaded.md)
 - **2026-08-27** — [A published map tracks the engine now, and one command is what makes that true](CHANGELOG.d/2026-08-27-a-published-map-tracks-the-engine.md)
 - **2026-08-27** — [One dead primitive out, and eleven notes about what nothing draws](CHANGELOG.d/2026-08-27-one-dead-primitive-out-and-eleven-notes-in.md)
