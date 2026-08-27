@@ -226,8 +226,25 @@ try {
       JSON.stringify({ recorded: seeded.schemaVersion, code: seeded.codeSchemaVersion }));
 
     const old = run(OLD_DB, 'read', dir);
-    check('the PREVIOUS release ignores the table it has never heard of',
-      old.tables.includes('schema_version') && old.schemaVersion === 'no-such-export',
+    // TWO BASELINES, ONE PROPERTY. "The previous release" is not a fixed commit:
+    // line 52 defines it as the commit before HEAD's most recent change under
+    // src/db/, so it walks forward as the repo does. Before 2026-08-27 it was
+    // 8787a72, which PREDATES the stamp and therefore had to ignore a table it
+    // had never heard of. The first commit to touch src/db/ after e25b96a moved
+    // it onto e25b96a itself, which KNOWS the stamp and reads it — and the
+    // assertion, written for the first baseline only, went red on a change that
+    // was a SQL COMMENT. The premise expired; the schema was never involved.
+    //
+    // What both baselines must do is the same thing, and it is the thing the
+    // rollback promise rests on: see the table, cope with it, do not throw. That
+    // is what is asserted now, with the wording following whichever baseline is
+    // in play so a reader of the output still knows which case ran.
+    const oldPredatesStamp = old.schemaVersion === 'no-such-export';
+    check(oldPredatesStamp
+      ? 'the PREVIOUS release ignores the table it has never heard of'
+      : 'the PREVIOUS release reads the generation stamp it does know',
+      old.tables.includes('schema_version')
+        && (oldPredatesStamp || Number.isInteger(old.schemaVersion)),
       JSON.stringify({ sawTable: old.tables.includes('schema_version'), export: old.schemaVersion }));
 
     // Now make the database claim a NEWER generation than the code, which is

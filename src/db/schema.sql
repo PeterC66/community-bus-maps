@@ -93,6 +93,21 @@ CREATE TABLE IF NOT EXISTS user (
 -- cookie against a hash, matches nothing, and everyone signs in again. Every
 -- SELECT in db/index.js aliases it to `token_hash`, so no JavaScript ever holds
 -- a field called `token` that is not one.
+--
+-- IF YOU MEET `Error: no such column: token` ON BOOT, this is the reason. An
+-- intermediate state of that 2026-08-25 work DID rename the column, and a local
+-- dev database created while it existed keeps `session(token_hash)` for ever —
+-- the rename is not undone by any migration, because the released code never
+-- made it. hashStoredTokens() then dies inside migrate() and takes the whole
+-- boot with it, with an error that names neither the table nor the fix. Found
+-- and repaired on 2026-08-27:
+--
+--   ALTER TABLE session RENAME COLUMN token_hash TO token;
+--
+-- The stored values need nothing done to them; they are already sha256 hex. The
+-- crash is deliberate and stays — a genuinely missing column must not be
+-- shrugged off — so the cure is to say plainly what it means, here, where
+-- somebody grepping the column name will land.
 CREATE TABLE IF NOT EXISTS session (
   token       TEXT PRIMARY KEY,   -- sha256(session token), lowercase hex. See above.
   user_id     INTEGER NOT NULL REFERENCES user(id),
