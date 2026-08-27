@@ -113,7 +113,7 @@
       "path": "expert/gen_boarding.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_boarding.js",
-      "sha256": "4d0afd6445af452f6394e69c32cbef03a1c6021b58bcaf748c8493b5aa3a6330",
+      "sha256": "166ac874190b0598933c49a4d7a822eacf0753abb6b216923df06a014953e263",
       "vendoredOn": "2026-08-27",
       "note": "The portal's fifth output since 2026-08-23; portal-owned in the sense that it is not copied into a map's data."
     },
@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "38dc80f0f74d66b03183fc98306fdec9feb272e25daf036058009754fd2ca551",
+      "sha256": "d36c622a268348be0d28974d7be32d5d63eb32f19f5ba3552ec7ee4152cb4b51",
       "vendoredOn": "2026-08-27",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -157,6 +157,38 @@
       "sha256": "9f785ce4eb0659979e2c084b6d2334ff3c1334746bd16f379702b702bf800f4d",
       "vendoredOn": "2026-08-25",
       "note": "The thin place wrapper around gen_internal.js (title token + version stamp)."
+    },
+    {
+      "path": "strict_guards.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/strict_guards.js",
+      "sha256": "6dd7db44a788f1746b25d240e9a39a7dde844433575b0c300d49887b806ae43e",
+      "vendoredOn": "2026-08-27",
+      "note": "The refusal contract. Required at LOAD by gen_internal.js and gen_boarding.js, so a partial vendor throws before either reads an input."
+    },
+    {
+      "path": "poi_select.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/poi_select.js",
+      "sha256": "aaafba680e60063fbbf05a3583f2b785d737f6a5374140c9d9dd976044ea316a",
+      "vendoredOn": "2026-08-27",
+      "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
+    },
+    {
+      "path": "fit_set.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/fit_set.js",
+      "sha256": "42a3c9d8b8bd6f9f81a5cfe67aa1e21d46a6483f08d42588389d1da3c94f547a",
+      "vendoredOn": "2026-08-27",
+      "note": "Which stops the frame is fitted to. Required at load by gen_internal.js."
+    },
+    {
+      "path": "projection.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/projection.js",
+      "sha256": "94f996125ecbc90fb9c3e73338576c928c0d54829e1a622cf4fe503ce7bdae8d",
+      "vendoredOn": "2026-08-27",
+      "note": "lat/lon to page millimetres. Required at load by gen_internal.js."
     }
   ]
 }

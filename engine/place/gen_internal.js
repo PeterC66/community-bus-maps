@@ -113,6 +113,21 @@
 const fs = require('fs');
 const path = require('path');
 
+// SHARED CODE IS SELF-RESOLVING. This file runs in three places: in-place from
+// the skill's assets/ (siblings present), copied into a town's run folder (no
+// siblings), and from the portal's engine/place/ against a map's data dir (no
+// siblings either, but SKILL_ASSETS points at the vendored engine/ root). A
+// require that resolves here and throws there is a recorded failure shape, so
+// every shared dependency goes through this one resolver. Order: a sibling
+// file, then SKILL_ASSETS, then the skill's own path. Resolution does not
+// affect the SVG.
+const _dep = (name) => {
+  const local = path.join(__dirname, name);
+  try { if (fs.existsSync(local)) return local; } catch (e) {}
+  return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS, name)
+       : 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/' + name;
+};
+
 // ---- STRICT_GUARDS -----------------------------------------------------------
 // A guard that REFUSES TO DRAW something the config asked for has not done its
 // job, but it used to exit 0 all the same -- from the process's point of view it
@@ -135,45 +150,28 @@ const path = require('path');
 //
 // Counted, not thrown, so one run reports EVERY refusal rather than only the
 // first -- and the artwork is still written, so it can be looked at.
-const STRICT_GUARDS = process.env.STRICT_GUARDS === '1';
-const GUARD_NL = String.fromCharCode(10);
-let REFUSAL_COUNT = 0;
-function refuse(msg){
-  REFUSAL_COUNT++;
-  let t = String(msg);
-  while (t.length && t.charAt(t.length - 1) === GUARD_NL) t = t.slice(0, -1);
-  process.stderr.write(t + GUARD_NL);
-}
+// The flag, the counter and refuse() live in strict_guards.js, shared with
+// gen_boarding.js, which carried a second copy of all of it. The reasoning went
+// with the code; the paragraphs above are what a reader of THIS file needs.
+const { STRICT_GUARDS, NL: GUARD_NL, refuse, report: reportRefusals } = require(_dep('strict_guards.js'));
 // ------------------------------------------------------------------------------
 // All DATA files are read from, and SVG written to, the TOWN WORKING FOLDER
 // (the current directory). Run this script from inside the town's folder.
 const DIR = process.env.LEAFLET_DIR || process.cwd();
-// icons.js (shared code) loads from the skill's assets. Self-resolving so this
-// SAME file works whether it is run in-place from assets/ (sibling icons.js) or
-// copied into a town's run folder (no sibling -> fall back to the skill path /
-// SKILL_ASSETS env). Resolution does not affect SVG output.
-const _ICONS = (()=>{ const local=path.join(__dirname,'icons.js');
-  try{ if(fs.existsSync(local)) return local; }catch(e){}
-  return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'icons.js')
-       : 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/icons.js'; })();
-const { icon } = require(_ICONS);
-const _FOOTER = (()=>{ const local=path.join(__dirname,'footer.js');
-  try{ if(fs.existsSync(local)) return local; }catch(e){}
-  return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'footer.js')
-       : 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/footer.js'; })();
-const { footerBand, footerPlateTop } = require(_FOOTER);
-const _LABELLER = (()=>{ const local=path.join(__dirname,'labeller.js');
-  try{ if(fs.existsSync(local)) return local; }catch(e){}
-  return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'labeller.js')
-       : 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/labeller.js'; })();
+// Every shared dependency resolves through _dep above, which is the same three-
+// step search these five each spelled out for themselves until 2026-08-27.
+// font_metrics.js deliberately follows labeller.js rather than searching on its
+// own: the labeller and its metrics table must come from ONE engine, and a
+// search could pair a sibling labeller with a SKILL_ASSETS metrics file.
+const { icon } = require(_dep('icons.js'));
+const { footerBand, footerPlateTop } = require(_dep('footer.js'));
+const _LABELLER = _dep('labeller.js');
 const { Labeller } = require(_LABELLER);
-const _FONTM = path.join(path.dirname(_LABELLER), 'font_metrics.js');
-const FONT = require(_FONTM);
-const _LANES = (()=>{ const local=path.join(__dirname,'lane_normals.js');
-  try{ if(fs.existsSync(local)) return local; }catch(e){}
-  return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'lane_normals.js')
-       : 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/lane_normals.js'; })();
-const LN = require(_LANES);
+const FONT = require(path.join(path.dirname(_LABELLER), 'font_metrics.js'));
+const LN = require(_dep('lane_normals.js'));
+const { selectPois } = require(_dep('poi_select.js'));
+const { fitSet } = require(_dep('fit_set.js'));
+const { projection } = require(_dep('projection.js'));
 // The internal map's own footer notes are fixed (not per-town), so the footer plate's
 // top edge is a known constant — computed once here and used both by the mapNotes
 // collision check below and the footerBand() call at the very end of this file. Keep
@@ -799,228 +797,34 @@ const POI = RJ.poi || {};
 // ===========================================================================
 
 // ---------- classify POIs from raw OSM ----------
-function classify(t){
-  if(t.shop==='supermarket') return ['shop', t.name||'Supermarket'];
-  if(t.amenity==='pharmacy')  return ['pharmacy', t.name||''];
-  if(t.amenity==='doctors')   return ['gp', t.name||''];
-  if(t.amenity==='library')   return ['library','Library'];
-  if(t.tourism==='museum')    return ['museum','Museum'];
-  if(t.amenity==='townhall')  return ['townhall','Town Hall'];
-  if(t.amenity==='community_centre') return ['community', t.name||'Community Centre'];
-  if(t.leisure==='sports_centre'||t.leisure==='fitness_centre') return ['leisure', t.name||'Leisure'];
-  if(t.amenity==='school')    return ['school', t.name||'School'];
-  if(t.leisure==='park'||t.leisure==='recreation_ground') return ['park', t.name||'Park'];
-  if((POI.include||[]).includes('allotments') && t.landuse==='allotments') return ['allotments', t.name||'Allotments'];
-  if(t.landuse==='industrial') return ['industrial', t.name||'Industrial Estate'];
-  return null;
-}
-let pois=[];
-for(const f of ['osm.json','osm2.json']){
-  for(const e of JSON.parse(fs.readFileSync(DIR+'/'+f,'utf8')).elements){
-    const t=e.tags||{}; const c=classify(t); if(!c) continue;
-    const ll=e.lat!=null?[e.lat,e.lon]:(e.center?[e.center.lat,e.center.lon]:null); if(!ll) continue;
-    pois.push({cat:c[0], name:c[1], ll});
-  }
-}
-// industrial: keep a named list (array), drop all ("none"), or keep any named (default)
-const IND = POI.industrialKeep;
-pois = pois.filter(p=>{
-  if(p.cat!=='industrial') return true;
-  if(IND==='none') return false;
-  if(Array.isArray(IND)) return IND.includes(p.name);
-  return !!(p.name && p.name!=='Industrial Estate');   // default: keep named estates
-});
-// drop POIs whose name matches any excludeName pattern (case-insensitive, any cat)
-const EXN = POI.excludeName||[];
-if(EXN.length){ const exRe=new RegExp(EXN.join('|'),'i'); pois=pois.filter(p=>!exRe.test(p.name)); }
-// drop unnamed greens (always)
-pois = pois.filter(p=> !(p.cat==='park' && (p.name==='Park'||!p.name)));
-// tidy names: generic strip, then per-town tidy[] (suffix replaces), then canon[] (whole-name)
-const TIDY  = (POI.tidy ||[]).map(([re,to])=>[new RegExp(re),    to]);
-const CANON = (POI.canon||[]).map(([re,to])=>[new RegExp(re,'i'),to]);
-for(const p of pois){
-  p.name = p.name.replace(/\s*\(.*?\)/g,'').replace(/\s*-\s*building$/i,'').trim();
-  for(const [re,to] of TIDY) p.name = p.name.replace(re,to);
-  for(const [re,to] of CANON) if(re.test(p.name)) p.name=to;
-}
-// de-duplicate by cat+name, and collapse near-duplicate points (<60 m)
-const dedup=[]; const near=(a,b)=>Math.hypot((a[0]-b[0])*111000,(a[1]-b[1])*70000)<60;
-outer: for(const p of pois){
-  for(const q of dedup){ if(q.cat===p.cat && (q.name===p.name || near(q.ll,p.ll))){ continue outer; } }
-  dedup.push(p);
-}
-pois = dedup;
+// The rules, the filters and the de-duplication live in poi_select.js. Reading
+// stays here: the module is given elements, in file order, because that order
+// decides which of two duplicates survives.
+const pois = selectPois(
+  ['osm.json','osm2.json'].map(f => JSON.parse(fs.readFileSync(DIR+'/'+f,'utf8')).elements),
+  POI);
 
 // ---------- projection: planar -> PCA rotate -> fit ----------
-// FIT SET: classic model fits ALL drawn stops; internalRoads fits only the
-// town-core stops (locality prefix + extraCore) so out-of-town tails run off
-// the frame edge (clipped, with "to X" arrows) instead of shrinking the town.
-const stopPts=[];
-if(IR){
-  const xc=new Set(IR.fitExtra||ICFG.extraCore||[]); const fseen=new Set();
-  for(const r in routes) for(const a of routes[r]){ if(fseen.has(a)||!atco2ll[a])continue; fseen.add(a);
-    if(a.startsWith(PREFIX)||xc.has(a)) stopPts.push(atco2ll[a]); }
-  // FIT TO WHAT YOU DRAW (plan §4.2, 2026-08-15). Membership of the fit set is
-  // decided by ATCO prefix, i.e. by which parish a stop is in — which is not the
-  // same question as "does this map draw anything there?". Under internalRoads the
-  // route line comes from the matched road graph, and where the graph stops the
-  // line stops; a served stop beyond that end is in the fit but has no ink.
-  //
-  // Ramsey shipped six of them — Middle Drove, Ugg Mere Court Road, Fisher Close,
-  // Ashbeach Drove, Lion Close and Daintree Road, all on X31 out to Ramsey St
-  // Mary's, all 2.7-3.6 km from any drawn line. They stretched the fit box from
-  // 75 mm wide to 141 mm, so the map was scaled down and pushed right: the whole
-  // LEFT THIRD of the frame held no route ink at all, and the town was drawn 8%
-  // smaller than it needed to be, to make room for six stops nobody can see.
-  //
-  // Measured on all eight towns, the separation is not close: six of them have
-  // every core stop within 79 m of a drawn line, High Wycombe's worst is 929 m
-  // (its corridor bundling and coreBox move lines away from stops ON PURPOSE —
-  // see complexity-triage.md, and do not "fix" that), and Ramsey's six sit at
-  // 2.7 km upwards with nothing in between. 1500 m is the middle of that gap.
-  const OFFPATH = IR.fitMaxOffPath!=null ? IR.fitMaxOffPath : 1500;
-  const psegs=[];
-  for(const r in ((RP&&RP.routes)||{})){ const p=RP.routes[r].pts||[];
-    for(let i=1;i<p.length;i++) psegs.push([p[i-1],p[i]]); }
-  if(OFFPATH>0 && psegs.length){
-    const offM=(p,a,b)=>{ const kx=111320*Math.cos(a[0]*Math.PI/180);
-      const bx=(b[1]-a[1])*kx, by=(b[0]-a[0])*111320, px=(p[1]-a[1])*kx, py=(p[0]-a[0])*111320;
-      const L2=bx*bx+by*by; if(!L2) return Math.hypot(px,py);
-      let t=(px*bx+py*by)/L2; t=Math.max(0,Math.min(1,t));
-      return Math.hypot(px-t*bx, py-t*by); };
-    const near=[], far=[];
-    for(const s of stopPts){
-      let d=Infinity;
-      for(const g of psegs){ const x=offM(s,g[0],g[1]); if(x<d){ d=x; if(d<=OFFPATH) break; } }
-      (d<=OFFPATH?near:far).push(s);
-    }
-    // Never let this empty the fit: if almost everything is off-path the road
-    // match is broken, and shrinking the fit to the survivors would hide that.
-    if(far.length && near.length>=3){
-      stopPts.length=0; stopPts.push(...near);
-      process.stderr.write('fit: '+far.length+' core stop'+(far.length>1?'s':'')+' more than '
-        +OFFPATH+' m from any drawn route line — excluded from the fit, which would otherwise '
-        +'scale the map down to make room for stops it does not draw. '
-        +'Set internalRoads.fitMaxOffPath to change the distance, or 0 to disable.\n');
-    }
-  }
-} else {
-  for(const r in routes) for(const a of routes[r]) if(atco2ll[a]) stopPts.push(atco2ll[a]);
+// WHICH STOPS THE FRAME IS FITTED TO now lives in fit_set.js, with the Ramsey
+// measurement that produced the off-path rule. The warning stays here so it sits
+// with the other build messages, and so the module itself writes nothing.
+const _fit = fitSet({ routes, atco2ll, ir: IR, intownCfg: ICFG, routePaths: RP, prefix: PREFIX });
+const stopPts = _fit.stopPts;
+if (_fit.excluded) {
+  process.stderr.write('fit: '+_fit.excluded+' core stop'+(_fit.excluded>1?'s':'')+' more than '
+    +_fit.limit+' m from any drawn route line — excluded from the fit, which would otherwise '
+    +'scale the map down to make room for stops it does not draw. '
+    +'Set internalRoads.fitMaxOffPath to change the distance, or 0 to disable.'+GUARD_NL);
 }
-const lat0 = stopPts.reduce((s,p)=>s+p[0],0)/stopPts.length;
-const k=Math.cos(lat0*Math.PI/180);
-const planar=([lat,lon])=>[lon*k,-lat];
-// PCA on stop points
-const P=stopPts.map(planar);
-const mx=P.reduce((s,p)=>s+p[0],0)/P.length, my=P.reduce((s,p)=>s+p[1],0)/P.length;
-let sxx=0,sxy=0,syy=0; for(const [x,y] of P){const dx=x-mx,dy=y-my; sxx+=dx*dx; sxy+=dx*dy; syy+=dy*dy;}
-let theta=0.5*Math.atan2(2*sxy, sxx-syy);              // principal axis angle
-// ---- orientation, in precedence order -------------------------------------
-// 1. overrides.json  (the editor's own hand-nudge; always wins)
-// 2. design.fixedOrientation  (2026-08-21 — see FIXED_ORIENTATION below)
-// 3. internalRoads.rotationDeg  (the older, roads-model-only key; still honoured)
-// 4. PCA (above) — the default, and what every map used before this existed
-//
-// WHY 2 EXISTS ALONGSIDE 3. `internalRoads.rotationDeg` is read off the IR block,
-// so a town on the CLASSIC model (internalRoads:false — no roads skeleton) had no
-// config route to a fixed orientation at all; its only option was an overrides.json
-// entry, which is the editor's file, not the town's config. `design.fixedOrientation`
-// is top-level and therefore available to every map, classic or roads, area or place.
-if(OV.rotationDeg!=null) theta = -OV.rotationDeg*Math.PI/180;   // manual rotation override
-else if(FIXED_ORIENTATION!=null) theta = -FIXED_ORIENTATION*Math.PI/180; // design.fixedOrientation
-else if(IR && IR.rotationDeg!=null) theta = -IR.rotationDeg*Math.PI/180; // config rotation (0 = north up)
-// The rotation ACTUALLY APPLIED, in the same units and sign convention the config
-// uses, so `design.fixedOrientation: <this number>` reproduces this exact sheet.
-// Captured below for tooling; also printed in the closing summary line.
-const APPLIED_ROTATION_DEG = -theta*180/Math.PI;
-const cosT=Math.cos(-theta), sinT=Math.sin(-theta);
-const rot=([x,y])=>{const dx=x-mx,dy=y-my; return [dx*cosT-dy*sinT, dx*sinT+dy*cosT];};
-const tform0=ll=>rot(planar(ll));
-// --- optional radial distance-compression so the map zooms onto the town -----
-// Classic: keep the inner `corePct` of stops (by distance from ANCHOR) to scale,
-// draw the rest at `comp`× their extra distance (defaults => identity).
-// internalRoads: fisheye centred on the BUILT-UP CENTROID — everything within
-// focus.coreKm stays 1:1, beyond that distances scale by focus.comp; applied to
-// stops, roads, river and POIs alike so the layers stay mutually consistent.
-const O = IR ? (function(){
-          const fc=IR.focus.center;                       // [lat,lon] | 'centroid' | default = anchor
-          if(Array.isArray(fc)) return tform0(fc);
-          if(fc!=='centroid' && atco2ll[ANCHOR]) return tform0(atco2ll[ANCHOR]);
-          const t=stopPts.map(tform0);return [t.reduce((s,p)=>s+p[0],0)/t.length, t.reduce((s,p)=>s+p[1],0)/t.length]; })()
-        : (atco2ll[ANCHOR] ? tform0(atco2ll[ANCHOR])
-        : (function(){const t=stopPts.map(tform0);return [t.reduce((s,p)=>s+p[0],0)/t.length, t.reduce((s,p)=>s+p[1],0)/t.length];})());
-const _radii = stopPts.map(p=>{const[x,y]=tform0(p); return Math.hypot(x-O[0],y-O[1]);}).sort((a,b)=>a-b);
-const R0 = IR ? IR.focus.coreKm/111.32
-         : _radii[Math.min(_radii.length-1, Math.floor(_radii.length*ZOOM.corePct))];
-const CPF = IR ? IR.focus.comp : ZOOM.comp;
-// Optional THREE-ZONE fisheye (internalRoads only): true scale inside coreKm,
-// moderate `comp` in a middle band out to `midKm`, then STRONG `outerComp` beyond.
-// Compressing the far tails harder shrinks the fitted extent, so fit-to-frame
-// magnifies the true-scale core -> the bus-station interchange gets breathing
-// room without changing mid-town spacing. Absent midKm/outerComp => the original
-// single-band behaviour (byte-identical). (St Ives item 4a, 2026-07-04.)
-const R1  = (IR && IR.focus.midKm!=null)     ? IR.focus.midKm/111.32 : null;
-const CPF2= (IR && IR.focus.outerComp!=null) ? IR.focus.outerComp    : CPF;
-function compress([x,y]){ if(CPF>=1 && R1===null) return [x,y];
-  const dx=x-O[0], dy=y-O[1], r=Math.hypot(dx,dy);
-  if(r<=R0 || r===0) return [x,y];
-  const nr = (R1!==null && r>R1) ? R0+(R1-R0)*CPF+(r-R1)*CPF2 : R0+(r-R0)*CPF;
-  return [O[0]+dx/r*nr, O[1]+dy/r*nr]; }
-// ---- optional local DETAIL LENSES (item 7, 2026-07-20): magnify one or more
-//   congested clusters (e.g. St Neots' One Leisure / Eynesbury knot) WITHOUT
-//   disturbing the rest of the map. Bounded Sarkar–Brown graphical fisheye: inside
-//   radiusKm the centre is magnified `mag`×, compressing toward a FIXED boundary,
-//   so the map's overall extent (hence fit-to-frame scale) and everything outside
-//   each lens are unchanged. Applied after the primary focus fisheye, to
-//   stops/roads/river/POIs alike (all go through tform). This is the "second
-//   fisheye" the geographic map can carry on top of the always-on centre focus.
-//   Config: internalRoads.lenses:[{center:[lat,lon],radiusKm,mag}]. Absent => none
-//   => tform is byte-identical to before, so gate towns are unaffected.
-const LENSES = (IR && Array.isArray(IR.lenses)) ? IR.lenses.map(z=>({
-    c: compress(tform0(z.center)),
-    R: (z.radiusKm!=null?z.radiusKm:0.5)/111.32,
-    mag: z.mag!=null?z.mag:1.8 })) : [];
-function lens(p){
-  for(const z of LENSES){
-    const dx=p[0]-z.c[0], dy=p[1]-z.c[1], r=Math.hypot(dx,dy);
-    if(r===0 || r>=z.R) continue;
-    const d=z.mag-1, rho=r/z.R, g=((d+1)*rho)/(d*rho+1), nr=z.R*g;
-    p=[z.c[0]+dx/r*nr, z.c[1]+dy/r*nr];
-  }
-  return p;
-}
-const tform=ll=>lens(compress(tform0(ll)));
-// viewport (map left/centre; right reserved for panel)
-// MY1 (the frame's bottom edge) used to be a flat 205 mm on every sheet while the
-// footer's backing plate starts at FOOTER_PLATE_TOP — 195.16 mm for the two standard
-// notes — and is drawn ON TOP at the end of the file. So a 9.84 mm strip of every map
-// was drawn and then erased: measured across the 31 shipped sheets (2026-08-15), 12 had
-// real route ink under the plate (979 mm² in total) and 9 had erased *text*. The fit
-// below is derived from MY1, so shortening the frame refits the map into the space that
-// is actually visible rather than clipping content away. Opt-in per town while the
-// design-quality plan is in flight; absent `design.footerSafe` => 205, byte-identical.
-// footerGap defaults to 3.0 mm rather than hard against the plate because the terminus
-// exit ARROWS are drawn OUTSIDE the map's clip group and point 2.6 mm past the cut
-// point, i.e. past the frame — a 1 mm gap left their tips under the plate and the ink
-// measure barely moved. 3.0 mm clears the arrow with a hair to spare.
-const MX0=6, MX1=196, MY0=30;
-const MY1 = FOOTER_SAFE
-  ? Math.round((FOOTER_PLATE_TOP - (DESIGN.footerGap!=null?DESIGN.footerGap:3.0))*100)/100
-  : 205;
-const allT=stopPts.map(tform);
-let minX=Math.min(...allT.map(p=>p[0])),maxX=Math.max(...allT.map(p=>p[0]));
-let minY=Math.min(...allT.map(p=>p[1])),maxY=Math.max(...allT.map(p=>p[1]));
-const pad=0.0006; minX-=pad;maxX+=pad;minY-=pad;maxY+=pad;
-// internalRoads: fit with an inner margin so edge stops sit comfortably inside
-// the frame (ticks/arrows otherwise clip at the boundary). Default 4 mm.
-const FM = IR ? (IR.fitMargin!=null?IR.fitMargin:4) : 0;
-let sc=Math.min((MX1-MX0-2*FM)/(maxX-minX),(MY1-MY0-2*FM)/(maxY-minY));
-let offX=(MX1-MX0-(maxX-minX)*sc)/2, offY=(MY1-MY0-(maxY-minY)*sc)/2;
-// frozen viewport: once you hand-place stops the editor freezes the fit so absolute
-// page positions stay valid across data refreshes (new stops project into the same frame)
-if(OV.viewport){ ({minX,maxX,minY,maxY,sc,offX,offY}=OV.viewport); }
-if(EDK) console.error('VIEWPORT '+JSON.stringify({minX,maxX,minY,maxY,sc,offX,offY}));
-const XY=ll=>{const [x,y]=tform(ll); return [MX0+offX+(x-minX)*sc, MY0+offY+(y-minY)*sc];};
+// The whole lat/lon -> page-mm pipeline is projection.js: planar, PCA rotation,
+// the centre fisheye, any detail lenses, and the fit into the frame. It returns
+// only what the drawing code below actually asks for -- measured, the
+// intermediate steps (planar, rot, tform0, compress, lens, tform) are never
+// called downstream, and every later mention of them is a comment.
+const _proj = projection({ stopPts, atco2ll, ANCHOR, IR, ZOOM, OV, FIXED_ORIENTATION,
+                           FOOTER_SAFE, FOOTER_PLATE_TOP, DESIGN });
+const { XY, MX0, MX1, MY0, MY1, sc, theta, APPLIED_ROTATION_DEG, CPF, R1, LENSES } = _proj;
+if(EDK) console.error('VIEWPORT '+JSON.stringify(_proj.viewport));
 // ---- stop-position overrides (page mm), two layers so editing one route never
 //      moves another route that shares the stop -----------------------------------
 // BASE layer: stops[ATCO].pos moves the physical stop for EVERY route through it.
@@ -3924,10 +3728,7 @@ if (process.env.BUILD_META_DIR) {
 // Last statement in the file, so the artwork above is already written: a build
 // that refused something is still worth LOOKING at, it is just not worth
 // publishing. exitCode rather than exit() so buffered stdout still flushes.
-if (STRICT_GUARDS && REFUSAL_COUNT > 0) {
-  process.stderr.write('STRICT_GUARDS: ' + REFUSAL_COUNT + ' guard'
-    + (REFUSAL_COUNT === 1 ? '' : 's') + ' refused to draw something this config'
-    + ' asked for -- see the messages above. The sheet is incomplete and nothing'
-    + ' on it says so.' + GUARD_NL);
+if (reportRefusals('refused to draw something this config asked for -- see the'
+    + ' messages above. The sheet is incomplete and nothing on it says so.')) {
   process.exitCode = 1;
 }

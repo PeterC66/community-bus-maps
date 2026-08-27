@@ -69,8 +69,46 @@ import path from 'node:path';
 // where the candidate list finds it via the map's own data folder. Flagging the
 // `&&` form would open this check red, and a check that is red on day one gets
 // muted rather than fixed.
-const SKILL_ASSETS_REQUIRE =
-  /process\.env\.SKILL_ASSETS\s*\?\s*path\.join\(\s*process\.env\.SKILL_ASSETS\s*,\s*['"]([A-Za-z0-9_.-]+\.js)['"]/g;
+const SKILL_ASSETS_REQUIRE = [
+  // 1. The inline conditional, as gen_external_radial.js writes it:
+  //      process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'footer.js')
+  /process\.env\.SKILL_ASSETS\s*\?\s*path\.join\(\s*process\.env\.SKILL_ASSETS\s*,\s*['"]([A-Za-z0-9_.-]+\.js)['"]/g,
+
+  // 2. The `if` form, as gen_external_places.js writes it:
+  //      if (process.env.SKILL_ASSETS) return path.join(process.env.SKILL_ASSETS,'footer.js');
+  //    Same meaning as 1 — the value goes straight into require() — but no `?`,
+  //    so pattern 1 never saw it. That file's footer.js and labeller.js happened
+  //    to be here for other reasons, which is why nothing had gone wrong yet.
+  /return\s+path\.join\(\s*process\.env\.SKILL_ASSETS\s*,\s*['"]([A-Za-z0-9_.-]+\.js)['"]/g,
+
+  // 3. The FACTORED form. gen_boarding.js has always written the resolver once as
+  //    `_dep(name)` and called it with the literal; gen_internal.js joined it on
+  //    2026-08-27 (OA-129 Phase 3). In that form the only thing beside
+  //    SKILL_ASSETS is the parameter `name`, so patterns 1 and 2 match NOTHING in
+  //    the file and the scan reports it as requiring nothing at all.
+  //
+  //    That is not hypothetical. gen_internal.js was re-vendored on 2026-08-27
+  //    carrying four new requires — strict_guards.js, poi_select.js, fit_set.js,
+  //    projection.js — none of which were in engine/, and this check said "every
+  //    module they require is here". It would have thrown MODULE_NOT_FOUND on the
+  //    first internal render anywhere the skill tree is absent, which is every
+  //    machine that matters. gen_boarding.js had been invisible the same way for
+  //    as long as it has used _dep.
+  //
+  //    The lesson is the one this file already states about WHICH POPULATION to
+  //    enumerate: the scan reads what the vendored CODE asks for, so it has to
+  //    keep up with how the code asks. A resolver that gets tidier must not make
+  //    the check blinder.
+  /\b_dep\(\s*['"]([A-Za-z0-9_.-]+\.js)['"]\s*\)/g,
+
+  // NOT the `&&` candidate-list form, and that exclusion is deliberate — see the
+  // note above this block. `process.env.SKILL_ASSETS && path.join(…)` is ONE
+  // candidate of three that existsSync() chooses between, and the file reports
+  // its own miss; diagram_internal.js and schematize_internal.js both find
+  // gen_internal.js through the map's own data folder. Widening pattern 1 to
+  // drop the `?` was tried on 2026-08-27 and opened this check red on exactly
+  // those two, which is how a check gets muted rather than fixed.
+];
 
 /** Bytes as they are compared: line endings normalised, nothing else touched. */
 export function normalised(file) {
@@ -131,10 +169,12 @@ export function requireScan({ engineDir }) {
   const wanted = new Map(); // module name -> [engine files that require it]
   for (const rel of listEngineFiles(engineDir)) {
     const text = readFileSync(path.join(engineDir, rel), 'utf8');
-    for (const m of text.matchAll(SKILL_ASSETS_REQUIRE)) {
-      if (!wanted.has(m[1])) wanted.set(m[1], []);
-      const by = wanted.get(m[1]);
-      if (!by.includes(rel)) by.push(rel);
+    for (const re of SKILL_ASSETS_REQUIRE) {
+      for (const m of text.matchAll(re)) {
+        if (!wanted.has(m[1])) wanted.set(m[1], []);
+        const by = wanted.get(m[1]);
+        if (!by.includes(rel)) by.push(rel);
+      }
     }
   }
   const rows = [];
