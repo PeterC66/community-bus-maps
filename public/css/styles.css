@@ -17,6 +17,7 @@
   --err: #b42318;
   --radius: 14px;
   --shadow: 0 1px 2px rgba(20, 30, 50, .06), 0 8px 24px rgba(20, 30, 50, .06);
+  --tab-lift: 0 1px 2px rgba(20, 30, 50, .12);
   --maxw: 1080px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -37,6 +38,7 @@
     --ok: #4ac07e;
     --err: #ff7a6b;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .35);
+    --tab-lift: 0 1px 2px rgba(0, 0, 0, .45);
   }
 }
 
@@ -365,13 +367,35 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 /* the sheet viewer */
 .sheet-box { margin: 18px 0 26px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+/* These tabs are the only control on a map page that changes what you are
+   looking at, and until 2026-08-27 an unchosen one was a --muted word inside a
+   hairline --border outline on the page's own white: Peter's report was that it
+   was not obvious they were buttons at all. Every unchosen tab is now a raised,
+   filled pill in full --text, with a hover that turns it the link colour and a
+   press that moves it; the chosen one is SOLID --primary rather than the pale
+   wash it was, so "which one am I looking at" is answered by fill and not by
+   tint. Both states clear AA on --bg and --surface, light and dark. */
 .tab {
   font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer;
   padding: 8px 15px; border-radius: 999px;
-  background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--muted) 40%, var(--border));
+  box-shadow: var(--tab-lift);
+  transition: background .12s ease, border-color .12s ease, color .12s ease, transform .08s ease;
 }
-.tab:hover { color: var(--text); }
-.tab.on { background: var(--primary-soft); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
+.tab:hover { background: var(--surface-2); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 55%, transparent); }
+.tab:active { transform: translateY(1px); box-shadow: none; }
+.tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tab.on, .tab.on:hover {
+  background: var(--primary); color: var(--primary-ink);
+  border-color: var(--primary); box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) { .tab { transition: none; } }
+/* The tab row's own sentence: what the chosen sheet shows. Sits between the tabs
+   and the sheet, because a description that arrives after the artwork it
+   describes is not a description. */
+.tab-hint { margin: -4px 0 12px; color: var(--muted); font-size: .93rem; max-width: 72ch; }
+.tab-hint strong { color: var(--text); }
 .sheet {
   display: block; border: 1px solid var(--border); border-radius: var(--radius);
   overflow: hidden; box-shadow: var(--shadow); background: var(--surface-2);

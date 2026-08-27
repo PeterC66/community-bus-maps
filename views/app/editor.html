@@ -95,6 +95,10 @@
           <span class="spacer"></span>
           <span class="status-chip"><span class="dot clean" id="pvDot"></span><span id="pvText">Showing saved version</span></span>
         </div>
+        <!-- What the selected sheet shows, in words. The tabs carry the same
+             sentence as a tooltip; this is the copy a keyboard or a phone can
+             reach. Filled by setTabHint() in /app/editor.js. -->
+        <p class="tab-hint" id="tabHint" hidden></p>
 
         <div class="stage" id="stage">
           <div class="placeholder" id="stagePlaceholder">Loading preview…</div>

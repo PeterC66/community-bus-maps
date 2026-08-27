@@ -42,6 +42,10 @@
 
       <div id="sheetBox" class="sheet-box" hidden>
         <div class="tabs" id="tabs" role="tablist"></div>
+        <!-- What the chosen sheet shows, in words, ABOVE the sheet it describes.
+             The tabs carry the same sentence as a tooltip; this is the copy a
+             keyboard or a phone can reach. Filled by show() in /js/public-map.js. -->
+        <p class="tab-hint" id="sheetHint"></p>
         <div class="viewer" id="viewer"></div>
         <p class="form-note" id="sheetNote"></p>
         <div class="dl-row" id="downloads"></div>

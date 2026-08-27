@@ -19,6 +19,9 @@
   function show(o) {
     if (!o) return;
     viewer.show(o, `${map.name} — ${o.label}`);
+    // Say what this sheet IS, above the sheet. A tooltip is the only other place
+    // this sentence lives, and a tooltip reaches neither a keyboard nor a phone.
+    $('sheetHint').innerHTML = o.hint ? `<strong>${esc(o.label)}.</strong> ${esc(o.hint)}` : '';
     $('sheetNote').textContent = 'Drag to move around the map, and zoom in for the detail. '
       + 'The printable sheet is below.';
     $('downloads').innerHTML =
@@ -114,7 +117,8 @@
     return;
   }
   $('tabs').innerHTML = map.outputs
-    .map((o) => `<button class="tab" type="button" role="tab" data-key="${esc(o.key)}">${esc(o.label)}</button>`)
+    .map((o) => `<button class="tab" type="button" role="tab" aria-selected="false" data-key="${esc(o.key)}"${
+      o.hint ? ` title="${esc(o.hint)}"` : ''}>${esc(o.label)}</button>`)
     .join('');
   $('tabs').addEventListener('click', (e) => {
     const b = e.target.closest('.tab');
