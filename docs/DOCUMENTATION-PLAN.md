@@ -1,7 +1,7 @@
 ﻿# Documentation development plan — the operator layer
 
-<!-- docstamp v1.6 | 2026-08-13 | sha=8f88764e -->
-**v1.6** · updated 13 August 2026
+<!-- docstamp v1.7 | 2026-08-27 | sha=64772326 -->
+**v1.7** · updated 27 August 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
@@ -116,8 +116,8 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 
 **Tier 1 — Governance (defines the relationship the runbooks operate within)** ✅ *done 2026-07-25 — what remains is yours, noted below*
 3. ✅ **G1** — `LICENSING.md`: web attribution **verified** on all public pages; bustimes.org **resolved** — site owner confirmed 2026-08-07 the use is acceptable with no attribution required. *Yours:* the printed-sheet paper checks.
-4. ✅ **G2** — `legal.html` reviewed against the actual system, **dated**, ICO right added; internal cross-check note in `ops/`. *Yours:* add the data-controller identity before launch.
-5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. *Yours:* confirm governing law + a review before launch; propagate the footer Terms link to the other shopfront pages.
+4. ✅ **G2** — `legal.html` reviewed against the actual system, **dated**, ICO right added; internal cross-check note in `ops/`. ~~*Yours:* add the data-controller identity before launch.~~ **DONE** — `public/legal.html:38` names Peter Cooper as the data controller; verified 2026-08-27. G2 is fully closed.
+5. ✅ **G3** — new `public/terms.html` customer agreement (non-lawyer draft), linked from `legal.html`. ~~propagate the footer Terms link to the other shopfront pages~~ **DONE** — all 15 shopfront pages carry it; verified 2026-08-27. **Still open, and now tracked as `OA-138` in `buses-data`:** confirm governing law (`terms.html:94` renders a visible `[To confirm.]` on the live site) and get the agreement reviewed before the first real customer. **Do not archive this document until OA-138 is closed** — until then this line is the only description of that work in either repo.
 
 **Tier 2 — Core operator runbooks** ✅ *done 2026-07-25*
 6. ✅ **R1** [`R1-create-map.md`](R1-create-map.md) — make → import → verify byte-identical → attach → hand to review. Covers fulfilling an approved request in place (`--request <id>`; the seam it used to flag was closed in `0.8.1`).
