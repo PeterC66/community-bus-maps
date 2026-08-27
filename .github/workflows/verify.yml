@@ -171,3 +171,18 @@ jobs:
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run verify:defaults
+
+      # The one gate that runs on a machine WITHOUT the skill tree, which is the
+      # only place the question can honestly be asked. Every generator's
+      # last-resort module resolution is a hardcoded path into the skill
+      # checkout; on the laptop that folder exists, so a module this repository
+      # was never given still resolves and the sheet still renders. Here it does
+      # not exist, and a missing module is MODULE_NOT_FOUND — which is what the
+      # server would have done. Added 2026-08-27 after check-vendored.mjs
+      # reported "every module they require is here" about a generator requiring
+      # four modules that were not here.
+      - name: self-sufficient — the engine renders with nothing but this repo
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run test:selfsufficient
