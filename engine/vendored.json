@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "3142277b5d213387bf710d9b14f85c297e5cd04137170235aa8829d2dfc45047",
+      "sha256": "3eef6cc2e1b6ba898d3fd45ca9d3a42676317e8b005dd774d2ff8e7dee7ba918",
       "vendoredOn": "2026-08-27",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -213,6 +213,14 @@
       "sha256": "9910ffc4a1cc32ec21a1810041cf1785f7258b514231272e8ac0eda71a01e4f9",
       "vendoredOn": "2026-08-27",
       "note": "The shared reserved-box list, both label placers, and the route-ink contrast floor. Required at load by gen_internal.js."
+    },
+    {
+      "path": "services_panel.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/services_panel.js",
+      "sha256": "ecb8d7702ca519ee8447f78b4080c6d3db7fb30b1f8920b230236db13850e3a5",
+      "vendoredOn": "2026-08-27",
+      "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
     }
   ]
 }
