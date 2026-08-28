@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.3 | 2026-08-12 | sha=905c4e04 -->
-**v1.3** · updated 12 August 2026
+<!-- docstamp v1.4 | 2026-08-28 | sha=84734b48 -->
+**v1.4** · updated 28 August 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -55,4 +55,4 @@ Approving, in one action:
 - **Wrong quota** → edit it inline on the **Customers** tab any time.
 - **Declined** → **Reject** the application (marked rejected; no account created). Note why in the vetting log.
 - **They can't sign in** → they can request a fresh link at the `/app` sign-in page (printed to the console in dev); check the email matches the account exactly.
-- **Suspend or close a customer** → set status on the **Customers** tab (they keep their data but lose access). Treat a suspension prompted by a problem as an incident (**R6**, planned).
+- **Suspend or close a customer** → set status on the **Customers** tab (they keep their data but lose access). Treat a suspension prompted by a problem as an incident — [**R6**](R6-incident-response.md).

@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.4 | 2026-08-18 | sha=f52e9de8 -->
-**v1.4** · updated 18 August 2026
+<!-- docstamp v1.5 | 2026-08-28 | sha=14befbaa -->
+**v1.5** · updated 28 August 2026
 
 **v1.0** · updated 8 August 2026
 
@@ -137,7 +137,7 @@ npm run deliver -- --src "<the S5-render dir>" --name "<Town/Place name>" --slug
 # place map instead: --kind place
 ```
 It `scp`'s the render up, **pre-flight verifies it in a throwaway container on the host before touching the running service** (SVG only, never JPG — laptop/host font differences make a JPG check a permanent false alarm, see `GO-LIVE.md` §2.5), only then stops the live service, imports, restarts, and checks `/health?deep=1`. A failure at verify leaves the live site completely untouched. A failure at import leaves it **stopped** rather than serving a half-write — restart it by hand on the host (`docker compose up -d portal`) once you understand why, don't just retry blind.
-*(Note, 10 Aug 2026: this path is written and dry-run tested but not yet proven end to end against a real request — watch its output closely the first few times you use it for real.)*
+*(This path is written and dry-run tested. Whether it has been proven end to end against a real request is recorded in ONE place — the "what actually works against the live portal" bullet near the foot of this page — so that the two cannot disagree. They did: this note was dated 10 Aug and that bullet 18 Aug, saying the same thing with eight days between them and nobody obliged to update both.)*
 
 ▸ **Testing locally instead?** Skip `npm run deliver`. Stop the dev server, then:
 ```powershell
@@ -242,7 +242,7 @@ node "%BW%\push-status.mjs"
 - **Never hand-edit a rendered file.** Regenerate instead.
 - **Stop the dev server** before any command that writes directly to a **local** checkout (`import-map.mjs`, `propose-update.mjs` run locally, `rollout.js --apply`, `seed-demo.mjs`) — one SQLite writer. `npm run deliver` (live map builds §4, live refreshes §5) handles its own stop/start on the host for you; you don't do this by hand for either path.
 - **PowerShell `$env:VAR = ...` form only** for the verify commands — the bash `VAR=x npm run …` form silently no-ops on this machine.
-- **What actually works against the live portal from this laptop, today:** reading (`worklist.mjs` / `push-status.mjs` with `--url`) — yes. Delivering a **refresh** to an already-live map (`npm run deliver -- --map <slug>`, §5) — yes, proven end to end on 18 Aug 2026 across all 13 sample maps. Delivering a **brand-new** map (`npm run deliver -- --name … --slug …`, §4) — yes, but still not proven end to end against a real request, so watch its output. What has **no** laptop path at all is the operator half of the cycle: accepting a proposed update, withdrawing a publish request and changing a map's outputs are HTTP endpoints needing a signed-in admin session, so they are browser work rather than terminal work. If a command's actual target is ever in doubt, check the `LOCAL —` / `REMOTE —` banner both scripts print first, before reading anything else in their output.
+- **What actually works against the live portal from this laptop — last checked 28 Aug 2026, and this bullet is the SINGLE record of it:** reading (`worklist.mjs` / `push-status.mjs` with `--url`) — yes. Delivering a **refresh** to an already-live map (`npm run deliver -- --map <slug>`, §5) — yes, proven end to end on 18 Aug 2026 across all 13 sample maps. Delivering a **brand-new** map (`npm run deliver -- --name … --slug …`, §4) — yes, but **still not proven end to end against a real request**, so watch its output. Re-checked 28 Aug 2026 and nothing had settled it either way, which is the point of dating it: an unproven path quietly becomes a proven-looking one the longer the sentence sits unchanged. **What would settle it:** one delivery of a new map against a real approved request, with `maprequest.fulfil` in the audit log and the map live. Update this bullet the day that happens, and nothing else. What has **no** laptop path at all is the operator half of the cycle: accepting a proposed update, withdrawing a publish request and changing a map's outputs are HTTP endpoints needing a signed-in admin session, so they are browser work rather than terminal work. If a command's actual target is ever in doubt, check the `LOCAL —` / `REMOTE —` banner both scripts print first, before reading anything else in their output.
 
 ## If you want the why, not just the how
 
