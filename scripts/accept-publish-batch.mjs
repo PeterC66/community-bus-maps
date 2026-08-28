@@ -117,11 +117,15 @@ function mintSession() {
     if (!user) { console.error('NO_SUCH_ADMIN'); process.exit(1); }
     if (user.role !== 'admin') { console.error('NOT_ADMIN:' + user.role); process.exit(1); }
     const token = crypto.randomBytes(32).toString('base64url');
-    // The table holds the token's SHA-256, not the token (technical-audit_2026-08-25
-    // N3). Inserting the raw value here would write a row the server can never
-    // match, so the mint would appear to succeed and the first API call would 401
-    // with nothing to explain it. The COOKIE still carries the raw token; only
-    // the stored row is hashed.
+    /* The table holds the token's SHA-256, not the token (technical-audit_2026-08-25
+       N3). Inserting the raw value here would write a row the server can never
+       match, so the mint would appear to succeed and the first API call would 401
+       with nothing to explain it. The COOKIE still carries the raw token; only
+       the stored row is hashed.
+       BLOCK comment, never a line comment: this template is flattened to ONE LINE
+       below, and a line comment there comments out the rest of it. That broke every
+       --mint run with 'Unexpected end of input' from the day this note was
+       added until 2026-08-28. */
     const stored = crypto.createHash('sha256').update(token).digest('hex');
     const expires = new Date(Date.now() + 20 * 60_000).toISOString().slice(0, 19).replace('T', ' ');
     db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(stored, user.id, expires);
@@ -129,6 +133,13 @@ function mintSession() {
     if (!back) { console.error('INSERT_NOT_READABLE_BACK'); process.exit(1); }
     console.log('TOKEN:' + token);
   `.replace(/\n\s*/g, ' ');
+  /* The flatten above turns the template into one line, so a // anywhere in it
+   * silently truncates everything after it and node reports only 'Unexpected end
+   * of input' from a wall of code. Refuse instead of sending it. */
+  if (script.includes('//')) {
+    throw new Error('mint script contains a // comment and is about to be flattened to one line, '
+      + 'which would comment out the rest of it. Use a block comment.');
+  }
   const r = sshRun(`cd ${APP_DIR} && docker compose exec -T portal node -e "${script.replace(/"/g, '\\"')}"`);
   const m = r.stdout.match(/TOKEN:(\S+)/);
   if (r.status !== 0 || !m) throw new Error(`mint failed (status ${r.status}): ${r.stderr || r.stdout}`);
