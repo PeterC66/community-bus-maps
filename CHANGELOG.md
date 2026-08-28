@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-28** — [The place external says what dashed means](CHANGELOG.d/2026-08-28-the-place-external-says-what-dashed-means.md)
 - **2026-08-28** — [The publish gate reads the S6 verdict, not just its date — and stops exempting places](CHANGELOG.d/2026-08-28-the-publish-gate-reads-the-verdict-not-the-date.md)
 - **2026-08-28** — [Correction: the seven maps were never actually blocked — the fault was in the measurement](CHANGELOG.d/2026-08-28-the-seven-maps-that-were-never-actually-blocked.md)
 - **2026-08-27** — [A gate that asks what actually loaded, rather than what the source looks like](CHANGELOG.d/2026-08-27-a-gate-that-asks-what-actually-loaded.md)
