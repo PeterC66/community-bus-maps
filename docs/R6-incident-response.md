@@ -1,7 +1,7 @@
 ﻿# Runbook R6 — Incident response
 
-<!-- docstamp v1.3 | 2026-08-28 | sha=ee14d2ae -->
-**v1.3** · updated 28 August 2026
+<!-- docstamp v1.4 | 2026-08-28 | sha=8e84ab28 -->
+**v1.4** · updated 28 August 2026
 
 **Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
