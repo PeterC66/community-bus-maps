@@ -1,13 +1,15 @@
 ﻿# Runbook R6 — Incident response
 
-<!-- docstamp v1.2 | 2026-08-07 | sha=03ec7344 -->
-**v1.2** · updated 7 August 2026
+<!-- docstamp v1.3 | 2026-08-28 | sha=ee14d2ae -->
+**v1.3** · updated 28 August 2026
 
 **Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
-**Purpose.** What to do when something goes wrong — above all a **published map that's wrong in the wild**, because people act on it. Record every incident in the private [incident log](../../community-bus-maps-ops/incident-log.md) (P3).
+**Purpose.** What to do when something goes wrong — above all a **published map that's wrong in the wild**, because people act on it. Record every incident in the private [incident log](../../community-bus-maps-ops/P3-incident-log.md) (P3).
 
-> **Pilot.** There are **no real published maps** — everything public is our own demo data, labelled **Sample**, behind a pilot banner and a `robots.txt` `Disallow: /`. So "a member of the public acted on a wrong map" is currently a *hypothetical*, and the severities below are calibrated for the world after the pilot ends. Keep the procedures; scale the urgency to reality. The first genuine customer map is the point at which this runbook becomes live — see [`PILOT.md`](PILOT.md).
+> **Pilot — and this runbook is now live.** It is still true that there are no *customer* maps: every organisation is one of ours, every rendered sheet carries the `PILOT — SAMPLE MAP` band ([`src/render/pilotStamp.js`](../src/render/pilotStamp.js)), and the pilot banner is on every page. **What is no longer true is that nobody acts on them.** On 2026-08-28 a member of the public in Ramsey read the published external map, found that it showed a place the X31 does not serve and omitted three that it does, and took the trouble to report all of it accurately through *report a problem*. Every claim held. The map was unlisted the same day. So treat the severities below as calibrated for **now**, not for after the pilot ends.
+>
+> Two things that paragraph used to say are worth keeping as corrections, because both were load-bearing and both had quietly expired. **`robots.txt` is no longer `Disallow: /`** — the site has been indexable since 2026-08-21 and publishes a sitemap, so a wrong sheet is reachable from a search engine and not only from someone we told. And **the `SAMPLE MAP` band is on the rendered sheet only**: the `/services` text page, which exists as the accessible alternative to the sheet, presents the same service data with the pilot banner but no sample marking on the content itself. A reader who prefers text gets the weaker warning. See [`PILOT.md`](PILOT.md).
 
 ## Severity
 
@@ -22,7 +24,7 @@ The published bytes are the promise, so act on **visibility**, not the file.
 1. **Take it down fast.** As admin, **unlist** the map (the public listing toggle) → it leaves `/maps` and `/m/<slug>` immediately, deleting nothing. For a whole-customer problem, **suspend the customer** — that pulls *all* their maps (the public front requires an *active* customer).
 2. **Fix.** If an earlier published version was correct, **revert to it** (below — one click). If none was, push a **corrected version** through review (**R3**).
 3. **Re-list** once the correct version is published.
-4. **Record** it in the incident log and tell the publishing organisation.
+4. **Record** it in the incident log and tell the publishing organisation. **While every map is ours, that step is us** — there is no third party to hand it to, and the temptation is to treat the fix as the whole response and skip the record. The Ramsey report on 2026-08-28 is the worked example: the incident row, not the commit, is what tells a later session why the map is unlisted.
 
 > **Unlisting is the fast mitigation; a correct sheet being served is the fix.** Never hand-edit a served file — always go through a version.
 

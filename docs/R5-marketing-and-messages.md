@@ -56,7 +56,7 @@ Both write to the `message` table and surface **read-only** in `/app/admin` → 
 **Working the queue** (there's no in-app reply yet — triage and act out-of-band):
 
 1. Read new messages (the tab badge is the count).
-2. **Map feedback** → check the map; pass anything actionable to the publishing organisation, and if a *published* map is actually wrong, treat it as an **incident** — [R6](R6-incident-response.md) — don't just reply.
+2. **Map feedback** → check the map; pass anything actionable to the publishing organisation, and if a *published* map is actually wrong, treat it as an **incident** — [R6](R6-incident-response.md) — don't just reply. **Check it against the data before believing or dismissing it, and check the same field on every other row while you are there.** The first genuine report (Ramsey, 2026-08-28) named one wrong place on one route; resolving all 253 stops on all eight routes turned it into four defects. A reporter can only see what is wrongly *present* — what is wrongly *absent* has no witness but the person it turned away, and on that map the omissions were both the majority and the more harmful half. **While every organisation is ours, "the publishing organisation" is us.**
 3. **Enquiries / applications** → reply by email; if it's really an application, point them at Apply.
 4. Note anything you acted on where it belongs (incident log, or the customer register).
 
