@@ -85,7 +85,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkS6, findWaiver } from './lib/s6-freshness.mjs';
+import { checkS6, findWaiver, refuses } from './lib/s6-freshness.mjs';
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -166,6 +166,24 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
 // for why it exists at all (all eight towns were stale on day one, and a gate
 // that starts red gets muted). An expired waiver is refused as loudly as a
 // missing one.
+//
+// 2026-08-28 — THE GATE NOW READS THE VERDICT, NOT ONLY THE DATE (OA-003), AND
+// IT NO LONGER EXEMPTS PLACES (OA-133). Two consequences here.
+//
+// First, `checkS6` has three more refusing verdicts — `failed` (the run came
+// back BLOCKED), `unverified` (it could not reach a verdict) and `no-verdict`
+// (its verification.json could not be read). The waiver lookup below used to sit
+// under a comment reading `// stale | never`, and that was the whole of OA-003's
+// second half: a fresh-but-failing S6 skipped the deferral check entirely, so
+// the five towns that came back BLOCKED on 2026-08-26 were not merely accepted,
+// they were accepted while carrying live deferrals that had stopped applying to
+// them. Every refusing verdict now consults the file.
+//
+// Second, ten places have never had an S6 run and now read `never`. That is
+// true, and it is exactly the day-one red the waiver file exists for, so they
+// arrive with dated deferrals rather than an exemption in the code. Their
+// `removeBy` says what clears each one, and the file's header records the
+// measured cost of doing it.
 // ---------------------------------------------------------------------------
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WAIVERS_PATH = path.join(HERE, 's6-waivers.json');
@@ -179,7 +197,9 @@ function gateS6() {
   }
   if (r.verdict === 'not-applicable') {
     // Named out loud rather than passed over. "Did not apply" and "passed" must
-    // not look the same at a terminal.
+    // not look the same at a terminal. This is now reached only by a manifest
+    // with no S6 stage key at all — until 2026-08-28 every PLACE came through
+    // here, which is OA-133.
     console.log(`-- 0. S6 freshness: N/A — ${r.message}`);
     return;
   }
@@ -193,7 +213,21 @@ function gateS6() {
     process.exit(1);
   }
 
-  // stale | never
+  // stale | never | failed | unverified | no-verdict.
+  //
+  // Anything else reaching here is a verdict checkS6 has learned and this
+  // function has not, and it must REFUSE rather than fall out of the bottom as
+  // a pass. That is not hypothetical: three of the five verdicts below were
+  // added on 2026-08-28, and before them this branch was reached by exactly two.
+  if (!refuses(r.verdict)) {
+    console.error(`\n✗ 0. S6 freshness: UNKNOWN VERDICT "${r.verdict}" — nothing has been uploaded.`);
+    console.error(`  ${r.message}`);
+    console.error('  scripts/lib/s6-freshness.mjs produced a verdict this gate does not know how to');
+    console.error('  judge. Refusing rather than assuming: teach gateS6() what it means, and add it to');
+    console.error('  REFUSING_VERDICTS there if a dated deferral should be able to cover it.');
+    process.exit(1);
+  }
+
   let waivers = { waive: [] };
   try { if (existsSync(WAIVERS_PATH)) waivers = JSON.parse(readFileSync(WAIVERS_PATH, 'utf8')); } catch (e) {
     console.error(`✗ could not read ${WAIVERS_PATH}: ${e.message}`);
@@ -201,15 +235,24 @@ function gateS6() {
   }
   const w = findWaiver(waivers, r.town);
 
+  // The banner names the VERDICT being deferred. It used to say STALE for every
+  // deferral, which was true of all of them when only two verdicts could get
+  // here; it would now print STALE over a run that came back BLOCKED.
+  const LABEL = {
+    stale: 'STALE', never: 'NEVER VERIFIED', failed: 'S6 FAILED',
+    unverified: 'NO VERDICT REACHED', 'no-verdict': 'VERDICT UNREADABLE',
+  };
+  const label = LABEL[r.verdict] || r.verdict.toUpperCase();
+
   if (w && !w.expired) {
-    console.log(`-- 0. S6 freshness: STALE, deferred until ${w.until}`);
+    console.log(`-- 0. S6 freshness: ${label}, deferred until ${w.until}`);
     console.log(`  ${r.message}`);
     console.log(`  Why deferred: ${w.why}`);
     console.log(`  To clear: ${w.removeBy}`);
     return;
   }
 
-  console.error('\n✗ 0. S6 freshness: REFUSED — nothing has been uploaded and the live service is untouched.');
+  console.error(`\n✗ 0. S6 freshness: REFUSED (${label}) — nothing has been uploaded and the live service is untouched.`);
   console.error(`  ${r.message}`);
   if (w && w.expired) {
     console.error(`\n  There IS a deferral for ${r.town} in scripts/s6-waivers.json, and it EXPIRED on ${w.until}.`);
@@ -220,7 +263,18 @@ function gateS6() {
     console.error(`\n  There is no deferral for ${r.town} in scripts/s6-waivers.json.`);
   }
   console.error('\n  Do one of these:');
-  console.error(`   1. Run the S6 verification stage for ${r.town} against its current data (the right answer).`);
+  if (r.verdict === 'failed') {
+    console.error(`   1. FIX WHAT S6 FOUND. ${r.town}'s last run reported ${r.hard} hard finding(s); re-running the`);
+    console.error('      stage without changing anything will report them again. Read its verification.docx,');
+    console.error('      correct the upstream stage, then re-run S6 (the right answer).');
+  } else if (r.verdict === 'unverified') {
+    console.error(`   1. Give ${r.town} the S1 pass it is waiting on, then re-run S6. The last run could not`);
+    console.error(`      reach a verdict ("${r.s6Verdict}"), so its hard count says nothing either way.`);
+  } else {
+    console.error(`   1. Run the S6 verification stage for ${r.town} against its current data (the right answer).`);
+    console.error('      Run redteam_source.js from the new S6 run dir FIRST — it may already own an answer,');
+    console.error('      in which case the stage costs nothing but the time to run it.');
+  }
   console.error('   2. Add or renew a DATED entry in scripts/s6-waivers.json, saying what changed and who clears it.');
   console.error('   3. --s6-unchecked "<reason>" for a one-off, which is recorded in this log and nowhere else.');
   process.exit(1);

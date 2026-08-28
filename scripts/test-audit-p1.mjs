@@ -274,40 +274,88 @@ check('…while the others remain', after.length === sessions.length - 1);
 eq('the self-approval override is OFF by default', process.env.ALLOW_SELF_APPROVAL === '1', false);
 
 console.log('\nV3 — S6 freshness');
-const { checkS6, findWaiver } = await import('../scripts/lib/s6-freshness.mjs');
+const { checkS6, findWaiver, refuses, REFUSING_VERDICTS } = await import('../scripts/lib/s6-freshness.mjs');
 
 // Synthetic manifests, not the real map tree: CI has no map tree, and a gate
 // that quietly does nothing in CI is the exact failure this whole block is
 // about.
-const manifestDir = (name, stages) => {
+const manifestDir = (name, stages, verification) => {
   const d = path.join(scratch, 'maps', name);
   mkdirSync(path.join(d, 'S5-render', 'v1.0'), { recursive: true });
   writeFileSync(path.join(d, 'manifest.json'), JSON.stringify({ town: name, stages }, null, 1));
+  // The S6 run's own report. Since 2026-08-28 the gate opens this and reads the
+  // VERDICT, so a fixture that omits it is testing the "could not read the
+  // answer" path, not the happy one — which is why every map below that means
+  // to be verified now passes one.
+  if (verification !== undefined) {
+    const rd = path.join(d, 'S6-verify', stages.S6.latest);
+    mkdirSync(rd, { recursive: true });
+    if (verification !== null) writeFileSync(path.join(rd, 'verification.json'), JSON.stringify(verification, null, 1));
+  }
   return path.join(d, 'S5-render', 'v1.0');
 };
-const run = (id, at) => ({ name: 'x', latest: id, runs: [{ id, dir: `x/${id}`, at }] });
+const run = (id, at, stage = 'x') => ({ name: 'x', latest: id, runs: [{ id, dir: `${stage}/${id}`, at }] });
+const s6run = (id, at) => ({ name: 'verify', latest: id, runs: [{ id, dir: `S6-verify/${id}`, at }] });
+const report = (verdict, hard = 0, soft = 0) => ({ summary: { checks: hard + soft, hard, soft, pass: verdict === 'pass', verdict } });
 
-const freshMap = manifestDir('Freshtown', {
-  S1: run('a', '2026-01-01T00:00'), S2: run('b', '2026-01-02T00:00'),
-  S3: run('c', '2026-01-03T00:00'), S6: run('d', '2026-01-04T00:00'),
-});
-eq('S6 newer than the data is fresh', checkS6({ srcDir: freshMap }).verdict, 'fresh');
+const data = { S1: run('a', '2026-01-01T00:00'), S2: run('b', '2026-01-02T00:00'), S3: run('c', '2026-01-03T00:00') };
+
+const freshMap = manifestDir('Freshtown', { ...data, S6: s6run('d', '2026-01-04T00:00') }, report('pass', 0, 3));
+eq('S6 newer than the data AND passing is fresh', checkS6({ srcDir: freshMap }).verdict, 'fresh');
+eq('…and it carries the counts the report gave', checkS6({ srcDir: freshMap }).hard, 0);
 
 const staleMap = manifestDir('Staletown', {
-  S1: run('a', '2026-01-01T00:00'), S2: run('b', '2026-01-02T00:00'),
-  S3: run('c', '2026-06-03T00:00'), S6: run('d', '2026-01-04T00:00'),
-});
-// The finding itself: S3 (the hand-authored config) moved after the last
+  ...data, S3: run('c', '2026-06-03T00:00'), S6: s6run('d', '2026-01-04T00:00'),
+}, report('pass'));
+// The original finding: S3 (the hand-authored config) moved after the last
 // verification, so what was verified is not what would be delivered.
 eq('S3 moving after S6 makes it stale', checkS6({ srcDir: staleMap }).verdict, 'stale');
 eq('…and it names the newest data', checkS6({ srcDir: staleMap }).newestDataAt, '2026-06-03T00:00');
 
+// OA-003. Everything below this line failed to be asked at all until 2026-08-28:
+// the gate compared dates and never opened the report, so a run that came back
+// BLOCKED reported `fresh` and was delivered. Five towns were in that state on
+// 2026-08-26, and running S6 on them is what put them there.
+const failedMap = manifestDir('Failtown', { ...data, S6: s6run('d', '2026-01-04T00:00') }, report('blocked', 14, 6));
+const failed = checkS6({ srcDir: failedMap });
+eq('a RECENT S6 that came back BLOCKED is not fresh', failed.verdict, 'failed');
+eq('…and it says how many hard findings', failed.hard, 14);
+check('…and the message says BLOCKED rather than a date', /BLOCKED/.test(failed.message));
+
+// An older report has no `verdict` field — it was added 2026-08-27. Reading such
+// a run as unreadable would exempt exactly the runs this gate was built for.
+const legacyMap = manifestDir('Legacytown', { ...data, S6: s6run('d', '2026-01-04T00:00') },
+  { summary: { checks: 20, hard: 9, soft: 5, pass: false } });
+eq('a pre-2026-08-27 report is read through summary.pass', checkS6({ srcDir: legacyMap }).verdict, 'failed');
+
+// The third verdict a date comparison can never express: not fresh, not stale,
+// but not verifiable until its S1 is curated. Ramsey is the real instance.
+const uncuratedMap = manifestDir('Draftown', { ...data, S6: s6run('d', '2026-01-04T00:00') }, report('not-verified-uncurated-s1', 0, 19));
+const uncur = checkS6({ srcDir: uncuratedMap });
+eq('a run that reached no verdict is not a pass', uncur.verdict, 'unverified');
+check('…even though it has zero hard findings', uncur.hard === 0 && uncur.verdict !== 'fresh');
+
+// verification.json is gitignored in the data repo, so a clone has none of them.
+// "I could not read the answer" must not report as "the answer was yes".
+const noReportMap = manifestDir('Reportlesstown', { ...data, S6: s6run('d', '2026-01-04T00:00') }, null);
+eq('a manifest S6 row with no readable report is no-verdict', checkS6({ srcDir: noReportMap }).verdict, 'no-verdict');
+const badReportMap = manifestDir('Garbagetown', { ...data, S6: s6run('d', '2026-01-04T00:00') }, null);
+writeFileSync(path.join(scratch, 'maps', 'Garbagetown', 'S6-verify', 'd', 'verification.json'), '{ not json');
+eq('…and so is an unparseable one', checkS6({ srcDir: badReportMap }).verdict, 'no-verdict');
+
 const neverMap = manifestDir('Nevertown', { S1: run('a', '2026-01-01T00:00'), S6: { name: 'verify', latest: null, runs: [] } });
 eq('an area never verified is refused', checkS6({ srcDir: neverMap }).verdict, 'never');
-// …and the same empty S6 slot on a PLACE is not a fault. The shared stage
-// machinery writes all six slots; the place skill fills five. Getting this
-// wrong blocked every place delivery on the first attempt.
-eq('…the same empty slot on a place is not applicable', checkS6({ srcDir: neverMap, kind: 'place' }).verdict, 'not-applicable');
+// OA-133. This assertion used to read `not-applicable`, and asserting it is what
+// kept the bug in place: the gate discarded every PLACE's verdict on the premise
+// that the place skill has no verification stage. It gained one on 2026-08-08,
+// the procedure is written up in the skill's references/s6-verify.md, and two
+// places hold real runs — both PASS as of 2026-08-28. A place is judged as an
+// area is, and an empty S6 slot on one is `never`, which is true.
+eq('…and the same empty slot on a place is ALSO never, not exempt', checkS6({ srcDir: neverMap, kind: 'place' }).verdict, 'never');
+eq('a place with a passing run is fresh, like an area', checkS6({ srcDir: freshMap, kind: 'place' }).verdict, 'fresh');
+// The one exemption left: a manifest with no S6 stage key at all.
+const noStageMap = manifestDir('Stagelesstown', { S1: run('a', '2026-01-01T00:00') });
+eq('a manifest with no S6 stage at all is not-applicable', checkS6({ srcDir: noStageMap }).verdict, 'not-applicable');
 
 // A directory that is not in a map tree must REFUSE, not pass. "Could not check"
 // and "checked and fine" reporting the same way is how the verify gate spent
@@ -321,6 +369,23 @@ eq('a live waiver is found', findWaiver(waivers, 'Staletown', { now: new Date('2
 eq('…and matched case-insensitively', findWaiver(waivers, 'staletown', { now: new Date('2026-06-01') }) !== null, true);
 eq('…and reports itself expired after `until`', findWaiver(waivers, 'Staletown', { now: new Date('2027-01-02') }).expired, true);
 eq('…and a town with no entry gets nothing', findWaiver(waivers, 'Freshtown'), null);
+
+// Which verdicts a dated deferral can cover is asserted HERE, not left implicit
+// in deliver-map.mjs's control flow. `gateS6()` used to consult the waiver file
+// under a comment reading "// stale | never" — so when the verdict set grew, the
+// deferral check silently stopped applying to the new ones, and that is half of
+// OA-003: the five BLOCKED towns were accepted while carrying live deferrals.
+for (const v of ['stale', 'never', 'failed', 'unverified', 'no-verdict']) {
+  check(`a dated deferral can cover ${v}`, refuses(v));
+}
+// And these three must NOT be waivable. `fresh` needs nothing; `not-applicable`
+// is an exemption the caller has to PRINT rather than defer; `no-manifest` means
+// the gate could not see its evidence at all, which no deferral should buy off.
+for (const v of ['fresh', 'not-applicable', 'no-manifest']) {
+  check(`${v} is not something a deferral can cover`, !refuses(v));
+}
+check('an unknown verdict does not quietly become waivable', !refuses('something-new'));
+check('REFUSING_VERDICTS is frozen, so a caller cannot widen it at runtime', Object.isFrozen(REFUSING_VERDICTS));
 
 // The shipped file has to parse, and every entry has to carry the four fields
 // the refusal message reads out. A waiver that cannot explain itself is an
