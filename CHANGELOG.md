@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.99 | 2026-08-28 | sha=bbff9811 -->
-**v1.99** · updated 28 August 2026
+<!-- docstamp v1.100 | 2026-08-28 | sha=c6852e37 -->
+**v1.100** · updated 28 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -16,6 +16,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-28** — [The badge and lozenge separation reaches the portal](CHANGELOG.d/2026-08-28-the-badge-and-lozenge-separation-reaches-the-portal.md)
 - **2026-08-28** — [The external sheet joins the guard contract](CHANGELOG.d/2026-08-28-the-external-sheet-joins-the-guard-contract.md)
 - **2026-08-28** — [The first genuine public report, and the runbooks that assumed it could not happen](CHANGELOG.d/2026-08-28-the-first-genuine-public-report.md)
+- **2026-08-28** — [Every map's footer claimed the same cross-check month, and it was wrong on nineteen of them](CHANGELOG.d/2026-08-28-the-footer-said-every-map-was-checked-in-june.md)
 - **2026-08-28** — [The place external says what dashed means](CHANGELOG.d/2026-08-28-the-place-external-says-what-dashed-means.md)
 - **2026-08-28** — [The publish gate reads the S6 verdict, not just its date — and stops exempting places](CHANGELOG.d/2026-08-28-the-publish-gate-reads-the-verdict-not-the-date.md)
 - **2026-08-28** — [The publish script could not publish, and said it was the cookie](CHANGELOG.d/2026-08-28-the-publish-script-could-not-publish.md)
