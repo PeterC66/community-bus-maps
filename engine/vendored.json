@@ -89,15 +89,15 @@
       "path": "area/gen_external_busway.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_busway.js",
-      "sha256": "756dd8fd5d62167873e99f4c86a0ec5256900a40124683c175d64f6c2e3d0ffe",
-      "vendoredOn": "2026-08-25",
+      "sha256": "50d0fd16733bd30bc7438d890c9f17d4c2fed6e7c115fc6472dc5d4f42503ff1",
+      "vendoredOn": "2026-08-28",
       "note": "The busway external template; import-map.mjs copies it in as gen_external.js under --external-style busway."
     },
     {
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "0c9125f343a54eee20b353bf46586bbfb14cdbc6a54346cefec745d9e5567e14",
+      "sha256": "cbfe21225e7c613f0c7290f4735d9c6ebdbe254e5a3c62ab86fc8148abb2a1e9",
       "vendoredOn": "2026-08-28",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "5d38e4a2803c9111ae35c38cd380a47ec19ce31542633e675d74623f9470e1ae",
+      "sha256": "32ae5e5ad5ca1364cc7c290b3faeaff33628e192ca599ea370986ae69c9567d3",
       "vendoredOn": "2026-08-28",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
