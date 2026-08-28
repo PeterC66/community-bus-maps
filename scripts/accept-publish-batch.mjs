@@ -61,6 +61,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
+import crypto from 'node:crypto';
 
 function arg(name, def = undefined) {
   const i = process.argv.indexOf(`--${name}`);
@@ -149,14 +150,53 @@ function revokeSession(token) {
   return { revoked: r.stdout.includes('GONE'), raw: r.stdout.trim() };
 }
 
+/*
+ * CSRF, and why this script mints its own token.
+ *
+ * The portal double-submits: a `cbm_csrf` cookie that must equal an
+ * `x-csrf-token` header on every mutating request that carries a session cookie
+ * (src/auth/index.js csrfOk, src/server.js's preHandler). The token's value is
+ * not a secret and the server does not remember it -- it only checks that the
+ * two halves match. What makes that safe is that a cross-site attacker can
+ * neither set a cookie on our origin nor read one; a first-party CLI already
+ * holding the session cookie is not that attacker and may mint its own pair.
+ *
+ * THIS WAS MISSED FOR THREE DAYS. CSRF arrived on 2026-08-25 in 8787a72, which
+ * edited this very file -- but only for that commit's OTHER change, the hashing
+ * of stored session tokens. Its own note explains why the gap was invisible:
+ * the client side was fixed by patching `window.fetch` once "rather than
+ * twenty-six call sites edited", which covers every browser caller and no
+ * script. From that commit until this one, accept-publish-batch could list
+ * proposed updates (a GET, unguarded) and could not accept, submit, approve or
+ * publish a single one. It failed at the first POST with a 403 whose body says
+ * "reload the page and try again" -- advice for a browser, from a tool that has
+ * no page -- and the script reported it as `auth failed`, which is how three
+ * days of a dead publish path read as a bad cookie.
+ */
+const CSRF_TOKEN = crypto.randomBytes(24).toString('base64url');
+
 async function api(method, urlPath, body) {
   const res = await fetch(`${BASE_URL}${urlPath}`, {
     method,
-    headers: { 'Content-Type': 'application/json', Cookie: `cbm_session=${COOKIE}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: `cbm_session=${COOKIE}; cbm_csrf=${CSRF_TOKEN}`,
+      'x-csrf-token': CSRF_TOKEN,
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   let json;
   try { json = await res.json(); } catch { json = null; }
+  // A 403 whose code is `csrf` is NOT an auth failure, and calling it one costs
+  // the whole run: `authFailure` aborts every remaining map on the reasoning
+  // that a dead session will only fail again. A CSRF refusal means the opposite
+  // -- the session is alive and the REQUEST was malformed -- so it is reported
+  // as itself, with the fix, rather than as a credential problem.
+  if (res.status === 403 && json?.code === 'csrf') {
+    throw new Error(`CSRF refused on ${method} ${urlPath}. The session is fine; the request lacked a matching `
+      + `cbm_csrf cookie / x-csrf-token header pair. This script mints them (see above) — if you are seeing `
+      + `this, the server's CSRF contract has moved.`);
+  }
   if (res.status === 401 || res.status === 403) {
     const e = new Error(`auth failed (${res.status}) on ${method} ${urlPath}: ${json?.error || res.statusText}`);
     e.authFailure = true;
