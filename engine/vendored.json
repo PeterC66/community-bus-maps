@@ -97,8 +97,8 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "7b2583daf70c6b9be612df65b0be3006dad7a3e545612a8aefc85eb748f8212c",
-      "vendoredOn": "2026-08-25",
+      "sha256": "f6baa6568c063b7207b47cbebea04e31957ca14dc4e783cc32ad54aed464683a",
+      "vendoredOn": "2026-08-28",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
     {
