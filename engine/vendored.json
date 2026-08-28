@@ -139,8 +139,8 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "c1337a9b61d81b3ff2226dc2db8a71ff8016e94f93318d6cb92429916fb21c59",
-      "vendoredOn": "2026-08-25"
+      "sha256": "c95b505341c4f4a46de70d4e749ba02944c59e7e67eeb12d542b85a1ce9e5596",
+      "vendoredOn": "2026-08-28"
     },
     {
       "path": "place/gen_internal.js",
