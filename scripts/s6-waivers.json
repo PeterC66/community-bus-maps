@@ -193,6 +193,14 @@
       "dataAsAt": null,
       "why": "Never verified, standalone. As Godmanchester Co-op Cambridge Road; last of the ten so the queue does not end in a cluster.",
       "removeBy": "Run S6 for Godmanchester Co-op Ermine Street (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
+    },
+    {
+      "map": "St Neots Tesco Extra",
+      "until": "2026-09-29",
+      "s6AsAt": "2026-08-28T00:11",
+      "dataAsAt": "2026-08-28T18:41",
+      "why": "Its S6 PASSED on 2026-08-28 and went stale hours later for a CONFIG-only reason: the checkedAt rollout gave all 20 maps a new S3 so the footer could stop claiming every map was cross-checked in June 2026. No service data moved. The four other maps the rollout made stale were re-run the same day reusing the blind answer they already owned; this one cannot, because redteam_source says BUY -- its S1/S2 have moved since that answer was derived, so reuse would not be independent.",
+      "removeBy": "Buy a fresh blind red team for St Neots Tesco Extra (redteam_source.js says BUY), run S6 against the current S3, then delete this entry."
     }
   ]
 }
