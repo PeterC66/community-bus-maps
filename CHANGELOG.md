@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.96 | 2026-08-28 | sha=342634a7 -->
-**v1.96** · updated 28 August 2026
+<!-- docstamp v1.97 | 2026-08-28 | sha=1690cd0e -->
+**v1.97** · updated 28 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -16,6 +16,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-28** — [The external sheet joins the guard contract](CHANGELOG.d/2026-08-28-the-external-sheet-joins-the-guard-contract.md)
 - **2026-08-28** — [The place external says what dashed means](CHANGELOG.d/2026-08-28-the-place-external-says-what-dashed-means.md)
 - **2026-08-28** — [The publish gate reads the S6 verdict, not just its date — and stops exempting places](CHANGELOG.d/2026-08-28-the-publish-gate-reads-the-verdict-not-the-date.md)
+- **2026-08-28** — [The publish script could not publish, and said it was the cookie](CHANGELOG.d/2026-08-28-the-publish-script-could-not-publish.md)
 - **2026-08-28** — [Correction: the seven maps were never actually blocked — the fault was in the measurement](CHANGELOG.d/2026-08-28-the-seven-maps-that-were-never-actually-blocked.md)
 - **2026-08-27** — [A gate that asks what actually loaded, rather than what the source looks like](CHANGELOG.d/2026-08-27-a-gate-that-asks-what-actually-loaded.md)
 - **2026-08-27** — [A published map tracks the engine now, and one command is what makes that true](CHANGELOG.d/2026-08-27-a-published-map-tracks-the-engine.md)
