@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.2 | 2026-08-06 | sha=cd447d68 -->
-**v1.2** · updated 6 August 2026
+<!-- docstamp v1.3 | 2026-08-28 | sha=436959f9 -->
+**v1.3** · updated 28 August 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -56,7 +56,7 @@ Both write to the `message` table and surface **read-only** in `/app/admin` → 
 **Working the queue** (there's no in-app reply yet — triage and act out-of-band):
 
 1. Read new messages (the tab badge is the count).
-2. **Map feedback** → check the map; pass anything actionable to the publishing organisation, and if a *published* map is actually wrong, treat it as an **incident** (R6, planned) — don't just reply.
+2. **Map feedback** → check the map; pass anything actionable to the publishing organisation, and if a *published* map is actually wrong, treat it as an **incident** — [R6](R6-incident-response.md) — don't just reply.
 3. **Enquiries / applications** → reply by email; if it's really an application, point them at Apply.
 4. Note anything you acted on where it belongs (incident log, or the customer register).
 

@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.98 | 2026-08-28 | sha=bbbb02d1 -->
-**v1.98** · updated 28 August 2026
+<!-- docstamp v1.99 | 2026-08-28 | sha=bbff9811 -->
+**v1.99** · updated 28 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-08-28** — [Backup retention is days again, not folders — the VPS window had quietly shrunk to 25 hours](CHANGELOG.d/2026-08-28-backup-retention-is-days-not-folders.md)
+- **2026-08-28** — [Five documents describing a system they had stopped tracking](CHANGELOG.d/2026-08-28-five-documents-describing-a-system-they-had-stopped-tracking.md)
 - **2026-08-28** — [The badge and lozenge separation reaches the portal](CHANGELOG.d/2026-08-28-the-badge-and-lozenge-separation-reaches-the-portal.md)
 - **2026-08-28** — [The external sheet joins the guard contract](CHANGELOG.d/2026-08-28-the-external-sheet-joins-the-guard-contract.md)
 - **2026-08-28** — [The place external says what dashed means](CHANGELOG.d/2026-08-28-the-place-external-says-what-dashed-means.md)

@@ -1,7 +1,7 @@
 ﻿# Roadmap & architecture
 
-<!-- docstamp v1.14 | 2026-08-28 | sha=cdfb5703 -->
-**v1.14** · updated 28 August 2026
+<!-- docstamp v1.15 | 2026-08-28 | sha=40ab6631 -->
+**v1.15** · updated 28 August 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
@@ -73,7 +73,7 @@ commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the co
 - **Revert to the previous published version.** ✅ **Done (0.8.1, 2026-07-25).** `/app/review` → "Published maps" → publication history → **Revert to this** (approver/admin, reason required, audited as `version.revert`). It moves only the public-current pointer, offers **only** versions that already passed the gate and still have their rendered files, and leaves the editor's head alone. Un-listing remains the faster mitigation; this is the fix. See R6.
 - **A user's organisation can be changed after the account exists.** ✅ **Done (2026-08-12, PR #28).** `updateUserAdmin()` (`src/db/index.js`) now accepts `customerId`, validated by `PATCH /api/admin/users/:id`; the admin console's Users tab has a picker per row, with a confirm prompt when the value actually changes. Moving somebody between organisations changes which maps they can see, so it is never a silent edit: it logs a distinct `user.reassign` audit event (from/to org names) on top of the ordinary `user.update` entry. Fixes the gap found on live 2026-08-12 (below).
 - **The three transactional emails were deployed but unproven end to end — now proven.** ✅ **Done (2026-08-12.)** `src/email/notify.js` ships and the hooks fire, but the first live attempt (an editor added to test them) landed platform-level, so `recipientsFor()` found nobody and the "published" email went nowhere (`"notification: nobody deliverable to tell"`) — the gap fixed above. Once fixed: reassigned that editor to *BusMaps.uk (pilot)*, published Beaconsfield Waitrose v2.0, and the "published" notification arrived at the editor's own inbox via Resend (not the admin's) with the correct map name and public link. Magic links were already known to send for real; now all three transactional emails are proven live.
-- **CSRF token** on state-changing POSTs (SameSite=Lax covers cross-site POST for now).
+- **CSRF token on state-changing POSTs.** ✅ **Done (2026-08-25, `8787a72`, audit P1).** A `preHandler` hook refuses any mutating request that carries a session cookie without a matching `x-csrf-token`, and `/auth/verify` is checked unconditionally; an `onRequest` hook issues the `cbm_csrf` cookie to every visitor. Verified live on 2026-08-28 — `curl -sI https://busmaps.uk/` sets the cookie on `0.10.0-pilot+2eec3ac`. The old note here said `SameSite=Lax` covered it "for now"; that stopped being the arrangement three days before anyone updated this line. `docs/LICENSING.md` carried the same stale claim as an accepted risk.
 - **~~Email provider~~ for magic links.** ✅ Done — Resend, live since 2026-08-09 (`src/email/`, `EMAIL_PROVIDER=resend` on the host). With it unset, links still print to the server console for dev.
 - **P8a — "published maps that work online" is now merged.** ✅ **Done (rebuilt 2026-08-12).** Was
   built 2026-07-26/27 and pushed to a branch (`p8a-maps-online`) that had drifted 123 commits behind

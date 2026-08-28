@@ -1,7 +1,7 @@
 ﻿# Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.6 | 2026-08-21 | sha=419258cc -->
-**v1.6** · updated 21 August 2026
+<!-- docstamp v1.7 | 2026-08-28 | sha=c64940fc -->
+**v1.7** · updated 28 August 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -58,5 +58,5 @@ The public site serves the **published** pointer; edits in flight never reach th
 ## What-if
 
 - **Checklist won't submit** → an item is unticked (the server rejects an incomplete checklist; the UI disables **Publish** until 3/3).
-- **You published something wrong** → that's an **incident** (**R6**, planned): roll the public-current pointer back to a known-good version, or push a corrected version through this gate. **Never** edit a served file in place.
+- **You published something wrong** → that's an **incident** — [**R6**](R6-incident-response.md): roll the public-current pointer back to a known-good version, or push a corrected version through this gate. **Never** edit a served file in place.
 - **Empty queue** → submissions appear only after an editor submits; nothing to do.

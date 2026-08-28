@@ -1,7 +1,7 @@
 ﻿# Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.8 | 2026-08-25 | sha=b6670119 -->
-**v1.8** · updated 25 August 2026
+<!-- docstamp v1.9 | 2026-08-28 | sha=9eb87d76 -->
+**v1.9** · updated 28 August 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
@@ -76,7 +76,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
 | bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
-| CSRF tokens on state-changing POSTs | **Accepted risk for the pilot** — deferred, not fixed. `SameSite=Lax` already blocks cross-site POST from another origin; the residual risk is a same-site/XSS-chained attack, judged low for a handful of known pilot users. Revisit before opening self-serve signup to the public (`ROADMAP.md` follow-up). | GO-LIVE.md §3 | 2026-08-09 |
+| CSRF tokens on state-changing POSTs | ✅ **Fixed 2026-08-25** (`8787a72`, audit 2026-08-25 P1) — no longer an accepted risk. A `preHandler` hook rejects every mutating method (POST/PUT/PATCH/DELETE) that carries a session cookie without a matching `x-csrf-token`, plus `POST /auth/verify` unconditionally, because that one runs for somebody who has no session yet and is exactly the request that must not be forgeable. An `onRequest` hook hands every visitor the `cbm_csrf` cookie so any page can echo it. **Verified live 2026-08-28**, not merely merged: `curl -sI https://busmaps.uk/` returns `Set-Cookie: cbm_csrf=…; SameSite=Lax; Secure` on `0.10.0-pilot+2eec3ac`. This row said "deferred, not fixed" for three days after it was fixed. | Claude | 2026-08-28 |
 
 **To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic, diagram, external) from a reviewed map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.
 
