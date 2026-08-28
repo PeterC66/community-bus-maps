@@ -171,7 +171,7 @@ If someone (or a future session) has to pick this up:
 npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) and /app
 npm test                 # P6 + P7 + lifecycle-seam tests
 npm run verify           # byte-identical gate (needs FIXTURE_DIR + PLACE_FIXTURE_DIR)
-npm run backup -- --out /backups --keep 14      # server may stay up (VACUUM INTO)
+npm run backup -- --out /backups --keep-days 14 # server may stay up (VACUUM INTO)
 npm run prune:staged -- --days 90               # dry run by default; add --yes to delete
 # server STOPPED for these (one writer):
 node scripts/import-map.mjs --src "<S5-render dir>" --name "…" --slug … --kind area|place --customer "…"

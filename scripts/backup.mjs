@@ -1,6 +1,7 @@
 ﻿// Backup the portal's state (P7 ops).
 //
-//   node scripts/backup.mjs [--out <dir>] [--keep 7] [--no-renders] [--quiet]
+//   node scripts/backup.mjs [--out <dir>] [--keep-days 14] [--keep 7]
+//                           [--keep-recent-hours 48] [--no-renders] [--quiet]
 //
 // Takes a CONSISTENT snapshot of everything that is not in git:
 //
@@ -18,7 +19,9 @@
 //
 // Backups land in `<DATA_DIR>/../backups/<timestamp>/` by default (outside
 // DATA_DIR, so a backup never ends up inside the next backup) with a manifest,
-// and older ones beyond --keep are removed. Restore instructions: docs/DEPLOY.md.
+// and older ones are removed on the rule in src/ops/backup-retention.js — by
+// AGE (--keep-days), thinned to one a day beyond --keep-recent-hours, with the
+// newest --keep kept whatever happens. Restore instructions: docs/DEPLOY.md.
 //
 // Set BACKUP_RECIPIENT to an age public key and the database copy is written
 // encrypted, as portal.sqlite.age — see the block above the encryption function
@@ -31,6 +34,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { DATA_DIR } from '../src/db/index.js';
 import { MAPS_DIR, mapDataDir, rendersDir } from '../src/maps/store.js';
 import { dirSize } from '../src/ops/index.js';
+import { planRetention } from '../src/ops/backup-retention.js';
 
 const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -42,7 +46,15 @@ const say = (...a) => { if (!quiet) console.log(...a); };
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;
 
 const withRenders = !flag('no-renders');
-const keep = Math.max(1, Number(arg('keep', 7)) || 7);
+// --keep is now the FLOOR (newest N kept whatever their age), not the whole
+// rule; --keep-days is the window. src/ops/backup-retention.js says why.
+// A bad number falls back to the default rather than to NaN — NaN would sail
+// through Math.max and make every comparison in the retention plan false, which
+// is the quiet way to delete everything.
+const num = (name, def) => { const v = Number(arg(name, def)); return Number.isFinite(v) ? v : def; };
+const keep = Math.max(1, num('keep', 7));
+const keepDays = Math.max(1, num('keep-days', 14));
+const keepRecentHours = Math.max(0, num('keep-recent-hours', 48));
 const outRoot = path.resolve(arg('out', path.join(DATA_DIR, '..', 'backups')));
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const dest = path.join(outRoot, stamp);
@@ -161,19 +173,18 @@ manifest.dbEncryptedTo = RECIPIENT || null;
 manifest.totalBytes = dirSize(dest);
 writeFileSync(path.join(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 
-// 3) retention — keep the newest N backup folders.
-const olds = readdirSync(outRoot, { withFileTypes: true })
-  .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}T/.test(e.name))
-  .map((e) => e.name)
-  .sort()
-  .reverse()
-  .slice(keep);
-for (const name of olds) {
+// 3) retention — by AGE, with a floor. See src/ops/backup-retention.js for why
+// this stopped being "keep the newest N folders" on 2026-08-28.
+const { keep: kept, prune } = planRetention(
+  readdirSync(outRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name),
+  { now: new Date(), keepDays, keepAll: keep, keepRecentHours },
+);
+for (const name of prune) {
   rmSync(path.join(outRoot, name), { recursive: true, force: true });
   say(`· pruned old backup ${name}`);
 }
 
-say(`\n✓ backup complete — ${copied} map(s), ${mb(manifest.totalBytes)} total, keeping ${keep}.`);
+say(`\n✓ backup complete — ${copied} map(s), ${mb(manifest.totalBytes)} total, keeping ${kept.length} snapshot(s) over ${keepDays} days.`);
 say(RECIPIENT
   ? '  Restore: age -d -i <your-key.txt> -o portal.sqlite portal.sqlite.age, then put it + maps/ back under DATA_DIR (docs/DEPLOY.md §5).'
   : '  Restore: stop the server, put portal.sqlite + maps/ back under DATA_DIR (see docs/DEPLOY.md).');
