@@ -97,7 +97,7 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "f6baa6568c063b7207b47cbebea04e31957ca14dc4e783cc32ad54aed464683a",
+      "sha256": "0c9125f343a54eee20b353bf46586bbfb14cdbc6a54346cefec745d9e5567e14",
       "vendoredOn": "2026-08-28",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
@@ -121,8 +121,8 @@
       "path": "expert/schematize_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/schematize_internal.js",
-      "sha256": "ce24f2664ea57c2936e27bfb46da8ac8d8ee6cbcf21150446c06ea713ae9aee0",
-      "vendoredOn": "2026-08-27",
+      "sha256": "e27a64e74a033ae8f5dc68ebf6892ad5d00d594abb14354be5e3ef5373427a16",
+      "vendoredOn": "2026-08-28",
       "note": "The octolinear geometry pre-stage, run by the portal-owned gen_internal_schematic.js wrapper."
     },
     {
@@ -139,23 +139,23 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "c95b505341c4f4a46de70d4e749ba02944c59e7e67eeb12d542b85a1ce9e5596",
+      "sha256": "4d09f1d411c31c5b0de26349f12ce82d7fae7bf52e8f30a21b9e776990de9840",
       "vendoredOn": "2026-08-28"
     },
     {
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "d0ecd082f9f55799f356ed66fcf06da11cafed0069f11ea0beb7c96aa70294b5",
-      "vendoredOn": "2026-08-27",
+      "sha256": "5d38e4a2803c9111ae35c38cd380a47ec19ce31542633e675d74623f9470e1ae",
+      "vendoredOn": "2026-08-28",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
       "path": "place/gen_internal_place.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_internal_place.js",
-      "sha256": "9f785ce4eb0659979e2c084b6d2334ff3c1334746bd16f379702b702bf800f4d",
-      "vendoredOn": "2026-08-25",
+      "sha256": "03a26035d7a037f12094d74b7ec66f3ddd558bcaa48815be8ba0b986ff7da9f2",
+      "vendoredOn": "2026-08-28",
       "note": "The thin place wrapper around gen_internal.js (title token + version stamp)."
     },
     {
@@ -194,8 +194,8 @@
       "path": "svg_primitives.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/svg_primitives.js",
-      "sha256": "d9f1db57563ecca97ce1add6c8b5e969d7a9c708ba120a9a5f851eb16621c300",
-      "vendoredOn": "2026-08-27",
+      "sha256": "3323e1f6bb8120f9565fd7724b11774ad542aacc7a2f89c799365dbb398ca737",
+      "vendoredOn": "2026-08-28",
       "note": "The eight small marks the internal sheet is drawn out of — esc, gk, the badge measurements, badge/badgeStack/cross. Required at load by gen_internal.js."
     },
     {
