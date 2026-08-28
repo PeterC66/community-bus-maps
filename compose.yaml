@@ -80,7 +80,12 @@ services:
     volumes:
       - portal-data:/data
       - ./backups:/backups
-    command: ["node", "scripts/backup.mjs", "--out", "/backups", "--keep", "14"]
+    # --keep-days is the real retention window; --keep is only the floor that
+    # stops an age rule emptying the directory if the cron dies for a month.
+    # It was `--keep 14` alone until 2026-08-28, which meant 14 FOLDERS, not 14
+    # days: a dozen manual backups in one working day cut the whole window to 25
+    # hours. src/ops/backup-retention.js has the incident.
+    command: ["node", "scripts/backup.mjs", "--out", "/backups", "--keep-days", "14", "--keep", "7"]
 
 volumes:
   portal-data:

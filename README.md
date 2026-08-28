@@ -134,7 +134,7 @@ The diagram's automatic layout can be hand-tuned by an **admin** at **`/app/maps
 
 ```bash
 curl -fsS localhost:5180/health?deep=1     # readiness: DB + object store + engine + rasteriser
-npm run backup -- --keep 14                # consistent SQLite copy + per-map data/renders
+npm run backup -- --keep-days 14           # consistent SQLite copy + per-map data/renders
 npm run prune:staged -- --days 90           # reclaim settled refresh data (dry run by default; add --yes)
 ```
 
