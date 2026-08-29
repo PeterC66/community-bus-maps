@@ -15,7 +15,7 @@ function check(name, cond, extra) {
 }
 const eq = (name, got, want) => check(name, JSON.stringify(got) === JSON.stringify(want), `got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`);
 
-const { sanitizeOverrides } = await import('../src/maps/safeSubset.js');
+const { sanitizeOverrides, BOARDING_CONFLICT } = await import('../src/maps/safeSubset.js');
 
 const palette = { 9: '#66CCEE', 300: '#228833' };
 const operatorNames = ['Dews Coaches', 'Villager Minibus'];
@@ -37,6 +37,51 @@ console.log('\nhiddenOperators — feature enabled, known operator');
     { palette, operatorNames, operatorFilterEnabled: true },
   );
   eq('kept', overrides.hiddenOperators, ['Villager Minibus']);
+  eq('nothing rejected', rejected, []);
+}
+
+// A map that draws a "Where to board" sheet refuses the key outright (OA-011),
+// and this is the one rejection here that is not about permission.
+// `gen_boarding.js` cannot honour it: the stand a destination is boarded at was
+// decided across EVERY route serving that stand, so filtering routes inside the
+// generator drops destinations that are still reachable from another stand.
+// Since 2026-08-23 the generator refuses under STRICT_GUARDS rather than
+// half-apply it — honest, and it meant the customer's save died with a generator
+// error. Rebuilding the index is a Python step the portal does not have, so the
+// two edits are mutually exclusive and this is where that is said: the one gate
+// BOTH preview and save go through, so the customer is told while they are still
+// looking at the map.
+console.log('\nhiddenOperators — a map that carries a boarding plan');
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { hiddenOperators: ['Villager Minibus'] },
+    { palette, operatorNames, operatorFilterEnabled: true, boardingPlanOn: true },
+  );
+  eq('refused even though the customer has the feature', overrides.hiddenOperators, undefined);
+  check('and the reason is the real one, not "not enabled"',
+    rejected.some((r) => r.includes(BOARDING_CONFLICT)), rejected.join('; '));
+  check('nothing says the customer lacks permission, because they do not',
+    !rejected.some((r) => r.includes('not enabled for this customer')), rejected.join('; '));
+}
+
+console.log('\nhiddenOperators — the conflict is specific to that key');
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { routeColors: { 9: '#123456' }, hiddenOperators: ['Villager Minibus'] },
+    { palette, operatorNames, operatorFilterEnabled: true, boardingPlanOn: true },
+  );
+  eq('a recolour on the same save still goes through', overrides.routeColors, { 9: '#123456' });
+  eq('only the operator edit is dropped', overrides.hiddenOperators, undefined);
+  eq('one rejection, not two', rejected.length, 1);
+}
+
+console.log('\nhiddenOperators — a map with no boarding plan is untouched');
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { hiddenOperators: ['Villager Minibus'] },
+    { palette, operatorNames, operatorFilterEnabled: true, boardingPlanOn: false },
+  );
+  eq('still kept', overrides.hiddenOperators, ['Villager Minibus']);
   eq('nothing rejected', rejected, []);
 }
 
