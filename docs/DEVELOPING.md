@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.16 | 2026-08-26 | sha=51c15baf -->
-**v1.16** · updated 26 August 2026
+<!-- docstamp v1.17 | 2026-08-29 | sha=df96c4ee -->
+**v1.17** · updated 29 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -114,6 +114,28 @@ npm run check:vendored  # engine/ still matches what it was vendored from
 npm test                # public front (P6)
 ```
 
+### Re-stamp a document you edited BEFORE you commit it — and a hook now refuses if you forget
+
+The docstamp is written by a **Stop hook**, which by definition runs at the *end* of a turn. So a commit made **during** the turn carries the new content and the **old** `sha=`, and the `status` job's *Committed docstamps describe their committed content* step correctly calls it stale. Whether a given commit goes red depends only on where the turn boundary fell, which is why it looks intermittent and why it is not. It has already happened here — the commit *"Docstamp: three committed stamps did not describe their committed content"* (#149) is exactly this fault, three documents' worth, caught by CI after the push rather than before it. In the sibling `buses-data` repo the same fault took 10 of 15 gates runs red in a single day.
+
+Re-stamp first, then `git add` the document **and** its stamp together. Run this from the repository root; the path is a real path on this machine, not a placeholder:
+
+```bash
+python "C:/Users/Peter/.claude/skills/stamp-docs/scripts/docstamp.py" --all
+```
+
+`.githooks/pre-commit` refuses the commit if you forget. It checks **only the `.md` files in the commit in front of you** — a document that was already stale is not this commit's fault, and a hook that blocks unrelated work gets `--no-verify`'d within a week. It exits 0 when the `stamp-docs` skill tree is absent, because that tree is not part of this repository and a hook that dies on someone's laptop teaches them to bypass it.
+
+**`core.hooksPath` is local git config and does not travel with a clone**, so every clone and every worktree has to opt in once, from the repository root, with no placeholders:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+That is also why CI keeps its own full audit rather than trusting the hook: the hook guards whoever installed it, CI is the one that is always there.
+
+**One behaviour to expect, because it looks like the hook failing and is not.** The Stop hook restamps the working tree between turns, so a document you staged with a stale stamp can become *self-consistent* on its own — and the same commit that was refused will then be accepted. That is correct (the stamp now does describe the staged content) but it means **the refusal is not a durable veto on the content**: it is a veto on the mismatch. If the hook refuses you, re-stamp and re-add deliberately rather than simply retrying the commit.
+
 ### The inlined SVG is allowlisted, and adding to the artwork means adding to the list
 
 `src/public/svgSanitise.js` keeps eight elements and 38 attributes — a census of what the generators actually draw — and removes everything else, counting what it removed. If the engine starts emitting something new (a `<tspan>`, a gradient, a `style` attribute), the web view will silently lose it and `scripts/test-svg-sanitise.mjs` will go red on the fixture corpus. That is the intended prompt: widen the allowlist deliberately, in that file, and re-run `npm run test:svg`. Do **not** widen it to `style` or to any URL-valued attribute without saying why in the Caddyfile's CSP block, which reasons about exactly this sink.
@@ -191,7 +213,10 @@ each rebase**, not just before the first one — a rebase can silently drop or d
 
 Expect one casualty: the docstamp Stop hook restamps documents *after* your commit, so a stack often
 carries a stamp-only commit that conflicts on rebase. Drop it (`git rebase --skip`) — the hook
-regenerates it.
+regenerates it. **Largely avoidable since the pre-commit hook landed**: re-stamp before you commit
+(see *Re-stamp a document you edited BEFORE you commit it* under [The gates you must run](#the-gates-you-must-run))
+and the stamp rides inside its own content commit, so there is no stamp-only commit to conflict. The
+advice above still applies to a stack cut before that, and to stamps on documents you did not edit.
 
 ## Known rough edge
 
