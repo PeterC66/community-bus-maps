@@ -278,7 +278,7 @@ export function setApplicationReviewed(id, status, customerId = null) {
     .run(status, customerId != null ? Number(customerId) : null, Number(id));
 }
 
-// --- messages (P3 admin read-only view; P6 adds the map a message came from) ---
+// --- messages (P3 admin view; P6 adds the map a message came from) ---
 export function listMessages() {
   return db
     .prepare(
@@ -287,6 +287,12 @@ export function listMessages() {
         ORDER BY msg.created_at DESC`,
     )
     .all();
+}
+export function getMessage(id) {
+  return db.prepare('SELECT * FROM message WHERE id = ?').get(Number(id));
+}
+export function setMessageStatus(id, status) {
+  db.prepare('UPDATE message SET status = ? WHERE id = ?').run(status, Number(id));
 }
 
 export function counts() {

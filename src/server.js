@@ -23,7 +23,7 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import {
-  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionByHash, deleteSessionsForUser, purgeExpiredPersonalData, retentionDue, peekMagicLink,
+  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, getMessage, setMessageStatus, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionByHash, deleteSessionsForUser, purgeExpiredPersonalData, retentionDue, peekMagicLink,
 } from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
@@ -103,6 +103,8 @@ const ORG_TYPES = [
 // message table, but only the server writes it (see /api/maps/:id/diagram-request),
 // so it is deliberately not in this list.
 const MSG_KINDS = ['enquiry', 'question', 'feedback', 'issue'];
+// The admin-settable states for a message (schema default is 'new' on insert).
+const MSG_STATUSES = ['new', 'read', 'answered'];
 const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
 // so the whole apply→approve→sign-in loop is demoable without a mailbox.
@@ -2769,6 +2771,18 @@ app.patch('/api/admin/users/:id', async (req, reply) => {
 app.get('/api/admin/messages', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   return { ok: true, messages: listMessages() };
+});
+
+app.post('/api/admin/messages/:id/status', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const msg = getMessage(Number(req.params.id));
+  if (!msg) return reply.code(404).send({ ok: false, error: 'No such message.' });
+  const status = String((req.body || {}).status || '');
+  if (!MSG_STATUSES.includes(status)) return reply.code(400).send({ ok: false, error: 'Unknown status.' });
+  setMessageStatus(msg.id, status);
+  req.log.info({ messageId: msg.id, status }, 'message status set');
+  logAudit(req, 'message.status', { detail: { messageId: msg.id, status } });
+  return { ok: true };
 });
 
 // Read-only view of the monthly-refresh queue (P5) — proposed updates awaiting a

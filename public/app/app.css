@@ -241,6 +241,7 @@ dialog.dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .grid-table .muted { color: var(--muted); }
 .gt-cell.actions { text-align: right; }
 .gt-cell.actions .btn + .btn { margin-left: 6px; }
+.gt-row.unread .gt-cell { background: var(--primary-soft); }
 .qcell .used { font-weight: 700; }
 .qcell.over .used { color: var(--err); }
 .qnum { width: 52px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
