@@ -42,9 +42,9 @@
     "",
     "AND PLACES ARE NO LONGER EXEMPT. The gate used to return not-applicable for every place, on the premise that the place skill has no verification stage. It gained one on 2026-08-08 (place_verified_services.js), the procedure is written up in make-bus-leaflet/references/s6-verify.md, and two places hold real runs. A place is now judged exactly as an area is.",
     "",
-    "WHICH IS WHY TEN PLACE ROWS APPEAR BELOW, all reading `never`. That is true of every one of them and it is the day-one red this file exists for. It is not a cheap debt: measured 2026-08-28, redteam_source.js answers BUY for all ten, because it only ever looks inside a build's OWN S6-verify/ and a place has never had one - so none of them can reuse its parent town's answer. At the measured 89k-137k tokens per red team that is roughly a million tokens, two or three sessions' work. Whether a place may legitimately reuse its town's answer is an open question, not a settled no; see the open action.",
-    "",
-    "TWO PLACES ARE ALREADY CLEAR and have no row here: St Neots Town Centre and St Neots Tesco Extra, both PASS on 2026-08-28 after OA-049 taught S6 to read the `notShown` declaration. They are the proof that these rows can be retired the intended way.",
+    "SEVEN OF THOSE TEN PLACE ROWS WERE CLEARED ON 2026-08-29 and are deleted, which is the whole intended lifecycle of an entry here happening seven times in one afternoon. Ten place rows appeared below on 2026-08-28, all reading `never`, and the estimate at the time was roughly a million tokens of red team to clear them, because redteam_source.js answered BUY for every one - it only ever looked inside a build's OWN S6-verify/. OA-141's --foreign-build changed that: a place may borrow its parent town's blind answer, and every HARD the borrowed answer produces is restated as a SOFT. St Ives Bus Station, all three High Wycombe places, both Beaconsfield places and St Neots Co-op each sit inside a town holding a recent answer, so all seven were verified for NO red-team tokens at all and all seven PASSED at 0 hard. checkS6() now answers `fresh` for each where it answered `never` the day before. Their soft counts run from 11 to 113 and that is a fact about the checker rather than the maps - 283 of the 353 findings carry no information, written up as OA-156 in the buses-data backlog. Two genuine findings came out of the round and both are recorded in OA-004; nothing was rebuilt or republished.",
+    "THE THREE THAT REMAIN ARE THE STANDALONE CO-OPS - Ely, and both Godmanchesters. They have no parent town in the tree, so there is nothing to borrow and their answers must be bought outright at the measured 89k-137k tokens each. Those three rows are the only real red-team debt left on the place estate.",
+    "NINE OF THE TWELVE PLACES NOW HOLD A PASS AND HAVE NO ROW HERE: St Neots Town Centre and St Neots Tesco Extra (both 2026-08-28, after OA-049 taught S6 to read the notShown declaration), plus the seven cleared on 2026-08-29. St Neots Tesco Extra is the exception that keeps a row, for the reason stated at the foot of this file: its PASS went stale hours later for a config-only reason and redteam_source says BUY, so it cannot be re-run free the way the seven were.",
     "passed, and the gate cannot tell the difference. scripts/lib/s6-freshness.mjs",
     "compares DATES ONLY - its verdicts are fresh/stale/never/not-applicable/",
     "no-manifest - and it never opens verification.json or reads summary.pass. So",
@@ -113,62 +113,6 @@
       "dataAsAt": "2026-08-19T04:45",
       "why": "As St Ives: S6 predates the P1-round config pass.",
       "removeBy": "Run S6 for Ramsey against the current S3, then delete this entry."
-    },
-    {
-      "map": "St Ives Bus Station",
-      "until": "2026-10-06",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "The most prominent place map on the site and the one with a boarding sheet, so it is first. It has never had an S6 run; nothing has independently checked it. Its town, St Ives, passed its own S6 on 2026-08-26 (0 hard / 11 soft), which says nothing about this sheet's own service set.",
-      "removeBy": "Run S6 for St Ives Bus Station (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "High Wycombe Town Centre",
-      "until": "2026-10-06",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Boarding-only place, never verified. Its town's S6 came back BLOCKED with 1 hard, and three open actions already name this sheet's locator and badges, so it is the place most likely to return something.",
-      "removeBy": "Run S6 for High Wycombe Town Centre (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "High Wycombe High Street",
-      "until": "2026-10-13",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Boarding-only place, never verified. Same town, same reasons as High Wycombe Town Centre; separated by a week so the two do not fall due together.",
-      "removeBy": "Run S6 for High Wycombe High Street (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "High Wycombe Aldi",
-      "until": "2026-10-13",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified. Also one of the two PORTAL FIXTURES, so its sheets are the copies the live site renders from - a defect here reaches further than one map.",
-      "removeBy": "Run S6 for High Wycombe Aldi (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "Beaconsfield Waitrose",
-      "until": "2026-10-20",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified. Its town passed its own S6 on 2026-08-26 (0 hard / 22 soft), so this is expected to be quiet - which is exactly the kind of assumption an S6 run is for.",
-      "removeBy": "Run S6 for Beaconsfield Waitrose (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "Beaconsfield Simpson Centre",
-      "until": "2026-10-20",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified. As Beaconsfield Waitrose.",
-      "removeBy": "Run S6 for Beaconsfield Simpson Centre (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "St Neots Co-op",
-      "until": "2026-10-27",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified, and the last St Neots place without a run. The other two both PASS as of 2026-08-28, so this one is the odd one out rather than part of a group.",
-      "removeBy": "Run S6 for St Neots Co-op (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
     },
     {
       "map": "Ely Co-op",
