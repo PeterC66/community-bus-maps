@@ -161,8 +161,17 @@ export function boardingHtml(services) {
       </tr>`;
   }).join('');
 
+  // The caveats are the SHEET's own words, printed verbatim, and on the sheet they
+  // are unambiguous: a boarding plan carries no service list, so "not listed here"
+  // can only mean the index. This page does carry one — the jump nav and a section
+  // per service, both above — so St Neots' note ("Ivel Sprinter 112 and 193 … are
+  // not listed here") lands directly under a list that names 112 and 193, and reads
+  // as contradicting it. Both statements are true: those routes are on the map and
+  // not in the boarding index. Rewording the payload would change the sheet, where
+  // nothing is wrong, so the fix is to scope the caveats to the index here — which
+  // is where the second meaning of "here" came from.
   const notes = b.notes.length
-    ? `<ul class="muted small">${b.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
+    ? `<h4>About this index</h4><ul class="muted small">${b.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
     : '';
 
   return `<section class="card" id="where-to-board" aria-labelledby="where-to-board-h">
