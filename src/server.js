@@ -44,9 +44,9 @@ import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
-  swapInProposedData, carryExpertTuning,
+  swapInProposedData, carryExpertTuning, effectiveOutputs,
 } from './maps/engine.js';
-import { sanitizeOverrides } from './maps/safeSubset.js';
+import { sanitizeOverrides, BOARDING_CONFLICT } from './maps/safeSubset.js';
 import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES } from './maps/store.js';
 import { ensureWatermarked } from './render/watermark.js';
 import { ensureDraftMarked, draftLabel } from './render/draftStamp.js';
@@ -1408,6 +1408,29 @@ function operatorFilterAllow(customerId) {
   return !!(c && c.hide_operators_enabled);
 }
 
+/**
+ * Does this map actually RENDER a "Where to board" sheet? (OA-011.)
+ *
+ * Read from effectiveOutputs() rather than from the stored config, because the
+ * config can say `boarding_plan: true` on a payload that carries no stand
+ * register — in which case nothing is rendered and there is nothing to conflict
+ * with. Takes an explicit data dir so the staged half of a monthly refresh can
+ * be asked the same question about ITS payload.
+ */
+function boardingPlanActive(map, dataDir = mapDataDir(map.id)) {
+  return effectiveOutputs(parseOutputs(map.outputs), dataDir).some((o) => o.key === 'boarding_plan');
+}
+
+/** The three things sanitizeOverrides() needs to know about a map's customer + payload. */
+function safeSubsetAllow(map, meta, poiKeys, dataDir) {
+  return {
+    palette: meta.palette, poiKeys,
+    operatorNames: meta.operatorNames,
+    operatorFilterEnabled: operatorFilterAllow(map.customer_id),
+    boardingPlanOn: boardingPlanActive(map, dataDir),
+  };
+}
+
 function downloadsForVersion(id, storageKey) {
   const dir = versionDir(id, storageKey);
   return Object.keys(OUTPUT_FILES)
@@ -1471,6 +1494,11 @@ function mapDetail(m) {
   const hideOperatorsEnabled = operatorFilterAllow(m.customer_id);
   const savedHiddenOps = new Set(Array.isArray(saved.hiddenOperators) ? saved.hiddenOperators : []);
   const operators = hideOperatorsEnabled ? meta.operatorNames.map((name) => ({ name, hidden: savedHiddenOps.has(name) })) : [];
+  // The one reason an ENABLED operator filter is still refused (OA-011). The
+  // sentence is the safe subset's own, so the control and the rejection cannot
+  // drift apart, and the editor shows it beside the disabled boxes rather than
+  // letting the customer discover it at save time.
+  const hideOperatorsBlocked = hideOperatorsEnabled && boardingPlanActive(m) ? BOARDING_CONFLICT : null;
 
   // Publish gate (P4): the pending request (if any) locks editing; the published
   // pointer + a diff of "what publishing the current head would change".
@@ -1501,7 +1529,7 @@ function mapDetail(m) {
     id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject, status: m.status,
     customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
     town: meta.town, currentVersion: m.cur_key || null, overrides: saved,
-    routes, pois, hideOperatorsEnabled, operators, outputs: outputsForClient(parseOutputs(m.outputs), id, m.kind),
+    routes, pois, hideOperatorsEnabled, hideOperatorsBlocked, operators, outputs: outputsForClient(parseOutputs(m.outputs), id, m.kind),
     // Every version, with the files that still exist and the overrides it was
     // rendered from — the editor lists them, so "earlier versions stay
     // available" is something the customer can see (findings H8).
@@ -1673,10 +1701,7 @@ app.post('/api/maps/:id/preview', async (req, reply) => {
   const id = map.id;
   const meta = readRoutesMeta(id);
   const poiKeys = enumeratePois(id).map((p) => p.key);
-  const s = sanitizeOverrides((req.body || {}).overrides, {
-    palette: meta.palette, poiKeys,
-    operatorNames: meta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
-  });
+  const s = sanitizeOverrides((req.body || {}).overrides, safeSubsetAllow(map, meta, poiKeys));
   try {
     const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs)));
     return { ok: true, overrides: s.overrides, rejected: s.rejected, svg };
@@ -1699,10 +1724,7 @@ app.post('/api/maps/:id/save', async (req, reply) => {
   const meta = readRoutesMeta(id);
   const poiKeys = enumeratePois(id).map((p) => p.key);
   const b = req.body || {};
-  const s = sanitizeOverrides(b.overrides, {
-    palette: meta.palette, poiKeys,
-    operatorNames: meta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
-  });
+  const s = sanitizeOverrides(b.overrides, safeSubsetAllow(map, meta, poiKeys));
   const { major, minor } = nextVersion(id);
   const storageKey = `v${major}.${minor}`;
   try {
@@ -1903,10 +1925,7 @@ app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
       carryExpertTuning(id, stagedDir);
       const stagedMeta = readRoutesMetaFromDir(stagedDir);
       const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
-      const after = sanitizeOverrides(saved, {
-        palette: stagedMeta.palette, poiKeys,
-        operatorNames: stagedMeta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
-      }); // re-apply onto proposed data
+      const after = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir)); // re-apply onto proposed data
       return {
         before: previewFrom(mapDataDir(id), saved, outputs),
         after: previewFrom(stagedDir, after.overrides, outputs),
@@ -1956,10 +1975,7 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
       // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
       const stagedMeta = readRoutesMetaFromDir(stagedDir);
       const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
-      const reapplied = sanitizeOverrides(saved, {
-        palette: stagedMeta.palette, poiKeys,
-        operatorNames: stagedMeta.operatorNames, operatorFilterEnabled: operatorFilterAllow(map.customer_id),
-      });
+      const reapplied = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir));
       // Render from the staged data BEFORE committing the swap.
       const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
       // Render OK → make the staged data the live data (old data archived).

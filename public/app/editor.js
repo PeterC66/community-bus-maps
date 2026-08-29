@@ -233,15 +233,30 @@ function buildOperators() {
   const panel = $('operatorsPanel');
   if (!detail.hideOperatorsEnabled || !detail.operators.length) { panel.hidden = true; return; }
   panel.hidden = false;
+  // A map that draws a "Where to board" sheet cannot honour this edit at all
+  // (OA-011): the stop each destination is boarded at was worked out across
+  // every route serving it, so filtering routes would drop destinations you can
+  // still get to. The generator refuses rather than half-apply it, which used to
+  // surface as a render error at save time. Say so here instead, and switch the
+  // boxes off — the sentence comes from the safe subset itself, so the control
+  // and the rejection cannot drift apart.
+  const blocked = detail.hideOperatorsBlocked || null;
+  $('operatorsHint').hidden = !!blocked;
+  const warn = $('operatorsBlocked');
+  // `.notice` is display:none until `.show` — the panel's own convention.
+  warn.classList.toggle('show', !!blocked);
+  if (blocked) warn.textContent = 'Operators cannot be hidden on this map: ' + blocked + '.';
+
   const box = $('operators');
   box.innerHTML = detail.operators.map((op) => {
     const shown = !staged.hiddenOps.has(op.name);
     return `<label class="poi-row" data-op="${esc(op.name)}">
-      <input type="checkbox" ${shown ? 'checked' : ''}>
+      <input type="checkbox" ${shown ? 'checked' : ''}${blocked ? ' disabled' : ''}>
       <span>${esc(op.name)}</span>
     </label>`;
   }).join('');
   $('operatorCount').textContent = detail.operators.length + ' operators';
+  if (blocked) return; // the boxes are inert — nothing to wire up
   box.querySelectorAll('label[data-op] input').forEach((inp) => inp.addEventListener('change', () => {
     const name = inp.closest('label').dataset.op;
     if (inp.checked) staged.hiddenOps.delete(name); else staged.hiddenOps.add(name);
