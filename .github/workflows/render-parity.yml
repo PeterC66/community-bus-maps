@@ -36,18 +36,42 @@
 # is NOT the sharp 0.35 bump that PR carried, which is what it looked like at
 # first; and it is not a one-off either. Unexplained as of 2026-08-20.
 #
-# Two things follow. The `image` job -- the Dockerfile's own base, the actual deployment
-# target -- has never hung and passes in ~35s, so nothing about deploying is
-# blocked by this; it is the diagnostic control that is flaky, not the thing
-# being controlled. And the timeout is what makes the flakiness survivable:
-# verified 2026-08-20, a hung run now ends at 20m22s instead of pending until
-# GitHub's six-hour default. Note that GitHub reports a timed-out job as
-# `cancelled`, not `failure`.
+# MEASURED 2026-08-29 OVER THE LAST 40 RUNS, AND HALF THE PARAGRAPH THAT USED TO
+# STAND HERE WAS OUT OF DATE. Six of forty runs were cancelled by a timeout --
+# about one in seven -- and they break down like this:
 #
-# IF YOU COME TO INVESTIGATE: it hangs in the rasterisation step itself, after
-# `npm ci` has succeeded. Compare against the image job, which does the same
-# work on the same probes in Debian bookworm with a small font set, where
-# ubuntu-latest has a large one.
+#   run 32329906432  2026-08-20  runner  Rasterise on the bare runner   (4h43m)
+#   run 32350002412  2026-08-20  runner  Rasterise on the bare runner
+#   run 32359457809  2026-08-20  IMAGE   Rasterise inside the image
+#   run 32433895083  2026-08-21  IMAGE   Rasterise inside the image
+#   run 32433897938  2026-08-21  runner  Rasterise on the bare runner
+#   run 32868999654  2026-08-25  runner  Rasterise on the bare runner
+#
+# So: the claim that "the image job has never hung and it is the diagnostic
+# control that is flaky, not the thing being controlled" is FALSE. The image job
+# -- the actual deployment target -- hung on 2026-08-20 and again on 2026-08-21.
+# What IS true and holds across all six: it is always the rasterise step, never
+# the checkout, the build or `npm ci`; and in every run exactly one of the two
+# jobs hung while its sibling finished normally in about 35 seconds, so it is
+# not the probe SVGs and not the commit under test.
+#
+# WHY SIX OCCURRENCES TAUGHT US NOTHING, which is the real finding. Every one of
+# them produced an EMPTY log. That was structural, not luck: render-parity-probe.mjs
+# printed nothing until both rasterisations had finished, so a hang anywhere in
+# the work was guaranteed to leave no trace. "Cause still unknown" was a property
+# of the instrument. Fixed 2026-08-29 -- the probe now writes one stderr line per
+# phase with an elapsed clock, and prints libvips build, sharp's chosen
+# thread-pool size and the CPU count before it starts, so the SEVENTH hang will
+# name the phase it died in and say what was different about that runner.
+#
+# The timeout is what makes the flakiness survivable, and it is now at the STEP
+# as well as the job: a hang ends in 5 minutes rather than 20, and 20 rather than
+# GitHub's six-hour default. Note that GitHub reports a timed-out job as
+# `cancelled`, not `failure` -- so these six are invisible in any count of
+# failures.
+#
+# IF YOU COME TO INVESTIGATE: read the `[probe +Ns]` breadcrumbs first. Compare
+# the environment line of a hung run against a passing one on the same job.
 #
 # A check that cannot reach a verdict is worse than one that fails, because
 # nothing chases it. That is the same defect as deliver-map.mjs discarding its
@@ -81,6 +105,27 @@ on:
 permissions:
   contents: read
 
+# EVERY `run:` HERE PIPES INTO `tee`, AND UNTIL 2026-08-29 THAT THREW THE EXIT
+# CODE AWAY. GitHub's DEFAULT shell for `run:` on Linux is `bash -e {0}` -- note
+# what is absent: `-o pipefail`. Without it the status of `a | b` is b's, so
+# `node render-parity-probe.mjs --strict-fonts | tee probe-image.txt` reported
+# TEE's success whatever the probe decided. The one check this workflow's own
+# header calls "NOT advisory" -- the font-resolution gate, added 2026-08-13
+# precisely because fontconfig had gone missing and every live sheet rendered in
+# Liberation Mono for four days while this probe still said PASS -- could not
+# fail this workflow. The same defect it exists to close, one layer up.
+#
+# `shell: bash` is documented as `bash --noprofile --norc -eo pipefail {0}`, so
+# setting it once here fixes every step in the file. The two steps at the foot of
+# the `image` job are the falsification: one shows a failing pipeline being
+# CAUGHT under this default, the other reproduces the OLD default explicitly and
+# shows the same pipeline being MISSED. Neither is decoration -- a fix to an exit
+# code is invisible in every green run, and those two steps are the only place
+# this one is ever visible again.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   image:
     name: deployment image (Dockerfile FROM)
@@ -108,7 +153,12 @@ jobs:
       # fontconfig going missing from the image sent every live sheet to
       # Liberation Mono for four days and this probe still reported PASS,
       # because nothing here failed the build on it.
+      # timeout-minutes at the STEP, not just the job. This step takes ~35s on a
+      # good run and has hung twice; capping it at 5 minutes turns a hang into a
+      # result eight times sooner than the job cap did, and the breadcrumbs the
+      # probe now writes to stderr say which phase it died in (OA-052/OA-103).
       - name: Rasterise the probes inside the image
+        timeout-minutes: 5
         run: docker run --rm cbm-parity node scripts/render-parity-probe.mjs --strict-fonts | tee probe-image.txt
 
       - name: Report
@@ -132,6 +182,36 @@ jobs:
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # --- the two steps that make the pipefail fix visible ---------------------
+      #
+      # A fix to an exit code shows up in NO green run, which is how this one
+      # survived from 2026-08-13 to 2026-08-29. These two steps are where it is
+      # visible, and they are a pair on purpose: one proves the guard CATCHES,
+      # the other proves there was something to catch. A control that has only
+      # ever been seen to pass has not been shown to discriminate.
+      - name: Prove a failing probe would actually fail this job
+        run: |
+          # Inherits the workflow default (`shell: bash` = -eo pipefail). If the
+          # `defaults:` block at the top of this file is ever removed, this step
+          # goes red -- which is the only warning anybody would get.
+          if false | tee /dev/null; then
+            echo "::error::a non-zero exit piped into tee reported SUCCESS. pipefail is off, so the --strict-fonts gate above is inert and this workflow cannot fail on a font regression."
+            exit 1
+          fi
+          echo "pipefail is on: the probe's exit code reaches this job."
+
+      - name: ...and that the old default really did miss it
+        # `bash -e {0}` is GitHub's documented default for `run:` when no shell
+        # is named -- exactly what every step in this file used until 2026-08-29.
+        shell: bash -e {0}
+        run: |
+          if false | tee /dev/null; then
+            echo "Confirmed: under the OLD default (bash -e, no pipefail) a failing probe piped into tee reports SUCCESS."
+            echo "That is what made the --strict-fonts gate inert. The workflow default above is the fix."
+          else
+            echo '::warning::bash -e propagated a pipeline failure by itself, so this runner default already had pipefail and the fix above was belt-and-braces. Correct the header comment rather than leaving a claim nobody checked.'
+          fi
+
   runner:
     name: ubuntu-latest (system fonts present)
     runs-on: ubuntu-latest
@@ -148,7 +228,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --omit=dev
 
+      # Same 5-minute step cap as the image job: this is the step that sat for
+      # FOUR HOURS on 2026-08-20 and has hung on four runs since (OA-052).
       - name: Rasterise the probes on the bare runner
+        timeout-minutes: 5
         run: node scripts/render-parity-probe.mjs | tee probe-runner.txt
 
       - name: Report

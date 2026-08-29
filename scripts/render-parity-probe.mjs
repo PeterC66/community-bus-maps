@@ -57,6 +57,36 @@ const STRICT_FONTS = args.has('--strict-fonts') || STRICT;
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 
+/*
+ * BREADCRUMBS, AND WHY THIS SCRIPT NEEDED THEM (2026-08-29, OA-052 / OA-103).
+ *
+ * This probe hung in CI on SIX of its last forty runs -- about one in seven --
+ * and every one of those six produced NO OUTPUT AT ALL before the job timed out
+ * at twenty minutes. That is not bad luck about where it stopped: it is
+ * structural. Every `console.log` in this file fires AFTER both rasterisations
+ * have finished, so a hang anywhere in the work is GUARANTEED to leave an empty
+ * log, and six occurrences have produced exactly zero evidence between them.
+ * "Cause still unknown" was a property of the instrument, not of the fault.
+ *
+ * So: one line to STDERR as each phase begins, with a monotonic elapsed clock.
+ * The next hang names the phase it died in, and the line before it says how long
+ * the previous phase took. stdout -- which `tee` captures and the workflow's
+ * Report step quotes -- is byte-identical to before, so the verdict, the
+ * baseline comparison and every consumer of this script are untouched.
+ *
+ * The environment line matters as much as the phase lines. BOTH jobs in
+ * render-parity.yml have now hung (the workflow header's claim that the image
+ * job never has is out of date, measured 2026-08-29 over the last 40 runs), so
+ * anything that could differ between a hung run and a passing one belongs on the
+ * record BEFORE the work starts: the libvips build, the thread-pool size sharp
+ * chose for itself, and how many CPUs it thinks it has.
+ */
+const T0 = process.hrtime.bigint();
+const step = (msg) => {
+  const s = Number(process.hrtime.bigint() - T0) / 1e9;
+  process.stderr.write(`[probe +${s.toFixed(2)}s] ${msg}\n`);
+};
+
 // --- the synthetic sheets -----------------------------------------------------
 // Same root attributes as a real sheet so the rasteriser does the same scaling
 // work (297x210 user units painted into 3508x2480 px).
@@ -136,6 +166,8 @@ const PROBES = {
 };
 
 // --- run ----------------------------------------------------------------------
+step(`start — node ${process.version}, sharp ${sharp.versions.sharp}, libvips ${sharp.versions.vips}, `
+  + `concurrency ${sharp.concurrency()}, cpus ${os.cpus().length}, simd ${sharp.simd()}`);
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'parity-'));
 const result = {
   platform: `${process.platform}-${process.arch}`,
@@ -148,7 +180,9 @@ const result = {
 for (const [name, svg] of Object.entries(PROBES)) {
   const svgBuf = Buffer.from(svg, 'utf8');
   const outJpg = path.join(scratch, `${name}.jpg`);
+  step(`probe "${name}": rasterising ${svgBuf.length} B of SVG`);
   const meta = await rasterise(svgBuf, outJpg);
+  step(`probe "${name}": rasterised, reading back`);
   const jpg = readFileSync(outJpg);
   // Raw pixels as well as encoded bytes: if the pixels match but the file does
   // not, the difference is encoder metadata and harmless. If the pixels differ,
@@ -200,8 +234,11 @@ async function inkWidthMM(text) {
 }
 
 const RUN = 20;
+step('font check: rasterising the narrow run');
 const wNarrow = await inkWidthMM('i'.repeat(RUN));
+step('font check: rasterising the wide run');
 const wWide = await inkWidthMM('W'.repeat(RUN));
+step('font check: measured');
 const ratio = wNarrow && wWide ? wWide / wNarrow : null;
 result.fontResolution = {
   narrowMM: wNarrow == null ? null : Number(wNarrow.toFixed(2)),
