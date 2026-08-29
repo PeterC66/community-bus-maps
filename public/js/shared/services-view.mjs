@@ -112,6 +112,76 @@ function routeSection(r, services) {
     </section>`;
 }
 
+/**
+ * "Where to board", as the table it always was (OA-010).
+ *
+ * The boarding sheet answers a question the other four sheets leave open — not
+ * "where do the buses go" but "I have decided to go to Bedford; which of these
+ * five identically-named stops do I stand at?" — and it answers it keyed on
+ * DESTINATION rather than on route. That shape is a table, so this is the one
+ * place where the text alternative is arguably the better artefact rather than a
+ * consolation prize, and it is the accessibility argument the sheet is sold on.
+ *
+ * Returns '' for a map with no boarding plan, which is most of them.
+ */
+export function boardingHtml(services) {
+  const b = services.boarding;
+  if (!b || !b.destinations.length) return '';
+  const where = b.place ? esc(b.place) : 'here';
+  const walk = (m) => (m == null ? '' : `${esc(m)} min`);
+  const badges = (rs) => rs.map((r) => `<span class="route-badge plain">${esc(r)}</span>`).join(' ');
+
+  const stands = b.stands.map((st) => {
+    const bits = [
+      // A stop with no letter on its flag is labelled by its own name, so the
+      // street would otherwise print twice ("Crendon Street — Crendon Street").
+      st.name && st.name !== st.label ? esc(st.name) : '',
+      st.facing ? `facing ${esc(st.facing)}` : '',
+      st.walkMin == null ? '' : `${walk(st.walkMin)} walk${st.distM == null ? '' : ` (${esc(st.distM)} m)`}`,
+      // A stand with nothing boarded at it is not an error and not an omission:
+      // it is a real flag on the street that no service on this sheet uses, and
+      // a reader standing at it needs to be told so.
+      st.destinationCount
+        ? `${esc(st.destinationCount)} destination${st.destinationCount === 1 ? '' : 's'}`
+        : 'no bus on this sheet is boarded here',
+    ].filter(Boolean).join(' · ');
+    return `<li><strong>${esc(st.label)}</strong> — ${bits}</li>`;
+  }).join('');
+
+  const rows = b.destinations.map((d) => {
+    const also = d.alsoFrom.length
+      ? `<div class="board-also">also from ${d.alsoFrom.map((a) => `${esc(a.label)}${
+        a.walkMin == null ? '' : ` (${walk(a.walkMin)})`}`).join(', ')}</div>`
+      : '';
+    return `<tr>
+        <th scope="row">${esc(d.name)}${d.limited ? ' <span class="tag">limited</span>' : ''}${also}</th>
+        <td>${esc(d.boardAt)}</td>
+        <td>${walk(d.walkMin)}</td>
+        <td>${badges(d.routes)}</td>
+      </tr>`;
+  }).join('');
+
+  const notes = b.notes.length
+    ? `<ul class="muted small">${b.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
+    : '';
+
+  return `<section class="card" id="where-to-board" aria-labelledby="where-to-board-h">
+      <h3 id="where-to-board-h">${esc(b.heading || 'Where to board, by destination')}</h3>
+      <p class="muted small">Stop letters are the ones printed on the stop itself. Walking times are from ${where}.</p>
+      <h4>The stops</h4>
+      <ul class="stand-list">${stands}</ul>
+      <h4>Where to board for each destination</h4>
+      <div class="table-scroll">
+        <table class="board-table">
+          <caption class="visually-hidden">Destinations, the stop to board at, the walk to it and the services that go there</caption>
+          <thead><tr><th scope="col">To</th><th scope="col">Board at</th><th scope="col">Walk</th><th scope="col">Services</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${notes}
+    </section>`;
+}
+
 /** The body: jump nav, fare note, one section per service, then the operators. */
 export function servicesHtml(map, services) {
   const ops = services.operators.length
@@ -123,10 +193,17 @@ export function servicesHtml(map, services) {
   // to"), so it has no meaning here. The fare note is a fact and stays.
   const notes = services.fareNote ? `<p class="form-note">${esc(services.fareNote)}</p>` : '';
 
+  const board = boardingHtml(services);
+
   return `
-    <nav class="route-jump" aria-label="Jump to a service">${services.routes
+    <nav class="route-jump" aria-label="Jump to a service">${
+  // The boarding index goes FIRST in the jump nav as well as on the page: a
+  // reader who has this sheet has usually already chosen where they are going,
+  // and the service list is what they fall back to, not what they came for.
+  board ? '<a class="tab" href="#where-to-board">Where to board</a>' : ''}${services.routes
     .map((r) => `<a class="tab" href="#route-${esc(r.id)}">${esc(r.id)}</a>`).join('')}</nav>
     ${notes}
+    ${board}
     ${services.routes.map((r) => routeSection(r, services)).join('')}
     ${ops}
     <p class="sheet-source">Base map © OpenStreetMap contributors (ODbL) · bus service data from the

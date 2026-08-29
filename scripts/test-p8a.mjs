@@ -31,6 +31,7 @@ const eq = (name, got, want) => check(name, JSON.stringify(got) === JSON.stringi
 
 const { buildFacts, parseValidFrom, stripLeadingId } = await import('../src/maps/facts.js');
 const { provenanceFor, publicServices, STALE_AFTER_MONTHS } = await import('../src/public/services.js');
+const { boardingHtml, servicesHtml } = await import('../public/js/shared/services-view.mjs');
 const { inlineSvg, FONT_STACK } = await import('../src/public/inlineSvg.js');
 
 // --- payload fixtures --------------------------------------------------------
@@ -78,6 +79,40 @@ const placeDir = payload('place', {
   'atco2name.json': { P1: 'Centre Road', P2: 'The Parade' },
 });
 
+// A BOARDING-ONLY payload, shaped like High Wycombe High Street's: a palette and
+// a boarding index, no routeOrder, no destinations, no external journeys. Two
+// stands, one of which has nothing boarded at it — the case the sheet has a
+// caption for and the page must not silently drop.
+const boardDir = payload('boarding', {
+  'routes.json': {
+    place: 'High Street, Testbury', town: 'Testbury', validFrom: 'August 2026',
+    palette: { 9: '#66CCEE', 41: '#AA3377' },
+    boardingPlan: {
+      indexHeading: 'Where to board, by destination',
+      note: ['Stop letters are those printed on the stop itself (NaPTAN).', 'Not indexed: school journeys.'],
+    },
+  },
+  'boarding_index.json': {
+    place: 'High Street', homeLocality: 'Testbury', generatedBy: 'boarding_index.py v1.2',
+    region: 'testshire.sqlite',
+    stands: [
+      { atco: '0400X', label: 'Stop R', class: 'stand', distM: 9, walkMin: 1, facing: 'east',
+        name: 'High Street', pos: [51.6, -0.7], routes: ['9', '41'], destinations: ['Elsewhere', 'Midville'] },
+      { atco: '0400Y', label: 'Stop S', class: 'stand', distM: 31, walkMin: 1, facing: 'west',
+        name: 'High Street', pos: [51.6, -0.71], routes: [], destinations: [] },
+    ],
+    destinations: [
+      { destination: 'Elsewhere', boardAt: 'Stop R', boardAtAtco: '0400X', boardClass: 'stand',
+        walkMin: 1, routes: ['9'], trips: 72, limited: false,
+        alsoFrom: [{ atco: '0400Z', label: 'Stop V', class: 'stand', distM: 139, walkMin: 2, routes: ['41'], trips: 418, arrivalM: 328, arrivalBand: 0 }] },
+      { destination: 'Midville', boardAt: 'Stop R', boardAtAtco: '0400X', boardClass: 'stand',
+        walkMin: 1, routes: ['41'], trips: 6, limited: true, alsoFrom: [] },
+    ],
+  },
+  'routes_intown_atco.json': { 9: ['S1'], 41: ['S1'] },
+  'atco2name.json': { S1: 'High Street' },
+});
+
 // --- 1. the facts an AREA map states ----------------------------------------
 console.log('\nfacts — area payload');
 {
@@ -121,6 +156,48 @@ console.log('\npublic shaping');
   eq('a title that does not start with the number is untouched', stripLeadingId('March Town Service', '33A'), 'March Town Service');
   eq('a longer number is not mistaken for the route', stripLeadingId('1020 Something', '102'), '1020 Something');
   eq('no payload ⇒ no services', publicServices(row, null), null);
+}
+
+// --- 3b. the boarding index (OA-010) ----------------------------------------
+console.log('\nboarding index');
+{
+  const f = buildFacts(boardDir);
+  check('a payload with no boarding index has none', buildFacts(areaDir).boarding === null);
+  check('a boarding payload has one', !!f.boarding);
+  eq('the heading comes from the sheet’s own config', f.boarding.heading, 'Where to board, by destination');
+  eq('the sheet’s caveats travel with it', f.boarding.notes.length, 2);
+  eq('every stand is kept, including the empty one', f.boarding.stands.map((x) => x.label), ['Stop R', 'Stop S']);
+  eq('an empty stand reports zero destinations rather than being dropped', f.boarding.stands[1].destinationCount, 0);
+  eq('the index is keyed on destination', f.boarding.destinations.map((d) => d.name), ['Elsewhere', 'Midville']);
+  eq('…and says which stop to stand at', f.boarding.destinations[0].boardAt, 'Stop R');
+  eq('a second stand that also gets you there is kept', f.boarding.destinations[0].alsoFrom.map((a) => a.label), ['Stop V']);
+  eq('a limited destination is flagged', f.boarding.destinations[1].limited, true);
+
+  // Nothing internal may reach the page: the ATCO codes, the lat/lon and the
+  // trip counts that decided the ranking are all instruments, not facts a
+  // reader standing at a bus stop can use.
+  const json = JSON.stringify(f.boarding);
+  check('no ATCO codes reach the model', !/0400[XYZ]/.test(json), json);
+  check('no lat/lon reaches the model', !json.includes('51.6'), json);
+  check('no trip counts or arrival bands reach the model', !/trips|arrival/.test(json), json);
+
+  const row = { id: 1, slug: 'x', name: 'High Street', kind: 'place', subject: '', pub_key: 'v1.0', published_at: '2026-08-20 09:00:00' };
+  const s3 = publicServices(row, f);
+  check('the public read model carries it', !!s3.boarding);
+  check('a map with no boarding plan carries null', publicServices(row, buildFacts(areaDir)).boarding === null);
+
+  const html = boardingHtml(s3);
+  check('the section renders as a table', html.includes('<table class="board-table"'));
+  check('the destination is the row header', html.includes('<th scope="row">Elsewhere'));
+  check('the stop to board at is in the row', html.includes('<td>Stop R</td>'));
+  check('the empty stand says so in words', html.includes('no bus on this sheet is boarded here'));
+  check('the sheet’s caveats are printed', html.includes('Not indexed: school journeys.'));
+  check('a map with no boarding plan renders nothing', boardingHtml(publicServices(row, buildFacts(areaDir))) === '');
+
+  const body = servicesHtml({ name: 'x', org: {}, url: '/m/x' }, s3);
+  check('the index is offered in the jump nav', body.includes('href="#where-to-board"'));
+  check('…and appears before the service list', body.indexOf('id="where-to-board"') < body.indexOf('class="route-card"'));
+  check('a map without one gets no jump link', !servicesHtml({ name: 'x', org: {}, url: '/m/x' }, publicServices(row, buildFacts(areaDir))).includes('#where-to-board'));
 }
 
 // --- 4. provenance and staleness --------------------------------------------

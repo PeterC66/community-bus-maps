@@ -31,8 +31,21 @@ export const STALE_AFTER_MONTHS = Math.max(1, Number(process.env.STALE_AFTER_MON
  */
 export function factsForPublicMap(row) {
   const snapshot = readFactsSnapshot(versionDir(row.id, row.pub_key));
-  if (snapshot) return snapshot;
-  return buildFacts(mapDataDir(row.id), { kind: row.kind });
+  if (!snapshot) return buildFacts(mapDataDir(row.id), { kind: row.kind });
+  // A snapshot written before OA-010 (schema 1) has no boarding index in it,
+  // and a "Where to board" sheet already published would otherwise show no
+  // index at all until somebody re-rendered it — which is a portal operation
+  // needing a session, on maps whose whole accessibility argument IS the table.
+  // So fill that ONE field from the live payload, and only for a snapshot old
+  // enough not to have been asked the question. Every later render writes its
+  // own, at which point this never runs again for that version. The usual rule
+  // still holds everywhere else: the snapshot describes the picture that was
+  // signed off, and nothing here reaches past it.
+  if (snapshot.boarding === undefined) {
+    const live = buildFacts(mapDataDir(row.id), { kind: row.kind });
+    return { ...snapshot, boarding: (live && live.boarding) || null };
+  }
+  return snapshot;
 }
 
 const MONTH_MS = 2629746000; // average month, only ever used for a coarse age
@@ -73,6 +86,10 @@ export function publicServices(row, facts) {
     note: facts.note || null,
     operators: facts.operators || [],
     destinations: facts.destinations || [],
+    // The "Where to board" index, or null on a map that has no such sheet
+    // (OA-010). Already stripped of ATCO codes, geometry and the trip counts
+    // that decided the ranking — see buildBoarding() in src/maps/facts.js.
+    boarding: facts.boarding || null,
     routes: (facts.routes || []).map((r) => ({
       id: r.id,
       colour: r.colour,
