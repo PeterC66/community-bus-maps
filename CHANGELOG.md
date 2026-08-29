@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.108 | 2026-08-29 | sha=d83f2f6a -->
-**v1.108** · updated 29 August 2026
+<!-- docstamp v1.109 | 2026-08-29 | sha=037e9a6d -->
+**v1.109** · updated 29 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -18,6 +18,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-29** — [The boarding caveats are scoped to the index](CHANGELOG.d/2026-08-29-the-boarding-caveats-are-scoped-to-the-index.md)
 - **2026-08-29** — [The boarding index reaches the services page](CHANGELOG.d/2026-08-29-the-boarding-index-reaches-the-services-page.md)
 - **2026-08-29** — [The button the runbook described did not exist](CHANGELOG.d/2026-08-29-the-button-the-runbook-described-did-not-exist.md)
+- **2026-08-29** — [The place external gets its how-to panel, and three geometry faults go with it](CHANGELOG.d/2026-08-29-the-place-external-gets-its-how-to-panel.md)
 - **2026-08-28** — [Backup retention is days again, not folders — the VPS window had quietly shrunk to 25 hours](CHANGELOG.d/2026-08-28-backup-retention-is-days-not-folders.md)
 - **2026-08-28** — [Five documents describing a system they had stopped tracking](CHANGELOG.d/2026-08-28-five-documents-describing-a-system-they-had-stopped-tracking.md)
 - **2026-08-28** — [The badge and lozenge separation reaches the portal](CHANGELOG.d/2026-08-28-the-badge-and-lozenge-separation-reaches-the-portal.md)
