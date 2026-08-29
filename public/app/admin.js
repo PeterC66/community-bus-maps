@@ -484,15 +484,29 @@ $('inviteForm').addEventListener('submit', async (e) => {
 LOADERS.messages = async () => {
   const { body } = await jget('/api/admin/messages');
   const box = $('messages');
-  const msgs = (body && body.messages) || [];
+  const all = (body && body.messages) || [];
+  const showAnswered = $('showAnsweredMsgs') ? $('showAnsweredMsgs').checked : false;
+  const msgs = showAnswered ? all : all.filter((m) => m.status !== 'answered');
   if (!msgs.length) { box.innerHTML = '<div class="empty">No messages.</div>'; return; }
-  const columns = [{ label: 'When', key: 'created_at' }, { label: 'Kind', key: 'kind' }, { label: 'From', key: 'name' }, { label: 'About', key: 'map_name' }, { label: 'Message' }];
-  renderSortable('messages', box, [10, 10, 18, 18, 44], columns, msgs, (m) => `<div class="gt-row" role="row">
+  const columns = [{ label: 'When', key: 'created_at' }, { label: 'Kind', key: 'kind' }, { label: 'From', key: 'name' }, { label: 'About', key: 'map_name' }, { label: 'Message' }, { label: '' }];
+  renderSortable('messages', box, [9, 9, 17, 16, 37, 12], columns, msgs, (m) => `<div class="gt-row${m.status === 'new' ? ' unread' : ''}" role="row">
       <div class="gt-cell" role="cell">${fmtDate(m.created_at)}</div><div class="gt-cell" role="cell">${esc(m.kind)}</div>
-      <div class="gt-cell" role="cell">${esc(m.name || '')}<div class="sub">${esc(m.email || '')}</div></div>
+      <div class="gt-cell" role="cell">${esc(m.name || '') || '<span class="muted">no name given</span>'}<div class="sub">${esc(m.email || '')}</div></div>
       <div class="gt-cell" role="cell">${m.map_slug ? '<a href="/m/' + esc(m.map_slug) + '" target="_blank" rel="noopener">' + esc(m.map_name || m.map_slug) + '</a>' : '<span class="muted">—</span>'}</div>
-      <div class="gt-cell wrap" role="cell">${esc(m.body)}</div></div>`);
+      <div class="gt-cell wrap" role="cell">${esc(m.body)}</div>
+      <div class="gt-cell actions" role="cell">${m.status === 'answered'
+        ? '<span class="muted">dealt with</span>'
+        : `<button class="btn btn-ghost btn-xs" data-msg-status="${m.id}" data-status="answered">Mark dealt with</button>`}</div></div>`,
+    (b) => {
+      b.querySelectorAll('button[data-msg-status]').forEach((btn) => btn.addEventListener('click', () => setMsgStatus(btn.dataset.msgStatus, btn.dataset.status)));
+    });
 };
+async function setMsgStatus(id, status) {
+  const { body } = await jsend(`/api/admin/messages/${id}/status`, 'POST', { status });
+  if (body.ok) { LOADERS.messages(); loadSummary(); }
+  else banner('err', body.error || 'Could not update the message.');
+}
+$('showAnsweredMsgs').addEventListener('change', () => LOADERS.messages());
 
 // ---- refreshes (P5 monthly-update queue, read-only) -------------------------
 function refreshSummaryText(s) {
@@ -582,6 +596,7 @@ const ACTION_LABEL = {
   'branding.update': 'Updated public details',
   'public.list': 'Listed map publicly',
   'public.unlist': 'Removed map from public site',
+  'message.status': 'Updated message status',
 };
 function auditDetail(a) {
   const d = a.detail || {};
