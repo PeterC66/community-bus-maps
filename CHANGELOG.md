@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-29** — [The button the runbook described did not exist](CHANGELOG.d/2026-08-29-the-button-the-runbook-described-did-not-exist.md)
 - **2026-08-28** — [Backup retention is days again, not folders — the VPS window had quietly shrunk to 25 hours](CHANGELOG.d/2026-08-28-backup-retention-is-days-not-folders.md)
 - **2026-08-28** — [Five documents describing a system they had stopped tracking](CHANGELOG.d/2026-08-28-five-documents-describing-a-system-they-had-stopped-tracking.md)
 - **2026-08-28** — [The badge and lozenge separation reaches the portal](CHANGELOG.d/2026-08-28-the-badge-and-lozenge-separation-reaches-the-portal.md)
