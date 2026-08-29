@@ -9,7 +9,7 @@
 // The generator reads its inputs from data/ (LEAFLET_DIR) and writes the working
 // SVG back into data/; a completed render is then copied into renders/v<ver>/.
 
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../db/index.js';
 
@@ -230,7 +230,18 @@ export function outputHint(key, kind) {
 export const OUTPUTS = {
   internal_geographic: { gens: ['gen_internal_place.js', 'gen_internal.js'], base: 'internal',           label: 'Within the area', placeLabel: 'Serving this place', portal: true,
                          requiresFiles: ['routes_paths.json'] },
-  external:            { gens: ['gen_external.js', 'gen_external_places.js'], base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
+  // The place external's requirement is PER-GENERATOR, not per-output, and that
+  // distinction is the whole of OA-009's second half. `gen_external_places.js`
+  // aggregates `destinations` from routes.json; handed a payload with none it
+  // exits 0 and draws a radial with no spokes — a blank sheet offered as "Where
+  // those buses go", which is worse than an error. But putting
+  // `requiresConfig: 'destinations'` on the OUTPUT would blank the external on
+  // every live town map: 15 of the 23 payloads in the store are AREA maps fed by
+  // `gen_external.js`, and none of them has a `destinations` key. Both guards are
+  // read before a generator is chosen, so the requirement has to hang off the
+  // candidate that has it.
+  external:            { gens: ['gen_external.js', { file: 'gen_external_places.js', requiresConfig: 'destinations' }],
+                         base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Simplified street map', portal: true, buildAlways: true },
   internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
   boarding_plan:       { gens: ['gen_boarding.js'],           engine: 'expert', expert: true, requiresConfig: 'boardingPlan',
@@ -249,3 +260,62 @@ export const OUTPUT_FILES = Object.fromEntries([
   ]),
   ['disagreements.pdf', 'application/pdf'],
 ]);
+
+// --- What the payload says it HAS (OA-009) ----------------------------------
+//
+// Until now the portal decided an output was renderable from whether a
+// GENERATOR resolved, and it got both possible answers wrong. St Ives Bus
+// Station has no external radial — the solver cannot fan its eight spokes
+// without putting Cambridge in the wrong direction, and the skill's own board
+// reports its external as `-`. The portal rendered a 20,563-byte external.svg
+// with real spokes anyway, offered it, and it had to be switched off by hand.
+//
+// The truth was never far away: an S5-render folder contains exactly the sheets
+// the skill built, one `<base>.svg` per output, and that is the same set the S4
+// manifest record lists. So the PAYLOAD DECLARES ITSELF, and reading the
+// declaration needs no manifest — which matters, because delivery scps only the
+// --src folder to the host and the manifest never travels with it.
+//
+// Written at import and at every staged refresh; read by resolveGen(). ABSENT
+// MEANS "DON'T KNOW", not "nothing": a map imported before this keeps exactly
+// the behaviour it has today until its next refresh writes one.
+export const SHEETS_FILE = 'sheets.json';
+
+/** The `<base>.svg` files present in a payload source dir, as output bases. */
+export function sheetsInPayloadDir(srcDir) {
+  const bases = new Set(Object.values(OUTPUTS).map((o) => o.base));
+  let found = [];
+  try {
+    found = readdirSync(srcDir)
+      .filter((f) => f.endsWith('.svg'))
+      .map((f) => f.slice(0, -4))
+      .filter((b) => bases.has(b));
+  } catch { return []; }
+  // Deterministic, and in the OUTPUTS order rather than the filesystem's, so two
+  // imports of the same payload write byte-identical declarations.
+  return Object.values(OUTPUTS).map((o) => o.base).filter((b) => found.includes(b));
+}
+
+/**
+ * Record what a payload declares, beside the payload. No-op when the source
+ * folder holds no sheets at all — a source we cannot read must not be turned
+ * into a declaration that every output is unavailable.
+ * @returns {string[]|null} the bases declared, or null when nothing was written
+ */
+export function writeSheetDeclaration(dataDir, srcDir) {
+  const sheets = sheetsInPayloadDir(srcDir);
+  if (!sheets.length) return null;
+  writeFileSync(
+    path.join(dataDir, SHEETS_FILE),
+    JSON.stringify({ schema: 1, sheets, source: path.basename(srcDir), declaredAt: new Date().toISOString() }, null, 2) + '\n',
+  );
+  return sheets;
+}
+
+/** What a stored payload declares, or null when it declares nothing. */
+export function readSheetDeclaration(dataDir) {
+  try {
+    const d = JSON.parse(readFileSync(path.join(dataDir, SHEETS_FILE), 'utf8'));
+    return Array.isArray(d && d.sheets) && d.sheets.length ? d.sheets : null;
+  } catch { return null; }
+}
