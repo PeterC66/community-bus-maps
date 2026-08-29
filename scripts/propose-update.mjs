@@ -21,7 +21,7 @@ import {
   getMap, getMapBySlug, getOpenProposedForMap, supersedePendingProposed,
   insertProposedUpdate, setProposedDataDir, setProposedSummary,
 } from '../src/db/index.js';
-import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES } from '../src/maps/store.js';
+import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
 import { notify, appUrl } from '../src/email/notify.js';
 
@@ -101,7 +101,13 @@ if (isPlace) {
   const framing = [path.join(SRC, 'overrides.json'), path.join(SRC, BASE_OVERRIDES)].find(existsSync);
   if (framing) cpSync(framing, path.join(stagedData, BASE_OVERRIDES));
 }
+// What this payload declares it has (OA-009) — re-read from THIS delivery, not
+// carried over from the live one, because a refresh is exactly when the set of
+// sheets can change. See writeSheetDeclaration() in src/maps/store.js.
+const declared = writeSheetDeclaration(stagedData, SRC);
 console.log(`· staged ${copied} payload files → ${stagedData}`);
+if (declared) console.log(`· payload declares ${declared.length} sheet(s): ${declared.join(', ')}`);
+else console.warn('· note: --src holds no sheet SVGs, so this payload declares nothing — renderability falls back to which generators resolve');
 
 // 3) Diff the service facts (what the customer will see), and store it.
 const summary = dataChangeSummary(liveData, stagedData);

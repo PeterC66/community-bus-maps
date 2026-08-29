@@ -13,7 +13,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, cpSync } from 'node:fs';
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-test-p7-'));
 process.env.DATA_DIR = scratch;
@@ -28,6 +28,7 @@ const eq = (name, got, want) =>
 
 const { OUTPUTS } = await import('../src/maps/store.js');
 const { defaultOutputs, effectiveOutputs, chooseOutputs, resolveGen, hasRoutesKey, EXPERT_DIR } = await import('../src/maps/engine.js');
+const { sheetsInPayloadDir, writeSheetDeclaration, readSheetDeclaration, SHEETS_FILE } = await import('../src/maps/store.js');
 
 // --- 1. the expert engine is vendored ---------------------------------------
 console.log('\nvendored expert engine');
@@ -97,6 +98,109 @@ check('a boarding-only payload is not offered an internal sheet',
 writeFileSync(path.join(boarding, 'routes_paths.json'), '{}');
 check('…and is offered one as soon as route geometry is there',
   resolveGen(OUTPUTS.internal_geographic, boarding) === 'gen_internal_place.js');
+
+// --- 2c. what the PAYLOAD declares it has (OA-009) ---------------------------
+//
+// Renderability used to be decided by whether a GENERATOR resolved, and that got
+// both possible answers wrong. St Ives Bus Station has no external radial — the
+// solver cannot fan its eight spokes without putting Cambridge in the wrong
+// direction — and the portal rendered a 20,563-byte external.svg with real
+// spokes anyway. An S5-render folder holds one `<base>.svg` per sheet the skill
+// actually built, which is the same set the S4 manifest lists and, unlike the
+// manifest, travels with the folder a delivery scps to the host.
+//
+// MEASURED ACROSS THE WHOLE ESTATE before making it, because it changes what a
+// map is offered: of the 20 payloads under Areas/ and Places/, the declaration
+// changes the answer on exactly ONE — St Ives Bus Station, which loses its
+// external. Every other map is offered precisely what it is offered today.
+console.log('\ndeclared sheets');
+{
+  // A source folder shaped like a real S5-render dir: the sheets, the payload,
+  // and the incidental files that must not be mistaken for sheets.
+  const src = path.join(scratch, 'src-declares');
+  mkdirSync(src, { recursive: true });
+  for (const f of ['internal.svg', 'boarding.svg', 'internal.jpg', 'unplaced.json', 'notes.svg']) {
+    writeFileSync(path.join(src, f), 'x');
+  }
+  eq('only known output bases are read as sheets, in OUTPUTS order',
+    sheetsInPayloadDir(src), ['internal', 'boarding']);
+  eq('a folder with no sheets declares nothing', sheetsInPayloadDir(plain), []);
+
+  // The declaration is written beside the payload, and read back.
+  const declared = path.join(scratch, 'declared');
+  mkdirSync(declared, { recursive: true });
+  for (const f of ['routes.json', 'routes_paths.json', 'gen_internal.js', 'gen_external.js']) {
+    cpSync(path.join(styled, f), path.join(declared, f));
+  }
+  check('with no declaration, both geographic sheets resolve as before',
+    !!resolveGen(OUTPUTS.internal_geographic, declared) && !!resolveGen(OUTPUTS.external, declared));
+  check('…and readSheetDeclaration says it does not know', readSheetDeclaration(declared) === null);
+
+  eq('writing one records exactly what the source held', writeSheetDeclaration(declared, src), ['internal', 'boarding']);
+  eq('…and it reads back', readSheetDeclaration(declared), ['internal', 'boarding']);
+  check('the declaration lives beside the payload', existsSync(path.join(declared, SHEETS_FILE)));
+
+  // THE DEFECT, in one assertion: a generator that resolves is no longer enough.
+  check('a sheet the payload did not build is NOT offered, even though its generator resolves',
+    resolveGen(OUTPUTS.external, declared) === null);
+  check('…while a sheet it did build still is',
+    resolveGen(OUTPUTS.internal_geographic, declared) === 'gen_internal.js');
+  eq('effectiveOutputs drops it too, so nothing renders a sheet nobody declared',
+    effectiveOutputs({}, declared).map((o) => o.key), ['internal_geographic']);
+  // The schematic goes with it, and that is deliberate rather than collateral:
+  // this payload opts into `internalSchematic` and is `buildAlways`, so it would
+  // have rendered one — but the folder it was delivered from built no
+  // internal-schematic.svg, and the declaration is the more specific answer. In
+  // practice this never bites, which was measured too: every one of the eight
+  // town S5 folders and every place that carries a schematic declares one.
+  check('a buildAlways output is not exempt from the declaration',
+    resolveGen(OUTPUTS.internal_schematic, declared) === null);
+
+  // A SOURCE WE CANNOT READ MUST NOT BECOME "NOTHING IS AVAILABLE". Absent means
+  // "don't know", which is what keeps every map imported before this unchanged.
+  const undeclared = path.join(scratch, 'undeclared');
+  mkdirSync(undeclared, { recursive: true });
+  for (const f of ['routes.json', 'routes_paths.json', 'gen_internal.js', 'gen_external.js']) {
+    cpSync(path.join(styled, f), path.join(undeclared, f));
+  }
+  eq('an empty source writes no declaration at all', writeSheetDeclaration(undeclared, plain), null);
+  check('…and the map keeps every output it had', !!resolveGen(OUTPUTS.external, undeclared));
+}
+
+// --- 2d. a requirement that belongs to ONE generator, not to the output ------
+//
+// `gen_external_places.js` aggregates `destinations` from routes.json. Handed a
+// payload with none it exits 0 and draws a radial with no spokes — a blank sheet
+// offered as "Where those buses go", which is worse than an error. But putting
+// `requiresConfig: 'destinations'` on the OUTPUT would blank the external on
+// every live town map, because an AREA payload is fed by `gen_external.js` and
+// carries no such key. MEASURED: 10 of the 20 payloads have no usable
+// `destinations`, and 8 of those are town maps drawing an external today. On the
+// candidate, the guard reaches exactly the two boarding-only places.
+console.log('\na per-generator requirement');
+{
+  const areaLike = path.join(scratch, 'area-like');
+  mkdirSync(areaLike, { recursive: true });
+  writeFileSync(path.join(areaLike, 'routes.json'), JSON.stringify({ palette: { 1: '#000' } }));
+  writeFileSync(path.join(areaLike, 'gen_external.js'), '// stub\n');
+  check('an AREA payload with no destinations key still gets its external',
+    resolveGen(OUTPUTS.external, areaLike) === 'gen_external.js');
+
+  const placeNoDest = path.join(scratch, 'place-no-dest');
+  mkdirSync(placeNoDest, { recursive: true });
+  writeFileSync(path.join(placeNoDest, 'routes.json'), JSON.stringify({ place: 'Somewhere', palette: { 1: '#000' } }));
+  writeFileSync(path.join(placeNoDest, 'gen_external_places.js'), '// stub\n');
+  check('a PLACE payload with no destinations is not offered a blank radial',
+    resolveGen(OUTPUTS.external, placeNoDest) === null);
+
+  writeFileSync(path.join(placeNoDest, 'routes.json'), JSON.stringify({ place: 'Somewhere', palette: { 1: '#000' }, destinations: [] }));
+  check('an EMPTY destinations list is not a declaration either — [] is truthy and means nothing',
+    resolveGen(OUTPUTS.external, placeNoDest) === null);
+
+  writeFileSync(path.join(placeNoDest, 'routes.json'), JSON.stringify({ place: 'Somewhere', palette: { 1: '#000' }, destinations: [{ name: 'Elsewhere', routes: ['1'] }] }));
+  check('…and it is offered as soon as there is somewhere to draw a spoke to',
+    resolveGen(OUTPUTS.external, placeNoDest) === 'gen_external_places.js');
+}
 
 console.log('\ndefault + effective enablement');
 eq('expert styles are OFF by default (visibility, not build)', defaultOutputs(), {

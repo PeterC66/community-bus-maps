@@ -14,7 +14,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber, outputHint } from './store.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber, outputHint, readSheetDeclaration } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { buildFacts, FACTS_FILE } from './facts.js';
 
@@ -30,34 +30,70 @@ export const EXPERT_DIR = path.join(ENGINE_DIR, 'expert');
  * Returns null if none is present (output not renderable for this map).
  */
 export function resolveGen(meta, dataDir) {
-  const gens = meta.gens || (meta.gen ? [meta.gen] : []);
+  // A candidate is either a filename or `{ file, requiresConfig, requiresFiles }`.
+  // The object form exists because a requirement can belong to ONE generator
+  // rather than to the output — see the `external` entry in store.js.
+  const gens = (meta.gens || (meta.gen ? [meta.gen] : [])).map((g) => (typeof g === 'string' ? { file: g } : g));
+
+  // WHAT THE PAYLOAD DECLARES WINS (OA-009). A skill payload carries exactly the
+  // sheets it built, and a sheet it deliberately did NOT build is not a gap in
+  // the payload — it is a decision. St Ives Bus Station has no external radial
+  // because the solver cannot fan its eight spokes without putting Cambridge in
+  // the wrong direction; the portal drew one anyway, from a generator that
+  // resolved. A declaration is recorded at import and at every staged refresh;
+  // absent (a map imported before this) it says nothing and nothing changes.
+  const declared = readSheetDeclaration(dataDir);
+  if (declared && !declared.includes(meta.base)) return null;
+
   // Some outputs need data files the payload may simply not carry (the boarding
   // plan's stand register and destination index). Its generator exits non-zero
   // on a missing input, and a throwing generator fails the map's whole render —
   // so an absent file has to mean "this output is unavailable", exactly as an
   // absent config key does. Checked for every output, not only the expert ones.
-  for (const f of meta.requiresFiles || []) {
-    if (!existsSync(path.join(dataDir, f))) return null;
-  }
+  if (!meetsRequirements(meta, dataDir)) return null;
+
   // Portal-owned generators (the P7 expert styles, and the boarding plan) live in
   // the portal's engine rather than in the map's data — and are only offered when
   // the map's routes.json opts into them.
   if (meta.engine === 'expert') {
-    if (meta.requiresConfig && !hasRoutesKey(dataDir, meta.requiresConfig)) return null;
     for (const g of gens) {
-      const p = path.join(EXPERT_DIR, g);
-      if (existsSync(p)) return p; // absolute → generateSvg uses it as-is
+      const p = path.join(EXPERT_DIR, g.file);
+      if (existsSync(p) && meetsRequirements(g, dataDir)) return p; // absolute → generateSvg uses it as-is
     }
     return null;
   }
-  for (const g of gens) if (existsSync(path.join(dataDir, g))) return g;
+  for (const g of gens) {
+    if (existsSync(path.join(dataDir, g.file)) && meetsRequirements(g, dataDir)) return g.file;
+  }
   return null;
 }
 
-/** Does this map's routes.json carry a (truthy) opt-in key, e.g. internalDiagram? */
+/**
+ * Does this payload carry the config keys and data files something requires?
+ * Applied to an OUTPUT and, independently, to each generator CANDIDATE — the
+ * two ask the same question about different scopes.
+ */
+function meetsRequirements(spec, dataDir) {
+  if (spec.requiresConfig && !hasRoutesKey(dataDir, spec.requiresConfig)) return false;
+  for (const f of spec.requiresFiles || []) {
+    if (!existsSync(path.join(dataDir, f))) return false;
+  }
+  return true;
+}
+
+/**
+ * Does this map's routes.json carry a (truthy) opt-in key, e.g. internalDiagram?
+ *
+ * An EMPTY ARRAY counts as absent. `[]` is truthy in JavaScript and meaningless
+ * as a declaration: a payload whose `destinations` is empty has nothing for
+ * gen_external_places.js to draw spokes from, which is the blank sheet this
+ * guard exists to refuse.
+ */
 export function hasRoutesKey(dataDir, key) {
   const rj = readJson(path.join(dataDir, 'routes.json'), null);
-  return !!(rj && rj[key]);
+  const v = rj ? rj[key] : null;
+  if (Array.isArray(v)) return v.length > 0;
+  return !!v;
 }
 
 function isPlainObject(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }

@@ -36,7 +36,7 @@ import {
   getCustomerByName, insertCustomer, getMap, getCustomer, setMapStatus, setMapOutputs,
   listAwaitingBuild, updateMapIdentity, listVersions, recordAudit, setMapBannerNoteAuto,
 } from '../src/db/index.js';
-import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES } from '../src/maps/store.js';
+import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES, writeSheetDeclaration } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
 import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
 import { requireScan } from './lib/vendored.mjs';
@@ -295,6 +295,16 @@ if (isPlace) {
   }
 }
 console.log(`· copied ${copied} payload files → ${dest}`);
+
+// WHAT THIS PAYLOAD DECLARES IT HAS (OA-009). --src holds one `<base>.svg` per
+// sheet the skill actually built, which is the same set the S4 manifest lists —
+// and unlike the manifest it travels with the folder, so this reads the same on
+// the laptop and on the host after a delivery scp. Without it the portal decides
+// renderability from whether a GENERATOR resolves, which offered a sheet St Ives
+// Bus Station had deliberately not built.
+const declared = writeSheetDeclaration(dest, SRC);
+if (declared) console.log(`· payload declares ${declared.length} sheet(s): ${declared.join(', ')}`);
+else console.warn('· note: --src holds no sheet SVGs, so this payload declares nothing — renderability falls back to which generators resolve');
 
 // Disagreements report (area maps only — places have no S1 audit yet, per
 // make-place-bus-leaflet's SKILL.md). Static per-map extra, not a render
