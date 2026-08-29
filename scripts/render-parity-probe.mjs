@@ -316,6 +316,76 @@ console.log(`\n${verdict}`);
 // gate CI on it without also gating on the platform difference that can never
 // close.
 const fontsOK = result.fontResolution.proportional;
-process.exit(
-  (STRICT && worst !== 'identical') || (STRICT_FONTS && !fontsOK) ? 1 : 0,
-);
+const code = (STRICT && worst !== 'identical') || (STRICT_FONTS && !fontsOK) ? 1 : 0;
+
+/*
+ * THE HANG IS IN TEARDOWN, NOT IN THE RASTERISATION (measured 2026-08-29).
+ *
+ * For eight months' worth of runs the standing diagnosis -- written into
+ * render-parity.yml's own header -- was "it hangs in the rasterisation step
+ * itself, after npm ci has succeeded". The breadcrumbs added earlier the same
+ * day disproved it on their FIRST hung run (33233095649): the probe did all its
+ * work in 1.65 seconds, printed the complete JSON, the font verdict, the
+ * baseline comparison and the final RESULT line at 04:08:57.489 -- and then the
+ * step sat silent until the 5-minute cap killed it at 04:14:08. Everything above
+ * this line had already finished. The rasterisation was never involved.
+ *
+ * So what hangs is the exit: `process.exit()` here, the container's teardown, or
+ * `docker run`/`tee` closing the pipe. Rather than guess between them, this
+ * arms a watchdog that reports WHICH by dumping the handles and requests still
+ * holding the loop open, then leaves by a route that cannot be blocked.
+ *
+ * IS THIS MUTING A CHECK? No, and the distinction matters. The watchdog can only
+ * fire after the verdict above has been computed AND printed, so the probe's
+ * answer is already complete and on the record; what is being cut short is a
+ * teardown deadlock that has nothing to say about render parity. It shouts on
+ * every occurrence -- an Actions ::warning:: with the handle dump -- so the
+ * frequency stays visible and the cause stays chaseable. Failing the build here
+ * instead would turn one run in seven red for a reason unrelated to what this
+ * workflow measures, which is how a check gets muted for real.
+ */
+const GRACE_MS = Number(process.env.PROBE_EXIT_GRACE_MS || 20000);
+const watchdog = setTimeout(() => {
+  const names = (list) => (list || []).map((h) => h?.constructor?.name || typeof h);
+  step(`EXIT DID NOT COMPLETE within ${GRACE_MS} ms — this is the render-parity hang, caught in the act.`);
+  // Three views, because none alone is enough: getActiveResourcesInfo names
+  // timers and the libuv resource TYPES, while the two underscore APIs name the
+  // concrete handle objects. Measured 2026-08-29 on a fixture that hangs on an
+  // open interval: _getActiveHandles reported only ["Socket"] and never the
+  // timer, so the modern API is the one that would have identified it.
+  step(`  active resources: ${JSON.stringify(process.getActiveResourcesInfo?.() ?? 'unavailable')}`);
+  step(`  active handles  : ${JSON.stringify(names(process._getActiveHandles?.()))}`);
+  step(`  active requests : ${JSON.stringify(names(process._getActiveRequests?.()))}`);
+  console.log(`::warning::render-parity probe: the work finished and the verdict is valid, but the process `
+    + `did not exit within ${GRACE_MS} ms. This is the intermittent hang (buses-data OA-052/OA-103); `
+    + `the handle dump is on stderr. Killed to preserve exit code ${code}.`);
+  // SIGKILL rather than a second process.exit(): if the first one is what is
+  // stuck, calling it again cannot help. The exit code the probe DECIDED is
+  // preserved above in the warning, and the signal death is what the log shows.
+  process.kill(process.pid, 'SIGKILL');
+}, GRACE_MS);
+// Unref'd: on every healthy run this timer must not itself be the thing keeping
+// the process alive. A watchdog that prevents the exit it is watching for would
+// be the fault it exists to find.
+watchdog.unref?.();
+
+/*
+ * THE WATCHDOG CANNOT FIRE IN EVERY CASE, AND THAT IS ITSELF THE DIAGNOSIS.
+ * A timer needs the event loop, so if `process.exit()` blocks synchronously in a
+ * native atexit handler the loop is already dead and nothing below runs. Three
+ * distinguishable states in the next hung log, which is the point:
+ *
+ *   no "work complete" line ................ it hung in the work after all;
+ *                                            the phase breadcrumbs say where.
+ *   "work complete" but no "exit event" .... process.exit() blocked before
+ *                                            running exit handlers -- native,
+ *                                            almost certainly libvips/sharp.
+ *   "exit event" and then the watchdog ..... Node is alive with handles open;
+ *                                            the dump names them.
+ *   all three lines and STILL silent ....... Node died and `docker run` (or the
+ *                                            `tee` pipe) did not return, which
+ *                                            puts it outside this script.
+ */
+process.on('exit', (c) => step(`process 'exit' event reached, code ${c}`));
+step(`work complete, exiting ${code}`);
+process.exit(code);
