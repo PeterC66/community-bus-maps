@@ -42,7 +42,7 @@ Under **Branding** you can set how your organisation appears on your public map 
 
 ## Publishing (getting it checked and made official)
 
-A version you save is a private **draft**. To make it official, open the **Publish** panel and **Submit for publication**. A reviewer then checks it against a safety checklist and either **publishes** it or sends it back with a note. **You don't publish your own map** — that second pair of eyes is deliberate, because people rely on the result. While a version is awaiting review, editing is paused so nothing changes underneath it; you can **withdraw** to keep editing.
+A version you save is a private **draft**. To make it official, open the **Publish** panel and hit **Send ‹your version› for review** (the button carries the version number). A reviewer then checks it against a safety checklist and either **publishes** it or sends it back with a note. **You don't publish your own map** — that second pair of eyes is deliberate, because people rely on the result. While a version is awaiting review, editing is paused so nothing changes underneath it; you can **withdraw** to keep editing.
 
 ## Making it public (or not)
 

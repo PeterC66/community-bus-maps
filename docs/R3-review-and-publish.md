@@ -21,7 +21,9 @@ The **editor** who makes a change **submits** it; a platform **approver** (or ad
 
 ## Step 1 — Editor submits (freezes the head)
 
-In `/app/maps/:id` → **Publish** panel, the editor hits **Submit for publication**. Editing then **freezes** (save → 409) so the submitted version can't move under review. **Withdraw** returns it to draft.
+In `/app/maps/:id` → **Publish** panel, the editor hits **Send ‹version› for review** — the button carries the version, so it reads *Send v11.0 for review*. The map's guidance card offers the same action as **Send for review →**. Editing then **freezes** (save → 409) so the submitted version can't move under review. **Withdraw and edit** returns it to draft.
+
+**Quote that label, not a paraphrase.** This document said **Submit for publication** until 2026-08-29, a string that has never existed anywhere in the app, and it was read back to an operator as an instruction — who then had to work out for himself that the **Send … for review** button was the one meant. The app is consistent about this in five places (the button, the guidance card action, the progress-strip step *Sent for review*, the audit entry *Sent version for review*, and the accept confirmation, which points at the button by name); only the documentation ever had a second name for it.
 
 ## Step 2 — Approver opens the review
 
