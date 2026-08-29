@@ -1,0 +1,9 @@
+---
+date: 2026-08-29
+title: "The boarding caveats are scoped to the index"
+---
+
+- **A sheet's own caveat can be exact on the sheet and ambiguous on the page that reprints it.** St Neots Town Centre's boarding plan says *"Ivel Sprinter 112 and 193 and Wanderbus W9 and W10 also serve Market Square. They are outside the national dataset, so they are not listed here."* On the sheet that is unambiguous: a boarding plan carries no service list, so "here" can only mean the index, and 112, 193, W9 and W10 appear nowhere else on it — checked, one mention in the whole file. On `/m/st-neots-town-centre/services` the same sentence lands directly under a jump nav and a section per service, **both of which name 112 and 193**, so it reads as denying what the page has just said. Both statements are true: those routes are on the map and not in the boarding index.
+- **The ambiguity was introduced by the page, so it is fixed on the page.** The caveats now sit under an **About this index** heading. Rewording the payload would have changed the sheet, where nothing is wrong — and it is a full config round (S3 → S4 → S5 → gate → re-deliver → republish) on a live public map, to correct something the sheet does not say.
+- **The reword was measured before it was rejected, which is what settled it.** `boardingPlan.note` is drawn as one unwrapped line and the generator refuses one that reaches the print-safe margin. The note ends at 267.4 mm against a 289 mm limit; the clearest rewording — *"so this index cannot say which stand they use"* — ends at **288.5 mm**, half a millimetre clear, which is a worse version of the fault that guard exists for. Two safe alternatives existed at ~272 mm. None of them was needed.
+- **A caveat that scopes itself is worth more than a caveat that is merely true.** The heading is only emitted when there are caveats to introduce, and both halves of that were watched go red.

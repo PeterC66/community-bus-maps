@@ -192,6 +192,15 @@ console.log('\nboarding index');
   check('the stop to board at is in the row', html.includes('<td>Stop R</td>'));
   check('the empty stand says so in words', html.includes('no bus on this sheet is boarded here'));
   check('the sheet’s caveats are printed', html.includes('Not indexed: school journeys.'));
+  // …and INTRODUCED, so the "here" in a sheet's own caveat is scoped to the index.
+  // On the sheet there is no service list to contradict it; on this page there is
+  // one directly above, so an unframed caveat reads as denying what the page just
+  // said. See the note in boardingHtml().
+  check('…under a heading that scopes them to the index',
+    html.indexOf('About this index') > html.indexOf('</table>')
+    && html.indexOf('About this index') < html.indexOf('Not indexed: school journeys.'));
+  check('a boarding plan with no caveats gets no empty heading',
+    !boardingHtml({ boarding: { ...s3.boarding, notes: [] } }).includes('About this index'));
   check('a map with no boarding plan renders nothing', boardingHtml(publicServices(row, buildFacts(areaDir))) === '');
 
   const body = servicesHtml({ name: 'x', org: {}, url: '/m/x' }, s3);
