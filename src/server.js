@@ -44,10 +44,10 @@ import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
-  swapInProposedData, carryExpertTuning, effectiveOutputs,
+  swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
 } from './maps/engine.js';
 import { sanitizeOverrides, BOARDING_CONFLICT } from './maps/safeSubset.js';
-import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES } from './maps/store.js';
+import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES, OUTPUTS } from './maps/store.js';
 import { ensureWatermarked } from './render/watermark.js';
 import { ensureDraftMarked, draftLabel } from './render/draftStamp.js';
 import {
@@ -1801,9 +1801,64 @@ app.patch('/api/maps/:id/outputs', async (req, reply) => {
     });
   }
   if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
+
+  // GRANTING AN OUTPUT USED TO RENDER NOTHING (OA-007). Walked for real on the
+  // St Ives Bus Station import, 2026-08-24: `PATCH /api/maps/14/outputs` set
+  // `boarding_plan: true`, returned 200, and produced no file at all —
+  // `renders/v1.0/` still held only the internal and external sheets. The sheet
+  // appeared only after a second delivery of the same S5 was staged as a
+  // proposed update and ACCEPTED, because accept is what renders. So the working
+  // sequence was grant → re-deliver → accept → publish, and two of those four
+  // steps existed purely to make a flag take effect.
+  //
+  // Most flips need none of that: a `buildAlways` output (the schematic) is
+  // already in every version's folder, so enabling it is a pure visibility
+  // change and must stay instant and free. The ones that need a render are
+  // exactly the ones whose FILE IS MISSING from the current version — which is
+  // the condition asked here, rather than "is this output expert" or "is it
+  // request-only". Both of those are proxies; the file is the fact.
+  const grantsNeedingRender = outputsNeedingRender(current, clean, mapDataDir(map.id), map.cur_key ? versionDir(map.id, map.cur_key) : null);
+  if (grantsNeedingRender.length && getOpenRequestForMap(map.id)) {
+    return reply.code(409).send({
+      ok: false,
+      error: 'This map is awaiting publication review, and adding that sheet needs a new version. Withdraw the request first.',
+    });
+  }
+
   setMapOutputs(map.id, clean);
   req.log.info({ mapId: map.id, outputs: clean }, 'updated map outputs');
-  return { ok: true, outputs: outputsForClient(clean, map.id, map.kind) };
+
+  let added = null;
+  if (grantsNeedingRender.length) {
+    const overrides = readOverrides(map.id);
+    const { major, minor } = nextVersion(map.id);
+    const storageKey = `v${major}.${minor}`;
+    const labels = grantsNeedingRender.map((k) => (map.kind === 'place' && OUTPUTS[k].placeLabel) || OUTPUTS[k].label);
+    try {
+      const r = await withMapLock(map.id, () => renderVersion(map.id, overrides, storageKey, clean));
+      const versionId = insertVersion({
+        map_id: map.id, major, minor,
+        note: `Added ${labels.join(' and ')}`,
+        overrides, storage_key: storageKey,
+      });
+      setCurrentVersion(map.id, versionId);
+      added = { version: storageKey, outputs: grantsNeedingRender, files: r.files };
+      req.log.info({ mapId: map.id, version: storageKey, outputs: grantsNeedingRender, by: user.email }, 'rendered a new version for a granted output');
+      logAudit(req, 'version.save', { mapId: map.id, versionId, detail: { version: storageKey, granted: grantsNeedingRender } });
+    } catch (e) {
+      // The FLAG IS ALREADY SET and that is deliberate: the grant itself is what
+      // was asked for and it succeeded. Report the render failure honestly and
+      // let the next save pick the sheet up, rather than silently reverting a
+      // decision an admin made.
+      req.log.error(e);
+      return reply.code(500).send({
+        ok: false,
+        outputs: outputsForClient(clean, map.id, map.kind),
+        error: `The sheet was granted, but rendering it failed: ${e.message}. The next save will produce it.`,
+      });
+    }
+  }
+  return { ok: true, outputs: outputsForClient(clean, map.id, map.kind), added };
 });
 
 // "Ask us for the diagram" — the customer half of the request-only lock above.

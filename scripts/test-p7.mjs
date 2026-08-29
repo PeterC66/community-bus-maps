@@ -27,7 +27,7 @@ const eq = (name, got, want) =>
   check(name, JSON.stringify(got) === JSON.stringify(want), `got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`);
 
 const { OUTPUTS } = await import('../src/maps/store.js');
-const { defaultOutputs, effectiveOutputs, chooseOutputs, resolveGen, hasRoutesKey, EXPERT_DIR } = await import('../src/maps/engine.js');
+const { defaultOutputs, effectiveOutputs, chooseOutputs, resolveGen, hasRoutesKey, outputsNeedingRender, EXPERT_DIR } = await import('../src/maps/engine.js');
 const { sheetsInPayloadDir, writeSheetDeclaration, readSheetDeclaration, SHEETS_FILE } = await import('../src/maps/store.js');
 
 // --- 1. the expert engine is vendored ---------------------------------------
@@ -200,6 +200,60 @@ console.log('\na per-generator requirement');
   writeFileSync(path.join(placeNoDest, 'routes.json'), JSON.stringify({ place: 'Somewhere', palette: { 1: '#000' }, destinations: [{ name: 'Elsewhere', routes: ['1'] }] }));
   check('…and it is offered as soon as there is somewhere to draw a spoke to',
     resolveGen(OUTPUTS.external, placeNoDest) === 'gen_external_places.js');
+}
+
+// --- 2e. granting an output has to RENDER it (OA-007) ------------------------
+//
+// Walked for real on the St Ives Bus Station import, 2026-08-24:
+// `PATCH /api/maps/14/outputs` set `boarding_plan: true`, returned 200, and
+// produced no file at all — `renders/v1.0/` still held only the internal and
+// external sheets. The sheet appeared only after a second delivery of the same
+// S5 was staged as a proposed update and ACCEPTED, because accept is what
+// renders. Two of those four steps existed purely to make a flag take effect.
+//
+// The rule asks about the FILE, not about the output's flags: "expert",
+// "request-only" and "build-always" are all proxies for the real question.
+//
+// TWO VERSION FOLDERS, and that is not tidiness. Written with one, three of
+// these assertions were satisfied by a DIFFERENT clause of the same rule than
+// the one they name — breaking the clause under test left them green, which is
+// how it was found. Each case now uses the folder that isolates it.
+console.log('\ngranting an output');
+{
+  const verNoBoarding = path.join(scratch, 'v1.0');   // internal + external only
+  mkdirSync(verNoBoarding, { recursive: true });
+  writeFileSync(path.join(verNoBoarding, 'internal.svg'), '<svg/>');
+  writeFileSync(path.join(verNoBoarding, 'external.svg'), '<svg/>');
+  const verWithBoarding = path.join(scratch, 'v1.1'); // …and the boarding sheet
+  mkdirSync(verWithBoarding, { recursive: true });
+  for (const f of ['internal.svg', 'external.svg', 'boarding.svg']) writeFileSync(path.join(verWithBoarding, f), '<svg/>');
+
+  const off = { internal_geographic: true, external: true, internal_schematic: false, internal_diagram: false, boarding_plan: false };
+  const on = { ...off, boarding_plan: true };
+
+  // `boarding` opts into the plan and carries the stand register + index by now.
+  eq('granting the boarding plan on a version that has no boarding.svg needs a render',
+    outputsNeedingRender(off, on, boarding, verNoBoarding), ['boarding_plan']);
+
+  // The same grant, once the file is there: a pure visibility flip, and it must
+  // stay instant and free — this is the schematic's whole case for buildAlways.
+  eq('…and needs none once the file is already in the version',
+    outputsNeedingRender(off, on, boarding, verWithBoarding), []);
+
+  // A flag the payload cannot honour is not a grant that needs a render — it is
+  // a grant that will never produce a sheet, and re-rendering for it would be a
+  // wasted version. `plain` has no boarding config or data at all, and the
+  // folder is the one WITHOUT boarding.svg, so only the payload can answer this.
+  eq('granting an output this payload cannot produce renders nothing',
+    outputsNeedingRender(off, on, plain, verNoBoarding), []);
+
+  // A map with nothing rendered yet: the first save makes every output, so
+  // there is no version to add a sheet to.
+  eq('a map with no current version needs no catch-up render',
+    outputsNeedingRender(off, on, boarding, null), []);
+
+  eq('leaving everything alone renders nothing',
+    outputsNeedingRender(on, { ...on }, boarding, verNoBoarding), []);
 }
 
 console.log('\ndefault + effective enablement');

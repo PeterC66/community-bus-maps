@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.106 | 2026-08-29 | sha=ba88ab2f -->
-**v1.106** · updated 29 August 2026
+<!-- docstamp v1.107 | 2026-08-29 | sha=36b27870 -->
+**v1.107** · updated 29 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -13,6 +13,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 - **2026-08-29** — [A payload declares which sheets it has](CHANGELOG.d/2026-08-29-a-payload-declares-which-sheets-it-has.md)
 - **2026-08-29** — [A stale docstamp is refused at the commit, not reported by CI](CHANGELOG.d/2026-08-29-a-stale-docstamp-is-now-refused-not-reported.md)
+- **2026-08-29** — [Granting an output now renders it](CHANGELOG.d/2026-08-29-granting-an-output-now-renders-it.md)
 - **2026-08-29** — [Hiding an operator is refused before the save, not during it](CHANGELOG.d/2026-08-29-hiding-an-operator-is-refused-before-the-save-not-during-it.md)
 - **2026-08-29** — [The boarding index reaches the services page](CHANGELOG.d/2026-08-29-the-boarding-index-reaches-the-services-page.md)
 - **2026-08-29** — [The button the runbook described did not exist](CHANGELOG.d/2026-08-29-the-button-the-runbook-described-did-not-exist.md)
