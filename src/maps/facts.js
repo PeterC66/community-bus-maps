@@ -8,6 +8,9 @@
 //                            external[] (area journeys) / destinations[] (place)
 //   routes_intown_atco.json  route -> ordered ATCO stop ids inside the area
 //   atco2name.json           ATCO id -> stop name
+//   boarding_index.json      (boarding plans only) the stand register and the
+//                            DESTINATION-keyed index the "Where to board" sheet
+//                            is drawn from
 //
 // This module turns that into ONE kind-agnostic model. It exists because an
 // image of a map has no text alternative: /m/<slug>/services renders this as
@@ -23,6 +26,9 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+
+/** The stand register + destination index a boarding plan is drawn from. */
+export const BOARDING_FILE = 'boarding_index.json';
 
 /** The snapshot of these facts kept beside a rendered version's artefacts. */
 export const FACTS_FILE = 'facts.json';
@@ -78,6 +84,75 @@ export function parseValidFrom(s) {
   const y = v.match(/^(\d{4})$/);
   if (y) return new Date(Date.UTC(+y[1], 0, 1));
   return null;
+}
+
+/**
+ * The boarding index as facts (OA-010).
+ *
+ * A "Where to board" sheet is the one output whose text equivalent is arguably
+ * BETTER than the picture: the index is inherently a table — destination, the
+ * stop you stand at, how far that is, and which services — so this page gains a
+ * real second section rather than a prose description of an image. That is the
+ * point on which a PDF-only spider map cannot compete, and it is what permits a
+ * purchase under the Public Sector Bodies Accessibility Regulations 2018. See
+ * Development Docs/boarding-plan-product_2026-08-22.md §4 and §12.7.
+ *
+ * `boarding_index.json` has travelled with every such payload since 2026-08-23;
+ * until now nothing read it.
+ *
+ * Everything INTERNAL is dropped here rather than at the public read model: the
+ * ATCO codes, the lat/lon, and the trip counts and arrival bands that decided
+ * the ranking. A reader needs the stop letter on the flag, not the arithmetic
+ * behind it.
+ *
+ * @returns {object|null} null when the payload carries no boarding index, or
+ *   carries one with nothing in it.
+ */
+function buildBoarding(dataDir, rj) {
+  const bi = readJson(dataDir, BOARDING_FILE);
+  if (!bi) return null;
+  const cfg = obj(rj && rj.boardingPlan);
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+  const stands = arr(bi.stands).map((s) => ({
+    label: str(s && s.label),
+    name: str(s && s.name),
+    facing: str(s && s.facing) || null,
+    walkMin: num(s && s.walkMin),
+    distM: num(s && s.distM),
+    routes: arr(s && s.routes).map(String),
+    // The count rather than the list: the list is the destination table below,
+    // and printing it twice makes the page longer without saying more.
+    destinationCount: arr(s && s.destinations).length,
+  })).filter((s) => s.label);
+
+  const destinations = arr(bi.destinations).map((d) => ({
+    name: str(d && d.destination),
+    boardAt: str(d && d.boardAt),
+    walkMin: num(d && d.walkMin),
+    routes: arr(d && d.routes).map(String),
+    limited: !!(d && d.limited),
+    // A second stand that also gets you there. Kept because the sheet prints it
+    // and because it is the honest answer to "can I catch it from here too?".
+    alsoFrom: arr(d && d.alsoFrom).map((a) => ({
+      label: str(a && a.label),
+      walkMin: num(a && a.walkMin),
+      routes: arr(a && a.routes).map(String),
+    })).filter((a) => a.label),
+  })).filter((d) => d.name && d.boardAt);
+
+  if (!stands.length || !destinations.length) return null;
+  return {
+    place: str(bi.place) || null,
+    homeLocality: str(bi.homeLocality) || null,
+    heading: str(cfg.indexHeading) || null,
+    // The sheet's own caveats — which journeys are NOT indexed, and why. The
+    // text version must carry them or it claims a completeness the picture
+    // explicitly disclaims.
+    notes: arr(cfg.note).map(str).filter(Boolean),
+    stands,
+    destinations,
+  };
 }
 
 /**
@@ -169,7 +244,10 @@ export function buildFacts(dataDir, { kind } = {}) {
   });
 
   return {
-    schema: 1,
+    // 2 adds `boarding` (OA-010). A snapshot at schema 1 predates the boarding
+    // index and carries none, which is what factsForPublicMap() looks for
+    // before it backfills one — see src/public/services.js.
+    schema: 2,
     generatedAt: new Date().toISOString(),
     kind: isPlace ? 'place' : 'area',
     subject: str(rj.place) || str(rj.town) || null,
@@ -182,6 +260,7 @@ export function buildFacts(dataDir, { kind } = {}) {
     operators,
     routes,
     destinations,
+    boarding: buildBoarding(dataDir, rj),
   };
 }
 

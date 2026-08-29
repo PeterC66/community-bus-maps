@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.103 | 2026-08-29 | sha=53424288 -->
-**v1.103** · updated 29 August 2026
+<!-- docstamp v1.104 | 2026-08-29 | sha=3edfb1f5 -->
+**v1.104** · updated 29 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-08-29** — [A stale docstamp is refused at the commit, not reported by CI](CHANGELOG.d/2026-08-29-a-stale-docstamp-is-now-refused-not-reported.md)
+- **2026-08-29** — [The boarding index reaches the services page](CHANGELOG.d/2026-08-29-the-boarding-index-reaches-the-services-page.md)
 - **2026-08-29** — [The button the runbook described did not exist](CHANGELOG.d/2026-08-29-the-button-the-runbook-described-did-not-exist.md)
 - **2026-08-28** — [Backup retention is days again, not folders — the VPS window had quietly shrunk to 25 hours](CHANGELOG.d/2026-08-28-backup-retention-is-days-not-folders.md)
 - **2026-08-28** — [Five documents describing a system they had stopped tracking](CHANGELOG.d/2026-08-28-five-documents-describing-a-system-they-had-stopped-tracking.md)
