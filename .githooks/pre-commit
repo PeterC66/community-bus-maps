@@ -1,0 +1,49 @@
+#!/bin/sh
+# Refuse a commit whose staged .md carries a stamp describing different content.
+#
+# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
+# at the END of a turn — so a commit made DURING a turn carries the new content and
+# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
+# committed content" step correctly calls it stale. Whether a given commit is red
+# depends only on where the turn boundary happened to fall, which is why it looks
+# intermittent and why it is not.
+#
+# It has already happened here: commit "Docstamp: three committed stamps did not
+# describe their committed content" (#149, 2026-08-29) is exactly this fault,
+# three documents' worth, found by CI after the push rather than before it. In the
+# sibling `buses-data` repo the same fault took 10 of 15 gates runs red in a day.
+#
+# CI reporting it minutes later is the wrong end of the problem: by then the commit
+# is pushed and somebody has to decide whether a red run matters, which is how a
+# gate gets muted. This refuses the commit instead.
+#
+# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
+# A document that was already stale is not this commit's fault, and a hook that
+# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+#
+# THIS HOOK IS NOT AUTOMATICALLY ACTIVE IN A FRESH CLONE. `core.hooksPath` is local
+# git config and does not travel with the repository, so each clone or worktree must
+# opt in once, from the repository root:
+#
+#   git config core.hooksPath .githooks
+#
+# That is why CI keeps its own full audit and this does not replace it: the hook is
+# the fast local guard for whoever installed it, CI is the one that is always there.
+# See docs/DEVELOPING.md.
+set -e
+
+STAMPER="$HOME/.claude/skills/stamp-docs/scripts/check_committed_stamps.py"
+
+# A missing stamper must not block committing. The stamp-docs skill tree is not part
+# of this repository, and a hook that dies on a machine without it would teach
+# whoever hits that to bypass the hook permanently.
+if [ ! -f "$STAMPER" ]; then
+  exit 0
+fi
+
+python "$STAMPER" --staged || {
+  echo ""
+  echo "pre-commit: refused. Re-stamp, re-add, and commit again."
+  echo "  (bypass with --no-verify only if you mean to commit a stamp that lies)"
+  exit 1
+}
