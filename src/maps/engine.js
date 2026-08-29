@@ -234,6 +234,46 @@ export function chooseOutputs(incoming, { current = {}, available = [], isAdmin 
   return { outputs, refused };
 }
 
+/**
+ * Which outputs a change switches ON whose FILE is not in the map's current
+ * version — i.e. which grants actually need a render to take effect (OA-007).
+ *
+ * Granting an output used to render nothing. Walked for real on the St Ives Bus
+ * Station import, 2026-08-24: `PATCH /api/maps/14/outputs` set
+ * `boarding_plan: true`, returned 200, and produced no file at all. The sheet
+ * appeared only after a second delivery of the same S5 was staged as a proposed
+ * update and ACCEPTED, because accept is what renders — so the working sequence
+ * was grant → re-deliver → accept → publish, two steps of which existed purely
+ * to make a flag take effect.
+ *
+ * Deliberately asks about the FILE rather than about the output's flags. A
+ * `buildAlways` sheet is already on disk, so enabling it is a pure visibility
+ * change that must stay instant and free; a `requestOnly` one usually is not.
+ * But "expert", "request-only" and "build-always" are all proxies for the real
+ * question, and a map that happens to carry the file for some other reason
+ * should not be re-rendered either.
+ *
+ * Pure, so the rule is testable without a server — same reason chooseOutputs()
+ * is separated from its route.
+ *
+ * @param {object} before   the map's stored output config before the change
+ * @param {object} after    the config chooseOutputs() settled on
+ * @param {string} dataDir  the map's payload
+ * @param {string|null} verDir  the current version's folder, or null if none
+ * @returns {string[]} output keys, in OUTPUTS order
+ */
+export function outputsNeedingRender(before, after, dataDir, verDir) {
+  if (!verDir) return []; // nothing rendered yet — the first save makes them all
+  const b = before && typeof before === 'object' ? before : {};
+  const a = after && typeof after === 'object' ? after : {};
+  const renderable = new Set(effectiveOutputs(a, dataDir).map((o) => o.key));
+  return Object.keys(OUTPUTS).filter((k) => (
+    a[k] && !b[k]
+    && renderable.has(k)
+    && !existsSync(path.join(verDir, `${OUTPUTS[k].base}.svg`))
+  ));
+}
+
 function readJson(p, fallback = null) {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return fallback; }
 }
