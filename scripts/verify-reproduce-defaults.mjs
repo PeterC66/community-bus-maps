@@ -110,6 +110,14 @@ const KEYS = [
   ['sheetQr', { design: { sheetQr: false } }],
   ['keyCols', { design: { keyCols: 1 } }],
   ['howToUse', { design: { howToUse: false } }],
+  // Promoted 2026-08-30 (OA-078). The numbered place index is ON unless a map
+  // says otherwise, so it is exactly the shape this gate exists to police, and
+  // both fixtures exercise it: the area fixture's internal sheet numbers one
+  // place and the place fixture's internal grew 635 bytes when the index landed.
+  // Its escape hatch is `false` and not a falsy value: the engine tests
+  // `!== false`, so 0 or '' would read as adoption and this row would assert
+  // nothing -- the same trap `keyCols` above is annotated for.
+  ['placeIndex', { design: { placeIndex: false } }],
 ];
 
 console.log('Escape-hatch reproduce test — proves EACH design:{key:false} / labels:{engine:"v1"} still changes the output on its own');
