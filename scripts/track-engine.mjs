@@ -17,10 +17,21 @@
 // that map — a preview, an accepted proposed update, a re-publish — which will
 // use the current engine instead of the one frozen at import.
 //
-// AMBIGUOUS FILES ARE SKIPPED, LOUDLY. An area pack's `gen_external.js` was
-// copied from either `engine/area/gen_external_radial.js` or `..._busway.js` and
-// the pack does not record which, so this script will not guess; it reports them
-// and leaves them alone. Re-import such a map to move it forward.
+// AMBIGUOUS FILES ARE SKIPPED UNLESS THE PACK SAYS (OA-143, 2026-08-30). An area
+// pack's `gen_external.js` was copied from either `engine/area/gen_external_radial.js`
+// or `..._busway.js`, and the NAME does not say which. This script still will not
+// guess — guessing wrong overwrites a busway map with the radial generator, a silent
+// corruption discovered at the next render. What changed is that the answer is now
+// RECORDED, in `engine-source.json` beside the generator, by whoever knew it:
+// `import-map.mjs` writes it because it chose the file it staged, and
+// `backfill-engine-source.mjs` filled in the packs that predate it. A pack that
+// declares is tracked like any other; a pack that does not is skipped exactly as
+// before, and the report says which of the two it is.
+//
+// The cost of not having this, measured on the live store: EIGHT of eighteen maps
+// skipped every run, which was every town's external sheet. So an engine fix to a
+// town external reached nothing until the map was re-imported, while the ten place
+// maps got the same fix for free.
 //
 // Usage, from the repository root (C:\Claude\community-bus-maps on the laptop,
 // /opt/community-bus-maps inside the container on the VPS). No placeholders:
@@ -31,6 +42,7 @@
 // as well as a report: a re-vendor that forgets this step fails it.
 
 import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from 'node:fs';
+import { readEngineSource, ENGINE_SOURCE_FILE } from './lib/engine-source.mjs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,7 +64,8 @@ const TRACKED = {
   'gen_internal_place.js': 'place/gen_internal_place.js',
   'gen_external_places.js': 'place/gen_external_places.js',
 };
-// Carried by a pack, vendored under more than one name — see the header.
+// Carried by a pack, vendored under more than one name — see the header. These
+// are tracked ONLY when the pack's engine-source.json names the vendored file.
 const AMBIGUOUS = { 'gen_external.js': 'engine/area/gen_external_{radial,busway}.js' };
 
 // CRLF-normalised, the same rule engine/vendored.json uses, so a checkout under
@@ -89,9 +102,35 @@ for (const id of dirs(MAPS)) {
     if (APPLY) writeFileSync(packFile, readFileSync(vendored));
   }
   for (const [name, where] of Object.entries(AMBIGUOUS)) {
-    if (!existsSync(path.join(dataDir, name))) continue;
-    rows.push(['·', id, name, `vendored as ${where} — which one is not recorded, so it is left alone`]);
-    skipped++;
+    const packFile = path.join(dataDir, name);
+    if (!existsSync(packFile)) continue;
+    const declared = readEngineSource(dataDir);
+    if (declared && declared.unreadable) {
+      rows.push(['?', id, name, `${ENGINE_SOURCE_FILE} will not parse — answered, but we cannot hear it`]);
+      skipped++;
+      continue;
+    }
+    const rel = declared && typeof declared.generators[name] === 'string' ? declared.generators[name] : null;
+    if (!rel) {
+      rows.push(['·', id, name, `vendored as ${where} — which one is not recorded, so it is left alone`
+        + ` (record it: node scripts/backfill-engine-source.mjs --apply)`]);
+      skipped++;
+      continue;
+    }
+    const vendored = path.join(ENGINE, rel);
+    if (!existsSync(vendored)) {
+      // A pack naming a file the engine no longer vendors is a REAL finding, not a
+      // skip to shrug at: either the declaration is wrong or a generator was
+      // dropped without migrating the maps that name it.
+      rows.push(['?', id, name, `declares ${rel}, which is not vendored — re-vendor, or fix ${ENGINE_SOURCE_FILE}`]);
+      skipped++;
+      continue;
+    }
+    const was = hash(packFile), now = hash(vendored);
+    if (was === now) { current++; continue; }
+    behind++;
+    rows.push([APPLY ? '→' : '✗', id, name, `${was} → ${now}  (${rel})`]);
+    if (APPLY) writeFileSync(packFile, readFileSync(vendored));
   }
 }
 

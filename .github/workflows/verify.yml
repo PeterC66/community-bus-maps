@@ -168,6 +168,16 @@ jobs:
         working-directory: community-bus-maps
         run: npm run test:prove-red-fixture-drift
 
+      # EVERYTHING OA-143 ADDED IS A REFUSAL, and a refusal is the hardest thing
+      # to keep honest: code that has quietly stopped refusing passes every "it
+      # tracks the declared generator" assertion while silently overwriting a
+      # busway map with the radial one. Four mutations, each required to redden
+      # the assertion that claims to be about it, plus an intact control.
+      # Filesystem only — no fixture repository, no database, ~2 s.
+      - name: prove the engine-source guards can go red
+        working-directory: community-bus-maps
+        run: npm run test:prove-red-engine-source
+
       - name: verify:area — the portal reproduces a shipped town sheet
         working-directory: community-bus-maps
         env:
