@@ -113,8 +113,8 @@
       "path": "expert/gen_boarding.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_boarding.js",
-      "sha256": "cd9ff9c82350b8f6b97e8375a203b3b7fb6f4b699e24798bab58a4bbc6f34e24",
-      "vendoredOn": "2026-08-29",
+      "sha256": "ca4128efc5734ee2e6c432aa8c9de899a429203f65bc4976eed93f618f8bb597",
+      "vendoredOn": "2026-08-30",
       "note": "The portal's fifth output since 2026-08-23; portal-owned in the sense that it is not copied into a map's data."
     },
     {

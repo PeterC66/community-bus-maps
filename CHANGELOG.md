@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.117 | 2026-08-30 | sha=1a64ccec -->
-**v1.117** · updated 30 August 2026
+<!-- docstamp v1.118 | 2026-08-30 | sha=137ba687 -->
+**v1.118** · updated 30 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -13,6 +13,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 - **2026-08-30** — [A number where the name would not go](CHANGELOG.d/2026-08-30-a-number-where-the-name-would-not-go.md)
 - **2026-08-30** — [A switched-off account, and a map with nobody to own it](CHANGELOG.d/2026-08-30-a-switched-off-account-and-a-map-with-no-owner.md)
+- **2026-08-30** — [A boarding sheet stops sending readers to the wrong flag](CHANGELOG.d/2026-08-30-the-boarding-sheet-stand-rules.md)
 - **2026-08-30** — [The eight packs that could never be tracked](CHANGELOG.d/2026-08-30-the-eight-packs-that-could-never-be-tracked.md)
 - **2026-08-30** — [The engine's verdict on a build now reaches the person reviewing it](CHANGELOG.d/2026-08-30-the-engines-verdict-reaches-the-reviewer.md)
 - **2026-08-30** — [The index heading sits on the panel's own rhythm](CHANGELOG.d/2026-08-30-the-index-heading-sits-on-the-panels-rhythm.md)
