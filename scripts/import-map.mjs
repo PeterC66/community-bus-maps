@@ -37,7 +37,7 @@ import {
   getCustomerByName, insertCustomer, getMap, getCustomer, setMapStatus, setMapOutputs,
   listAwaitingBuild, updateMapIdentity, listVersions, recordAudit, setMapBannerNoteAuto,
 } from '../src/db/index.js';
-import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES, writeSheetDeclaration } from '../src/maps/store.js';
+import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
 import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
 import { requireScan } from './lib/vendored.mjs';
@@ -313,7 +313,10 @@ const dest = mapDataDir(id);
 let copied = 0;
 for (const f of readdirSync(SRC)) {
   if (f === 'overrides.json' || f === BASE_OVERRIDES) continue; // handled below / never import stale
-  const keep = /^gen_.*\.js$/.test(f) || (f.endsWith('.json') && !f.endsWith('.bak'));
+  // build-warnings.txt rides along: it is the ENGINE's verdict on this exact
+  // build, and the portal cannot re-derive it for a version it did not render
+  // (OA-046). Everything else here is an input; this one is a finding.
+  const keep = /^gen_.*\.js$/.test(f) || f === BUILD_WARNINGS || (f.endsWith('.json') && !f.endsWith('.bak'));
   if (!keep) continue;
   cpSync(path.join(SRC, f), path.join(dest, f));
   copied++;

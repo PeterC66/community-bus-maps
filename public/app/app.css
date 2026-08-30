@@ -302,8 +302,9 @@ code.cmd { display: inline-block; background: var(--surface-2); padding: 3px 7px
 .rd-head h2 { margin: 0 0 6px; font-size: 1.2rem; display: flex; align-items: center; gap: 10px; }
 .rd-meta { color: var(--muted); font-size: .85rem; margin-top: 2px; }
 .rd-note { margin: 8px 0 0; font-style: italic; color: var(--text); }
-/* A review-head note warning about the REVIEW rather than about the map: today
-   only "your sign-in is too old to publish with". Same --err tint/border pair the
+/* A review note warning about something the approver must act on before signing
+   off: a sign-in too old to publish with, or a build the engine refused to draw
+   part of (OA-046). Same --err tint/border pair the
    .notice.err rule uses, so it tracks both themes; upright rather than italic
    because the other rd-notes are italic and this one has to break the pattern to
    be noticed. Not colour alone — it gains a rule, a tint and a weight change. */
@@ -315,6 +316,12 @@ code.cmd { display: inline-block; background: var(--surface-2); padding: 3px 7px
   border-radius: 4px;
   background: color-mix(in srgb, var(--err) 12%, transparent);
 }
+/* The BLOCKING lines themselves, under the note that counts them. Indented and
+   monospaced because each one names a config key the reader may have to go and
+   look at, and a proportional font makes a key look like prose. */
+.rd-warn-list { margin: 6px 0 0; padding-left: 22px; font-size: .88rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+.rd-warn-list li { margin: 3px 0; }
+
 .rd-section { padding: 16px 18px; border-bottom: 1px solid var(--border); }
 .rd-section:last-child { border-bottom: 0; }
 .rd-section h3 { margin: 0 0 8px; font-size: .98rem; }
