@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.5 | 2026-08-28 | sha=14befbaa -->
-**v1.5** · updated 28 August 2026
+<!-- docstamp v1.6 | 2026-08-30 | sha=747faa00 -->
+**v1.6** · updated 30 August 2026
 
 **v1.0** · updated 8 August 2026
 
@@ -37,9 +37,9 @@ node "%BW%\worklist.mjs" --url https://busmaps.uk --cookie <cbm_session value>
 
 **The `cbm_session` cookie — get it once a month, not every session.**
 
-Sessions last **30 days** (`SESSION_DAYS` in `src/auth/index.js`). Claude keeps the current value at `C:\Claude\community-bus-maps-ops\live-admin-cookie.txt` (that folder is local-only, never in git — see its own `README.md`) and reads it from there for every `worklist.mjs` / `push-status.mjs` call, so you don't hand it over each time you ask "what's next."
+Sessions last **7 days**, sliding — the window is pushed forward each time the session is used, so a cookie in daily use never expires and one left alone dies within a week (`SESSION_DAYS` in `src/auth/index.js`). It said 30 days here until 2026-08-30; the value has been 7 since 2026-08-20 and `H1` §3b had it right all along. Claude keeps the current value at `C:\Claude\community-bus-maps-ops\live-admin-cookie.txt` (that folder is local-only, never in git — see its own `README.md`) and reads it from there for every `worklist.mjs` / `push-status.mjs` call, so you don't hand it over each time you ask "what's next."
 
-To refresh it — needed once the stored one is ~30 days old, or if a `worklist.mjs`/`push-status.mjs` call comes back with an auth error:
+To refresh it — needed once the stored one has gone a week unused, or if a `worklist.mjs`/`push-status.mjs` call comes back with an auth error:
 1. Sign in as admin at `https://busmaps.uk` (email → magic link, or reuse the `/auth/verify?token=…` link from the sign-in email).
 2. Open DevTools → Application → Cookies → `busmaps.uk` → copy the `cbm_session` value.
 3. Paste it in chat. Claude overwrites `live-admin-cookie.txt` with the new value and date, and re-verifies with a live `worklist.mjs` call.

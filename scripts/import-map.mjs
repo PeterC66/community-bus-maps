@@ -70,6 +70,32 @@ function arg(name, def = undefined) {
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
 }
 const has = (name) => process.argv.includes(`--${name}`);
+
+// AN UNOWNED MAP CAN NEVER BE PUBLICLY VISIBLE (OA-008).
+//
+// listPublicMaps() and getPublicMapBySlug() both JOIN customer, which is
+// deliberate — it is what makes a suspended organisation's maps disappear — and
+// the same join silently drops a map whose customer_id is NULL, however
+// published it is. St Ives Bus Station was imported without --customer on
+// 2026-08-24, went right through submit → review → publish to v2.0, reported
+// status=published and public_listed=1, and served a 404.
+//
+// Until 2026-08-30 this was a console.warn and the import carried on. The honest
+// answer then arrived two steps later, from the accept-publish run's own public
+// check: "0/1 published and verified". Refusing here is the same answer at the
+// only moment it is cheap to act on. --unowned is the escape hatch, because an
+// owner CAN now be set afterwards (POST /api/admin/maps/:id/owner) and a
+// deliberate no-owner import is a legitimate, if rare, thing to want.
+const allowUnowned = has('unowned');
+function refuseUnowned(why) {
+  console.error(`✗ refusing to import an unowned map: ${why}.`);
+  console.error('  A map with no owning organisation is dropped by every PUBLIC query — it can be');
+  console.error('  submitted, reviewed and published, report status=published, and still serve a 404.');
+  console.error('  Give it an owner:  --customer "Organisation Name"  [--customer-type council|shop|…]');
+  console.error('  Or import it unowned on purpose with --unowned, and set the owner later with');
+  console.error('  POST /api/admin/maps/<id>/owner from the admin console.');
+  process.exit(1);
+}
 const slugify = (s) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -120,11 +146,18 @@ if (requestId != null) {
 
 const name = arg('name', request ? request.name : undefined);
 if (!src || !name) {
-  console.error('Usage: node scripts/import-map.mjs --src "<run dir>" --name "<Display Name>" [--slug ..] [--kind area|place] [--subject ..] [--customer "Org"]');
+  console.error('Usage: node scripts/import-map.mjs --src "<run dir>" --name "<Display Name>" --customer "Org" [--slug ..] [--kind area|place] [--subject ..] [--unowned]');
   console.error('   or: node scripts/import-map.mjs --request <mapId> --src "<run dir>"   (build an approved request)');
   console.error('   or: node scripts/import-map.mjs --list-requests');
   process.exit(2);
 }
+// Refused HERE, before --src is even resolved, because this one needs nothing
+// but the flags: the answer is knowable at the cheapest possible moment and the
+// import has not yet touched a file or a row.
+if (!request && !process.argv.includes('--customer') && !allowUnowned) {
+  refuseUnowned('no --customer was given');
+}
+
 const SRC = path.resolve(src);
 const slug = slugify(arg('slug', request && !has('slug') ? request.slug : name));
 const kind = arg('kind', request ? request.kind : 'area');
@@ -237,7 +270,8 @@ if (request) {
     console.error('  Drop --customer to build it for its own organisation (re-owning a map is not an import job).');
     process.exit(1);
   }
-  console.log(`· fulfilling approved request #${request.id} for ${owner ? `"${owner.name}" (#${owner.id})` : '(unowned)'}`);
+  if (!owner && !allowUnowned) refuseUnowned(`approved request #${request.id} has no owning organisation`);
+  console.log(`· fulfilling approved request #${request.id} for ${owner ? `"${owner.name}" (#${owner.id})` : '(UNOWNED — --unowned given)'}`);
 } else if (customerName) {
   const existing = getCustomerByName(customerName);
   if (existing) {
@@ -249,10 +283,13 @@ if (request) {
     console.log(`· owner: created customer "${customerName}" (#${customerId}, ${type})`);
   }
 } else {
-  console.warn('· note: no --customer given → map is unowned (only an admin can see it). Pass --customer "Name".');
   if (queue.length) {
     console.warn(`· note: ${queue.length} approved request(s) are awaiting a build — see --list-requests before importing a fresh row.`);
   }
+  // Only --unowned reaches here: the no-owner case was refused above.
+  console.warn('· UNOWNED (--unowned given) — this map is dropped by every public query and');
+  console.warn('  cannot become publicly visible until an owner is set. Set one afterwards with');
+  console.warn('  POST /api/admin/maps/<id>/owner from the admin console.');
 }
 
 // 1) DB row + object-store folders. Fulfilling a request ADOPTS its row (so the

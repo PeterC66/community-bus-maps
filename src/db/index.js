@@ -424,6 +424,29 @@ export function updateMapIdentity(id, f) {
 }
 
 /**
+ * Set (or clear) a map's owning organisation — the OWNER, which updateMapIdentity
+ * above deliberately refuses to touch.
+ *
+ * Kept separate from that whitelist for the reason its comment gives: an
+ * importer typo must never re-home somebody else's map, so re-owning is not
+ * something an import flag can reach. It is a deliberate admin act, and until
+ * 2026-08-30 there was no way to perform it at all except a hand-written UPDATE
+ * against the live database (OA-008). That mattered because a map with
+ * customer_id NULL is dropped by every public query — listPublicMaps and
+ * getPublicMapBySlug both JOIN customer — so an unowned map serves a 404
+ * however published it says it is, and the repair was a DB write.
+ *
+ * @param {number} id
+ * @param {number|null} customerId  null deliberately un-owns it
+ */
+export function setMapCustomer(id, customerId) {
+  const r = db
+    .prepare('UPDATE map SET customer_id = ? WHERE id = ?')
+    .run(customerId == null ? null : Number(customerId), Number(id));
+  return r.changes > 0;
+}
+
+/**
  * How many maps of each kind a customer currently holds against quota.
  * Archived maps (rejected/withdrawn requests) do NOT count.
  * @returns {{ area:number, place:number }}

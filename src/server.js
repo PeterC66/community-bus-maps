@@ -23,7 +23,7 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import {
-  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, getMessage, setMessageStatus, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionByHash, deleteSessionsForUser, purgeExpiredPersonalData, retentionDue, peekMagicLink,
+  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, getMessage, setMessageStatus, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionByHash, deleteSessionsForUser, setMapCustomer, purgeExpiredPersonalData, retentionDue, peekMagicLink,
 } from './db/index.js';
 import { buildWorklist } from './worklist/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
@@ -201,6 +201,52 @@ app.addHook('preHandler', async (req, reply) => {
   req.user = null;
   const u = req.url;
   if (u.startsWith('/api/') || u.startsWith('/app') || u.startsWith('/auth/') || u.startsWith('/metrics')) req.user = resolveUser(req);
+
+  // A SWITCHED-OFF ACCOUNT MUST NOT HOLD A CREDENTIAL (OA-183, 2026-08-30).
+  //
+  // Until this hook existed, `user.status` was tested in exactly two places —
+  // requestMagicLink and verifyMagicLink — and both are on the way IN. Nothing
+  // looked at it on the way through: getSession joins on the token and the
+  // expiry, resolveUser copies the status onto req.user, and requireUser /
+  // requireAdmin / requireApprover all test the ROLE and never the status. So
+  // disabling somebody stopped them obtaining a NEW sign-in link and left the
+  // browser session they were already holding completely untouched — and
+  // because the seven-day window SLIDES on use, a disabled person who kept
+  // working never expired at all.
+  //
+  // WHY HERE AND NOT IN THE THREE GUARDS. The guards are an enumeration, and
+  // the CSRF hook below has already argued this case for this codebase: a rule
+  // applied by enumeration is right on the day it is written and silent about
+  // the eighty-sixth route added next year. /api/me already reads req.user
+  // directly and would have been missed. Clearing it at the single site that
+  // SETS it covers every consumer that exists and every consumer that will.
+  //
+  // The session ROW goes too, not just this request. That is what collapses
+  // "disable the user, then revoke each of their live sessions" from two steps
+  // that read as one action into one: the dead credential destroys itself the
+  // first time it is presented, and the admin Sessions tab stops listing a
+  // phantom. PATCH /api/admin/users/:id closes the same window from the other
+  // end, at the moment of disabling, so neither half waits on the other.
+  if (req.user && req.user.status !== 'active') {
+    const { id, email, status, sessionToken } = req.user;
+    deleteSession(sessionToken);
+    req.user = null;
+    reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
+    req.log.warn({ userId: id, status, url: u }, 'session refused: account is not active');
+    // Everything under /api/ gets a code the UI can act on rather than a 401
+    // that reads like an expired link. /api/auth/ is exempt as a PROPERTY, not
+    // as a path list: those routes only ever end a credential or ask for a new
+    // one, and both already refuse a non-active user on their own terms.
+    if (u.startsWith('/api/') && !u.startsWith('/api/auth/')) {
+      return reply.code(403).send({
+        ok: false,
+        code: 'account_disabled',
+        error: `This account (${email}) has been switched off. Please contact whoever administers it.`,
+      });
+    }
+    return; // an /app page still loads; its own /api/me call carries the message
+  }
+
   if (req.user && req.user.sessionSlid) {
     reply.header('Set-Cookie', sessionCookie(req.user.sessionToken, { secure: isHttps(req) }));
   }
@@ -2714,6 +2760,67 @@ app.post('/api/admin/maps/:id/reject', async (req, reply) => {
   return { ok: true, status: 'archived' };
 });
 
+// WHO OWNS THIS MAP (OA-008, 2026-08-30).
+//
+// An unowned map is not a cosmetic gap: listPublicMaps and getPublicMapBySlug
+// both JOIN customer, deliberately — that is what makes a suspended
+// organisation's maps disappear — and the same join drops a map whose
+// customer_id is NULL however published it is. St Ives Bus Station was imported
+// without --customer, went right through submit → review → publish to v2.0,
+// reported status=published, public_listed=1, and served a 404.
+//
+// Until this route existed the repair was a hand-written UPDATE against the live
+// database. `user.reassign` had had an HTTP equivalent since P2; the map did
+// not. Step-up is required for the same reason it is on the user's role: this
+// moves an asset between tenants, and a stale cookie must not be enough.
+app.post('/api/admin/maps/:id/owner', async (req, reply) => {
+  if (!requireAdmin(req, reply)) return;
+  const m = getMap(Number(req.params.id));
+  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+  const b = req.body || {};
+  if (!('customerId' in b)) return reply.code(400).send({ ok: false, error: 'customerId is required (null to un-own).' });
+  if (!requireStepUp(req, reply, "changing which organisation owns a map")) return;
+
+  let toId = null, to = null;
+  if (b.customerId != null && b.customerId !== '') {
+    to = getCustomer(Number(b.customerId));
+    if (!to) return reply.code(404).send({ ok: false, error: 'No such organisation.' });
+    toId = to.id;
+  }
+  if (toId === (m.customer_id ?? null)) {
+    return reply.code(409).send({ ok: false, error: to ? `That map already belongs to "${to.name}".` : 'That map is already unowned.' });
+  }
+
+  // Quota is counted per organisation, so moving a map INTO one spends a slot
+  // there. Refused rather than silently overspent — the same rule the map
+  // request queue applies, applied at the other door into the same count.
+  if (to) {
+    const used = quotaUsage(to.id);
+    const cap = m.kind === 'place' ? to.quota_places : to.quota_areas;
+    const held = m.kind === 'place' ? used.place : used.area;
+    if (cap != null && held >= cap) {
+      return reply.code(409).send({
+        ok: false, code: 'quota',
+        error: `"${to.name}" already holds ${held} of ${cap} ${m.kind} maps. Raise their quota first.`,
+      });
+    }
+  }
+
+  const from = m.customer_id ? getCustomer(m.customer_id) : null;
+  if (!setMapCustomer(m.id, toId)) return reply.code(500).send({ ok: false, error: 'The owner could not be set.' });
+  bumpSearchIndex(); // the public queries' answer just changed in both directions
+  req.log.info({ mapId: m.id, from: m.customer_id, to: toId }, 'map owner changed by admin');
+  logAudit(req, 'map.reassign', {
+    mapId: m.id,
+    detail: {
+      mapId: m.id, slug: m.slug, name: m.name, kind: m.kind,
+      fromCustomerId: m.customer_id ?? null, fromCustomerName: from ? from.name : null,
+      toCustomerId: toId, toCustomerName: to ? to.name : null,
+    },
+  });
+  return { ok: true, map: { id: m.id, slug: m.slug, name: m.name }, customer: to ? { id: to.id, name: to.name } : null };
+});
+
 app.get('/api/admin/customers', async (req, reply) => {
   if (!requireAdmin(req, reply)) return;
   const rows = listCustomersAdmin().map((c) => ({
@@ -2754,7 +2861,12 @@ app.patch('/api/admin/customers/:id', async (req, reply) => {
 // (or, with no customerId, a platform admin); update/disable are the same
 // PATCH — status:'disabled' is how an account is switched off, mirroring the
 // customer status pattern above. No delete: disabling is the reversible,
-// audit-preserving equivalent (sessions and history keep referencing the row).
+// audit-preserving equivalent (history keeps referencing the row).
+//
+// Disabling REVOKES the account's live sessions, in the same request (OA-183).
+// It did not until 2026-08-30, and the console's own copy — "disabling is the
+// reversible, audit-preserving equivalent" of a delete — was true about the
+// record and silent about the credential.
 const userShape = (u) => ({
   id: u.id, email: u.email, name: u.name, role: u.role, status: u.status,
   customerId: u.customer_id, customerName: u.customer_name || null, createdAt: u.created_at,
@@ -2825,6 +2937,19 @@ app.patch('/api/admin/users/:id', async (req, reply) => {
   const updated = getUser(u.id);
   req.log.info({ userId: u.id }, 'user updated by admin');
   logAudit(req, 'user.update', { detail: { userId: u.id, email: updated.email, role: updated.role, status: updated.status, customerId: updated.customer_id } });
+
+  // Switching an account off ends the sessions it is holding, here rather than
+  // in a second step somebody has to remember on the day a person leaves a
+  // customer badly (OA-183). The preHandler above would refuse each of those
+  // sessions on its next use anyway; this closes the window now, and — the
+  // reason it is worth both — it is what makes the count reportable, so the
+  // admin sees "3 sessions signed out" instead of trusting that they will be.
+  let revokedSessions = 0;
+  if (updated.status !== 'active' && u.status === 'active') {
+    revokedSessions = deleteSessionsForUser(u.id);
+    req.log.info({ userId: u.id, revoked: revokedSessions }, 'sessions revoked because the account was switched off');
+    logAudit(req, 'session.revoke-all', { detail: { userId: u.id, email: updated.email, revoked: revokedSessions, reason: `status set to ${updated.status}` } });
+  }
   if (customerId !== undefined && customerId !== u.customer_id) {
     const toCustomer = customerId ? getCustomer(customerId) : null;
     req.log.info({ userId: u.id, from: u.customer_id, to: customerId }, 'user reassigned to another organisation by admin');
@@ -2836,7 +2961,7 @@ app.patch('/api/admin/users/:id', async (req, reply) => {
       },
     });
   }
-  return { ok: true, user: userShape(updated) };
+  return { ok: true, user: userShape(updated), revokedSessions };
 });
 
 app.get('/api/admin/messages', async (req, reply) => {

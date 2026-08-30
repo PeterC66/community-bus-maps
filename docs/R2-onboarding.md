@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.4 | 2026-08-28 | sha=84734b48 -->
-**v1.4** · updated 28 August 2026
+<!-- docstamp v1.5 | 2026-08-30 | sha=0c6e4dbd -->
+**v1.5** · updated 30 August 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -41,7 +41,7 @@ Approving, in one action:
 
 ## Step 4 — Record + welcome
 
-- Add the customer to the private [customer register](../../community-bus-maps-ops/customer-register.md) (`ops/`): org, contact, type, quota, status, onboarded date.
+- Add the customer to the private [customer register](../../community-bus-maps-ops/P1-customer-register.md) (`ops/`): org, contact, type, quota, status, onboarded date.
 - Send a welcome pointing them at the **customer user guide** (which opens with the pilot caveat) and telling them you'll build their first map. Set expectations honestly — see the pilot note above. They can also **Request a map** themselves from their dashboard, within quota.
 
 ## Step 5 — Their maps
@@ -55,4 +55,4 @@ Approving, in one action:
 - **Wrong quota** → edit it inline on the **Customers** tab any time.
 - **Declined** → **Reject** the application (marked rejected; no account created). Note why in the vetting log.
 - **They can't sign in** → they can request a fresh link at the `/app` sign-in page (printed to the console in dev); check the email matches the account exactly.
-- **Suspend or close a customer** → set status on the **Customers** tab (they keep their data but lose access). Treat a suspension prompted by a problem as an incident — [**R6**](R6-incident-response.md).
+- **Suspend or close a customer** → set status on the **Customers** tab. Suspension takes their maps off the public site and out of the search index, and it keeps every byte of their data. **It does NOT stop their people signing in or editing** — nothing joins the customer's status into the session. If access itself must stop, that is a per-user act: set each of their users to `disabled` on the **Users** tab, which since 2026-08-30 also ends every session that user is holding and tells you how many it ended. Treat a suspension prompted by a problem as an incident — [**R6**](R6-incident-response.md).

@@ -1,7 +1,7 @@
 ﻿# Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.11 | 2026-08-30 | sha=5b2a4f36 -->
-**v1.11** · updated 30 August 2026
+<!-- docstamp v1.12 | 2026-08-30 | sha=9c98f14b -->
+**v1.12** · updated 30 August 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -54,7 +54,7 @@ Flags:
 | `--slug` | URL slug (defaults to a slugified name); **must be unique** |
 | `--kind area\|place` | default `area` |
 | `--subject` | what the map is of (defaults to `--name`) |
-| `--customer "Name"` | attach to that customer (created if missing). **Omit ⇒ unowned (admin-only, invisible to the public site — see below)**; always name an owner, even for our own demo maps |
+| `--customer "Name"` | attach to that customer (created if missing). **Required** — since 2026-08-30 the importer REFUSES without it rather than warning and carrying on, because an unowned map is invisible to the public site (see below). `--unowned` is the deliberate escape hatch |
 | `--customer-type` | one of `council · shop · business · school · function-organiser · charity-nt · other` (only used if the customer is created here) |
 
 What it does: copies the generators + JSON inputs into the git-ignored object store (`DATA_DIR/maps/<id>/data/`); stores any shipped `overrides.json` as **expert framing** (`base-overrides.json`, merged *under* customer edits — never as the customer layer); writes empty customer overrides `{}`; renders **v1.0 = the byte-identical baseline**; prints the new map id and its edit URL `/app/maps/<id>`.
@@ -78,7 +78,7 @@ Green = the portal reproduces the desktop bytes exactly — insist on **PASS wit
 
 ## Demo and example maps (for demos, docs and screenshots)
 
-Same runbook — **do not "just leave off `--customer`"**. Without an owner the map is *unowned*, and unowned means admin-only: the public front's queries all `JOIN customer`, so an unowned map can never appear on `/maps`, `/m/<slug>` or `/o/<org-slug>` no matter how far it gets through the publish gate. There is also no editor account, so the edit → submit → review loop — the thing most worth demonstrating — can't be shown at all. Owner also carries the branding, the org credit and the **Sample** badge.
+Same runbook — and since 2026-08-30 you cannot "just leave off `--customer`": the importer refuses, naming the consequence, and `--unowned` is the only way past it. Without an owner the map is *unowned*, and unowned means admin-only: the public front's queries all `JOIN customer`, so an unowned map can never appear on `/maps`, `/m/<slug>` or `/o/<org-slug>` no matter how far it gets through the publish gate. There is also no editor account, so the edit → submit → review loop — the thing most worth demonstrating — can't be shown at all. Owner also carries the branding, the org credit and the **Sample** badge.
 
 Give every example map a **seeded demo organisation** instead, flagged `is_demo` so it is labelled "Sample" on every public surface:
 
@@ -166,5 +166,5 @@ Fulfilment is written to the audit log as `maprequest.fulfil` (who/when/which ve
 ## What-if / rollback
 
 - **Slug already exists** → pick another `--slug`, or retire the existing map first: `node scripts/delete-map.mjs --slug <slug> --yes` (dry run without `--yes`). If the slug belongs to an approved request, build *that* row instead: `--request <id>`. If it belongs to a demo map a real customer is taking over, see *Taking over a demo-held town* above.
-- **Wrong customer** → re-import under the right `--customer` (new row) and archive the wrong one; there's no in-place re-owner tool.
+- **Wrong customer** → set the right owner in place: `POST /api/admin/maps/<id>/owner` with `{"customerId": <id>}` (admin, needs a sign-in from the last 30 minutes, refuses a move that would overspend the receiving organisation's quota, and writes a `map.reassign` audit row). Added 2026-08-30; before that the only repair was a re-import plus an archive, or a hand-written `UPDATE` against the live database. Pass `null` to un-own it deliberately.
 - **Bad build** → pre-publish, the object store + v1.0 are disposable: `node scripts/delete-map.mjs --map <id> --yes` (removes the row, its versions, and `maps/<id>/`), then re-import. **Never** hand-edit a rendered file — always go through a version. A **fulfilled request** is a normal map by then, so re-doing it means deleting that row too: the request itself is gone (it *is* the map), so re-import as a fresh map with `--customer`.
