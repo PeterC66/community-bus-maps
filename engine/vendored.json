@@ -59,8 +59,8 @@
       "path": "labeller.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/labeller.js",
-      "sha256": "582a94cb0dc8506ad21a079e344ac7fdc58bf969969b26d52656dd0762e538eb",
-      "vendoredOn": "2026-08-25"
+      "sha256": "0df8bacd9e3f1d9406d16d5b59e22537a448fdfce72a0f56c9052383d6c88f9c",
+      "vendoredOn": "2026-08-30"
     },
     {
       "path": "lane_normals.js",
@@ -97,7 +97,7 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "6f5137e05cd53ad3cfdf3228bbc89572c389b5e4c0cbc3c3c7a6dfeec0ae5210",
+      "sha256": "034e28008e92fcf059af86fe25d8d0ac63f7a1206b56ee190a11a6b075c82001",
       "vendoredOn": "2026-08-30",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "66c93afa8e09e18cfd2fa3df3214879da5379debd180dc15446faa01a2ab6629",
+      "sha256": "f96f3db2a3a2704e41f7319b8723aba65ce2128afb1af763243c8c8fc468894e",
       "vendoredOn": "2026-08-30",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -218,8 +218,8 @@
       "path": "label_placer.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/label_placer.js",
-      "sha256": "e0bdb9683d9c690171e4bb90ca8111b9f9f151f8bac41f49c5a09328e82c3530",
-      "vendoredOn": "2026-08-27",
+      "sha256": "38ec90bdaff1e51b3f359ad88ca5eaf0cc565b5daeda547c049294255e20c91c",
+      "vendoredOn": "2026-08-30",
       "note": "The shared reserved-box list, both label placers, and the route-ink contrast floor. Required at load by gen_internal.js."
     },
     {
