@@ -59,7 +59,7 @@
       "path": "labeller.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/labeller.js",
-      "sha256": "0df8bacd9e3f1d9406d16d5b59e22537a448fdfce72a0f56c9052383d6c88f9c",
+      "sha256": "5556e6d0ee1d39d2dbbe22a3b575b9d3c109bfec495b9aeb9cd5d088a3d14958",
       "vendoredOn": "2026-08-30"
     },
     {
@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "f96f3db2a3a2704e41f7319b8723aba65ce2128afb1af763243c8c8fc468894e",
+      "sha256": "76300d1fa4234169aedd54607db7cd9559c05c6bd24036c9d4513c00c76fdbd0",
       "vendoredOn": "2026-08-30",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -226,8 +226,8 @@
       "path": "services_panel.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/services_panel.js",
-      "sha256": "570318c09740905562d4a7cade39e7d6325983e84c5ff43765ec933511ac8ccc",
-      "vendoredOn": "2026-08-27",
+      "sha256": "32b66b2125ca681ae0ec544e75eae1fa0403f829d482546fd9b80d39413cfe7a",
+      "vendoredOn": "2026-08-30",
       "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
     },
     {
@@ -242,8 +242,8 @@
       "path": "north_arrow.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/north_arrow.js",
-      "sha256": "7785709337362bd3684f95938425909a628ed0c81a3e15d98ab6a195c6b6abd9",
-      "vendoredOn": "2026-08-27",
+      "sha256": "2978f8bc3949b06900144de52c0a084e8daeb0e4fa51ef0f0d30832cae009c9e",
+      "vendoredOn": "2026-08-30",
       "note": "The compass: its angle, its footprint, the blank-space search that sites it and the drawing. Required at load by gen_internal.js."
     },
     {
