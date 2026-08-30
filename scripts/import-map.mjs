@@ -29,6 +29,7 @@
 // no placeholder left to archive and quota counts the map once.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { writeEngineSource, ENGINE_SOURCE_FILE } from './lib/engine-source.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -283,6 +284,26 @@ for (const f of readdirSync(SRC)) {
 if (areaFallback) {
   for (const [from, as] of areaFallback) { cpSync(from, path.join(dest, as)); copied++; }
   console.log(`· staged the vendored area engine into ${dest}`);
+  /* RECORD WHICH EXTERNAL GENERATOR WE JUST CHOSE (OA-143). A pack stores it as
+   * `gen_external.js` and the portal vendors two of them, so the filename cannot
+   * say — and `track-engine.mjs` therefore skipped every area map, for ever,
+   * which was eight of the eighteen live maps and every town's external sheet.
+   * We know the answer HERE, because we picked the file a few lines up. Writing
+   * it costs nothing and is the whole fix for future packs.
+   *
+   * Only the staged case is recorded, deliberately. A payload that brought its
+   * OWN generator may have a hand-edited one, and a hand-edited generator must
+   * never be overwritten by the vendored file — leaving it undeclared is what
+   * keeps the tracker off it. */
+  const generators = {};
+  for (const [from, as] of areaFallback) {
+    const rel = path.relative(ENGINE_ROOT, from).split(path.sep).join('/');
+    if (as !== path.basename(from)) generators[as] = rel;   // only the renamed, ambiguous ones
+  }
+  if (Object.keys(generators).length) {
+    writeEngineSource(dest, generators, 'import');
+    console.log(`· recorded engine provenance → ${ENGINE_SOURCE_FILE} (${Object.entries(generators).map(([k, v]) => `${k}=${v}`).join(', ')})`);
+  }
 }
 if (isPlace) {
   for (const g of PLACE_GENS) { cpSync(path.join(PLACE_ENGINE_DIR, g), path.join(dest, g)); copied++; }
