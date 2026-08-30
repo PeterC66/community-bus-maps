@@ -181,6 +181,26 @@ jobs:
       # server would have done. Added 2026-08-27 after check-vendored.mjs
       # reported "every module they require is here" about a generator requiring
       # four modules that were not here.
+      # FALSIFY IT FIRST, and it runs first for the reason every prove-red in
+      # this project runs first: the gate below prints a tick per sheet, and
+      # until 2026-08-30 it rendered ONE of the four it certified. It was widened
+      # (OA-051) to run every generator the fixture's routes.json declares — and
+      # a widened gate that has only ever been seen green is precisely the fault
+      # it was widened to fix. Three mutations, each of which must turn ONE arm
+      # red on its own: `engine/dash_fit.js` (the external sheet began requiring
+      # it at load on 2026-08-30, which is the gap the row recorded),
+      # `engine/expert/schematize_internal.js` (the P7 arms run two processes
+      # down, so this is what proves the module recorder gets there at all), and
+      # a fixture with one sheet removed from its routes.json, which is the
+      # coverage property itself and the one thing a verdict cannot express.
+      # Plus an intact control, because every arm going red at once would mean
+      # the scratch copy was broken and not the gate. ~30 s.
+      - name: prove the self-sufficiency gate can go red
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run test:prove-red-selfsufficient
+
       - name: self-sufficient — the engine renders with nothing but this repo
         working-directory: community-bus-maps
         env:

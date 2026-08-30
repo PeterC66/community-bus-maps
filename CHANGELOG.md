@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.109 | 2026-08-29 | sha=037e9a6d -->
-**v1.109** · updated 29 August 2026
+<!-- docstamp v1.110 | 2026-08-30 | sha=c54e6336 -->
+**v1.110** · updated 30 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-30** — [The self-sufficiency gate rendered one sheet of the four it certified](CHANGELOG.d/2026-08-30-the-self-sufficiency-gate-rendered-one-sheet-of-four.md)
 - **2026-08-29** — [A payload declares which sheets it has](CHANGELOG.d/2026-08-29-a-payload-declares-which-sheets-it-has.md)
 - **2026-08-29** — [A stale docstamp is refused at the commit, not reported by CI](CHANGELOG.d/2026-08-29-a-stale-docstamp-is-now-refused-not-reported.md)
 - **2026-08-29** — [Granting an output now renders it](CHANGELOG.d/2026-08-29-granting-an-output-now-renders-it.md)
