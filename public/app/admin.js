@@ -361,6 +361,7 @@ LOADERS.users = async () => {
   const columns = [{ label: 'User', key: 'email' }, { label: 'Customer', key: 'customerName' }, { label: 'Role', key: 'role' }, { label: 'Status', key: 'status' }, { label: 'Invited', key: 'createdAt' }, { label: '' }];
   renderSortable('users', box, [26, 18, 14, 14, 12, 16], columns, ordered, rowUser, (b) => {
     b.querySelectorAll('button[data-save]').forEach((b2) => b2.addEventListener('click', () => saveUser(b2.dataset.save)));
+    b.querySelectorAll('button[data-signout]').forEach((b2) => b2.addEventListener('click', () => signOutEverywhere(b2.dataset.signout, b2.dataset.who, b2.dataset.self === '1')));
   });
 };
 function rowUser(u) {
@@ -380,8 +381,30 @@ function rowUser(u) {
         <option value="disabled"${u.status === 'disabled' ? ' selected' : ''}>disabled</option>
       </select></div>
     <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
-    <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${u.id}">Save</button></div>
+    <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${u.id}">Save</button> <button class="btn btn-ghost btn-xs" data-signout="${u.id}" data-who="${esc(u.email)}" data-self="${self ? '1' : '0'}" title="End every session this account is holding, everywhere.">Sign out everywhere</button></div>
   </div>`;
+}
+
+// POST /api/admin/users/:id/revoke-sessions has existed since the session work
+// landed and was reachable from NOTHING — the console offered per-session
+// revocation on the Sessions tab and no way to end all of one person's at once
+// (OA-183). Setting status to 'disabled' now revokes them as part of the same
+// save, so this button is for the OTHER case: a credential that has leaked from
+// an account that is staying open.
+async function signOutEverywhere(id, who, isSelf) {
+  const msg = isSelf
+    ? `Sign YOURSELF out of every browser, including this one?
+
+You will need a fresh sign-in link to get back in.`
+    : `End every session ${who} is holding, on every device?
+
+They can sign in again with a fresh link; anything unsaved is lost.`;
+  if (!confirm(msg)) return;
+  const { body } = await jsend(`/api/admin/users/${id}/revoke-sessions`, 'POST', {});
+  if (!body.ok) { banner('err', body.error || 'Could not revoke those sessions.'); return; }
+  if (body.self) { location.href = '/app/login.html'; return; }
+  banner('ok', body.revoked ? `Signed ${esc(who)} out of ${body.revoked} session${body.revoked === 1 ? '' : 's'}.` : `${esc(who)} was not signed in anywhere.`);
+  LOADERS.sessions();
 }
 // ---- sessions ---------------------------------------------------------------
 // Who is signed in, and the ability to end it (technical-audit_2026-08-19 S5).
@@ -437,7 +460,15 @@ async function saveUser(id) {
   }
   const data = { name: g('name').value, role: g('role').value, status: g('status').disabled ? undefined : g('status').value, customerId: customerId || null };
   const { body } = await jsend(`/api/admin/users/${id}`, 'PATCH', data);
-  if (body.ok) { banner('ok', `Saved changes to ${esc(body.user.email)}.`); customersForInvite = null; LOADERS.users(); LOADERS.customers(); }
+  if (body.ok) {
+    // Say how many sessions the switch-off ended. The count is the point: the
+    // console used to promise that disabling was "the reversible,
+    // audit-preserving equivalent" of a delete, which was true about the record
+    // and silent about the credential the person was still holding (OA-183).
+    const n = body.revokedSessions || 0;
+    banner('ok', `Saved changes to ${esc(body.user.email)}.${n ? ` Signed them out of ${n} live session${n === 1 ? '' : 's'}.` : ''}`);
+    customersForInvite = null; LOADERS.users(); LOADERS.customers();
+  }
   else banner('err', body.error || 'Save failed.');
 }
 
