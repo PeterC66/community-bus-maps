@@ -21,6 +21,7 @@
     "test:vendored": "node scripts/test-vendored.mjs",
     "test:selfsufficient": "node --env-file-if-exists=.env scripts/test-engine-selfsufficient.mjs",
     "test:prove-red-selfsufficient": "node --env-file-if-exists=.env scripts/prove-red-selfsufficient.mjs",
+    "test:prove-red-fixture-drift": "node scripts/prove-red-fixture-drift.mjs",
     "test:svg": "node --env-file-if-exists=.env scripts/test-inline-svg.mjs",
     "test:schema": "node scripts/test-schema-compat.mjs",
     "test:contrast": "node scripts/test-contrast.mjs",

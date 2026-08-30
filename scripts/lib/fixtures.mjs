@@ -33,6 +33,7 @@
 //    loudly what it did not prove.
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
+import { warnIfBehindCommitted } from './fixture-freshness.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,6 +81,17 @@ function committedFixtures(kind) {
  * is deliberate: the laptop's .env points at the live render tree, which is
  * where a real regression shows up first, and a committed fixture that silently
  * overrode it would make the local gate weaker than it is today.
+ *
+ * AND IT SAYS SO WHEN THAT MAKES IT WEAKER INSTEAD (OA-180, 2026-08-30). The
+ * env path carries a version number, so it goes stale at every rollout and
+ * nothing reads it: this laptop spent six days gating `v6.55` while CI gated
+ * the `v6.59` the committed fixture had been refreshed from — same command,
+ * two answers, no message. `warnIfBehindCommitted()` compares the two packs'
+ * `build-meta.json` and prints when the env entry is the older one. It is
+ * sited HERE, in the resolver, rather than in each gate: six scripts call this
+ * function, the fault is a property of the resolution and not of any one gate,
+ * and a check every caller has to remember to make is one that a seventh
+ * caller will not.
  */
 export function resolveFixtures(kind) {
   const envVar = kind === 'place' ? 'PLACE_FIXTURE_DIR' : 'FIXTURE_DIR';
@@ -87,7 +99,10 @@ export function resolveFixtures(kind) {
     .split(';')            // `;` not `:` — these are Windows absolute paths
     .map((f) => f.trim())
     .filter((f) => f && existsSync(f));
-  if (fromEnv.length) return { fixtures: fromEnv, source: 'env' };
+  if (fromEnv.length) {
+    warnIfBehindCommitted(kind, fromEnv);
+    return { fixtures: fromEnv, source: 'env' };
+  }
 
   const committed = committedFixtures(kind === 'place' ? 'Places' : 'Areas');
   if (committed.length) return { fixtures: committed, source: 'committed' };

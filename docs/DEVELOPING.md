@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.17 | 2026-08-29 | sha=df96c4ee -->
-**v1.17** · updated 29 August 2026
+<!-- docstamp v1.18 | 2026-08-30 | sha=1e03300a -->
+**v1.18** · updated 30 August 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -144,9 +144,21 @@ That is also why CI keeps its own full audit rather than trusting the hook: the 
 
 Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one of the two map skills or a portal-owned wrapper, and `engine/vendored.json` says which, with a hash. `npm test` runs `scripts/test-vendored.mjs`, which fails on an edited copy, a missing one, or a file the manifest does not name — so vendoring something new means classifying it, not just copying it. After a deliberate re-vendor run `node scripts/check-vendored.mjs --update` from the repository root and commit the manifest with the file. Run `npm run check:vendored` with no flags on a machine that also has the skill trees and it additionally tells you whether the SOURCE has moved on; in CI that half is skipped and says so. See [`../engine/README.md`](../engine/README.md).
 
-### `verify` skips silently — this has caught people out
+### Which pack `verify` gates, and the per-machine `.env` keys that change it
 
-`verify-reproduce.mjs` and `verify-reproduce-place.mjs` **exit 0 with a "skipping" message when `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` are unset or missing.** That is deliberate — a fresh clone without the separate data repo should still pass `npm test` — but it means **a green run in a clean checkout proves nothing about the renderer.** Set both in `.env` (git-ignored; see `.env.example`) and confirm the output says PASS with byte counts, not "skipping", before you trust a render change.
+**You do not have to set anything.** `scripts/lib/fixtures.mjs` resolves a COMMITTED fixture — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in the buses-data repo — from `BUSES_DIR` or from a buses-data checkout sitting beside this one, and when it can find nothing at all the gate **fails** rather than skipping. It used to print "skipping" and exit 0, which is how a fresh clone, a CI run and a second developer all got a green result from a gate that had never executed (technical-audit_2026-08-19, finding V2); `npm run verify -- --allow-skip` is the one remaining way to get a green board without proving anything, and it says so in capitals. The committed fixture is what `verify.yml` gates in CI.
+
+**`FIXTURE_DIR` and `PLACE_FIXTURE_DIR` in `.env` override that pack, and are per-machine.** `.env` is git-ignored, so this is a step every clone and every laptop does for itself; `.env.example` carries the full form of both keys. Point `FIXTURE_DIR` at a live `Areas/<Town>/S5-render/<version>` folder and the local gate becomes **stronger** than CI's — that tree is where a real regression surfaces first — which is why the environment wins over the committed fixture rather than the other way round. It may be a `;`-separated list (`;`, not `:`, because these are Windows absolute paths): `verify:area` takes the first entry, and `verify:defaults` needs all three towns, because no single town exercises all thirteen escape hatches.
+
+**The catch is that those paths carry a version number, so they go stale at every rollout, and until 2026-08-30 nothing read them.** This laptop gated `St Ives/S5-render/v6.55_2026-08-24_1603` for six days after the committed fixture was refreshed from `v6.59` — same `npm run verify`, two machines, two different packs, no message (OA-180). The resolver now compares the two packs' `build-meta.json` and prints a `⚠ … is BEHIND the committed fixture` block naming both `builtAt` stamps whenever the env entry is the older one. It is a warning and not a failure, because aiming at the live tree is a legitimate choice; what failed was the silence. It stays quiet when the env entry is newer (the normal state between a rollout and the next fixture refresh), and it says *cannot tell* out loud rather than nothing when a pack has no `build-meta.json` to compare.
+
+**When it warns, repoint the key** — edit `.env`, replacing each town's version folder with the newest one under that town's `S5-render/`, or delete the line to gate exactly what CI gates. Then re-run the gate from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
+
+```bash
+npm run verify:area
+```
+
+Confirm the output names the fixture you expect, says `source : $FIXTURE_DIR`, and ends in PASS with byte counts. The warning has its own falsification harness — `npm run test:prove-red-fixture-drift`, run from the same folder, seven scratch trees, no fixture repository needed — which requires it to fire on a stale path and to stay silent on the five shapes that do not deserve it. It runs in `verify.yml` ahead of the gates.
 
 ### The post-generation sheet fixes and the reproduce gates
 

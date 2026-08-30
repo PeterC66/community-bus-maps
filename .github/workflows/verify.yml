@@ -154,6 +154,20 @@ jobs:
           echo "Areas/_portal-fixture:"; ls -la buses-data/Areas/_portal-fixture
           echo "Places/_portal-fixture:"; ls -la buses-data/Places/_portal-fixture
 
+      # The resolver that CHOOSES the fixture, falsified before the three gates
+      # that trust it. A local `.env` may aim FIXTURE_DIR at the live render tree
+      # instead — a stronger gate when the path is current and a different one
+      # when it is not, which is how this laptop spent six days gating a v6.55
+      # pack while this job gated the v6.59 the committed fixture was refreshed
+      # from (OA-180). `resolveFixtures()` now says so, and this proves the
+      # sentence can appear AND that it stays away on the five shapes that do not
+      # deserve it — including the one CI itself is in, where FIXTURE_DIR is
+      # unset. Needs no fixture repository: seven scratch trees under the temp
+      # dir, ~2 s.
+      - name: prove the fixture-drift warning can go red
+        working-directory: community-bus-maps
+        run: npm run test:prove-red-fixture-drift
+
       - name: verify:area — the portal reproduces a shipped town sheet
         working-directory: community-bus-maps
         env:
