@@ -89,16 +89,16 @@
       "path": "area/gen_external_busway.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_busway.js",
-      "sha256": "50d0fd16733bd30bc7438d890c9f17d4c2fed6e7c115fc6472dc5d4f42503ff1",
-      "vendoredOn": "2026-08-28",
+      "sha256": "9e6e78e8f45101b6b522b1b8b90e4fa03fc56af386aa412b0a8714cefda74764",
+      "vendoredOn": "2026-08-30",
       "note": "The busway external template; import-map.mjs copies it in as gen_external.js under --external-style busway."
     },
     {
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "cbfe21225e7c613f0c7290f4735d9c6ebdbe254e5a3c62ab86fc8148abb2a1e9",
-      "vendoredOn": "2026-08-28",
+      "sha256": "6f5137e05cd53ad3cfdf3228bbc89572c389b5e4c0cbc3c3c7a6dfeec0ae5210",
+      "vendoredOn": "2026-08-30",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
     {
@@ -139,15 +139,15 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "ad568164e2075d97db0cab40f256b80ffe25ab6b00ef5360001eab90da398f19",
-      "vendoredOn": "2026-08-29"
+      "sha256": "0f6d177f07b67637ba43a9480546266d390ce0ac959913163004c50b77c00183",
+      "vendoredOn": "2026-08-30"
     },
     {
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "32ae5e5ad5ca1364cc7c290b3faeaff33628e192ca599ea370986ae69c9567d3",
-      "vendoredOn": "2026-08-28",
+      "sha256": "66c93afa8e09e18cfd2fa3df3214879da5379debd180dc15446faa01a2ab6629",
+      "vendoredOn": "2026-08-30",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
@@ -189,6 +189,14 @@
       "sha256": "73d8e3251ee7f79364e8eb0cfadf7f5ba34d7082b4b67fe6157250cf3c36c237",
       "vendoredOn": "2026-08-27",
       "note": "lat/lon to page millimetres. Required at load by gen_internal.js."
+    },
+    {
+      "path": "dash_fit.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/dash_fit.js",
+      "sha256": "544bdeb2496844eb6d9de79ae129d3f076268762e39da06614c31cc285d46770",
+      "vendoredOn": "2026-08-30",
+      "note": "The dashed-spoke pattern and its mid-gap fit. Required at load by area/gen_external_radial.js, area/gen_external_busway.js and place/gen_external_places.js, which is the point of it: it was three copies of one primitive and the fix reached one of them twice running."
     },
     {
       "path": "svg_primitives.js",
