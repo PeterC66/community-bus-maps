@@ -104,6 +104,40 @@ function changeHtml(sum, pubKey) {
 
 // How many sheets this one decision covers. The list below shows them as
 // separate items, and nothing said they publish together (findings H1).
+/**
+ * WHAT THE ENGINE THOUGHT OF THIS BUILD (OA-046).
+ *
+ * The bus skill writes build-warnings.txt beside every run, and until 2026-08-30
+ * nothing downstream read it: 161 of them on the map tree, zero mentions of the
+ * name anywhere in the portal. This screen is the one place a human has already
+ * agreed to look at a sheet, so it is where the verdict belongs.
+ *
+ * THREE STATES, AND THE THIRD IS THE ONE WORTH THE CODE. A pack that carries no
+ * file says so, in as many words, instead of showing nothing — because "no
+ * warnings" and "we do not know" look identical when the answer is absent, and
+ * the second is the one that should make an approver ask. A false zero here
+ * would tell somebody the engine was happy with a sheet it had refused to draw.
+ */
+function buildWarningsHtml(bw) {
+  if (bw === undefined) return '';   // older server, say nothing at all
+  if (bw === null) {
+    return `<p class="rd-note">The engine's build report did not travel with this version, so there is
+      <strong>no record here of what it warned about</strong>. That is not the same as a clean build.
+      Packs delivered before 2026-08-30 carry none.</p>`;
+  }
+  if (bw.blocking > 0) {
+    return `<p class="rd-note rd-warn"><strong>The engine refused to draw ${bw.blocking} thing${bw.blocking === 1 ? '' : 's'} on this build.</strong>
+      BLOCKING means a sheet is wrong in a way the reader cannot see — a symbol missing, or a label naming nothing.
+      Look at the sheets below with these in mind before you sign anything off.</p>
+      <ul class="rd-warn-list">${bw.blockingLines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`;
+  }
+  if (bw.total > 0) {
+    return `<p class="hint-line">The engine reported ${bw.total} warning${bw.total === 1 ? '' : 's'} on this build and
+      <strong>none of them blocking</strong> — nothing it refused to draw.</p>`;
+  }
+  return '<p class="hint-line">The engine reported no warnings on this build.</p>';
+}
+
 function sheetCount(inspect) {
   return new Set(inspect.filter((d) => /\.(svg|jpg)$/.test(d.file)).map((d) => d.file.replace(/\.(svg|jpg)$/, ''))).size;
 }
@@ -156,6 +190,7 @@ async function openReview(id) {
       <p class="hint-line">Open each sheet full-size and check it prints correctly.${sheets > 1
         ? ` <strong>One decision covers all ${sheets} sheets of this map</strong> — there is no way to publish one and hold another back.`
         : ''}</p>
+      ${buildWarningsHtml(body.buildWarnings)}
       ${inspectHtml(body.inspect)}
       <div class="dl-row" style="margin-top:8px"><a class="dl" href="/app/review-services.html?id=${r.id}" target="_blank" rel="noopener">↗ Open services and stops list (opens in a new tab)</a></div>
     </div>

@@ -47,7 +47,7 @@ import {
   swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
 } from './maps/engine.js';
 import { sanitizeOverrides, BOARDING_CONFLICT } from './maps/safeSubset.js';
-import { versionDir, mapDataDir, proposedDataDir, OUTPUT_FILES, OUTPUTS } from './maps/store.js';
+import { versionDir, mapDataDir, proposedDataDir, readBuildWarnings, OUTPUT_FILES, OUTPUTS } from './maps/store.js';
 import { ensureWatermarked } from './render/watermark.js';
 import { ensureDraftMarked, draftLabel } from './render/draftStamp.js';
 import {
@@ -2326,6 +2326,20 @@ app.get('/api/review/:id', async (req, reply) => {
     checklist: CHECKLIST,
     // Files to eyeball before signing off (approver read-access is enforced above).
     inspect: downloadsForVersion(pr.map_id, pr.version_key),
+    // WHAT THE ENGINE THOUGHT OF THIS BUILD (OA-046).
+    //
+    // The bus skill writes build-warnings.txt beside every run and, until
+    // 2026-08-30, nothing downstream read it: 161 of them on the map tree, zero
+    // mentions of the name anywhere in this repository. So the one place a
+    // human has already agreed to look at a sheet — this screen — was the one
+    // place the engine’s own verdict on it never reached.
+    //
+    // It is carried with the delivery rather than re-derived. Re-running the
+    // guards here would give TODAY’S engine’s opinion of an older pack, and the
+    // severity contract itself widened on 2026-08-28; what an approver needs is
+    // the verdict the sheet actually shipped under. A pack that carries no file
+    // reports null, never a zero — see readBuildWarnings().
+    buildWarnings: readBuildWarnings(mapDataDir(pr.map_id)),
     town: meta.town,
   };
 });

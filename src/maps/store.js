@@ -28,6 +28,50 @@ export function overridesPath(id) {
 // NOT a customer edit: it lives inside data/ and is merged UNDER the customer's
 // safe-subset overrides at render time. Area maps have none (absent ⇒ empty ⇒
 // byte-identical baseline). See src/maps/engine.js and engine/place/README.md.
+/**
+ * THE ENGINE'S OWN VERDICT ON THE BUILD (OA-046).
+ *
+ * The bus skill writes `build-warnings.txt` beside every S4 and S5 run: a count
+ * line, then the warnings, with BLOCKING meaning the engine refused to draw
+ * something or drew a label that names nothing. 161 of them existed on the map
+ * tree and ZERO reached anything downstream — the file is git-ignored on that
+ * side, and the string "build-warnings" appeared nowhere in this repository at
+ * all. So the verdict was computed, was correct, was acted on once by whoever
+ * watched the rollout terminal, and was then thrown away.
+ *
+ * It is carried with a delivery for the one thing this side cannot do: the
+ * portal renders a NEW version with STRICT_GUARDS=1 and gets its own answer,
+ * but for the version being IMPORTED it has none, and re-deriving one would
+ * give today's engine's opinion of an older pack rather than the verdict the
+ * sheet actually shipped under.
+ */
+export const BUILD_WARNINGS = 'build-warnings.txt';
+
+/**
+ * Parse a `build-warnings.txt` into something a screen can show.
+ *
+ * Tolerant by design: an unreadable or unrecognised file reports `null` rather
+ * than throwing or guessing a zero. A FALSE ZERO is the one answer that would
+ * be worse than no answer at all — it would tell an approver the engine was
+ * happy with a sheet it had refused to draw.
+ *
+ * @returns {{total:number, blocking:number, blockingLines:string[]}|null}
+ */
+export function readBuildWarnings(dir) {
+  let raw;
+  try { raw = readFileSync(path.join(dir, BUILD_WARNINGS), 'utf8'); } catch { return null; }
+  const head = /^\s*(\d+)\s+warnings?,\s*(\d+)\s+blocking\./m.exec(raw);
+  if (!head) return null;
+  const blockingLines = [];
+  let inBlocking = false;
+  for (const line of raw.split(/\r?\n/)) {
+    if (/^---\s*BLOCKING/i.test(line)) { inBlocking = true; continue; }
+    if (/^---/.test(line)) { inBlocking = false; continue; }
+    if (inBlocking && line.trim()) blockingLines.push(line.trim());
+  }
+  return { total: Number(head[1]), blocking: Number(head[2]), blockingLines };
+}
+
 export const BASE_OVERRIDES = 'base-overrides.json';
 // P7 — the expert's hand-placed junction pins for the tube-map diagram, written by
 // the pin editor into the map's data folder and read by the diagram engine on every

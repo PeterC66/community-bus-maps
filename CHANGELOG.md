@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.115 | 2026-08-30 | sha=229b302a -->
-**v1.115** · updated 30 August 2026
+<!-- docstamp v1.116 | 2026-08-30 | sha=77ceb2e6 -->
+**v1.116** · updated 30 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -14,6 +14,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-30** — [A number where the name would not go](CHANGELOG.d/2026-08-30-a-number-where-the-name-would-not-go.md)
 - **2026-08-30** — [A switched-off account, and a map with nobody to own it](CHANGELOG.d/2026-08-30-a-switched-off-account-and-a-map-with-no-owner.md)
 - **2026-08-30** — [The eight packs that could never be tracked](CHANGELOG.d/2026-08-30-the-eight-packs-that-could-never-be-tracked.md)
+- **2026-08-30** — [The engine's verdict on a build now reaches the person reviewing it](CHANGELOG.d/2026-08-30-the-engines-verdict-reaches-the-reviewer.md)
 - **2026-08-30** — [The placer round: reserve what you draw](CHANGELOG.d/2026-08-30-the-placer-round-reserve-what-you-draw.md)
 - **2026-08-30** — [The fixture resolver picked a six-day-old pack and said nothing](CHANGELOG.d/2026-08-30-the-resolver-picked-a-stale-pack-without-saying-so.md)
 - **2026-08-30** — [The self-sufficiency gate rendered one sheet of the four it certified](CHANGELOG.d/2026-08-30-the-self-sufficiency-gate-rendered-one-sheet-of-four.md)

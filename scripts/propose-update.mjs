@@ -21,7 +21,7 @@ import {
   getMap, getMapBySlug, getOpenProposedForMap, supersedePendingProposed,
   insertProposedUpdate, setProposedDataDir, setProposedSummary,
 } from '../src/db/index.js';
-import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, writeSheetDeclaration } from '../src/maps/store.js';
+import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
 import { notify, appUrl } from '../src/email/notify.js';
 
@@ -89,7 +89,10 @@ const stagedData = ensureProposedDirs(map.id, pid);
 let copied = 0;
 for (const f of readdirSync(SRC)) {
   if (f === 'overrides.json' || f === BASE_OVERRIDES) continue; // framing handled below / never stage stale
-  const keep = /^gen_.*\.js$/.test(f) || (f.endsWith('.json') && !f.endsWith('.bak'));
+  // See import-map.mjs: build-warnings.txt is the engine's verdict on this
+  // build and travels with it (OA-046). swapInProposedData() makes the staged
+  // folder the live data on accept, so it reaches the map itself from here.
+  const keep = /^gen_.*\.js$/.test(f) || f === BUILD_WARNINGS || (f.endsWith('.json') && !f.endsWith('.bak'));
   if (!keep) continue;
   cpSync(path.join(SRC, f), path.join(stagedData, f));
   copied++;
