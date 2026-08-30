@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.111 | 2026-08-30 | sha=8a892841 -->
-**v1.111** · updated 30 August 2026
+<!-- docstamp v1.112 | 2026-08-30 | sha=d0fe709b -->
+**v1.112** · updated 30 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-30** — [The placer round: reserve what you draw](CHANGELOG.d/2026-08-30-the-placer-round-reserve-what-you-draw.md)
 - **2026-08-30** — [The fixture resolver picked a six-day-old pack and said nothing](CHANGELOG.d/2026-08-30-the-resolver-picked-a-stale-pack-without-saying-so.md)
 - **2026-08-30** — [The self-sufficiency gate rendered one sheet of the four it certified](CHANGELOG.d/2026-08-30-the-self-sufficiency-gate-rendered-one-sheet-of-four.md)
 - **2026-08-29** — [A payload declares which sheets it has](CHANGELOG.d/2026-08-29-a-payload-declares-which-sheets-it-has.md)
