@@ -64,6 +64,8 @@ import { writePlacesSidecar } from './search/place-index.js';
 import { searchPlaces, bumpSearchIndex } from './search/index.js';
 import { PILOT, INDEXING, ENVIRONMENT } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { robotsTxt } from './public/robots.js';
+import { STATIC_PAGES } from './public/staticPages.js';
+import { loggableUrl } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
@@ -168,18 +170,31 @@ const app = Fastify({
   // for> a first-class URL, and the B8 rule has to follow the feature rather
   // than the route it first appeared on.
   //
+  // /auth/verify JOINED THAT LIST on 2026-08-31, and it is the more serious of
+  // the two. `?token=` there is a magic link: a live credential that opens a
+  // session, single-use with a 15-minute TTL — and a CROSS-SITE arrival only
+  // peeks at it and shows a confirmation page, so the token in the log line can
+  // still be spendable when somebody reads it. It is the one credential on this
+  // site that cannot be moved into a header, because it arrives as a link in an
+  // email; the two OPS tokens that used to accept `?token=` were deleted outright
+  // in the 2026-08-25 audit (N7) precisely because they could be. This one is
+  // stripped instead. It was found on 2026-08-31 while doing the Caddy half
+  // below, which is the argument for doing both halves of a leak in one go.
+  //
   // WHAT THIS DOES NOT COVER, said plainly rather than left to be discovered:
-  // Caddy keeps its own access log (see the Caddyfile) and records the full URI,
-  // which this serialiser cannot touch. So a JS-off search still leaves the term
-  // in /var/log/caddy/busmaps.access.log. Closing that means a `log { }` filter
-  // in the Caddyfile; it is logged as a follow-on rather than done here, because
-  // it is a change to the proxy's config and belongs in its own deploy.
+  // Caddy keeps its own access log and records the full URI, which this
+  // serialiser cannot touch. That is now closed at the other end — the Caddyfile
+  // redacts `q` and `token` by name in a `format filter` block, deployed by
+  // `npm run deploy:caddy` and by nothing else. THE TWO LISTS ARE SEPARATE AND
+  // MUST BE KEPT TOGETHER: this one is by ROUTE PREFIX because Fastify sees the
+  // route, Caddy's is by PARAMETER NAME because a proxy does not. Adding a
+  // sensitive parameter to a new route means editing both. The route list and
+  // the stripping are src/public/logRedaction.js, so a test can drive what a log
+  // line actually says rather than read the code back.
   logger: {
     serializers: {
       req(req) {
-        const bare = req.url && (req.url.startsWith('/api/public/search') || req.url.startsWith('/maps?'));
-        const url = bare ? req.url.split('?')[0] : req.url;
-        return { method: req.method, url, host: req.host, remoteAddress: req.ip, remotePort: req.socket ? req.socket.remotePort : undefined };
+        return { method: req.method, url: loggableUrl(req.url), host: req.host, remoteAddress: req.ip, remotePort: req.socket ? req.socket.remotePort : undefined };
       },
     },
   },
@@ -1135,13 +1150,10 @@ app.get('/robots.txt', async (req, reply) => {
   return robotsTxt({ indexable: INDEXING.allowed, sitemapUrl: `${baseUrl(req)}/sitemap.xml` });
 });
 
-// Every public page that is linked from the footer, so the sitemap and the footer
-// agree. `/opportunity.html` is outreach rather than shopfront, but it is linked
-// from all of them — excluding it would hide it from crawlers while showing it to
-// every visitor, which is not privacy, just inconsistency. (What actually keeps it
-// unindexed is robots.txt saying `Disallow: /`, which it does until ALLOW_INDEXING=1
-// — a decision now independent of PILOT_MODE. See src/config.js §INDEXING.)
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html', '/accessibility.html', '/changelog.html'];
+// The list of hand-written public pages is src/public/staticPages.js, so that a
+// test can join it to the footer and to each page's canonical without booting
+// this server. It used to be a const here; see that file for the rule it keeps
+// and the four hours it took to break the first time nothing enforced it.
 
 app.get('/sitemap.xml', async (req, reply) => {
   const base = baseUrl(req);
