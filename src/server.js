@@ -2080,7 +2080,13 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
       // Render from the staged data BEFORE committing the swap.
       const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
       // Render OK → make the staged data the live data (old data archived).
-      swapInProposedData(id, pu.id);
+      // What the swap carried forward from the archive is worth a line: the list is
+      // how the expert's pins and the pack's engine-source declaration survive a
+      // refresh, and a declaration it deliberately REFUSED to carry (OA-199) is a
+      // fact about this map that nothing else would ever say out loud.
+      const swap = swapInProposedData(id, pu.id);
+      if (swap.carried.length) req.log.info({ mapId: id, carried: swap.carried }, 'carried pack extras onto the refreshed data');
+      for (const d of swap.dropped) req.log.warn({ mapId: id, file: d.file }, `did NOT carry ${d.file} forward — ${d.why}`);
       return { rend, overrides: reapplied.overrides, dropped: reapplied.rejected };
     });
 

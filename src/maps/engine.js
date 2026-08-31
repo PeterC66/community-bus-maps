@@ -14,7 +14,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, u
 import path from 'node:path';
 import os from 'node:os';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber, outputHint, readSheetDeclaration } from './store.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, ENGINE_SOURCE, versionNumber, outputHint, readSheetDeclaration } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { buildFacts, FACTS_FILE } from './facts.js';
 
@@ -508,6 +508,58 @@ export function carryExpertTuning(id, stagedDir) {
   return carried;
 }
 
+/* Which of the two vendored external generators a file IS, read off the file
+ * itself. This is signal 2 of the pair `backfill-engine-source.mjs` uses, and it is
+ * deliberately the same expression: the busway generator dereferences `D.busway[`,
+ * the radial one never mentions `.busway` at all. */
+const externalKind = (src) => (/D\.busway\[/.test(src) ? 'busway' : 'radial');
+
+/**
+ * OA-199 - should a pack's archived `engine-source.json` be carried onto the data
+ * that has just replaced it?
+ *
+ * WHY IT HAS TO BE CARRIED AT ALL. The file records which vendored external
+ * generator a pack's `gen_external.js` is a copy of (OA-143), because an AREA pack
+ * stores both candidates under that one name and the name cannot say. Only
+ * `import-map.mjs` and `backfill-engine-source.mjs` write it, and neither runs on
+ * the accept path - so before this it died with the archived data directory every
+ * time an update was accepted. Eight of eighteen live maps went back to `skipped`
+ * on `track-engine.mjs` the day after they were recorded, and a skip is not a
+ * failure, so the summary line still read `0 BEHIND`.
+ *
+ * WHY IT MUST NOT BE CARRIED BLINDLY, which is the half the row that raised this
+ * did not have. A refresh is exactly the moment a town's layout can change. Carry a
+ * `radial` declaration onto a pack that now holds the BUSWAY generator and the
+ * tracker - which trusts a declaration precisely so that it never guesses - will
+ * overwrite that generator with the radial file at the next re-vendor. That is the
+ * silent corruption the whole design exists to refuse, and the fix would have been
+ * what introduced it. So the declaration is checked against the generator it
+ * describes, and one that has stopped being true is dropped rather than kept:
+ * absent means "nobody has answered", which is a state the tracker already handles
+ * correctly, and it is recoverable by re-running the backfill.
+ *
+ * An entry naming a file the new pack does not have is moot rather than wrong, and
+ * is left alone - the declaration is dropped only on a genuine disagreement.
+ */
+export function engineSourceVerdict(declPath, liveDir) {
+  let decl;
+  try { decl = JSON.parse(readFileSync(declPath, 'utf8')); }
+  catch { return { keep: false, why: 'the archived declaration will not parse' }; }
+  const gens = decl && typeof decl.generators === 'object' && decl.generators;
+  if (!gens || !Object.keys(gens).length) return { keep: false, why: 'the archived declaration names no generator' };
+  for (const [packFile, rel] of Object.entries(gens)) {
+    if (typeof rel !== 'string' || !rel) return { keep: false, why: packFile + ' is declared as something that is not a path' };
+    const onDisk = path.join(liveDir, packFile);
+    if (!existsSync(onDisk)) continue;                 // moot, not wrong
+    const declared = /busway/i.test(rel) ? 'busway' : 'radial';
+    const actual = externalKind(readFileSync(onDisk, 'utf8'));
+    if (declared !== actual) {
+      return { keep: false, why: packFile + ' is declared ' + declared + ' (' + rel + ') and the refreshed pack holds the ' + actual + ' generator' };
+    }
+  }
+  return { keep: true, why: 'the declaration still describes the refreshed pack' };
+}
+
 /**
  * Accept a staged monthly refresh (P5): move the outgoing live data into the
  * archive (never deleted) and swap the staged proposed data into the live data
@@ -538,8 +590,19 @@ export function swapInProposedData(id, pid) {
       carried.push(f);
     }
   }
+  // The engine-source declaration is the second entry this list has ever had, and it
+  // does NOT get the same unconditional carry - see engineSourceVerdict() for why a
+  // stale one is worse than an absent one. `dropped` names what was deliberately not
+  // carried, so a refusal is something the caller can log rather than a silence.
+  const dropped = [];
+  const declFrom = path.join(archived, ENGINE_SOURCE);
+  if (existsSync(declFrom) && !existsSync(path.join(live, ENGINE_SOURCE))) {
+    const verdict = engineSourceVerdict(declFrom, live);
+    if (verdict.keep) { cpSync(declFrom, path.join(live, ENGINE_SOURCE)); carried.push(ENGINE_SOURCE); }
+    else dropped.push({ file: ENGINE_SOURCE, why: verdict.why });
+  }
   invalidatePoiCache(id);                              // drawn-POI universe may have changed
-  return { archived, carried };
+  return { archived, carried, dropped };
 }
 
 export { OUTPUT_FILES };
