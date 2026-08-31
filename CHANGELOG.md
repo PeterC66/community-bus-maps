@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.121 | 2026-08-31 | sha=7dc6a383 -->
-**v1.121** · updated 31 August 2026
+<!-- docstamp v1.122 | 2026-08-31 | sha=e94e72ec -->
+**v1.122** · updated 31 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -14,6 +14,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-31** — [A one-way loop leaves the frame twice, and only one of those tails is a departure](CHANGELOG.d/2026-08-31-a-one-way-loop-leaves-the-frame-twice.md)
 - **2026-08-31** — [A read token for the worklist, and the standing laptop cookie it retires (again)](CHANGELOG.d/2026-08-31-a-read-token-for-the-worklist-oa-203.md)
 - **2026-08-31** — [The declaration died with the data it described](CHANGELOG.d/2026-08-31-the-declaration-died-with-the-data-it-described.md)
+- **2026-08-31** — [The token reached .env and not the container — the warning was in the file nobody opens](CHANGELOG.d/2026-08-31-the-token-reached-env-and-not-the-container.md)
 - **2026-08-30** — [A number where the name would not go](CHANGELOG.d/2026-08-30-a-number-where-the-name-would-not-go.md)
 - **2026-08-30** — [A switched-off account, and a map with nobody to own it](CHANGELOG.d/2026-08-30-a-switched-off-account-and-a-map-with-no-owner.md)
 - **2026-08-30** — [A boarding sheet stops sending readers to the wrong flag](CHANGELOG.d/2026-08-30-the-boarding-sheet-stand-rules.md)
