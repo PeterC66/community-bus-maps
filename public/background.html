@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Background — BusMaps.uk</title>
+  <meta name="description" content="How BusMaps.uk started: a volunteer bus leaflet for one Cambridgeshire town that took over a hundred hours and a thousand pounds of design work, and the question of whether the same thing could be made for everywhere.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/csrf.js"></script>
+  <script src="/js/site-banner.js" defer></script>
+  <script src="/js/nav-current.js" defer></script>
+  <script src="/js/live-examples.js" defer></script>
+  <script src="/js/auth-status.js" defer></script>
+</head>
+<body>
+  <!-- nav:start -->
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/maps">Published maps</a>
+    <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/pricing.html">Pricing</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+    <a class="navlink" href="/contact.html">Contact</a>
+    <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+    <span class="nav-auth" id="navAuth"></span>
+  </nav></div></header>
+  <!-- nav:end -->
+
+  <main>
+    <section><div class="container">
+      <h2 class="mt-0">The leaflet that started it</h2>
+      <p class="section-intro">A bus map for one small town took over a hundred volunteer hours and a
+        thousand pounds of design work. <em>Could a computer do it for everywhere?</em></p>
+
+      <div class="card" style="max-width:760px">
+        <h3 class="mt-0">&ldquo;I didn't know the bus went there&rdquo;</h3>
+        <p>In the spring of 2026 a group of volunteers from <strong>St Ives Town Council</strong>
+          produced a bus leaflet for the town. Two sides of A4: one showing the buses that move
+          about within St Ives, the other showing where you can get to from the bus station and
+          which service takes you there.</p>
+        <p>What happened when people picked it up was the thing that stuck. Again and again, the
+          reaction was some version of the same sentence &mdash; <em>I didn't know the bus went
+          there.</em> Not from people who had considered the bus and rejected it. From people who
+          had never known it was an option at all.</p>
+        <p style="margin-bottom:0">That is a strange kind of failure. The buses were running. They
+          were funded, timetabled, and in many cases going past the end of somebody's road with
+          empty seats on them. The information existed too &mdash; in an app, on an operator's
+          website, on a stop flag. What was missing was the one thing that answers the question
+          people actually ask, which is not <em>when is the next 301?</em> but <em>can I get to
+          Huntingdon, and how?</em></p>
+      </div>
+
+      <article class="card example" style="max-width:760px;margin-top:22px">
+        <div class="imgs">
+          <a href="/img/stives-leaflet-2026-internal.jpg" target="_blank" rel="noopener"><img src="/img/stives-leaflet-2026-internal.jpg" width="1600" height="1127" alt="The 2026 St Ives volunteer leaflet, inner side: a colour-coded street schematic titled Buses within St Ives, with route lines, place-of-interest icons and a services list."></a>
+          <a href="/img/stives-leaflet-2026-external.jpg" target="_blank" rel="noopener"><img src="/img/stives-leaflet-2026-external.jpg" width="1600" height="1137" alt="The 2026 St Ives volunteer leaflet, outer side: a diagram titled Buses from St Ives to nearby towns, with straight coloured lines running out from the bus station to Cambridge, Huntingdon, March and other destinations."></a>
+        </div>
+        <div class="body">
+          <h3>The leaflet that started it</h3>
+          <p>St Ives, summer 2026. Drawn by hand in a design package by a professional designer,
+            from route information the volunteers assembled themselves. It is a good piece of work,
+            and it is the standard everything since has been measured against.</p>
+          <div class="outputs">Click either sheet to see it full size</div>
+        </div>
+      </article>
+    </div></section>
+
+    <section class="alt"><div class="container">
+      <h2>What one leaflet costs</h2>
+      <p class="section-intro">The leaflet worked. The problem was what it took to make.</p>
+
+      <div class="grid cols-3">
+        <div class="card">
+          <h3 class="mt-0">100+ hours</h3>
+          <p style="margin-bottom:0">of volunteer time gathering and checking the route
+            information.</p>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">&pound;1,000</h3>
+          <p style="margin-bottom:0">of professional design work to turn it into artwork.</p>
+        </div>
+        <div class="card">
+          <h3 class="mt-0">One town</h3>
+          <p style="margin-bottom:0">for one summer, before the services change again.</p>
+        </div>
+      </div>
+
+      <div class="card" style="max-width:760px;margin-top:22px">
+        <p class="mt-0">Printing was on top of that. And the sheet carries its own expiry date in
+          the title &mdash; <em>from 1st June 2026</em> &mdash; because bus routes are not fixed.
+          Operators change them, withdraw them and re-number them several times a year. Every
+          change makes the leaflet a little more wrong, and there is no cheap way to put it right:
+          correcting it means going back to the designer, or living with a map that misleads
+          people.</p>
+        <p style="margin-bottom:0">Multiply that by every market town in England that does not have
+          one. The arithmetic simply does not work. Not because nobody cares &mdash; the volunteers
+          cared enormously &mdash; but because a hundred hours and a thousand pounds per town,
+          repeated every time a timetable moves, is a bill nobody is going to pay.</p>
+      </div>
+    </div></section>
+
+    <section><div class="container">
+      <h2>The question worth answering</h2>
+      <div class="card" style="max-width:760px">
+        <p class="mt-0">The route data is not secret. Since the Bus Open Data Service came in, every
+          operator in England has to publish its timetables and stop lists in a standard
+          machine-readable form. The stops themselves are in a national register. The streets, the
+          schools, the surgeries and the supermarkets are in OpenStreetMap. All of the raw material
+          for the St Ives leaflet was, in principle, sitting in public databases the whole time.</p>
+        <p>What was expensive was the judgement in between: deciding which services matter, which
+          places a reader would recognise, where a line should bend, what to leave out. That is
+          exactly the sort of work that has always needed a person &mdash; and exactly the sort of
+          work that large language models have recently got surprisingly good at.</p>
+        <p style="margin-bottom:0">So the question was narrow and testable. <strong>Could AI be used
+          to build something that turns the open data into a sheet as good as the one the
+          volunteers made &mdash; and if it worked once, would it work for anywhere?</strong></p>
+      </div>
+
+      <div class="notice" style="max-width:760px;margin-top:18px">
+        <strong>How the AI is actually used.</strong> Not to draw the pictures. It was used to write
+        the software that draws them &mdash; and to do the judgement work that software is bad at:
+        reading operator timetables against the open data feed and flagging where they disagree,
+        deciding how a route should be labelled, and checking finished sheets for mistakes. The maps
+        themselves come out of code, from public data, with no network and no AI at drawing time, so
+        the same inputs always produce the same sheet.
+      </div>
+    </div></section>
+
+    <section class="alt"><div class="container">
+      <h2>What comes out</h2>
+      <p class="section-intro">It works. The two sheets below are St Ives again, built by the system
+        from the open data rather than by hand, and deliberately answering the same two questions
+        the volunteers' leaflet answered.</p>
+
+      <article class="card example" style="max-width:760px">
+        <div class="imgs">
+          <a href="/api/public/maps/st-ives/internal.jpg" data-fallback-href="/img/stives-generated-internal.jpg" target="_blank" rel="noopener"><img src="/api/public/maps/st-ives/preview/internal" data-fallback="/img/stives-generated-internal.jpg" width="1600" height="1131" loading="lazy" alt="A generated map titled Buses within St Ives: coloured bus routes drawn over the real street layout, with icons for schools, doctors, supermarkets and parks, a services panel listing each operator and route, and a key."></a>
+          <a href="/api/public/maps/st-ives/external.jpg" data-fallback-href="/img/stives-generated-external.jpg" target="_blank" rel="noopener"><img src="/api/public/maps/st-ives/preview/external" data-fallback="/img/stives-generated-external.jpg" width="1600" height="1131" loading="lazy" alt="A generated radial diagram titled Buses from St Ives to nearby places: coloured spokes run out from St Ives Bus Station to Cambridge, Huntingdon, March, Ramsey and other destinations, each labelled with intermediate villages and a route badge."></a>
+        </div>
+        <div class="body">
+          <h3><span class="badge">Area</span> The same town, generated</h3>
+          <p>Routes and stops from the UK Bus Open Data Service, cross-checked against operators at
+            bustimes.org; streets and places from OpenStreetMap. Both sheets are A4 and print at
+            300&nbsp;dpi.</p>
+          <div class="outputs">Click either sheet to see it full size</div>
+        </div>
+      </article>
+
+      <div class="card" style="max-width:760px;margin-top:22px">
+        <p class="mt-0">They are not identical to the originals, and they were never meant to be.
+          The street map is drawn to the real geography rather than straightened out, so the shape
+          of the town is recognisable. The destinations sheet is a radial diagram: find where you
+          want to go around the edge, follow the coloured line in to the middle, and the badge on it
+          is the bus you need. Both sheets say when the data was collected and where it came from,
+          because a map that will go out of date should admit it.</p>
+        <p style="margin-bottom:0">The cost of the second town was a fraction of the first, and the
+          cost of the twentieth was almost nothing. That is the whole point of doing it this way:
+          the expensive part is building the machine once, not making the map each time.</p>
+      </div>
+    </div></section>
+
+    <section><div class="container">
+      <h2>Why bother, when everything is on a phone</h2>
+      <div class="card" style="max-width:760px">
+        <p class="mt-0">This is the fair objection, and it deserves a straight answer. There are
+          good bus apps. Google Maps will plan a journey. bustimes.org is excellent and free.
+          <strong>None of this is trying to replace any of them.</strong></p>
+        <p>What those tools all have in common is that you have to know what to ask. They will tell
+          you brilliantly how to get from here to a place you have already thought of. They will not
+          tell you that there is a bus to somewhere you never considered &mdash; and that, going
+          back to the reaction the leaflet got, is the gap.</p>
+        <p>A map on a wall does something an app cannot. You can stand in front of it without having
+          decided anything. You can see the whole network at once. Someone can point at it. It is
+          there in the doctor's waiting room, the library, the parish noticeboard, the sheltered
+          housing lounge &mdash; in front of exactly the people least likely to be running a journey
+          planner, and most likely to be stuck at home.</p>
+        <p style="margin-bottom:0">The current national policy framework for buses commits to
+          passengers getting accurate, accessible, easy-to-understand information. It talks about
+          open data, live arrivals and app developers. It does not mention maps once.<br>
+          <span class="small muted">Department for Transport, <em>The government's vision for buses
+          and approach to delivery</em>, April 2026.</span></p>
+      </div>
+
+      <div class="card" style="max-width:760px;margin-top:18px">
+        <p class="mt-0" style="margin-bottom:0">And underneath the practical argument there is the
+          one that actually motivates it. The buses are running anyway. Filling the empty seats
+          costs nothing extra. What it buys is somebody getting out of the house &mdash; to the
+          shops, to a class, to see a friend, to a hospital appointment they would otherwise have
+          missed. Loneliness and isolation are not solved by a bus map. But not knowing the bus
+          exists is a very stupid reason to stay in.</p>
+      </div>
+    </div></section>
+
+    <section class="alt"><div class="container">
+      <h2>Where it has got to</h2>
+      <p class="section-intro">Maps for eight towns &mdash; St Ives, Huntingdon, St Neots, Ramsey,
+        March and Wisbech in Cambridgeshire, and High Wycombe and Beaconsfield in Buckinghamshire
+        &mdash; plus a handful of sheets built around a single place rather than a whole town: a
+        supermarket, a high street, the kind of destination where the useful question is simply
+        <em>which buses stop here?</em></p>
+
+      <div class="card" style="max-width:760px">
+        <p class="mt-0">It is honestly still a pilot, and this site says so on every page. There are
+          no customers and no income; every map here is one we made ourselves. Maps get things wrong
+          and get taken down and rebuilt, and the most useful thing that happens to this project is
+          somebody who knows an area writing in to say that a line is going the wrong way &mdash;
+          because that has twice now turned out to be a fault in the software rather than in one
+          map.</p>
+        <p>Three things hold that together:</p>
+        <ul>
+          <li>Every sheet is built from public, licensed open data, and says so in its footer.</li>
+          <li>Every sheet is checked against the operators' own timetables before it goes up, and
+            the disagreements are written down rather than quietly resolved.</li>
+          <li>The software is source-available now and becomes fully open source in 2030, so nobody
+            is left stranded if this stops.</li>
+        </ul>
+        <p style="margin-bottom:0">Which leaves the question of what it becomes. A one-person pilot
+          is not a service, and the thing that would make this worth having &mdash; a map for every
+          market town in the country, kept right as the timetables move &mdash; is bigger than one
+          person and needs to belong to something more durable than a hobby. The likeliest shape is
+          a community interest company: not-for-profit by constitution, able to charge the
+          organisations that can pay so the ones that cannot still get a map. That is a conversation
+          rather than a plan, and if it interests you it is very much worth having.</p>
+      </div>
+
+      <div class="lead-cta">
+        <a class="btn btn-primary" href="/opportunity.html">Take this on</a>
+        <a class="btn btn-ghost" href="/examples.html">See what it makes</a>
+      </div>
+
+      <p class="small muted" style="max-width:760px;margin-top:18px">The original 2026 St Ives
+        leaflet was produced by volunteers from St Ives Town Council; the figures for it are their
+        own estimate of the time and the invoiced design cost, and exclude printing.</p>
+    </div></section>
+  </main>
+
+  <!-- footer:start -->
+  <footer class="site-footer"><div class="container"><div class="cols">
+    <div class="attrib">
+      <strong>BusMaps.uk</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
+      Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a>, stop and stand data via <a href="https://www.gov.uk/government/publications/national-public-transport-access-node-schema">NaPTAN</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>). Always check live times with the operator or at bustimes.org.
+    </div>
+    <div>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/background.html">Background</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a> · <a href="/changelog.html">What's new</a><br>
+      <span class="muted">© BusMaps.uk</span>
+    </div>
+  </div></div></footer>
+  <!-- footer:end -->
+</body>
+</html>
