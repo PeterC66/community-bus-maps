@@ -97,8 +97,8 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "034e28008e92fcf059af86fe25d8d0ac63f7a1206b56ee190a11a6b075c82001",
-      "vendoredOn": "2026-08-30",
+      "sha256": "5b338ab4126ec1d791e42b5654b61139558677d6a238cc1aaeab3a5d34684b9c",
+      "vendoredOn": "2026-08-31",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
     {
@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "8e1076036906fb923167859375235516d49238e6768ed9ccd07f4dcd0e0ba553",
+      "sha256": "ec7479fe0acc8ae90e59682a4733d8ccd9249d027a5b4936e51bcf7179ec3088",
       "vendoredOn": "2026-08-31",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
