@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.123 | 2026-08-31 | sha=30fc9340 -->
-**v1.123** · updated 31 August 2026
+<!-- docstamp v1.124 | 2026-08-31 | sha=91dc8e78 -->
+**v1.124** · updated 31 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -14,6 +14,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-08-31** — [A one-way loop leaves the frame twice, and only one of those tails is a departure](CHANGELOG.d/2026-08-31-a-one-way-loop-leaves-the-frame-twice.md)
 - **2026-08-31** — [A read token for the worklist, and the standing laptop cookie it retires (again)](CHANGELOG.d/2026-08-31-a-read-token-for-the-worklist-oa-203.md)
 - **2026-08-31** — [/background.html — the site could say what it does and what it costs, and not why it exists](CHANGELOG.d/2026-08-31-background-the-page-that-says-why-any-of-this-exists.md)
+- **2026-08-31** — [The vendored engine learns which points of interest matter, and stops deciding it by name length](CHANGELOG.d/2026-08-31-poi-must-may-miss-reaches-the-vendored-engine.md)
 - **2026-08-31** — [The declaration died with the data it described](CHANGELOG.d/2026-08-31-the-declaration-died-with-the-data-it-described.md)
 - **2026-08-31** — [The token reached .env and not the container — the warning was in the file nobody opens](CHANGELOG.d/2026-08-31-the-token-reached-env-and-not-the-container.md)
 - **2026-08-30** — [A number where the name would not go](CHANGELOG.d/2026-08-30-a-number-where-the-name-would-not-go.md)
