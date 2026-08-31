@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.118 | 2026-08-30 | sha=137ba687 -->
-**v1.118** · updated 30 August 2026
+<!-- docstamp v1.119 | 2026-08-31 | sha=e27e1d4b -->
+**v1.119** · updated 31 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-08-31** — [A seeded council that read as real](CHANGELOG.d/2026-08-31-a-seeded-council-that-read-as-real.md)
 - **2026-08-30** — [A number where the name would not go](CHANGELOG.d/2026-08-30-a-number-where-the-name-would-not-go.md)
 - **2026-08-30** — [A switched-off account, and a map with nobody to own it](CHANGELOG.d/2026-08-30-a-switched-off-account-and-a-map-with-no-owner.md)
 - **2026-08-30** — [A boarding sheet stops sending readers to the wrong flag](CHANGELOG.d/2026-08-30-the-boarding-sheet-stand-rules.md)

@@ -30,6 +30,20 @@ import {
 import { loadStatusSnapshot } from '../status-snapshot.js';
 import { emailHealth, FAILURE_THRESHOLD } from '../email/health.js';
 
+// An address nobody can be reached at is, by definition, an address nobody is
+// waiting behind. RFC 2606 reserves example.com/.net/.org and the .example,
+// .test and .invalid TLDs; RFC 6761 adds .localhost. They resolve nowhere and
+// accept no mail, which is exactly why seed and fixture data uses them — and
+// exactly why they are safe to treat as "not a real person" without guessing
+// at anybody's name. Exported because it is a claim about the world, not about
+// this module, and the tests assert it directly.
+const RESERVED_DOMAINS = /(^|\.)(example\.(com|net|org)|example|test|invalid|localhost)$/i;
+export function isUnreachableAddress(email) {
+  const at = String(email || '').lastIndexOf('@');
+  if (at < 0) return false;
+  return RESERVED_DOMAINS.test(email.slice(at + 1).trim().replace(/\.$/, ''));
+}
+
 // Ranks are "who is blocked", not "which queue". Lower acts first.
 // 0 is reserved for the skill's failing-gate items — nothing the portal knows
 // about outranks "the engine no longer reproduces a map we already shipped".
@@ -133,16 +147,40 @@ export function buildWorklist({ baseUrl = process.env.PUBLIC_BASE_URL || '' } = 
   // 2 — organisations waiting on a vetting decision. One visit to one tab, so a
   // queue of them is one item: the list answers "what next", and "open
   // Applications" is a single next thing.
+  //
+  // SEEDED APPLICATIONS ARE SPLIT OUT, and the split is the whole point of the
+  // rest of this comment. This used to be ONE rollup over every pending
+  // application, and on the dev checkout that meant eight: seven obvious
+  // "Test <sector>" rows from seed-demo.mjs and one called "Ramsey Town
+  // Council", which reads exactly like a real applicant and is not one
+  // (seed-demo.mjs seeds it too, to give the Applications tab something
+  // lifelike to look at). On 2026-08-31 a session read that rollup, saw one
+  // plausible name among seven implausible ones, and told the operator a real
+  // council was waiting on him. Nothing in the row said otherwise, because a
+  // rollup that mixes real and seeded rows can only ever be reported as one or
+  // the other.
+  //
+  // The test is the ADDRESS, not the name. RFC 2606 and RFC 6761 reserve
+  // example.com/.net/.org and the .example/.test/.invalid/.localhost TLDs
+  // precisely so they can never be delivered to, which makes "this applicant
+  // cannot be emailed" a fact rather than a naming convention someone has to
+  // remember to follow. A real council that typed its address wrong is not
+  // hidden by this: it would have to have typed a reserved domain.
   const apps = listApplications({ status: 'pending' });
-  if (apps.length) {
-    const names = apps.map((a) => a.org_name || a.email).filter(Boolean);
+  const realApps = apps.filter((a) => !isUnreachableAddress(a.email));
+  const seededApps = apps.filter((a) => isUnreachableAddress(a.email));
+  for (const [group, demo] of [[realApps, false], [seededApps, true]]) {
+    if (!group.length) continue;
+    const names = group.map((a) => a.org_name || a.email).filter(Boolean);
     add({
-      key: 'applications', rank: 2, type: 'application',
-      title: apps.length === 1 ? `Decide the application from ${names[0]}` : `Decide ${apps.length} organisation applications`,
-      why: `${apps.length === 1 ? 'Waiting' : `Waiting: ${names.join(', ')}`}. Approving creates the customer, its first editor and a passwordless invite. Vet against the quota + vetting policy first.`,
-      who: apps.length === 1 ? names[0] : `${apps.length} organisations`,
-      ageDays: Math.max(...apps.map((a) => daysSince(a.created_at) ?? 0)),
-      where: url('/app/admin'), runbook: 'R2', count: apps.length,
+      key: demo ? 'applications-demo' : 'applications', rank: 2, type: 'application', demo,
+      title: group.length === 1
+        ? `Decide the application from ${names[0]}`
+        : `Decide ${group.length} organisation applications`,
+      why: `${group.length === 1 ? 'Waiting' : `Waiting: ${names.join(', ')}`}.${demo ? ' Every one of these has an unreachable (RFC 2606 reserved) address, so they are seed data — nobody is waiting.' : ''} Approving creates the customer, its first editor and a passwordless invite. Vet against the quota + vetting policy first.`,
+      who: group.length === 1 ? names[0] : `${group.length} organisations`,
+      ageDays: Math.max(...group.map((a) => daysSince(a.created_at) ?? 0)),
+      where: url('/app/admin'), runbook: 'R2', count: group.length,
       do: [{ kind: 'portal-ui', what: 'Admin → Applications → Approve or Reject.', url: url('/app/admin') }],
     });
   }
