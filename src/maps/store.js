@@ -78,6 +78,22 @@ export const BASE_OVERRIDES = 'base-overrides.json';
 // render. Expert work, not a customer edit and not part of a monthly payload, so it
 // is carried forward when fresh data is swapped in (see swapInProposedData).
 export const DIAGRAM_LAYOUT = 'diagram-layout.json';
+// OA-143 - WHICH of the two vendored external generators a pack's `gen_external.js`
+// is a copy of. An AREA pack stores it under a name that cannot say which, so the
+// answer is recorded beside it and `track-engine.mjs` reads it rather than guessing.
+// Nothing in src/ writes this file; it is written by `scripts/import-map.mjs` at
+// import and by `scripts/backfill-engine-source.mjs` as a one-off. It is carried
+// forward across a data refresh by swapInProposedData() (OA-199), which is the only
+// reason src/ needs the name at all.
+//
+// THE NAME IS DUPLICATED, DELIBERATELY, AND THE DUPLICATION IS PINNED BY A TEST.
+// `scripts/lib/engine-source.mjs` owns the authoritative constant and cannot import
+// this module: `test-engine-source.mjs` builds a scratch world holding a copy of
+// `scripts/` ONLY, so a src/ import would break the suite that guards the tracker.
+// Importing the other way round would drag `src/db` - and a database migration -
+// into a script whose whole point is to run without one. So the two literals are
+// asserted equal in `scripts/test-carry-forward.mjs` rather than wished equal.
+export const ENGINE_SOURCE = 'engine-source.json';
 export function diagramLayoutPath(id) {
   return path.join(mapDataDir(id), DIAGRAM_LAYOUT);
 }

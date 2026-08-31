@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.119 | 2026-08-31 | sha=bb9cbcdd -->
-**v1.119** · updated 31 August 2026
+<!-- docstamp v1.120 | 2026-08-31 | sha=8d1c34ed -->
+**v1.120** · updated 31 August 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-08-31** — [A one-way loop leaves the frame twice, and only one of those tails is a departure](CHANGELOG.d/2026-08-31-a-one-way-loop-leaves-the-frame-twice.md)
+- **2026-08-31** — [The declaration died with the data it described](CHANGELOG.d/2026-08-31-the-declaration-died-with-the-data-it-described.md)
 - **2026-08-30** — [A number where the name would not go](CHANGELOG.d/2026-08-30-a-number-where-the-name-would-not-go.md)
 - **2026-08-30** — [A switched-off account, and a map with nobody to own it](CHANGELOG.d/2026-08-30-a-switched-off-account-and-a-map-with-no-owner.md)
 - **2026-08-30** — [A boarding sheet stops sending readers to the wrong flag](CHANGELOG.d/2026-08-30-the-boarding-sheet-stand-rules.md)
