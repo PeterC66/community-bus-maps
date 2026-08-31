@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "2732e5fedfca770767f6e9815a560063dffb4e549a42699fdc1942962f61dbb5",
+      "sha256": "8e1076036906fb923167859375235516d49238e6768ed9ccd07f4dcd0e0ba553",
       "vendoredOn": "2026-08-31",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -170,8 +170,8 @@
       "path": "poi_select.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/poi_select.js",
-      "sha256": "aaafba680e60063fbbf05a3583f2b785d737f6a5374140c9d9dd976044ea316a",
-      "vendoredOn": "2026-08-27",
+      "sha256": "1ca6b4dafc7a9df4a1b2734690395e2dec43b04a016d8a63fd0e7e00bd2e19f9",
+      "vendoredOn": "2026-08-31",
       "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
     },
     {
@@ -218,8 +218,8 @@
       "path": "label_placer.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/label_placer.js",
-      "sha256": "38ec90bdaff1e51b3f359ad88ca5eaf0cc565b5daeda547c049294255e20c91c",
-      "vendoredOn": "2026-08-30",
+      "sha256": "bddce84eac0e3fb92f0b94b741a823ab7b55d063fbac0c25f2e1df9a8970f136",
+      "vendoredOn": "2026-08-31",
       "note": "The shared reserved-box list, both label placers, and the route-ink contrast floor. Required at load by gen_internal.js."
     },
     {
