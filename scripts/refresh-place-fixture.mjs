@@ -10,6 +10,19 @@
  * writes is by construction what the gate will regenerate, rather than something
  * built a slightly different way that happens to look right.
  *
+ * WHAT `unchanged` DOES NOT MEAN (buses-data OA-188). This script copies the fixture
+ * into scratch and re-runs the generator against the fixture's OWN stored data, exactly
+ * as the byte gate does — so it answers "does the current engine redraw this fixture
+ * from what the fixture holds", and it cannot answer "is what the fixture holds still
+ * what the derivation scripts would produce". It reported a boarding fixture
+ * `unchanged` while that fixture was 924 bytes behind the sheet being shipped, and it
+ * had to be re-staged by hand (buses-data `b9adaa5`). The DERIVED files carry the
+ * version of the script that wrote them, so the stamps are printed below alongside the
+ * byte verdict rather than left for a reader to assume. Neither Python script is
+ * vendored here, so the version they are compared AGAINST is a question only the buses
+ * repo can answer — `status.js` gates it there, on the fixtures as well as on the
+ * places, and this line is the pointer to it.
+ *
  * Run from the portal root, with no placeholders:
  *     node scripts/refresh-place-fixture.mjs "<absolute path to the fixture folder>"
  * Add --apply to write; without it nothing is touched.
@@ -51,6 +64,19 @@ if (routesJson.internalDiagram) targets.push([path.join(EXPERT, 'gen_internal_di
 if (routesJson.boardingPlan) targets.push([path.join(EXPERT, 'gen_boarding.js'), 'boarding.svg', 'boarding.jpg']);
 
 console.log(`${APPLY ? 'APPLYING' : 'DRY RUN'} — ${FIXTURE}\n`);
+
+// The stored data this whole run reproduces FROM, and the script version that wrote
+// it. A byte verdict below is a statement about the engine; these two lines are the
+// input it is a statement about, and nothing else here reads them.
+for (const derived of ['boarding_index.json', 'stands.json']) {
+  const dp = path.join(FIXTURE, derived);
+  if (!existsSync(dp)) continue;
+  let by = null;
+  try { by = JSON.parse(readFileSync(dp, 'utf8')).generatedBy || null; } catch { by = null; }
+  console.log(`  stored data  ${derived.padEnd(22)} ${by || '(no generatedBy stamp)'}`);
+}
+console.log('  (a byte verdict below says the engine redraws this data; it says nothing about');
+console.log('   whether the data is current — buses-data status.js gates that.)\n');
 for (const [generator, svgName, jpgName] of targets) {
   const ref = path.join(FIXTURE, svgName);
   if (!existsSync(ref)) continue;
