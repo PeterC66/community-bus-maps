@@ -155,9 +155,22 @@ busmaps.uk {
 #   go on reading `busmaps.uk` — it now skips snippet definitions and takes the
 #   first real site block, and there is a test for that.
 #
-#   `permanent` is a 308, not a 301. A 308 preserves the method and body, so a
-#   POST to www is re-sent as a POST. Nothing here expects one, but a 301 would
-#   silently turn one into a GET, and that is not a thing to leave lying about.
+#   THE STATUS CODE IS WRITTEN OUT AS 308 rather than spelt `permanent`, and
+#   that is not a style choice. Caddy's `permanent` emits a **301**. This block
+#   said `permanent` when it was first deployed, on 2026-08-31, and what said
+#   so was the deploy script's own read-back of the live site, printing
+#   `NO  301 https://busmaps.uk/` against an assertion written for 308. The
+#   comment that used to sit here asserted the opposite, confidently, and was
+#   wrong; nothing on this laptop could have contradicted it, because Caddy is
+#   not installed here and CI cannot run it either.
+#
+#   Why 308 and not the 301 we accidentally shipped: a 308 preserves the method
+#   and body, so a POST to www is re-sent as a POST, where a 301 lets it be
+#   downgraded to a GET. Nothing here expects a POST on this name, but the block
+#   is a catch-all for every path including ones nobody has written yet. For
+#   search engines the two are equivalent, so the canonical half of this row
+#   turns on none of it — the reason to name the number is that `permanent` is
+#   ambiguous to a reader and was, in fact, misread.
 #
 # Automatic TLS still covers this name: it is a site address in its own right, so
 # Caddy gets it a certificate exactly as it did when it was an alias.
@@ -171,7 +184,7 @@ busmaps.uk {
 #   curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.busmaps.uk/
 # should print `308 https://busmaps.uk/`. `npm run deploy:caddy` now asserts it.
 www.busmaps.uk {
-	redir https://busmaps.uk{uri} permanent
+	redir https://busmaps.uk{uri} 308
 
 	# HSTS on this name in its own right. The apex's header carries
 	# includeSubDomains and therefore already covers www, but only AFTER a
