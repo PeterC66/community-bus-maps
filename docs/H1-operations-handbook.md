@@ -1,7 +1,7 @@
 ﻿# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.21 | 2026-08-30 | sha=9ba03ca6 -->
-**v1.21** · updated 30 August 2026
+<!-- docstamp v1.22 | 2026-08-31 | sha=2badfde1 -->
+**v1.22** · updated 31 August 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -104,11 +104,11 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 
 **App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle, outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests · Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver review · **`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
 
-**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session) · **`POST /api/admin/status`** the laptop's `push-status.mjs` sends status.js's byte-identical gate + engine/S6 staleness here, gated by `STATUS_TOKEN` or an admin session — it then shows up at ranks 0/8 of the To-do tab / `/api/admin/worklist` alongside the portal's own queues.
+**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session) · **`POST /api/admin/status`** the laptop's `push-status.mjs` sends status.js's byte-identical gate + engine/S6 staleness here, gated by `STATUS_TOKEN` or an admin session — it then shows up at ranks 0/8 of the To-do tab / `/api/admin/worklist` alongside the portal's own queues. **`GET /api/admin/worklist`** and **`GET /api/maps`** also accept an `OPERATOR_TOKEN` Bearer header (OA-203), which is how the laptop's bus-work worklist reads the live site without borrowing somebody's sign-in session; it is GET-only, those two routes only, and admits nothing else anywhere.
 
 **Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `delete-map.mjs` (retire a map — row, versions, publish/proposed-update rows and its `data/maps/<id>/` dir; dry run by default, `--yes` to act — e.g. freeing a demo-held town's slug for a real customer, R1) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) · `fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already stored — a one-off catch-up; renders made now are fixed as they are produced) · `test-contrast.mjs` (WCAG AA gate over the tinted chips in `styles.css`, including every organisation accent; part of `npm test`) · `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` / `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
-**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
+**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`, `OPERATOR_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
 
 **Private ops folder** (local-only, no cloud): **`C:\Claude\community-bus-maps-ops\`** — the customer register, vetting log, incident log and business notes. **Never** synced to GitHub. Back it up yourself.
 
