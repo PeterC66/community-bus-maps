@@ -442,6 +442,40 @@ function opsAuthorised(req) {
   return viaToken || viaAdmin;
 }
 
+// OPERATOR_TOKEN — a READ-ONLY operator credential for the laptop's own tooling
+// (OA-203, 2026-08-31). It admits exactly two GETs, `/api/admin/worklist` and
+// `/api/maps`, at the scope an admin session already sees on them, and it admits
+// nothing else anywhere.
+//
+// WHY IT EXISTS. `bus-work/assets/worklist.mjs` reads those two routes. Both sit
+// behind a signed-in admin, and the only credential this portal issues for a
+// PERSON is a magic-link session — so until now the laptop borrowed one: a live
+// `cbm_session` value pasted into .env and left there. That is a full admin
+// session doing a read tool's job. Only four routes sit behind step-up, so such
+// a stored cookie could also approve an organisation application, approve a map
+// request, create a user, revoke anybody's sessions and mail every customer.
+// The 2026-08-20 P1 block (technical-audit_2026-08-19 S5) had explicitly retired
+// "the standing admin cookie kept in a file on the laptop"; it came back eleven
+// days later as documented setup, in a different repository, because nothing on
+// either side named the other.
+//
+// ITS OWN VARIABLE, and not a reuse of STATUS_TOKEN — the argument at
+// POST /api/admin/status below is that keeping the credentials separate stops a
+// read token from quietly becoming a write token. Sharing one here would run
+// that backwards, which is worse: STATUS_TOKEN WRITES the snapshot the worklist
+// then trusts.
+//
+// THE METHOD CHECK IS THE POINT, not belt-and-braces. Read-only is a property
+// this function can hold on its own, rather than one that depends on nobody ever
+// adding a third call site in a POST handler — and a property in one place is a
+// property a test can break on purpose. Unset ⇒ nobody is ever admitted, the
+// same failure direction as METRICS_TOKEN and STATUS_TOKEN. Bearer header only,
+// constant-time, for the reasons written out above tokenMatches().
+function operatorRead(req) {
+  if (req.method !== 'GET') return false;
+  return tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);
+}
+
 // The readiness probe writes a file and rasterises an 8x8 JPEG on every call, so
 // a short cache stands between it and anyone who decides to hold down F5. Ten
 // seconds is far below the five-minute monitor interval, so neither the monitor
@@ -1673,11 +1707,17 @@ app.get('/app/changelog', async (req, reply) => {
 });
 
 app.get('/api/maps', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  if (user.role !== 'admin' && user.customer_id == null) return { ok: true, isAdmin: false, maps: [] };
-  const scope = user.role === 'admin' ? {} : { customerId: user.customer_id };
+  // OPERATOR_TOKEN reads this at admin scope (OA-203). It is resolved BEFORE
+  // requireUser so a tokened call never needs a session; with no token and no
+  // session the 401 below is unchanged.
+  const viaToken = operatorRead(req);
+  const user = viaToken ? null : requireUser(req, reply);
+  if (!viaToken && !user) return;
+  const isAdmin = viaToken || user.role === 'admin';
+  if (!isAdmin && user.customer_id == null) return { ok: true, isAdmin: false, maps: [] };
+  const scope = isAdmin ? {} : { customerId: user.customer_id };
   return {
-    ok: true, isAdmin: user.role === 'admin',
+    ok: true, isAdmin,
     maps: listMaps(scope).map((m) => ({
       id: m.id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject,
       status: m.status, currentVersion: m.cur_key || null,
@@ -2651,7 +2691,9 @@ app.get('/api/admin/summary', async (req, reply) => {
 // Links are absolute against the request's own origin so they stay clickable
 // when the caller is a terminal on another machine.
 app.get('/api/admin/worklist', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
+  // OPERATOR_TOKEN reads this too (OA-203) — it is the list bus-work prints in
+  // the terminal, and the same one the To-do tab shows.
+  if (!operatorRead(req) && !requireAdmin(req, reply)) return;
   // Through the shared baseUrl(), which prefers PUBLIC_BASE_URL and only falls
   // back to the request's own Host. This route is admin-only so the header was
   // never a takeover risk here, but it was the last hand-built absolute URL in
