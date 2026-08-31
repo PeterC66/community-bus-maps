@@ -3,14 +3,72 @@
 # hostname belong here, not to the app.
 #
 # Deploy: sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# — or, from the laptop, `npm run deploy:caddy`, which does that and then reads
+# the live site back. Merging this file changes nothing; only that does.
 #
 # Automatic HTTPS needs busmaps.uk's DNS pointing at this host first (GO-LIVE.md
 # §3 "DNS at 20i") — until then Caddy keeps this site on the ACME retry path
 # and serves it over plain HTTP meanwhile; nothing else to do here once DNS is live.
 
-busmaps.uk, www.busmaps.uk {
+# THE ACCESS LOG REDACTS TWO QUERY PARAMETERS BY NAME (buses-data OA-006(a)).
+#
+# Caddy's request line records the FULL URI including its query string. Two
+# things travel in a query string on this site and neither belongs in a file
+# that is in no backup, rotated by nothing here and covered by no retention
+# rule:
+#
+#   q      — a search term. src/server.js's own log serialiser has stripped this
+#            off /api/public/search and /maps since P9 B8, on the rule that
+#            "search queries are never logged, and an access log counts as a
+#            log". It could not reach THIS log, which is why that comment ends by
+#            naming this block as the follow-on. This is that follow-on.
+#   token  — a live sign-in credential. /auth/verify?token=… is a magic link, so
+#            it is the one credential here that cannot be moved to a header: it
+#            arrives as a link in an email. It is single-use with a 15-minute
+#            TTL, and a cross-site click only PEEKS at it, so a token written
+#            here can still be live when the line is written. The two ops tokens
+#            that used to accept `?token=` were removed outright in the
+#            2026-08-25 audit (N7); this one cannot be, so it is redacted
+#            instead.
+#
+# `replace` rather than `delete`, so the log still shows THAT a search or a
+# verification happened — the shape of the traffic is the reason to keep an
+# access log at all — while the value reads `REDACTED`.
+#
+# `wrap json` is stated rather than left to the default. It IS the default for a
+# file output, and writing it down is what stops a later `format` edit silently
+# changing the format of a file something may one day parse.
+#
+# VERIFYING THIS ONE IS NOT A curl. Every other line in this file shows up in a
+# response header; a log filter shows up only in the log. Read it back on the
+# host after deploying — the last line must show `q=REDACTED`, not the term:
+#
+#   npm run ssh
+#   sudo tail -2 /var/log/caddy/busmaps.access.log
+#
+# after visiting https://busmaps.uk/maps?q=ely in a browser.
+(access_log) {
+	log {
+		output file /var/log/caddy/busmaps.access.log
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					replace q REDACTED
+					replace token REDACTED
+				}
+			}
+		}
+	}
+}
+
+busmaps.uk {
 	reverse_proxy 127.0.0.1:5180
 
+	# Don't let the reverse proxy handle 404s for /api/ or /m/ (GO-LIVE.md's
+	# reminder not to strip those paths) — there is no path rewriting above, so
+	# this is automatically satisfied; kept explicit as documentation.
+	#
 	# Caddy forwards X-Forwarded-For/-Proto/-Host to the upstream by default,
 	# which is what src/server.js's trustProxy setting relies on — no manual
 	# header_up needed.
@@ -72,10 +130,57 @@ busmaps.uk, www.busmaps.uk {
 		-Server
 	}
 
-	# Don't let the reverse proxy handle 404s for /api/ or /m/ (GO-LIVE.md's
-	# reminder not to strip those paths) — there's no path rewriting above, so
-	# this is automatically satisfied; kept explicit as documentation.
-	log {
-		output file /var/log/caddy/busmaps.access.log
+	import access_log
+}
+
+# www REDIRECTS TO THE APEX (buses-data OA-172).
+#
+# Until this block existed, `busmaps.uk` and `www.busmaps.uk` were one address
+# list on one site block: both answered 200, byte-identical, and nothing
+# downstream picked a winner. Measured 2026-08-29 — the two homepages hashed the
+# same, and www served its own robots.txt and its own sitemap.xml. Every
+# /m/<slug> page already emitted a canonical pointing at the apex, so the
+# generated half was safe; the twelve shopfront pages emitted none, so each was
+# reachable as two indexable copies with nothing to say which was authoritative.
+#
+# A `redir` collapses that at the edge for every path at once, including ones
+# nobody has written yet — which is why it is the primary fix and the canonicals
+# added to the shopfront pages in the same change are the belt to its braces.
+#
+# Two things about this block that are deliberate:
+#
+#   It is SEPARATE, and it is SECOND. Separate, because a name that redirects
+#   cannot also be an alias of the site it redirects to. Second, because
+#   scripts/deploy-caddy.mjs reads the public hostname out of this file and must
+#   go on reading `busmaps.uk` — it now skips snippet definitions and takes the
+#   first real site block, and there is a test for that.
+#
+#   `permanent` is a 308, not a 301. A 308 preserves the method and body, so a
+#   POST to www is re-sent as a POST. Nothing here expects one, but a 301 would
+#   silently turn one into a GET, and that is not a thing to leave lying about.
+#
+# Automatic TLS still covers this name: it is a site address in its own right, so
+# Caddy gets it a certificate exactly as it did when it was an alias.
+#
+# The log is imported here too, and that is not decoration — a redirect preserves
+# the query string, so `www.busmaps.uk/maps?q=…` writes the search term into the
+# access log on its way past. Redacting it in one block and not the other would
+# leave the hole open on the hostname nobody watches.
+#
+# Verify by reading the live response, not the merge:
+#   curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.busmaps.uk/
+# should print `308 https://busmaps.uk/`. `npm run deploy:caddy` now asserts it.
+www.busmaps.uk {
+	redir https://busmaps.uk{uri} permanent
+
+	# HSTS on this name in its own right. The apex's header carries
+	# includeSubDomains and therefore already covers www, but only AFTER a
+	# browser has visited the apex — and the whole point of this block is the
+	# visitor who arrives at www first.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
 	}
+
+	import access_log
 }

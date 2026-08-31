@@ -71,5 +71,92 @@ const { INDEXING } = await import('../src/config.js');
 check('INDEXING.allowed is false when ALLOW_INDEXING is unset', INDEXING.allowed === false,
   `got ${INDEXING.allowed}`);
 
+// ---------------------------------------------------------------------------
+// WHAT A CRAWLER FINDS ONCE IT IS LET IN (buses-data OA-172, added 2026-08-31).
+//
+// robots.txt above decides WHETHER it may look. These decide what it finds when
+// it does, and they are the same failure shape three times over: a rule written
+// in a comment and enforced by nobody.
+//
+//   The site answers on www and on the apex alike. The Caddyfile now 308s www to
+//   the apex (scripts/test-caddyfile.mjs asserts that half), and every page also
+//   says where it really lives, because a canonical is what a page copied from
+//   another page inherits and a proxy rule is not.
+//
+//   `/background.html` shipped in portal #176 at 14:03 on 2026-08-31, went into
+//   the footer of all sixteen pages, and was in no sitemap four hours later. The
+//   comment above STATIC_PAGES had said since P6 that "every public page that is
+//   linked from the footer" is in the list. It was true when it was written,
+//   stated nowhere a machine could read it, and false by the end of that day.
+//
+//   The application log strips the query string off three route prefixes. Two of
+//   them hide a search term; the third hides a live sign-in credential.
+// ---------------------------------------------------------------------------
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { STATIC_PAGES, PAGE_FILES, SERVER_FILLED_SHELLS, canonicalFor } from '../src/public/staticPages.js';
+import { loggableUrl } from '../src/public/logRedaction.js';
+import { FOOTER_HTML } from './lib/site-chrome.mjs';
+
+const BASE = 'https://busmaps.uk';
+const PUBLIC_DIR = path.join(process.cwd(), 'public');
+const read = (f) => readFileSync(path.join(PUBLIC_DIR, f), 'utf8');
+const canonicalsIn = (html) => [...html.matchAll(/<link rel="canonical" href="([^"]*)">/g)].map((m) => m[1]);
+
+console.log('every static page says where it really lives:');
+for (const p of STATIC_PAGES) {
+  const file = PAGE_FILES.get(p);
+  const found = canonicalsIn(read(file));
+  const want = canonicalFor(BASE, p);
+  check(`${file} -> ${want}`, found.length === 1 && found[0] === want,
+    found.length === 1 ? `found ${found[0]}` : `found ${found.length} canonical tags`);
+}
+
+console.log('the server-filled shells carry NONE of their own:');
+for (const file of SERVER_FILLED_SHELLS) {
+  check(`${file} leaves its canonical to the server`, canonicalsIn(read(file)).length === 0,
+    'src/server.js injects one per map — two canonicals in a document is worse than none');
+}
+
+console.log('no public page was left out:');
+// The population is the DIRECTORY, not the list, so a page added without being
+// listed is a finding rather than a silent omission. That is exactly how
+// /background.html got into every footer and no sitemap.
+const onDisk = readdirSync(PUBLIC_DIR).filter((f) => f.endsWith('.html')).sort();
+const accountedFor = new Set([...PAGE_FILES.values(), ...SERVER_FILLED_SHELLS]);
+const orphans = onDisk.filter((f) => !accountedFor.has(f));
+check('every public/*.html is either in STATIC_PAGES or a known shell', orphans.length === 0,
+  `not accounted for: ${orphans.join(', ')} — add it to src/public/staticPages.js`);
+
+console.log('the footer and the sitemap agree, in both directions:');
+// The rule the STATIC_PAGES comment has always claimed, now asked of the bytes.
+const footerPaths = [...FOOTER_HTML.matchAll(/href="(\/[^"#]*)"/g)]
+  .map((m) => m[1].split('?')[0])
+  .filter((v, i, a) => a.indexOf(v) === i)
+  .sort();
+for (const p of footerPaths) {
+  check(`footer link ${p} is in the sitemap`, STATIC_PAGES.includes(p),
+    'linked from every page and crawlable from none is not privacy, just inconsistency');
+}
+for (const p of STATIC_PAGES) {
+  // `/` is reached from the brand link in the nav bar, not from the footer list.
+  if (p === '/') continue;
+  check(`sitemap entry ${p} is linked from the footer`, footerPaths.includes(p),
+    'a sitemap URL nothing links to is a page that has quietly fallen out of the site');
+}
+
+console.log('the application log keeps neither a search term nor a sign-in token:');
+check('a search query is dropped', loggableUrl('/maps?q=ely') === '/maps');
+check('the search API query is dropped', loggableUrl('/api/public/search?q=ely') === '/api/public/search');
+check('a magic-link token is dropped', loggableUrl('/auth/verify?token=abc123') === '/auth/verify',
+  'a magic link is a live credential and cannot be moved into a header');
+// The negative half. A serialiser that bared EVERY url would pass all three
+// above and be a different bug, so assert what must SURVIVE.
+check('an ordinary URL is untouched', loggableUrl('/m/st-ives') === '/m/st-ives');
+check('a non-sensitive query survives', loggableUrl('/m/st-ives?download=1') === '/m/st-ives?download=1',
+  'the point is to drop two named things, not to blind the log');
+check('a lookalike path is not matched', loggableUrl('/maps.html?x=1') === '/maps.html?x=1',
+  "'/maps?' carries its question mark for this reason");
+
 if (failures) { console.error(`\n${failures} check(s) failed.`); process.exit(1); }
 console.log('\nAll indexing checks passed.');
