@@ -51,8 +51,14 @@ check('the second block is www', (blocks[1] || { addresses: [] }).addresses.join
 
 console.log('the www block redirects rather than serving:');
 const www = blocks[1] || { body: [] };
-check('it redirects to the apex, permanently', www.body.includes('redir https://busmaps.uk{uri} permanent'),
+check('it redirects to the apex, permanently', www.body.includes('redir https://busmaps.uk{uri} 308'),
   'a 200 on www is the duplicate-content state this block exists to end');
+// The NUMBER, not the word. Caddy's `permanent` is a 301, and this file said
+// `permanent` on its first deploy while every comment and check around it said
+// 308. Only the live read-back caught it. Asserting the literal directive here
+// is what stops the word creeping back in.
+check('it names the status code rather than spelling it', !www.body.some((l) => l.startsWith('redir ') && /\b(permanent|temporary)\b/.test(l)),
+  "`permanent` reads as 308 and is a 301");
 check('it does NOT reverse-proxy as well', !www.body.some((l) => l.startsWith('reverse_proxy ')),
   'a name cannot both redirect and be an alias of what it redirects to');
 
