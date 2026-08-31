@@ -30,6 +30,25 @@ services:
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       # Set to accept POST /api/admin/status (the laptop's push-status.mjs).
       STATUS_TOKEN: ${STATUS_TOKEN:-}
+      # Set to let the laptop's bus-work worklist READ /api/admin/worklist and
+      # /api/maps without a person's sign-in session (OA-203). Read-only: GET
+      # only, those two routes only, unset = nobody is admitted.
+      #
+      # THIS LINE IS THE FOURTH TIME THE TRAP BELOW HAS BEEN SPRUNG, and the
+      # first time by somebody who had read the warning. On 2026-08-31 the token
+      # was written into the host .env, the deploy recreated the container, and
+      # the live worklist still got 401 — .env said len 43, the container said
+      # len 0. The warning is in this file, and this file is not where you go
+      # when you add a config variable; .env.example and docs/DEPLOY.md are, and
+      # neither of them said to come here. Both now do, and
+      # scripts/check-compose-env.mjs turns the whole paragraph into a check.
+      OPERATOR_TOKEN: ${OPERATOR_TOKEN:-}
+      # How many months before a published map's data is labelled stale on the
+      # public pages (src/public/services.js; empty = the built-in 6). Named
+      # here because it was reachable from nowhere: not in .env.example and not
+      # in this file, so an operator who set it in .env would have changed
+      # nothing and been told nothing. Found by the same check, 2026-08-31.
+      STALE_AFTER_MONTHS: ${STALE_AFTER_MONTHS:-}
       # Defaults ON in src/config.js if truly unset, but be explicit here so a
       # blank .env value doesn't accidentally fall through to that default.
       PILOT_MODE: ${PILOT_MODE:-1}
@@ -50,6 +69,12 @@ services:
       # ALLOW_SELF_APPROVAL=1 in the host .env", which on its own would have
       # been a line sitting in .env looking correct while the app ran without
       # it and refused every publication — with nothing to say so.
+      #
+      # IT IS NO LONGER ONLY A COMMENT. `npm run check:compose-env` reads every
+      # `process.env.X` under src/ and requires each one to be named here, or in
+      # the Dockerfile's own ENV, or in that script's exemption table WITH A
+      # WRITTEN REASON. It runs in `npm test`. A comment cannot be three-for-
+      # three wrong and stay a comment.
     volumes:
       - portal-data:/data
       # Backups written outside DATA_DIR so a backup is never inside the next one.

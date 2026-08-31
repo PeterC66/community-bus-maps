@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.31 | 2026-08-31 | sha=705df9e2 -->
-**v1.31** · updated 31 August 2026
+<!-- docstamp v1.32 | 2026-08-31 | sha=f614c46d -->
+**v1.32** · updated 31 August 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -40,6 +40,8 @@ Copy `.env.example`. The ones that matter in production:
 | `ALLOW_SELF_APPROVAL` | **must be `1` on this host today, or nothing can be published.** Since 2026-08-20 an approver who submitted a version is refused when they approve it (`technical-audit_2026-08-19` S6). With one operator that means every publication, so the override is set — and each publication made under it is stamped `selfApproved: true` in the evidence and the audit row. Unset it the day a second person holds `approver`. |
 | `ADMIN_EMAIL` | the address `npm run smoke:signin` sends its one real magic link to after a deploy. Must be a **registered, active** user, or no send is attempted and the check cannot pass. |
 | `BACKUP_RECIPIENT` | an **age public key** (`age1…`). Set it and `scripts/backup.mjs` writes the database copy encrypted, as `portal.sqlite.age`; leave it unset and the backup still runs but writes the database in the clear and says so on every run (`technical-audit_2026-08-25` N3). The matching **private key never goes on this host** — it lives in the operator's password manager, which is the whole point of an asymmetric key here. §5 below has the restore command. **Putting it in `.env` is not enough**: the `backup` service has no `env_file`, so `compose.yaml` must name it too, and it does — setting one without the other leaves the key looking correct in `.env` while every backup goes on writing plaintext. Prove it reached the container with `docker compose run --rm backup printenv BACKUP_RECIPIENT`, not by reading `.env`. |
+
+**Setting one of these in `.env` is only half of it, and the other half is silent.** The `portal` service in [`compose.yaml`](../compose.yaml) has no `env_file`: Compose reads `.env` only to substitute `${VARS}` into that file, so **a variable that is not also named under `environment:` there never reaches the container**, however correctly it is spelled. The app then takes its unset branch while the value sits in `.env` looking right, and nothing says the two disagree. It has caught four variables so far — `ALLOW_SELF_APPROVAL` and `ALLOW_INDEXING` (2026-08-21), `BACKUP_RECIPIENT` (2026-08-25) and `OPERATOR_TOKEN` (2026-08-31), the last of them by somebody who had read the warning in `compose.yaml` an hour earlier. That is the point: the warning was in the file nobody opens to add a variable. `npm run check:compose-env` now refuses the omission, names the variable and the file that reads it, and runs inside `npm test`. Prove it can still fail by deleting one variable's line from `compose.yaml` and running it — that is how it was falsified against the real `OPERATOR_TOKEN` fault on the day it was written.
 
 ## 3. Run it
 
