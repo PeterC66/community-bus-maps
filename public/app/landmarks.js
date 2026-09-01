@@ -87,10 +87,24 @@ const MUST_SOFT_CAP = 12;
 const MAX_ZOOM = 40;
 /** One press of +, - or one double-click. The wheel uses a finer step. */
 const ZOOM_STEP = 1.6;
-/** How close the map goes when you pick a place from the list, as a multiple of
- *  the whole-town view. It only ever zooms IN: somebody already closer than this
- *  chose to be, and hauling them back out is this same complaint reversed. */
-const FOCUS_ZOOM = 9;
+/**
+ * How close the map goes when you pick a place from the list.
+ *
+ * WRITTEN AS PRESSES OF THE + BUTTON, because that is the only unit anybody has
+ * for this. Peter, on the live screen: "click on list item >> map goes to the
+ * equivalent of 5 clicks on +. I would prefer the equivalent of 3 clicks."
+ *
+ * The old value was a bare 9, and a bare 9 invites the reading it got from its
+ * own author when reporting it — "a ninth of the town", which sounds like area
+ * and is not. It divides the view's WIDTH, so a ninth of the width is a
+ * EIGHTY-FIRST of the area, and 9 was 4.7 presses rather than the round number
+ * it looked like. Derived from ZOOM_STEP it cannot drift from the buttons and
+ * it cannot be misread: three presses is three presses.
+ *
+ * It only ever zooms IN. Somebody already closer than this chose to be, and
+ * hauling them back out is this same complaint pointing the other way.
+ */
+const FOCUS_ZOOM = ZOOM_STEP ** 3;
 /** How long the map takes to travel there. Instant under reduced motion. */
 const FOCUS_MS = 280;
 /** How far a pointer may travel between down and up and still be a tap, px. */
@@ -101,8 +115,26 @@ const TAP_SLOP = 4;
 const GLYPH_AT = 0.55;
 /** A pictogram's size on screen, px, held constant at every zoom. */
 const GLYPH_PX = 19;
-/** The plain disc's diameter on screen, px. */
-const DOT_PX = 26;
+/**
+ * The plain disc's diameter on screen, px.
+ *
+ * Small on purpose. It was 26 — inherited from the CSS radius this replaced,
+ * and kept only because it was what the page had always drawn — and on a town
+ * with 171 of them that is a field of overlapping circles with the streets
+ * underneath it. Peter, on the live screen: "I am surprised the POI markers are
+ * such large circles when not pictograms." A dot at this zoom is a MARK saying
+ * *something is here*; it does not have to be big enough to hit.
+ */
+const DOT_PX = 12;
+/**
+ * The invisible circle that actually catches a click, diameter px.
+ *
+ * Shrinking the visible dot must not shrink the target — clicking a place on
+ * the map is the whole of this round's first fault, and a 12 px target would
+ * have given it back with a different cause. So the mark you SEE and the target
+ * you HIT are separate elements and separate sizes.
+ */
+const HIT_PX = 24;
 /** The ring's diameter once the disc is holding a pictogram, px. */
 const RING_PX = 29;
 /** At most this many road names at once, however many would fit. */
@@ -147,6 +179,7 @@ let GLYPHS = null;      // cat -> the sheet's own pictogram, from /api/poi-glyph
 let NAMED = [];         // named ways, longest first, for the road-name layer
 let SHOW_NAMES = true;
 let ANIM = null;        // the in-flight travel-to-a-place animation, if any
+let LAND = null;        // the timer that lands it whatever the frames do
 let GLYPH_K = null;     // the pictogram scale the marks currently carry
 
 // ---------------------------------------------------------------------------
@@ -289,10 +322,16 @@ function scaleMarks() {
   if (GLYPH_K != null && Math.abs(k - GLYPH_K) < k * 1e-9) return;
   GLYPH_K = k;
   const glyphsOn = svg.classList.contains('glyphs');
+  const mark = glyphsOn ? RING_PX : DOT_PX;
   const t = `scale(${k.toPrecision(9)})`;
-  const r = ((glyphsOn ? RING_PX : DOT_PX) / 2 / m.scale).toPrecision(9);
+  const r = (mark / 2 / m.scale).toPrecision(9);
+  // Never smaller than the mark: the ring in glyph mode is already bigger than
+  // the default target, and a hit area inside the thing it is the target for
+  // would be a hole in the middle of the symbol.
+  const rh = (Math.max(HIT_PX, mark) / 2 / m.scale).toPrecision(9);
   for (const u of svg.querySelectorAll('.lm-glyph')) u.setAttribute('transform', t);
   for (const c of svg.querySelectorAll('.lm-pt')) c.setAttribute('r', r);
+  for (const c of svg.querySelectorAll('.lm-hit')) c.setAttribute('r', rh);
 }
 
 /**
@@ -350,29 +389,48 @@ function drawRoadNames() {
   g.innerHTML = parts.join('');
 }
 
-/** Ease the view from where it is to `to`. Instant under reduced motion. */
+/**
+ * Ease the view from where it is to `to`.
+ *
+ * ARRIVAL IS GUARANTEED BY A TIMER AND NOT BY THE FRAMES, and that is the whole
+ * design. `requestAnimationFrame` does not run when a page is not being
+ * painted, so an animation started then never completes and leaves the view
+ * wherever it happened to be — the map does not move and nothing says why.
+ *
+ * The first attempt at this guarded on `document.hidden`, which is a PROXY for
+ * "will frames arrive" and is wrong in the direction that costs you: MEASURED
+ * in a pane reporting `document.hidden === false` and `visibilityState ===
+ * "visible"` where no frame arrived in 900 ms, so the guard passed and the
+ * animation silently never ran. A proxy fails both ways and the silent way is
+ * the expensive one. So this asks nothing about visibility: it schedules the
+ * landing on a plain timer, and the frames — if they come — are only the nice
+ * way of getting there. Anything that stops the animation stops the timer too,
+ * so a hand on the map is never overruled a moment later.
+ */
 function animateView(to) {
   stopAnim();
-  // Jump rather than ease when nobody is watching. requestAnimationFrame does
-  // not run in a hidden tab, so an animation started there never completes and
-  // the view is left wherever it was — MEASURED: document.hidden was true in a
-  // background pane and the first frame had still not arrived after 800 ms.
-  if (!motionOK() || document.hidden) { VIEW = to; applyView(); return; }
+  if (!motionOK()) { VIEW = to; applyView(); return; }
   const from = { ...VIEW }; const t0 = performance.now();
+  const land = () => { stopAnim(); VIEW = to; applyView(); };
+  LAND = setTimeout(land, FOCUS_MS + 120);
   const step = (t) => {
     const u = Math.min(1, (t - t0) / FOCUS_MS);
+    if (u >= 1) { land(); return; }
     const e = u < 0.5 ? 2 * u * u : 1 - ((-2 * u + 2) ** 2) / 2;
     VIEW = {
       x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e,
       w: from.w + (to.w - from.w) * e, h: from.h + (to.h - from.h) * e,
     };
     applyView();
-    ANIM = u < 1 ? requestAnimationFrame(step) : null;
+    ANIM = requestAnimationFrame(step);
   };
   ANIM = requestAnimationFrame(step);
 }
 
-function stopAnim() { if (ANIM) { cancelAnimationFrame(ANIM); ANIM = null; } }
+function stopAnim() {
+  if (ANIM) { cancelAnimationFrame(ANIM); ANIM = null; }
+  if (LAND) { clearTimeout(LAND); LAND = null; }
+}
 
 /**
  * Bring the map to a place chosen in the list (OA-220).
@@ -411,6 +469,7 @@ function drawPoints() {
     const [x, y] = project(p.ll);
     const cls = 'lm-mark ' + st.tier + (SELECTED === p.key ? ' sel' : '');
     parts.push(`<g class="${cls}" data-key="${esc(p.key)}" transform="translate(${x.toFixed(5)} ${y.toFixed(5)})">`
+      + '<circle class="lm-hit" cx="0" cy="0"/>'
       + '<circle class="lm-pt" cx="0" cy="0"/>'
       + (GLYPHS && GLYPHS[p.cat] ? `<use class="lm-glyph" href="#lmg-${esc(p.cat)}" x="-10" y="-10" width="20" height="20"/>` : '')
       + `<title>${esc(st.as || p.name)} — ${esc(catLabel(p.cat))} — ${esc(TIER_LABEL[st.tier])}</title></g>`);
