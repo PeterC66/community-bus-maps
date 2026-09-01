@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.6 | 2026-09-01 | sha=1ca1af51 -->
-**v1.6** · updated 1 September 2026
+<!-- docstamp v1.7 | 2026-09-01 | sha=e5992328 -->
+**v1.7** · updated 1 September 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -82,7 +82,7 @@ A domain property can only be verified by **DNS**, and DNS for this domain is at
 
 **Leave the record in place permanently.** Google re-checks it periodically and silently un-verifies the property if it has gone; deleting it during a later DNS tidy-up is the way this quietly stops working.
 
-With the property verified, open **Sitemaps** in the left-hand navigation, enter `sitemap.xml` as the path, and submit. A *Success* status means the file was fetched and parsed — it is not a statement that anything has been indexed, and Coverage will read "Discovered – currently not indexed" for most of the 48 for a while. Do not re-submit to hurry it along; re-submission tells Google nothing it does not already know.
+With the property verified, open **Sitemaps** in the left-hand navigation. It is not a top-level item — it sits inside the **Indexing** group, below *Pages* and beside *Video pages* and *Removals*, which is enough to send somebody hunting for it; `https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Abusmaps.uk` goes straight there for this property. Under **Add a new sitemap** the field is already prefixed with `https://busmaps.uk/`, so type only `sitemap.xml` and submit. A *Success* status means the file was fetched and parsed — it is not a statement that anything has been indexed, and Coverage will read "Discovered – currently not indexed" for most of the 48 for a while. Do not re-submit to hurry it along; re-submission tells Google nothing it does not already know.
 
 ### 2. Bing Webmaster Tools
 
