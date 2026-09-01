@@ -43,7 +43,7 @@ import { readFactsSnapshot, buildFacts } from './maps/facts.js';
 import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
-  enumerateCandidatesFromDir, editablePoiKeysFromDir, packPoiTiers,
+  enumerateCandidatesFromDir, editablePoiKeysFromDir, packPoiTiers, poiGlyphs,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
   swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
 } from './maps/engine.js';
@@ -1873,6 +1873,25 @@ app.get('/api/maps/:id/landmarks', async (req, reply) => {
       answered: cand.filter((p) => p.answered).length,
     },
   };
+});
+
+/**
+ * The sheet's own POI pictograms, for the landmark chooser (OA-220).
+ *
+ * The chooser drew a coloured circle per place and the sheet draws twelve
+ * pictograms, so a reader was matching a picture against a legend they could
+ * only see by opening "See the real sheet". Map-independent and cached in the
+ * module, so this is a single small response shared by every map.
+ *
+ * Behind requireUser only because every page that asks is: there is nothing
+ * here but our own artwork, and no map data of any kind.
+ */
+app.get('/api/poi-glyphs', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const glyphs = poiGlyphs();
+  if (!glyphs) return reply.code(404).send({ ok: false, error: 'No icon set available.' });
+  reply.header('cache-control', 'private, max-age=3600');
+  return { ok: true, glyphs };
 });
 
 /**

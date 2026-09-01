@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.24 | 2026-08-27 | sha=9b8e3511 -->
-**v1.24** · updated 27 August 2026
+<!-- docstamp v1.25 | 2026-09-01 | sha=406c1276 -->
+**v1.25** · updated 1 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -147,6 +147,8 @@ enough to exercise the checklist/Publish-button wiring. On 2026-08-15 there was 
 gating verified via JS (ticking boxes, checking `approveBtn.disabled`), but **never actually
 published** — completing a live publish/reject decision is Peter's call, not something to do as a
 side effect of UI testing.
+
+**Signing in to a LOCAL dev instance, so an app page can actually be driven in a browser (2026-09-01).** A session is a row in the dev database, so one can be made directly and no email is involved. Insert into `session` (`token`, `user_id`, `created_at`, `expires_at`) where **`token` holds the SHA-256 hex of the raw value, not the raw value** — `src/auth/index.js` has stored the hash rather than the token since 2026-08-25 — then set `document.cookie = 'cbm_session=<raw>; path=/'` in the browser and navigate. Two things this bought that reading the source did not. **Sign in as the persona the page is written for**: `/app/maps/:id/landmarks` hides its *Copy for our records* button from non-admins, so an admin session shows a screen no editor ever sees. And the **browser pane is a hidden tab**, so `document.hidden` is true and `requestAnimationFrame` never fires — an animation started there silently never runs and reads as a broken feature until you check, which cost one wrong diagnosis before it was measured. OA-215 recorded local sign-in as refused and built its verification out of wiring checks instead; it is not refused.
 
 **Browser-pane testing notes for this app specifically:**
 - The dev-server magic-link DB read (`reference_portal_signin_without_console` memory) needs a

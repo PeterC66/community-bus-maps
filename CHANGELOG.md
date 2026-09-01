@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.132 | 2026-09-01 | sha=95f988db -->
-**v1.132** · updated 1 September 2026
+<!-- docstamp v1.133 | 2026-09-01 | sha=02f7751b -->
+**v1.133** · updated 1 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -16,6 +16,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-01** — [The search-engine submission gets a runbook, and a pre-flight whose pass is a positive statement](CHANGELOG.d/2026-09-01-search-engine-submission-runbook.md)
 - **2026-09-01** — [Google and Bing are both submitted, and R5 is the only place that can say so](CHANGELOG.d/2026-09-01-search-engines-both-submitted.md)
 - **2026-09-01** — [The landmark chooser went back to its reader, and two of the nine things it came back with were faults](CHANGELOG.d/2026-09-01-the-landmark-chooser-second-round.md)
+- **2026-09-01** — [The landmark chooser's map-click handler had never once fired, and four other things the third viewing turned up](CHANGELOG.d/2026-09-01-the-landmark-chooser-third-round.md)
 - **2026-09-01** — [A screen for choosing landmarks, because the worksheet failed on its first reader](CHANGELOG.d/2026-09-01-the-landmark-chooser.md)
 - **2026-09-01** — [The review screen could not see a landmark answer, and a document promised it saw everything](CHANGELOG.d/2026-09-01-the-review-screen-could-not-see-a-landmark-answer.md)
 - **2026-08-31** — [A one-way loop leaves the frame twice, and only one of those tails is a departure](CHANGELOG.d/2026-08-31-a-one-way-loop-leaves-the-frame-twice.md)

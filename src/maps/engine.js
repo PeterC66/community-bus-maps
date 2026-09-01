@@ -328,6 +328,41 @@ export function readRoutesMeta(id) {
 const poiSelectRequire = createRequire(import.meta.url);
 
 /**
+ * The twelve POI pictograms, exactly as the sheet draws them (OA-220).
+ *
+ * FROM THE MODULE EVERY RENDER ACTUALLY LOADS, which is a stronger claim than
+ * "a copy of it". Generators are vendored per map, so `engine/` normally means
+ * nothing to an existing map — but no map vendors a sibling `icons.js`, so
+ * `gen_internal.js`'s own `_dep()` fallback resolves it through SKILL_ASSETS,
+ * and `renderMap.js` always sets SKILL_ASSETS to ENGINE_DIR. One file, so a
+ * chooser showing a symbol the paper does not use is not a state this can reach.
+ * Checked, not assumed: no map data folder holds an icons.js of its own.
+ *
+ * Drawn with the sheet's own arguments — `charcoal` ink, `grid` set — because a
+ * chooser that taught a different vocabulary from the paper would be worse than
+ * the circles it replaces. `s = 10` maps the glyph's 20-unit live area to
+ * -10..10, which is the viewBox the client gives each <symbol>.
+ *
+ * The category set is closed: `classify()` in poi_select.js returns these twelve
+ * and null, so this can be complete rather than defensive, and GRID_COL's keys
+ * are that list. Deterministic and map-independent, so it is built once.
+ *
+ * @returns {Record<string,string>|null} cat -> SVG fragment, or null if the
+ *          module cannot be read — the chooser falls back to plain dots.
+ */
+let GLYPH_CACHE;
+export function poiGlyphs() {
+  if (GLYPH_CACHE !== undefined) return GLYPH_CACHE;
+  try {
+    const { icon, GRID_COL } = poiSelectRequire(path.join(ENGINE_DIR, 'icons.js'));
+    const out = {};
+    for (const cat of Object.keys(GRID_COL)) out[cat] = icon(cat, 0, 0, 10, 'charcoal', 'grid');
+    GLYPH_CACHE = out;
+  } catch { GLYPH_CACHE = null; }
+  return GLYPH_CACHE;
+}
+
+/**
  * Every POI this map could draw, with the tier it currently carries.
  *
  * @param {string} dataDir  a map data folder (osm.json + routes.json)

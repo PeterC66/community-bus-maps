@@ -13,6 +13,11 @@
   <script src="/js/site-banner.js" defer></script>
 </head>
 <body>
+  <!-- The twelve pictograms the sheet prints, fetched once from /api/poi-glyphs
+       and parked here as <symbol>s so the list and the map can both <use> them
+       without repeating 7 kB of path data 171 times (OA-220). -->
+  <svg id="glyphSprite" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"></svg>
+
   <header class="site-header"><div class="container"><nav class="nav">
     <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
@@ -57,6 +62,10 @@
             <button class="btn btn-ghost btn-sm lm-zoombtn" id="zoomOut" type="button" title="Zoom out (or press the minus key)" aria-label="Zoom out">&minus;</button>
             <button class="btn btn-ghost btn-sm lm-zoombtn" id="zoomIn" type="button" title="Zoom in (or press the plus key, or double-click the map)" aria-label="Zoom in">+</button>
             <button class="btn btn-ghost btn-sm" id="zoomFit" type="button" title="Fit the whole town (or press 0)">Fit</button>
+            <!-- Road names are drawn from the way names the basemap has always
+                 sent and the page threw away. On by default; a reader who finds
+                 them in the way needs a switch, not a bug report (OA-220). -->
+            <button class="btn btn-ghost btn-sm" id="namesBtn" type="button" aria-pressed="true" title="Show or hide the road names">Road names</button>
           </div>
           <div class="lm-stage" id="mapStage">
             <div class="placeholder" id="mapPlaceholder">Loading the streets…</div>
@@ -64,7 +73,7 @@
           <!-- Said out loud, because a picture that looks like the sheet
                without being it is worse than no picture: it invites a
                judgement about crowding from the wrong drawing. -->
-          <p class="hint-line lm-mapnote">Drag the map to move it, and zoom with the &minus; and + buttons above, a double-click, or the wheel. These are your town’s real streets, drawn plainly so you can see where each place is. It is <strong>not</strong> the printed sheet — that has the bus routes, the stop names and the panel competing for the same paper. Use <em>See the real sheet</em> below once you have made your choices.</p>
+          <p class="hint-line lm-mapnote">Drag the map to move it, and zoom with the &minus; and + buttons above, a double-click, or the wheel. <strong>Click any symbol to open that place in the list</strong>, and clicking a place in the list brings the map to it. These are your town’s real streets, drawn plainly so you can see where each place is. It is <strong>not</strong> the printed sheet — that has the bus routes, the stop names and the panel competing for the same paper. Use <em>See the real sheet</em> below once you have made your choices.</p>
           <div class="panel lm-actions">
             <div class="body">
               <div class="lm-tally" id="tally"></div>

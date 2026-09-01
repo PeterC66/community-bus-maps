@@ -153,6 +153,7 @@ const say = (row) => {
 const SUBSET = 'src/maps/safeSubset.js';
 const ENGINE = 'src/maps/engine.js';
 const EDITOR = 'public/app/editor.js';
+const CHOOSER = 'public/app/landmarks.js';
 
 const MUTATIONS = [
   {
@@ -216,6 +217,38 @@ const MUTATIONS = [
     edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n', '']],
     expect: 'so the editable universe contains it, and a save naming it is not rejected',
     needsPack: true,
+  },
+  // ---- OA-220. The chooser's own pure pieces, and the join to the icon set.
+  {
+    what: 'the road-name declutter stops testing for overlap',
+    why: 'the failure nobody can see. A label wrongly PRINTED is visible; a label wrongly dropped looks exactly like a road with no name, and two printed on top of each other look like one road with a smudged name. Nothing about the drawing tells you which happened',
+    edits: [[CHOOSER, 'if (taken.some((t) => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1])) continue;', 'if (false) continue;']],
+    expect: 'two labels that would sit on top of each other become one',
+  },
+  {
+    what: 'the road-name cap stops being honoured',
+    why: 'without this arm the declutter could return its whole input and still pass every assertion above it, because those all use two or three candidates',
+    edits: [[CHOOSER, 'if (out.length >= max) break;', 'if (false) break;']],
+    expect: 'the cap is honoured however many would fit',
+  },
+  {
+    what: 'the tally goes back to saying "left as they are"',
+    why: 'the exact wording Peter objected to on 2026-09-01. It named two populations at once — an answered "show if there is room" and a row nobody had reached — and made a claim about the past that the page has no way to check',
+    edits: [[CHOOSER, '<span class="lm-key may">${TIER_LABEL.may}</span>', '<span class="lm-key may">left as they are</span>']],
+    expect: 'the tally no longer claims anything was "left as they are"',
+  },
+  {
+    what: 'the tap test stops caring how far the pointer moved',
+    why: 'a drag that happens to finish over a mark then selects it, so panning the map past a POI opens that POI — which is how the map-click handler behaves when it is wrong in the OTHER direction',
+    edits: [[CHOOSER, 'return Math.abs(x1 - x0) <= slop && Math.abs(y1 - y0) <= slop;', 'return true;']],
+    expect: 'a pointer that was dragged across the map is not',
+  },
+  {
+    what: 'one category loses its pictogram',
+    why: 'the JOIN between poi_select.js and icons.js, which nothing else holds together. A thirteenth category added to classify() would show a blank where a symbol belongs, on every map that has one, and no other gate would notice',
+    edits: [[ENGINE, "for (const cat of Object.keys(GRID_COL)) out[cat] = icon(cat, 0, 0, 10, 'charcoal', 'grid');",
+      "for (const cat of Object.keys(GRID_COL)) { if (cat === 'school') continue; out[cat] = icon(cat, 0, 0, 10, 'charcoal', 'grid'); }"]],
+    expect: 'and every one of them has a pictogram the chooser can show',
   },
   {
     what: 'the universe admits every key instead',
