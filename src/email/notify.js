@@ -27,6 +27,7 @@
 // *publish* is theirs alone.
 
 import { sendEmail } from './index.js';
+import { escapeHtml as h } from '../html.js';
 import { listUsersAdmin } from '../db/index.js';
 
 const SITE = 'BusMaps.uk';
@@ -61,9 +62,11 @@ export function recipientsFor(customerId) {
 function wrap({ lede, body, action, footnote }) {
   const text = [lede, '', ...body, '', action ? `${action.label}: ${action.url}` : '', '', footnote]
     .filter((l) => l !== undefined).join('\n').replace(/\n{3,}/g, '\n\n');
-  const html = `<p>${lede}</p>${body.map((b) => `<p>${b}</p>`).join('')}`
-    + (action ? `<p><a href="${action.url}">${action.label}</a></p>` : '')
-    + `<p style="color:#666;font-size:13px">${footnote}</p>`;
+  // Every value is escaped on the way into the HTML half. The text half is the
+  // same words unescaped, which is what a text/plain part is for (OA-224 Tier 1.2).
+  const html = `<p>${h(lede)}</p>${body.map((b) => `<p>${h(b)}</p>`).join('')}`
+    + (action ? `<p><a href="${h(action.url)}">${h(action.label)}</a></p>` : '')
+    + `<p style="color:#666;font-size:13px">${h(footnote)}</p>`;
   return { text, html };
 }
 

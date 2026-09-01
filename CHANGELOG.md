@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.136 | 2026-09-01 | sha=75d19011 -->
-**v1.136** · updated 1 September 2026
+<!-- docstamp v1.137 | 2026-09-02 | sha=1358c00d -->
+**v1.137** · updated 2 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-09-02** — [The email took the map name as markup](CHANGELOG.d/2026-09-02-the-email-took-the-name-as-markup.md)
 - **2026-09-01** — [A Must show the sheet could not fit now says so, instead of exiting 0](CHANGELOG.d/2026-09-01-a-must-show-that-could-not-be-fitted-now-says-so.md)
 - **2026-09-01** — [A dot is a mark, not a target — and the focus zoom is now written as presses of the + button](CHANGELOG.d/2026-09-01-marker-size-and-focus-zoom.md)
 - **2026-09-01** — [R5 says where the Sitemaps page actually is, and records that Google verification is done](CHANGELOG.d/2026-09-01-r5-says-where-sitemaps-lives.md)
