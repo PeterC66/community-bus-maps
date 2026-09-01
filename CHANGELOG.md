@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.134 | 2026-09-01 | sha=8b4357ac -->
-**v1.134** · updated 1 September 2026
+<!-- docstamp v1.135 | 2026-09-01 | sha=65fde7aa -->
+**v1.135** · updated 1 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -16,6 +16,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-01** — [Rotating a token, and the advisory that fired on the wrong machine](CHANGELOG.d/2026-09-01-rotating-a-token-and-the-advisory-that-fired-on-the-wrong-machine.md)
 - **2026-09-01** — [The search-engine submission gets a runbook, and a pre-flight whose pass is a positive statement](CHANGELOG.d/2026-09-01-search-engine-submission-runbook.md)
 - **2026-09-01** — [Google and Bing are both submitted, and R5 is the only place that can say so](CHANGELOG.d/2026-09-01-search-engines-both-submitted.md)
+- **2026-09-01** — [A $FIXTURE_DIR entry names the town, not a folder that expires](CHANGELOG.d/2026-09-01-the-fixture-entry-names-the-town-not-the-folder.md)
 - **2026-09-01** — [The landmark chooser went back to its reader, and two of the nine things it came back with were faults](CHANGELOG.d/2026-09-01-the-landmark-chooser-second-round.md)
 - **2026-09-01** — [The landmark chooser's map-click handler had never once fired, and four other things the third viewing turned up](CHANGELOG.d/2026-09-01-the-landmark-chooser-third-round.md)
 - **2026-09-01** — [A screen for choosing landmarks, because the worksheet failed on its first reader](CHANGELOG.d/2026-09-01-the-landmark-chooser.md)

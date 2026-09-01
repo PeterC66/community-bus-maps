@@ -34,6 +34,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { warnIfBehindCommitted } from './fixture-freshness.mjs';
+import { advanceToNewestRender } from './newest-render.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -100,8 +101,19 @@ export function resolveFixtures(kind) {
     .map((f) => f.trim())
     .filter((f) => f && existsSync(f));
   if (fromEnv.length) {
-    warnIfBehindCommitted(kind, fromEnv);
-    return { fixtures: fromEnv, source: 'env' };
+    /* AND SINCE 2026-09-01 IT REMOVES THE STALENESS CLASS RATHER THAN NAGGING
+     * ABOUT IT (OA-211). The warning below was accurate, prominent and
+     * ignorable, and the run still went red afterwards — a false DIFFERS on the
+     * one gate whose whole job is to be believed. An entry shaped
+     * `Areas/<Town>/S5-render/<version>` names the TOWN; this advances it to
+     * that town's current render, read from its `manifest.json`, and prints the
+     * substitution. It runs BEFORE the warning on purpose, so the two machines
+     * are usually gating the same pack and the warning is left to say something
+     * that is still true. Anything it cannot resolve is passed through
+     * untouched, so the warning still covers every case it used to. */
+    const advanced = advanceToNewestRender(fromEnv);
+    warnIfBehindCommitted(kind, advanced);
+    return { fixtures: advanced, source: 'env' };
   }
 
   const committed = committedFixtures(kind === 'place' ? 'Places' : 'Areas');
