@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.131 | 2026-09-01 | sha=f69f3640 -->
-**v1.131** · updated 1 September 2026
+<!-- docstamp v1.132 | 2026-09-01 | sha=95f988db -->
+**v1.132** · updated 1 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-09-01** — [R5 says where the Sitemaps page actually is, and records that Google verification is done](CHANGELOG.d/2026-09-01-r5-says-where-sitemaps-lives.md)
+- **2026-09-01** — [Rotating a token, and the advisory that fired on the wrong machine](CHANGELOG.d/2026-09-01-rotating-a-token-and-the-advisory-that-fired-on-the-wrong-machine.md)
 - **2026-09-01** — [The search-engine submission gets a runbook, and a pre-flight whose pass is a positive statement](CHANGELOG.d/2026-09-01-search-engine-submission-runbook.md)
 - **2026-09-01** — [Google and Bing are both submitted, and R5 is the only place that can say so](CHANGELOG.d/2026-09-01-search-engines-both-submitted.md)
 - **2026-09-01** — [The landmark chooser went back to its reader, and two of the nine things it came back with were faults](CHANGELOG.d/2026-09-01-the-landmark-chooser-second-round.md)

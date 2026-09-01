@@ -135,10 +135,17 @@ if (!DRY_RUN) {
 console.log('\n-- 5. /health?deep=1');
 if (!DRY_RUN) {
   console.log(`   built and deployed: gitSha=${gitSha} builtAt=${builtAt}`);
-  if (!process.env.METRICS_TOKEN) {
-    console.log('   (no METRICS_TOKEN in this shell — if the host .env has none either,');
-    console.log('    gitSha/builtAt/checks are gated OUT of the reply below)');
-  }
+  // THE ADVISORY USED TO BE HERE AND ASKED THE WRONG MACHINE, fixed 2026-09-01.
+  // It read `process.env.METRICS_TOKEN` — this shell, on the laptop — and warned
+  // that the gated fields might be missing. But the token this step actually
+  // authenticates with is sourced from the HOST's .env, twelve lines below, so
+  // the local variable has no bearing on the reply. Once the laptop copy was
+  // deliberately retired (2026-09-01, after the value leaked twice), the warning
+  // fired on every single deploy while the fields it warned about came back
+  // perfectly. The check is now inside the remote shell, where its subject lives
+  // and where the answer is knowable: the `else` arm below runs only when the
+  // HOST has no token, which is the only condition that gates anything out.
+  //
   // An explicit if/else, NOT `${METRICS_TOKEN:+-H "Authorization: …"}`. The
   // parameter-expansion form looks tidier and is wrong: the quotes it produces
   // are the RESULT of an expansion, so the shell does not honour them and the
@@ -148,7 +155,9 @@ if (!DRY_RUN) {
   const remote = 'sleep 3 && cd ' + APP_DIR + ' && { set -a; . ./.env 2>/dev/null; set +a; }; '
     + 'if [ -n "$METRICS_TOKEN" ]; then '
     + 'curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" ' + url + '; '
-    + 'else curl -fsS ' + url + '; fi';
+    + 'else echo "(the HOST .env has no METRICS_TOKEN - gitSha, builtAt and checks{} '
+    + 'are gated OUT of the reply below)"; '
+    + 'curl -fsS ' + url + '; fi';
   const rc = sshRun(remote);
   if (rc !== 0) {
     console.error('\n✗ the new container is not READY (curl returned ' + rc + ').');
