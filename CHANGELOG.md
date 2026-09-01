@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.125 | 2026-08-31 | sha=fab9972c -->
-**v1.125** · updated 31 August 2026
+<!-- docstamp v1.126 | 2026-09-01 | sha=4ae22d1f -->
+**v1.126** · updated 1 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-09-01** — [The search-engine submission gets a runbook, and a pre-flight whose pass is a positive statement](CHANGELOG.d/2026-09-01-search-engine-submission-runbook.md)
 - **2026-08-31** — [A one-way loop leaves the frame twice, and only one of those tails is a departure](CHANGELOG.d/2026-08-31-a-one-way-loop-leaves-the-frame-twice.md)
 - **2026-08-31** — [A read token for the worklist, and the standing laptop cookie it retires (again)](CHANGELOG.d/2026-08-31-a-read-token-for-the-worklist-oa-203.md)
 - **2026-08-31** — [/background.html — the site could say what it does and what it costs, and not why it exists](CHANGELOG.d/2026-08-31-background-the-page-that-says-why-any-of-this-exists.md)

@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.4 | 2026-08-28 | sha=8e47775f -->
-**v1.4** · updated 28 August 2026
+<!-- docstamp v1.6 | 2026-09-01 | sha=1ca1af51 -->
+**v1.6** · updated 1 September 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -41,6 +41,56 @@ Plain HTML, edited directly, sharing one header/footer and `/css/styles.css`:
 
 - **Publish ≠ public.** Publishing (R3) makes a version official; the customer's **listing** switch (`/app/maps/:id` → the public toggle) decides whether it shows. Either can be off.
 - `robots.txt` is automatic, and `sitemap.xml` generates the **map and organisation** entries by itself from `PUBLIC_BASE_URL` (DEPLOY §2). The **static** pages are a hand-kept list — `STATIC_PAGES` in `src/server.js` — so **a new shopfront page needs adding there as well as to the footers**. `terms.html` sat in every footer and out of the sitemap for a week because that step was missed; the rule is that the two lists name the same pages.
+
+## Search engines — verification and the sitemap
+
+**Both submissions are account actions in somebody's browser, not deployments.** Nothing in this repository changes, no script performs them, and there is no way to check from here whether they have been done — the only evidence is the two consoles themselves. So whoever does it has to say so somewhere a later reader will look, because nothing else in either repository will ever know. What the repository owes them is a sitemap that is fit to submit, and that half *is* checkable, so do it first.
+
+### Pre-flight — is the sitemap worth submitting?
+
+These four run from **any folder**; they only talk to the live site, and none of them takes a placeholder. Run them before you touch either console, because a submission is worth exactly as much as the URLs behind it.
+
+```bash
+curl -s https://busmaps.uk/robots.txt
+```
+
+Expect **no** `Disallow: /` line (that one appears whenever `ALLOW_INDEXING` is off — DEPLOY §2 — and while it is there a submission achieves nothing), and expect the `Sitemap:` line to name the apex.
+
+```bash
+curl -s https://busmaps.uk/sitemap.xml | grep -c "<loc>"
+```
+
+The count is **48 as at 2026-09-01** — thirteen static shopfront pages, seventeen published maps, their seventeen `/services` pages, and the pilot organisation, which is 13 + 17 + 17 + 1 and adds up. Give the breakdown as well as the total whenever you re-record it here: the figure written down on 2026-08-29 was 47 and the breakdown beside it summed to 45, and neither number was challenged for three days because a total on its own cannot be checked against anything. It moves whenever a map is published or un-listed, so treat it as a sanity figure rather than a constant; what matters is that it is not zero, not obviously short, and that its parts still add to it.
+
+```bash
+curl -s https://busmaps.uk/sitemap.xml | grep -o "<loc>[^<]*</loc>" | sed 's|</\?loc>||g' | while read -r u; do curl -s -o /dev/null -w '%{http_code}\n' "$u"; done | sort | uniq -c
+```
+
+A pass is the single line `48 200`, and the count in it must equal the count command 2 just printed. Any other status code is a URL Google will fetch, fail on, and hold against the property — a sitemap listing redirects or 404s is worse than a smaller sitemap that is all live. **This used to end in `grep -v '^200 '` and pass by printing nothing, which is the wrong shape for this check**: a `while read` loop that consumed no input at all prints nothing too, and so does one that a `curl` inside it silently truncated, so the absence of output could not tell a clean sitemap from a check that never ran. Tallying the codes makes the pass a positive statement with the population in it. Verified `48 200` on 2026-09-01.
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.busmaps.uk/
+```
+
+Expect **`308 https://busmaps.uk/`**. This one carried the only reason not to submit until 2026-08-31: `www` used to answer `200` in its own right — the `Caddyfile` named both hostnames, which is what made automatic TLS cover both — and the hand-written shopfront pages emitted no `rel="canonical"`, so each of them was reachable as two indexable copies with nothing to say which was authoritative. A crawl would have found that and reported *Duplicate without user-selected canonical* against the property. Both halves shipped and deployed, and both were then read back off the live site rather than inferred: `www` 308s to the apex **preserving the path and the query** (`https://www.busmaps.uk/m/st-ives/services?x=1` → the same path on the apex), and all thirteen shopfront pages carry a self-referential canonical, checked one by one on 2026-09-01. `buses-data` OA-172 retired with it.
+
+### 1. Google Search Console
+
+Choose a **Domain property** for `busmaps.uk`, not a URL-prefix property. A domain property covers the apex and `www`, `http` and `https`, in one — which is the difference between reporting on this site and reporting on half of it, given the two-hostname wart above.
+
+A domain property can only be verified by **DNS**, and DNS for this domain is at **20i**, which is registrar and nameserver and nothing else (the app runs on an OVHcloud VPS; 20i holds only the records). Add the record in the 20i control panel under the domain's **Manage DNS**: type `TXT`, host `@` — the domain root, not a subdomain — and value the string Google shows, which begins `google-site-verification=`. It sits alongside the existing SPF/DKIM records for magic-link mail and does not disturb them. Give it a few minutes, then press Verify.
+
+**Leave the record in place permanently.** Google re-checks it periodically and silently un-verifies the property if it has gone; deleting it during a later DNS tidy-up is the way this quietly stops working.
+
+With the property verified, open **Sitemaps** in the left-hand navigation, enter `sitemap.xml` as the path, and submit. A *Success* status means the file was fetched and parsed — it is not a statement that anything has been indexed, and Coverage will read "Discovered – currently not indexed" for most of the 48 for a while. Do not re-submit to hurry it along; re-submission tells Google nothing it does not already know.
+
+### 2. Bing Webmaster Tools
+
+Do Google first, because Bing's fastest path is **Import from Google Search Console**: it carries the verification and the submitted sitemap across together, and needs no second DNS record. If the import is refused for any reason, Bing verifies the same three ways as Google — a DNS `TXT` at 20i, a `<meta>` tag, or an XML file at the site root — and the DNS route is the one to prefer, for the same reason as above.
+
+### What to look at afterwards, and when
+
+Neither console has anything useful to say for the first few days. After a week, the questions worth asking are whether **Coverage/Pages** shows the map pages indexed rather than merely discovered, whether any URL is excluded for a reason that is our fault (a duplicate-canonical warning was the one to expect, and the two causes of it were removed on 2026-08-31, so one appearing now is new information rather than a known debt), and which queries in **Performance** actually reach the site — that last is the only measurement we have ever had of whether anyone is looking for this.
 
 ## Per-customer branding (what customers control)
 
