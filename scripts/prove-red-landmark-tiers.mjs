@@ -36,7 +36,7 @@
 // restored, because a harness that restores in a `finally` still leaves the
 // repository broken if it is killed between the two.
 
-import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -61,6 +61,11 @@ function scratch() {
   // The suite copies the pack again before touching it, so this stays read-only.
   for (const dir of ['node_modules', 'engine', 'data']) {
     const from = path.join(ROOT, dir); const to = path.join(tmp, dir);
+    // A link to something that is not there is WORSE than no link: src/db/index.js
+    // calls mkdirSync(DATA_DIR) at import, and mkdir through a dangling link
+    // throws ENOENT — which crashed the whole suite on CI instead of letting it
+    // skip. Absent, the suite creates a real empty data dir and skips cleanly.
+    if (!existsSync(from)) continue;
     try { symlinkSync(from, to, 'junction'); } catch { cpSync(from, to, { recursive: true }); }
   }
   writeFileSync(path.join(tmp, 'package.json'), readFileSync(path.join(ROOT, 'package.json')));
@@ -90,7 +95,25 @@ function runSuite(tmp) {
 const failedLines = (out) => out.split('\n').filter((l) => /^ {2}✗ /.test(l));
 const caughtBy = (out, name) => failedLines(out).some((l) => l.includes(name));
 
+/* IS THERE A MAP PACK ON THIS MACHINE?
+ *
+ * `data/` is gitignored, so a fresh CI checkout has none — by construction, not
+ * by accident. The key-universe half of the suite needs a real pack (it copies
+ * one and adds a `miss` to its routes.json), so on CI that half SKIPS and the
+ * one mutation only it can catch is not exercised.
+ *
+ * The first version of this harness made the control demand that both halves
+ * ran, which made CI permanently red for a reason that is nobody's fault and is
+ * not a defect in any guard. It now asks the machine what it has and SAYS which
+ * arms it could not run — a skip that announces itself, rather than a silent cap
+ * that lets a reduced run read as a full one. The laptop runs everything. */
+const packRoot = path.join(ROOT, 'data', 'maps');
+const HAVE_PACK = existsSync(packRoot) && readdirSync(packRoot).some((id) => (
+  existsSync(path.join(packRoot, id, 'data', 'osm.json'))
+  && existsSync(path.join(packRoot, id, 'data', 'gen_internal.js'))));
+
 let problems = 0;
+let skipped = 0;
 const results = [];
 const say = (row) => {
   results.push(row);
@@ -104,15 +127,20 @@ const say = (row) => {
   const r = runSuite(tmp);
   if (r.code !== 0) {
     problems++;
-    say(['✗ CONTROL', 'an intact copy did not pass — the copy is broken, not the guards', failedLines(r.out).map((l) => l.trim()).join(' | ')]);
+    // Print the TAIL, not only the ✗ lines: a control that fails by CRASHING has
+    // no ✗ lines at all, and "did not pass" with an empty detail is exactly the
+    // report that sent somebody hunting the wrong thing once already.
+    const detail = failedLines(r.out).map((l) => l.trim()).join(' | ')
+      || r.out.trim().split('\n').slice(-6).map((l) => l.trim()).join(' / ');
+    say(['✗ CONTROL', 'an intact copy did not pass — the copy is broken, not the guards', detail]);
   } else {
-    // A control that merely exits 0 would also be green if the key-universe half
-    // had skipped, and three mutations below can only be caught by that half.
-    // So the control asserts it actually RAN, which is the row the skip prints.
-    const skipped = r.out.includes('so this half is not exercised here');
-    if (skipped) {
+    const half = r.out.includes('so this half is not exercised here');
+    if (half && HAVE_PACK) {
+      // A pack is here and the suite skipped anyway — that IS a defect.
       problems++;
-      say(['✗ CONTROL', 'the key-universe half SKIPPED, so half this harness proves nothing', 'no map pack found under data/maps']);
+      say(['✗ CONTROL', 'a map pack is present but the key-universe half still skipped', packRoot]);
+    } else if (half) {
+      say(['ok CONTROL', 'an intact copy passes; no map pack on this machine, so the key-universe half is not exercised', 'expected on CI, where data/ is gitignored']);
     } else say(['ok CONTROL', 'an intact copy passes, both halves exercised', '']);
   }
   rmSync(tmp, { recursive: true, force: true });
@@ -175,6 +203,7 @@ const MUTATIONS = [
     why: 'THE ONE THAT WOULD SHIP. A miss in the MAP PACK\'s routes.json is applied at selection, so the POI never reaches the SVG the drawn enumeration scrapes — validate against that set and the key is refused, the place cannot be turned back on, and the tier is dropped on the next save. Measured: a miss in the CUSTOMER layer does not do this, because that render uses base overrides',
     edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n', '']],
     expect: 'so the editable universe contains it, and a save naming it is not rejected',
+    needsPack: true,
   },
   {
     what: 'the universe admits every key instead',
@@ -186,6 +215,11 @@ const MUTATIONS = [
 ];
 
 for (const m of MUTATIONS) {
+  if (m.needsPack && !HAVE_PACK) {
+    skipped++;
+    say(['-- skipped', m.what, 'needs a real map pack under data/maps, and this machine has none']);
+    continue;
+  }
   const tmp = scratch();
   let row;
   try {
@@ -212,4 +246,9 @@ if (problems) {
   console.error(`✗ ${problems} of ${results.length} arm(s) did not behave — the landmark-tier suite is not proving what it claims`);
   process.exit(1);
 }
-console.log(`✓ ${results.length - 1} mutation(s) each caught by the assertion named for them, and the control passes`);
+// Say what was NOT run. A reduced run that reports like a full one is the shape
+// this project keeps meeting: coverage silently narrowed, and a green line that
+// reads as though it covered everything.
+const ran = results.length - 1 - skipped;
+console.log(`✓ ${ran} mutation(s) each caught by the assertion named for them, and the control passes`
+  + (skipped ? `\n  ${skipped} arm(s) NOT run here — no map pack under data/maps. Run this on the laptop to exercise them.` : ''));
