@@ -48,6 +48,7 @@ import {
   swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
 } from './maps/engine.js';
 import { sanitizeOverrides, BOARDING_CONFLICT } from './maps/safeSubset.js';
+import { mergeGenWarnings } from './render/genWarnings.js';
 import { versionDir, mapDataDir, proposedDataDir, readBuildWarnings, OUTPUT_FILES, OUTPUTS } from './maps/store.js';
 import { ensureWatermarked } from './render/watermark.js';
 import { ensureDraftMarked, draftLabel } from './render/draftStamp.js';
@@ -1814,8 +1815,13 @@ app.post('/api/maps/:id/preview', async (req, reply) => {
   const poiKeys = editablePoiKeysFromDir(mapDataDir(id), savedPoiTiers(id));
   const s = sanitizeOverrides((req.body || {}).overrides, safeSubsetAllow(map, meta, poiKeys));
   try {
-    const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs)));
-    return { ok: true, overrides: s.overrides, rejected: s.rejected, svg };
+    // OA-216 — a preview is the cheapest place to learn that a *Must show*
+    // cannot be seated, because nothing has been saved yet. The generator has
+    // always computed it and written it to stderr on a zero exit; this is the
+    // first caller to read it.
+    const runs = [];
+    const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs), runs));
+    return { ok: true, overrides: s.overrides, rejected: s.rejected, svg, warnings: mergeGenWarnings(runs) };
   } catch (e) {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Preview render failed: ' + e.message });
@@ -1959,9 +1965,14 @@ app.post('/api/maps/:id/save', async (req, reply) => {
     const r = await withMapLock(id, () => renderVersion(id, s.overrides, storageKey, parseOutputs(map.outputs)));
     const versionId = insertVersion({ map_id: id, major, minor, note: str(b.note, 500), overrides: s.overrides, storage_key: storageKey });
     setCurrentVersion(id, versionId);
-    req.log.info({ mapId: id, version: storageKey, by: user.email }, 'saved new map version');
+    req.log.info({ mapId: id, version: storageKey, by: user.email, genLog: r.log }, 'saved new map version');
     logAudit(req, 'version.save', { mapId: id, versionId, detail: { version: storageKey, note: str(b.note, 500) } });
-    return { ok: true, version: storageKey, rejected: s.rejected, files: r.files, downloads: visibleDownloadsForVersion(id, storageKey, parseOutputs(map.outputs)) };
+    // OA-216 — what the generators said on the way to this SUCCESSFUL render.
+    // `mustPlace` is not a veto: a place the customer marked *Must show* that
+    // the placer could not seat is named on stderr and the run still exits 0,
+    // so until 2026-09-01 the editor was told "the map has been redrawn with
+    // your choices" over an answer that had partly not happened.
+    return { ok: true, version: storageKey, rejected: s.rejected, files: r.files, warnings: r.warnings, downloads: visibleDownloadsForVersion(id, storageKey, parseOutputs(map.outputs)) };
   } catch (e) {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Render failed: ' + e.message });

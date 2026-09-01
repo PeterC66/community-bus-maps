@@ -1033,8 +1033,14 @@ $('saveBtn').addEventListener('click', async () => {
     });
     const b = await r.json();
     if (!r.ok || !b.ok) throw new Error(b.error || 'Save failed');
-    note(`Saved as version ${b.version || ''}. The map has been redrawn with your choices.`, 'ok');
     await load();
+    // load() repaints the page, so the notice is set AFTER it — and the saved
+    // message no longer claims more than the drawing delivered.
+    if (b.warnings && b.warnings.length) {
+      showWarnings(b.warnings, `Saved as version ${b.version || ''}, and the map was redrawn — but not every choice could be applied:`);
+    } else {
+      note(`Saved as version ${b.version || ''}. The map has been redrawn with your choices.`, 'ok');
+    }
   } catch (e) {
     note(e.message, 'warn');
     $('saveBtn').disabled = false;
@@ -1055,6 +1061,9 @@ $('sheetBtn').addEventListener('click', async () => {
     const svg = b.svg && (b.svg.internal || Object.values(b.svg)[0]);
     stage.innerHTML = svg || '<p>Nothing to show.</p>';
     if (b.rejected && b.rejected.length) note('Some entries were not accepted: ' + b.rejected.join('; '), 'warn');
+    // The cheapest place to learn a *Must show* cannot be seated: nothing has
+    // been saved, so the answer is still editable when the reader gets it.
+    else if (b.warnings && b.warnings.length) showWarnings(b.warnings, 'This is what the sheet looks like — but not every choice could be applied:');
   } catch (e) {
     stage.textContent = e.message;
   }
@@ -1084,6 +1093,44 @@ function note(msg, kind) {
   n.textContent = msg || '';
   n.className = 'notice' + (kind ? ' ' + kind : '');
   n.style.display = msg ? '' : 'none';
+}
+
+/* WHAT THE DRAWING ACTUALLY DID WITH THE ANSWER (OA-216).
+ *
+ * `mustPlace` is not a veto. The generator relaxes the hard grid for a place
+ * marked *Must show* and then does its best; when it cannot seat one it names it
+ * on stderr and carries on, because the sheet is still worth having. Until
+ * 2026-09-01 this page said "Saved as version 2.3. The map has been redrawn with
+ * your choices" whether that was true of twenty places or of seventeen — and the
+ * soft cap at twelve further up this file was a GUESS offered in place of the
+ * real answer, which the generator had computed and the portal had discarded.
+ *
+ * Built from DOM nodes and textContent rather than innerHTML: every one of these
+ * strings carries a landmark name out of the map's own data, and the notice
+ * element is otherwise plain text. */
+function showWarnings(list, headline) {
+  const n = $('notice');
+  n.textContent = '';
+  n.className = 'notice warn';
+  n.style.display = '';
+  const h = document.createElement('p');
+  h.style.margin = '0 0 .4em';
+  h.textContent = headline;
+  n.appendChild(h);
+  const ul = document.createElement('ul');
+  ul.style.margin = '0';
+  ul.style.paddingLeft = '1.2em';
+  for (const w of list) {
+    const li = document.createElement('li');
+    const b = document.createElement('strong');
+    b.textContent = w.heading;
+    li.appendChild(b);
+    // The generator's own sentence, kept verbatim: it names the actual places
+    // and the actual remedies, and a paraphrase would lose both.
+    li.appendChild(document.createTextNode(' — ' + w.detail));
+    ul.appendChild(li);
+  }
+  n.appendChild(ul);
 }
 
 // ---------------------------------------------------------------------------
