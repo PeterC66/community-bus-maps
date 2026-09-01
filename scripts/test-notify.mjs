@@ -113,6 +113,24 @@ check('an empty batch does not throw', empty.subject === '0 maps published on Bu
 
 check('every email says why it was received', [up, pubbed, back, batch].every((m) => /You are receiving this/.test(m.text)));
 
+// --- escaping (OA-224 Tier 1.2) ------------------------------------------------
+// A customer types the map name; an approver types the reason. Before 2026-09-02
+// both went into the HTML half of the email unescaped. The control is the text
+// half, which must carry the same characters UNescaped -- a fix that escaped both
+// would pass a naive 'no < in the output' check and mangle the plain-text part.
+{
+  const nasty = compose('sent-back', { mapName: 'Fen<b>marsh</b> & "Ely"', versionKey: 'v2.0',
+    reason: 'route 5 <script>alert(1)</script> terminus', mapUrl: 'https://busmaps.uk/app/maps/7?a=1&b=2' });
+  check('html: a tag in the map name is escaped, not rendered', !nasty.html.includes('<b>') && nasty.html.includes('Fen&lt;b&gt;marsh&lt;/b&gt;'), nasty.html);
+  check('html: a script tag in the reason is escaped', !nasty.html.includes('<script>') && nasty.html.includes('&lt;script&gt;'), nasty.html);
+  check('html: quotes and ampersands are escaped', nasty.html.includes('&amp; &quot;Ely&quot;'), nasty.html);
+  check('html: the action URL is escaped inside its attribute', nasty.html.includes('href="https://busmaps.uk/app/maps/7?a=1&amp;b=2"'), nasty.html);
+  check('text: the same characters are NOT escaped in the plain-text part (control)', nasty.text.includes('Fen<b>marsh</b> & "Ely"') && nasty.text.includes('<script>'), nasty.text);
+  check('subject: not HTML, so not escaped either (control)', nasty.subject.includes('Fen<b>marsh</b>'), nasty.subject);
+  const link = compose('update-ready', { mapName: 'Plain', mapUrl: 'https://busmaps.uk/app/maps/7' });
+  check('a plain name and URL come through byte-for-byte', link.html.includes('<strong>') === false && link.html.includes('Plain') && link.html.includes('href="https://busmaps.uk/app/maps/7"'), link.html);
+}
+
 // --- links ------------------------------------------------------------------
 eq('appUrl uses PUBLIC_BASE_URL without doubling the slash', appUrl('/app/maps/7'), 'https://busmaps.uk/app/maps/7');
 

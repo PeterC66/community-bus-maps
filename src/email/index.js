@@ -9,6 +9,7 @@
 
 import { sendViaResend } from './resend.js';
 import { recordSendFailure, recordSendSuccess } from './health.js';
+import { escapeHtml as h } from '../html.js';
 
 const PROVIDERS = { resend: sendViaResend };
 
@@ -24,7 +25,7 @@ function magicLinkContent({ link, kind }) {
   return {
     subject,
     text: `${lede}\n\n${link}\n\n${footnote}\n`,
-    html: `<p>${lede}</p><p><a href="${link}">${link}</a></p><p style="color:#666;font-size:13px">${footnote}</p>`,
+    html: `<p>${h(lede)}</p><p><a href="${h(link)}">${h(link)}</a></p><p style="color:#666;font-size:13px">${h(footnote)}</p>`,
   };
 }
 
