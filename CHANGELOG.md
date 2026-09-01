@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.133 | 2026-09-01 | sha=02f7751b -->
-**v1.133** · updated 1 September 2026
+<!-- docstamp v1.134 | 2026-09-01 | sha=8b4357ac -->
+**v1.134** · updated 1 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -11,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-09-01** — [A dot is a mark, not a target — and the focus zoom is now written as presses of the + button](CHANGELOG.d/2026-09-01-marker-size-and-focus-zoom.md)
 - **2026-09-01** — [R5 says where the Sitemaps page actually is, and records that Google verification is done](CHANGELOG.d/2026-09-01-r5-says-where-sitemaps-lives.md)
 - **2026-09-01** — [Rotating a token, and the advisory that fired on the wrong machine](CHANGELOG.d/2026-09-01-rotating-a-token-and-the-advisory-that-fired-on-the-wrong-machine.md)
 - **2026-09-01** — [The search-engine submission gets a runbook, and a pre-flight whose pass is a positive statement](CHANGELOG.d/2026-09-01-search-engine-submission-runbook.md)

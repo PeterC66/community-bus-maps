@@ -534,6 +534,11 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
    sheet's own pictogram on top of it. The tier class sits on the GROUP, so one
    rule set colours both halves. */
 .lm-mark { cursor: pointer; }
+/* The mark you SEE and the target you HIT are different sizes on purpose: a
+   12 px dot stops a town's worth of them covering the streets, and a 24 px
+   invisible disc underneath keeps them easy to click. It is fill:transparent
+   and NOT fill:none — none is not a hit target, it is a hole. */
+.lm-hit { fill: transparent; }
 /* No r here: the radius is written as an attribute by scaleMarks(), in pixels,
    off the same scale as the pictogram it has to hug. A CSS calc in MAP units
    held steady while you zoomed but not between one town and the next. */
