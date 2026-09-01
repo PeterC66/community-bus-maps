@@ -59,8 +59,8 @@
       "path": "labeller.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/labeller.js",
-      "sha256": "5556e6d0ee1d39d2dbbe22a3b575b9d3c109bfec495b9aeb9cd5d088a3d14958",
-      "vendoredOn": "2026-08-30"
+      "sha256": "de42cae368c3d5f832d25e2f5f66dd7bdb9fdf62a2bd78c1ce90d0b68502b59d",
+      "vendoredOn": "2026-09-01"
     },
     {
       "path": "lane_normals.js",
@@ -146,7 +146,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "bf972f1b90f5fe816cefc26097b7729ae8f7250e334c01f2dd42c209b2a28ec6",
+      "sha256": "45f3754312780c8b99c400e7d74d051128871c2dd8f9d9e231bbbe39c900fa1f",
       "vendoredOn": "2026-09-01",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
