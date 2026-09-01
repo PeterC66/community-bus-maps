@@ -1,7 +1,7 @@
 ﻿# Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.10 | 2026-09-01 | sha=40d2c671 -->
-**v1.10** · updated 1 September 2026
+<!-- docstamp v1.11 | 2026-09-01 | sha=ee3f4c5a -->
+**v1.11** · updated 1 September 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
@@ -31,7 +31,7 @@ Use **Request a map**, choose area or place, and give it a name (and, if you lik
 Open a map to make it yours. You can change:
 
 - **Route colours** — pick from a colour-blind-friendly palette.
-- **Landmarks (points of interest)** — switch icons on or off here, or open **Landmarks** for the fuller version: your town's streets with every place marked on them, and three answers for each — **Must show**, **Show if there is room**, **Do not show**. You can answer a whole category at once, and give a place the name people locally use. It is the one part of the map only you can get right: the places come from OpenStreetMap, which lists what somebody happened to map rather than what a bus passenger is looking for.
+- **Landmarks (points of interest)** — switch icons on or off here, or open **Landmarks** for the fuller version: your town's streets with every place marked on them, and three answers for each — **Must show**, **Show if there is room**, **Do not show**. You can answer a whole category at once, and give a place the name people locally use. There are a lot of places, so the screen keeps count: it shows how many you have answered and how many you have not looked at yet, and **Not looked at yet** narrows the list to the rest — leaving somewhere exactly as it is counts as an answer, so you can stop half way and pick up where you left off. It is the one part of the map only you can get right: the places come from OpenStreetMap, which lists what somebody happened to map rather than what a bus passenger is looking for.
 
   The two controls are not the same thing, and the difference is worth a sentence. Unticking a landmark above stops its icon being *drawn* but keeps its space reserved. Answering **Do not show** in the chooser takes it off the map altogether, which is what actually gives the room back to everything else — so a sheet re-arranges a little when you save that.
 - **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. Two are the exception, and both show an **Ask us** button instead of a tick-box. The tube-map-style **diagram** is positioned by hand rather than generated, so it is quoted separately. **Where to board** — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press either button and we will come back to you with what it would involve.

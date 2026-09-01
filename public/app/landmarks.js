@@ -21,6 +21,24 @@
 // It carries the map's OTHER overrides with it on save. Route colours live in
 // the same object and sanitizeOverrides() rebuilds that object from scratch, so
 // posting only this page's own key would discard them.
+//
+// SECOND ROUND (OA-215). The screen went back to the reader it was built for and
+// came back with nine things. Two were faults rather than preferences, and both
+// are fixed here. An *Answered* filter that could not see the middle answer: a
+// `may` carrying no rename was dropped on the way to disk, so nothing — not the
+// file, not the count, not the filters — could tell "I have looked at this and
+// it is right as it is" from "I have not reached this row yet", which is the
+// difference that matters when 145 rows are worked through over several
+// sittings. And a chip reading *Losing its name now* that consulted no render of
+// anything and was in fact the exact complement of *Symbol only*.
+//
+// The other seven are reach rather than truth: the map zooms from four gestures
+// instead of only the wheel (the reader works on a trackpad, where a wheel
+// gesture is not something anyone finds by accident), a chosen row closes again,
+// the list holds its place across a filter change, the order is alphabetical and
+// SAID OUT LOUD rather than by group size and unstated, and the export block —
+// which copies a poi.tiers block for another repository — is admin-only, because
+// it is our chore and not something to reason about beside a button saying Save.
 
 const MAP_ID = Number((location.pathname.match(/\/app\/maps\/(\d+)/) || [])[1]);
 const $ = (id) => document.getElementById(id);
@@ -34,12 +52,22 @@ const TIERS = ['must', 'may', 'miss'];
 /** Above this many "Must show", the page says something. Not a limit — a nudge. */
 const MUST_SOFT_CAP = 12;
 
+/** How far in the map will go, as a multiple of the whole-town view. */
+const MAX_ZOOM = 40;
+/** One press of +, - or one double-click. The wheel uses a finer step. */
+const ZOOM_STEP = 1.6;
+
 let DETAIL = null;      // /api/maps/:id  (needed for the OTHER overrides we must not lose)
 let LANDMARKS = [];     // /api/maps/:id/landmarks
 let BASE = null;        // saved tier per key, as loaded
-let STATE = new Map();  // key -> { tier, as }
+// key -> { tier, as, set }. `set` is the OA-215 addition and it is a different
+// question from "is this tier something other than may": it records whether the
+// READER has answered this row at all. Without it the page cannot show progress
+// through 145 rows and cannot offer "the ones I have not looked at yet".
+let STATE = new Map();
 let FILTER = 'all';
 let SELECTED = null;
+let IS_ADMIN = false;
 
 // ---------------------------------------------------------------------------
 // the map
@@ -86,7 +114,8 @@ function buildMap(ways, points) {
     const d = 'M' + w.g.map((c) => { const p = project(c); return p[0].toFixed(5) + ' ' + p[1].toFixed(5); }).join('L');
     (w.m ? major : minor).push(d);
   }
-  stage.innerHTML = `<svg id="lmSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+  stage.innerHTML = `<svg id="lmSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"
+      tabindex="0" role="img" aria-label="Your town's streets with each of these places marked. Drag to move it; press plus or minus to zoom; press 0 to fit the whole town.">
       <g id="lmRoads">
         <path class="lm-road minor" d="${minor.join('')}"/>
         <path class="lm-road major" d="${major.join('')}"/>
@@ -117,17 +146,57 @@ function drawPoints() {
   g.innerHTML = parts.join('');
 }
 
+/**
+ * Zoom by `f` about a point given as a fraction of the stage, 0..1 (OA-215).
+ *
+ * FOUR THINGS DRIVE THIS AND UNTIL TODAY ONLY ONE DID. The wheel was the whole
+ * zoom, and the reader this screen is written for works on a trackpad, where a
+ * wheel gesture is not something anyone finds by accident: he reported that the
+ * map panned and could not be zoomed. So the wheel, the + / - buttons, a
+ * double-click and the keyboard all come through here.
+ *
+ * Clamped at BOTH ends. Out to the whole town, which the wheel already did, and
+ * in to MAX_ZOOM, which it did not — an unbounded zoom leaves somebody looking
+ * at blank paper with no way back but Fit.
+ */
+function zoomAt(f, fx = 0.5, fy = 0.5) {
+  if (!VIEW || !FULL) return;
+  const nw = Math.max(FULL.w / MAX_ZOOM, Math.min(FULL.w, VIEW.w * f));
+  const nh = Math.max(FULL.h / MAX_ZOOM, Math.min(FULL.h, VIEW.h * f));
+  VIEW = { x: VIEW.x + (VIEW.w - nw) * fx, y: VIEW.y + (VIEW.h - nh) * fy, w: nw, h: nh };
+  applyView();
+}
+
+/** Where a pointer event sits inside the stage, as a fraction of it. */
+function pointerFraction(svg, e) {
+  const r = svg.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+}
+
 function wireMapGestures() {
   const svg = $('lmSvg');
   svg.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const r = svg.getBoundingClientRect();
-    const fx = (e.clientX - r.left) / r.width; const fy = (e.clientY - r.top) / r.height;
-    const f = e.deltaY > 0 ? 1.18 : 1 / 1.18;
-    const nw = Math.min(FULL.w, VIEW.w * f); const nh = Math.min(FULL.h, VIEW.h * f);
-    VIEW = { x: VIEW.x + (VIEW.w - nw) * fx, y: VIEW.y + (VIEW.h - nh) * fy, w: nw, h: nh };
-    applyView();
+    const [fx, fy] = pointerFraction(svg, e);
+    zoomAt(e.deltaY > 0 ? 1.18 : 1 / 1.18, fx, fy);
   }, { passive: false });
+
+  // A double-click zooms IN about the point clicked; with Shift or Alt, out.
+  svg.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    const [fx, fy] = pointerFraction(svg, e);
+    zoomAt(e.shiftKey || e.altKey ? ZOOM_STEP : 1 / ZOOM_STEP, fx, fy);
+  });
+
+  // The keyboard, which is also the only one of the four available to somebody
+  // who cannot use a pointer at all. The stage carries tabindex="0" for it.
+  svg.addEventListener('keydown', (e) => {
+    if (e.key === '+' || e.key === '=') zoomAt(1 / ZOOM_STEP);
+    else if (e.key === '-' || e.key === '_') zoomAt(ZOOM_STEP);
+    else if (e.key === '0') { VIEW = { ...FULL }; applyView(); }
+    else return;
+    e.preventDefault();
+  });
 
   let drag = null;
   svg.addEventListener('pointerdown', (e) => {
@@ -153,6 +222,8 @@ function wireMapGestures() {
 }
 
 $('zoomFit').addEventListener('click', () => { if (FULL) { VIEW = { ...FULL }; applyView(); } });
+$('zoomIn').addEventListener('click', () => zoomAt(1 / ZOOM_STEP));
+$('zoomOut').addEventListener('click', () => zoomAt(ZOOM_STEP));
 
 // ---------------------------------------------------------------------------
 // the list
@@ -165,23 +236,73 @@ function statusWords(p) {
 }
 
 function matches(p) {
+  const st = STATE.get(p.key);
   const q = ($('search').value || '').trim().toLowerCase();
-  if (q && !(p.name + ' ' + p.cat).toLowerCase().includes(q)) return false;
+  // The rename is searched as well as the original: once somebody has called a
+  // place what the town calls it, that is the word they will type to find it.
+  if (q && !(p.name + ' ' + p.cat + ' ' + ((st && st.as) || '')).toLowerCase().includes(q)) return false;
   if (FILTER === 'symbol') return !p.printsName;
-  if (FILTER === 'answered') { const st = STATE.get(p.key); return st && (st.tier !== 'may' || st.as); }
-  if (FILTER === 'dropped') return p.printsName;   // only a named POI can lose its name
+  // Was "Losing its name now", which named nothing of the kind: it consulted no
+  // render of anything, and matched every POI whose name the map is ALLOWED to
+  // print — the exact complement of the chip beside it. Renamed to what it does.
+  if (FILTER === 'named') return p.printsName;
+  // Answered means the reader has said something about this row, INCLUDING
+  // leaving it as it is. That is the whole of the middle-answer fix (OA-215).
+  if (FILTER === 'answered') return !!(st && st.set);
+  if (FILTER === 'todo') return !(st && st.set);
   return true;
+}
+
+/**
+ * Where the list is looking, so that a rebuild can put it back (OA-215).
+ *
+ * Every filter click, every search keystroke and every finished rename rewrites
+ * the list's innerHTML, and until today each one threw the reader back to the
+ * top of 145 rows. The anchor is the topmost row still visible plus its offset
+ * inside the box, so the row under your eye stays under your eye. When the new
+ * filter has dropped that row there is nothing to restore to, and doing nothing
+ * is the honest answer rather than a failure.
+ */
+function listAnchor() {
+  const box = $('list');
+  const top = box.getBoundingClientRect().top;
+  for (const r of box.querySelectorAll('.lm-row')) {
+    const b = r.getBoundingClientRect();
+    if (b.bottom > top + 1) return { key: r.dataset.key, dy: b.top - top };
+  }
+  return null;
+}
+
+function restoreAnchor(a) {
+  if (!a) return;
+  const box = $('list');
+  const r = box.querySelector(`.lm-row[data-key="${CSS.escape(a.key)}"]`);
+  if (!r) return;
+  box.scrollTop += (r.getBoundingClientRect().top - box.getBoundingClientRect().top) - a.dy;
 }
 
 function buildList() {
   const box = $('list');
+  const anchor = listAnchor();
   const byCat = new Map();
+  let shown = 0;
   for (const p of LANDMARKS) {
     if (!matches(p)) continue;
+    shown++;
     if (!byCat.has(p.cat)) byCat.set(p.cat, []);
     byCat.get(p.cat).push(p);
   }
-  const cats = [...byCat.keys()].sort((a, b) => byCat.get(b).length - byCat.get(a).length);
+  // A-Z at both levels, and SAID under the search box. It was biggest group
+  // first with the rows inside in whatever order OpenStreetMap happened to
+  // return them: an order nothing stated, nobody could predict, and that
+  // differed from town to town. Sorting on the ORIGINAL name rather than on a
+  // rename is deliberate — a row must not jump out from under the cursor at the
+  // moment somebody finishes renaming it.
+  const cats = [...byCat.keys()].sort((a, b) => a.localeCompare(b));
+  for (const c of cats) byCat.get(c).sort((x, y) => x.name.localeCompare(y.name));
+  $('showing').textContent = shown === LANDMARKS.length
+    ? `All ${LANDMARKS.length} places, in alphabetical order within each group.`
+    : `Showing ${shown} of ${LANDMARKS.length} places, in alphabetical order within each group.`;
   if (!cats.length) { box.innerHTML = '<div class="empty">Nothing matches that.</div>'; return; }
 
   let html = '';
@@ -193,14 +314,15 @@ function buildList() {
         <b>${esc(cat)}</b> <span class="count">${rows.length}</span>
         ${named ? '' : '<span class="lm-tagline">the map never prints these names</span>'}
         <span class="spacer"></span>
-        <span class="lm-bulk">Answer all:
-          ${TIERS.map((t) => `<button class="lm-chip sm" data-bulk="${t}" data-cat="${esc(cat)}" type="button">${esc(TIER_LABEL[t])}</button>`).join('')}
+        <span class="lm-bulk">All ${rows.length}:
+          ${TIERS.map((t) => `<button class="lm-chip sm" data-bulk="${t}" data-cat="${esc(cat)}" type="button"
+              title="Answer all ${rows.length} showing here: ${esc(TIER_LABEL[t])}">${esc(TIER_LABEL[t])}</button>`).join('')}
         </span>
       </div>`;
     for (const p of rows) {
-      const st = STATE.get(p.key) || { tier: 'may', as: null };
+      const st = STATE.get(p.key) || { tier: 'may', as: null, set: false };
       const sw = statusWords(p);
-      html += `<div class="lm-row ${st.tier} ${st.as ? 'renamed' : ''} ${SELECTED === p.key ? 'sel' : ''}" data-key="${esc(p.key)}">
+      html += `<div class="lm-row ${st.tier} ${st.set ? 'set' : ''} ${st.as ? 'renamed' : ''} ${SELECTED === p.key ? 'sel' : ''}" data-key="${esc(p.key)}">
         <div class="lm-name">
           <span class="lm-title">${esc(st.as || p.name)}</span>
           ${st.as ? `<span class="lm-was">was ${esc(p.name)}</span>` : ''}
@@ -221,13 +343,15 @@ function buildList() {
   }
   box.innerHTML = html;
   $('poiCount').textContent = `${LANDMARKS.length} in all`;
+  restoreAnchor(anchor);
 }
 
+/** Open one row — or pass null to close the one that is open (OA-215). */
 function selectKey(key, scroll) {
   SELECTED = key;
   drawPoints();
-  document.querySelectorAll('.lm-row').forEach((r) => r.classList.toggle('sel', r.dataset.key === key));
-  if (scroll) {
+  document.querySelectorAll('.lm-row').forEach((r) => r.classList.toggle('sel', key != null && r.dataset.key === key));
+  if (scroll && key != null) {
     const row = document.querySelector(`.lm-row[data-key="${CSS.escape(key)}"]`);
     if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
@@ -240,7 +364,8 @@ $('list').addEventListener('change', (e) => {
   if (row && e.target.type === 'radio') {
     setTier(row.dataset.key, e.target.value);
     const stx = STATE.get(row.dataset.key) || {};
-    row.className = 'lm-row ' + e.target.value + (stx.as ? ' renamed' : '') + (SELECTED === row.dataset.key ? ' sel' : '');
+    row.className = 'lm-row ' + e.target.value + (stx.set ? ' set' : '') + (stx.as ? ' renamed' : '')
+      + (SELECTED === row.dataset.key ? ' sel' : '');
     row.querySelectorAll('.lm-opt').forEach((o) => o.classList.toggle('on', o.querySelector('input').checked));
     return;
   }
@@ -261,7 +386,19 @@ $('list').addEventListener('click', (e) => {
     return;
   }
   const row = e.target.closest('.lm-row');
-  if (row && !e.target.closest('.lm-choices') && !e.target.closest('.lm-rename')) selectKey(row.dataset.key, false);
+  // Clicking the OPEN row again closes it. It used to re-select it, so the only
+  // way out of an expanded row was to open a different one (OA-215).
+  if (row && !e.target.closest('.lm-choices') && !e.target.closest('.lm-rename')) {
+    selectKey(row.dataset.key === SELECTED ? null : row.dataset.key, false);
+  }
+});
+
+// Esc closes the open row as well — but not while the sheet dialog is up, which
+// owns Esc for itself and would otherwise close both at one press.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || $('sheetDialog').open || !SELECTED) return;
+  selectKey(null, false);
+  e.preventDefault();
 });
 
 $('search').addEventListener('input', buildList);
@@ -276,24 +413,36 @@ $('filters').addEventListener('click', (e) => {
 // state
 // ---------------------------------------------------------------------------
 
+// Touching either control ANSWERS the row, and that is the middle-answer fix in
+// two lines: choosing "Show if there is room" is a decision somebody made, and
+// until OA-215 it left no trace at all.
 function setTier(key, tier) {
   const st = STATE.get(key) || { tier: 'may', as: null };
-  STATE.set(key, { tier, as: st.as || null });
+  STATE.set(key, { tier, as: st.as || null, set: true });
   onEdit();
 }
 
 function setName(key, raw) {
   const st = STATE.get(key) || { tier: 'may', as: null };
   const t = (raw || '').trim();
-  STATE.set(key, { tier: st.tier, as: t || null });
+  STATE.set(key, { tier: st.tier, as: t || null, set: !!st.set || !!t });
   onEdit();
 }
 
-/** What we would send: only the entries that say something. */
+/**
+ * What we would send: every row the reader has ANSWERED, and nothing else.
+ *
+ * It used to be "every row whose tier is not may", which is a different set and
+ * the wrong one — an explicit *Show if there is room* was dropped on the way to
+ * disk, so nothing could tell it from a row nobody had reached. A map nobody has
+ * touched still serialises to {}, which is the property the byte gate cares
+ * about; a map somebody has worked through now carries their answer, which is
+ * what lets them stop half way and come back to it.
+ */
 function tiersPayload() {
   const out = {};
   for (const [k, st] of STATE) {
-    if (st.tier === 'may' && !st.as) continue;   // the default, and no rename
+    if (!st.set && !st.as) continue;
     out[k] = st.as ? { tier: st.tier, as: st.as } : { tier: st.tier };
   }
   return out;
@@ -312,9 +461,11 @@ function onEdit() {
 
   const musts = [...STATE.values()].filter((s) => s.tier === 'must').length;
   const misses = [...STATE.values()].filter((s) => s.tier === 'miss').length;
+  const answered = [...STATE.values()].filter((s) => s.set || s.as).length;
   $('tally').innerHTML = `<span class="lm-key must">Must show</span> ${musts}
      · <span class="lm-key miss">Do not show</span> ${misses}
-     · <span class="lm-key may">left as they are</span> ${LANDMARKS.length - musts - misses}`;
+     · <span class="lm-key may">left as they are</span> ${LANDMARKS.length - musts - misses}
+     <br><b>${answered}</b> of ${LANDMARKS.length} answered · ${LANDMARKS.length - answered} not looked at yet`;
 
   // A "Must show" is free to click and expensive on the paper. The covering note
   // could only ASK people to be sparing; a counter can show them.
@@ -399,7 +550,7 @@ $('exportBtn').addEventListener('click', async () => {
 
 $('resetBtn').addEventListener('click', () => {
   STATE = new Map();
-  for (const p of LANDMARKS) STATE.set(p.key, { tier: p.tier, as: p.as || null });
+  for (const p of LANDMARKS) STATE.set(p.key, { tier: p.tier, as: p.as || null, set: !!p.answered });
   buildList(); onEdit();
 });
 
@@ -427,7 +578,7 @@ async function load() {
   $('backToEditor').href = `/app/maps/${MAP_ID}`;
 
   STATE = new Map();
-  for (const p of LANDMARKS) STATE.set(p.key, { tier: p.tier, as: p.as || null });
+  for (const p of LANDMARKS) STATE.set(p.key, { tier: p.tier, as: p.as || null, set: !!p.answered });
   BASE = tiersPayload();
 
   // Say out loud that an old-style hide is being read as "Do not show", and what
@@ -456,7 +607,13 @@ async function load() {
     const r = await fetch('/api/me');
     if (r.status === 401) { location.href = '/app/login.html'; return; }
     const me = (await r.json()).user;
+    IS_ADMIN = !me.customer;
     $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
+    // The export block is OURS, not theirs. It copies a poi.tiers block for the
+    // map's source data in another repository, which is a BusMaps.uk chore and
+    // not something a local editor should have to reason about beside a button
+    // that says Save. Admins keep it for testing (Peter, 2026-09-01, OA-215).
+    if (!IS_ADMIN) $('exportBtn').style.display = 'none';
     $('logoutBtn').style.display = '';
   } catch { note('Could not reach the server.', 'warn'); return; }
 
