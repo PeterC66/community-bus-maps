@@ -1,6 +1,12 @@
 # Changelog
 
-<!-- docstamp v1.137 | 2026-09-02 | sha=1358c00d -->
+<!-- docstamp v1.138 | 2026-09-02 | sha=84ec62e7 -->
+**v1.138** · updated 2 September 2026
+
+<<<<<<< HEAD
+=======
+<!-- docstamp v1.137 | 2026-09-02 | sha=28a97a73 -->
+>>>>>>> fd6bbfc (OA-224 Tier 1.4: re-vendor gen_external_places.js -- a place sheet can refuse)
 **v1.137** · updated 2 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
@@ -11,6 +17,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-09-02** — [A place sheet can refuse](CHANGELOG.d/2026-09-02-a-place-sheet-can-refuse.md)
 - **2026-09-02** — [The email took the map name as markup](CHANGELOG.d/2026-09-02-the-email-took-the-name-as-markup.md)
 - **2026-09-01** — [A Must show the sheet could not fit now says so, instead of exiting 0](CHANGELOG.d/2026-09-01-a-must-show-that-could-not-be-fitted-now-says-so.md)
 - **2026-09-01** — [A dot is a mark, not a target — and the focus zoom is now written as presses of the + button](CHANGELOG.d/2026-09-01-marker-size-and-focus-zoom.md)
