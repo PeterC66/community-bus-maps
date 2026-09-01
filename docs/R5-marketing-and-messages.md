@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.8 | 2026-09-01 | sha=0b1d5707 -->
-**v1.8** · updated 1 September 2026
+<!-- docstamp v1.9 | 2026-09-01 | sha=ca2b8556 -->
+**v1.9** · updated 1 September 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -73,6 +73,10 @@ curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.busmaps.uk/
 ```
 
 Expect **`308 https://busmaps.uk/`**. This one carried the only reason not to submit until 2026-08-31: `www` used to answer `200` in its own right — the `Caddyfile` named both hostnames, which is what made automatic TLS cover both — and the hand-written shopfront pages emitted no `rel="canonical"`, so each of them was reachable as two indexable copies with nothing to say which was authoritative. A crawl would have found that and reported *Duplicate without user-selected canonical* against the property. Both halves shipped and deployed, and both were then read back off the live site rather than inferred: `www` 308s to the apex **preserving the path and the query** (`https://www.busmaps.uk/m/st-ives/services?x=1` → the same path on the apex), and all thirteen shopfront pages carry a self-referential canonical, checked one by one on 2026-09-01. `buses-data` OA-172 retired with it.
+
+### Where this stands for busmaps.uk
+
+**Both were done on 2026-09-01** — the Google **Domain** property for `busmaps.uk` verified by the 20i `TXT` record, `sitemap.xml` submitted, and Bing brought across by *Import from Google Search Console*. `buses-data` OA-015 retired with it, and this paragraph is the record, because **the two consoles are the only other evidence that exists** and neither is readable from any repository: the backlog row that held these facts is deleted by the act of finishing, so if it were not written here it would be written nowhere. Everything below is therefore a procedure for the NEXT property — a second domain, or a re-verification after a DNS change — rather than work outstanding. What is still worth doing is the *afterwards* section at the end.
 
 ### 1. Google Search Console
 

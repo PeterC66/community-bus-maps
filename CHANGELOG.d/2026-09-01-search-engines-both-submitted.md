@@ -1,0 +1,8 @@
+---
+date: 2026-09-01
+title: "Google and Bing are both submitted, and R5 is the only place that can say so"
+---
+
+- **The site is now submitted to both search engines.** The Google **Domain** property for `busmaps.uk` is verified by the 20i `TXT` record and `sitemap.xml` is submitted; Bing was brought across with *Import from Google Search Console*, which carries the verification and the sitemap together and needed no second DNS record. Indexing was opened on 2026-08-21 and until today nothing had told a search engine the site exists.
+- **R5 gains a short *Where this stands* paragraph, and that is the point of the change rather than a note on it.** These two facts have no read-back anywhere — no endpoint, no file and no gate in either repository can say whether a property is verified or a sitemap submitted, and the two consoles are the only other evidence. The `buses-data` backlog row that held them, OA-015, is **deleted by the act of finishing**, which is how a record dies with the work it describes. So the runbook is the last place left that a reader would look, and it now says plainly that the procedure below is for the *next* property rather than work outstanding.
+- **The first status was *Couldn't fetch*, and it was nothing.** Recorded in the same section yesterday: *Type* Unknown, *Last read* blank, *Discovered pages* 0 is the state before Google has tried at all. Everything checkable on our side was measured at the time and was fine, including `200` over both IPv4 and IPv6 — the arm that matters, because an `AAAA` pointing at a host that does not answer is the textbook cause of that message and is invisible to a `curl` on a v4-only connection.
