@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose the landmarks — BusMaps.uk</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+  <script src="/js/csrf.js"></script>
+  <script src="/js/account-guard.js"></script>
+  <script src="/js/site-banner.js" defer></script>
+</head>
+<body>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/app">← My maps</a>
+    <a class="navlink" id="backToEditor" href="#">← Back to this map</a>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1 id="mapName">Landmarks</h1>
+      <span class="crumb">Which places matter to someone catching a bus?</span>
+      <span class="spacer"></span>
+      <span class="status-chip"><span class="dot clean" id="stateDot"></span><span id="stateText">No changes</span></span>
+    </div>
+
+    <!-- The whole question, in the words a local would use. Deliberately not
+         about ink: a local is not thinking about how a symbol crowds out other
+         type, they are thinking about which places people navigate by. -->
+    <div class="panel lm-intro">
+      <div class="body">
+        <p class="hint-line" id="introLine">Every place below is on your map because OpenStreetMap has it, not because anyone decided it belonged there. You know the town; the map does not. Go through them and say which are the places people actually use as landmarks.</p>
+        <div class="lm-legend">
+          <span><b class="lm-key must">Must show</b> somewhere people say “get off at”. Please be sparing — each one takes room from its neighbours.</span>
+          <span><b class="lm-key may">Show if there is room</b> what happens today, and a perfectly good answer.</span>
+          <span><b class="lm-key miss">Do not show</b> off the map completely. This is the most useful answer and the one nobody volunteers.</span>
+        </div>
+        <p class="notice warn" id="hideNotice" hidden></p>
+      </div>
+    </div>
+
+    <div class="lm-wrap">
+      <!-- ---------------- the map ---------------- -->
+      <div>
+        <div class="lm-mapcard">
+          <div class="lm-maphead">
+            <strong>The town, and where these places are</strong>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost btn-sm" id="zoomFit" type="button" title="Fit the whole town">Fit</button>
+          </div>
+          <div class="lm-stage" id="mapStage">
+            <div class="placeholder" id="mapPlaceholder">Loading the streets…</div>
+          </div>
+          <!-- Said out loud, because a picture that looks like the sheet
+               without being it is worse than no picture: it invites a
+               judgement about crowding from the wrong drawing. -->
+          <p class="hint-line lm-mapnote">These are your town’s real streets, drawn plainly so you can see where each place is. It is <strong>not</strong> the printed sheet — that has the bus routes, the stop names and the panel competing for the same paper. Use <em>See the real sheet</em> below once you have made your choices.</p>
+          <div class="panel lm-actions">
+            <div class="body">
+              <div class="lm-tally" id="tally"></div>
+              <p class="notice warn" id="mustWarn" hidden></p>
+              <div class="control-actions" style="padding-left:0;padding-right:0;border-top:0;background:none">
+                <button class="btn btn-primary btn-sm" id="saveBtn" type="button" disabled>Save these choices</button>
+                <button class="btn btn-ghost btn-sm" id="sheetBtn" type="button">See the real sheet</button>
+                <span class="grow"></span>
+                <button class="btn btn-ghost btn-sm" id="exportBtn" type="button" title="The same answer as a poi.tiers block, to keep with the map's source data">Copy for our records</button>
+                <button class="btn btn-ghost btn-sm" id="resetBtn" type="button">Undo my changes</button>
+              </div>
+              <div class="notice" id="notice"></div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ---------------- the list ---------------- -->
+      <div>
+        <div class="panel lm-listcard">
+          <header>Places <span class="count" id="poiCount"></span></header>
+          <div class="body">
+            <input class="field poi-search" id="search" type="search" placeholder="Find a place…" aria-label="Find a place">
+            <div class="lm-filters" id="filters">
+              <button class="lm-chip active" data-filter="all" type="button">All</button>
+              <button class="lm-chip" data-filter="dropped" type="button">Losing its name now</button>
+              <button class="lm-chip" data-filter="symbol" type="button">Symbol only</button>
+              <button class="lm-chip" data-filter="answered" type="button">Answered</button>
+            </div>
+            <div class="lm-list" id="list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="sheetDialog" class="compare-dialog">
+    <div class="compare-head">
+      <strong>The real sheet, with your choices applied</strong>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="sheetClose" type="button">Close</button>
+    </div>
+    <div class="compare-body">
+      <div class="compare-col" style="flex:1">
+        <div class="compare-stage" id="sheetStage">Rendering…</div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/app/landmarks.js"></script>
+</body>
+</html>

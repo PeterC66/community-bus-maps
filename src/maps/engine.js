@@ -13,6 +13,7 @@
 import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, unlinkSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createRequire } from 'node:module';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
 import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, ENGINE_SOURCE, versionNumber, outputHint, readSheetDeclaration } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
@@ -294,6 +295,99 @@ export function readRoutesMetaFromDir(dataDir) {
 /** routes.json palette + textOn + display metadata for a map (its live data). */
 export function readRoutesMeta(id) {
   return readRoutesMetaFromDir(mapDataDir(id));
+}
+
+// ---------------------------------------------------------------------------
+// CANDIDATE POIs — what COULD be drawn, which is not what IS drawn (OA-212).
+//
+// `enumeratePoisFromDir()` below answers "what is on the sheet", by rendering it
+// and reading the data-key tags back out. That is the right answer for a control
+// that adjusts a POI already on the page, and it is the WRONG answer for a
+// control that decides whether a POI is on the page at all:
+//
+//   a POI classified `miss` is dropped by poi_select.js at SELECTION time, so
+//   it never reaches the generator and never gets a data-key. Offer the chooser
+//   that list and a missed POI cannot be shown as missed or turned back on;
+//   worse, sanitizeOverrides() validates keys against the same list, so the next
+//   save would reject the key that was keeping it off and the POI would quietly
+//   return.
+//
+//   MEASURED, and narrower than it first looks. That render is built from BASE
+//   overrides, so it never sees the CUSTOMER's layer — a miss a customer sets in
+//   their own overrides is still drawn by it and still enumerated. The case that
+//   bites is a miss carried in the MAP PACK'S OWN routes.json, which is the
+//   state every map reaches the moment a town's answer is exported back into its
+//   source data. That is half of what this feature is for, so it is not an edge
+//   case; it is the destination.
+//
+// So this asks the selector directly instead. Same module the generator uses,
+// same tidy rules, same de-duplication, same file order (osm.json then osm2.json
+// — that order decides which of two duplicates survives, so it is load-bearing
+// and not an implementation detail). It runs no generator, writes nothing, and
+// touches no run folder.
+const poiSelectRequire = createRequire(import.meta.url);
+
+/**
+ * Every POI this map could draw, with the tier it currently carries.
+ *
+ * @param {string} dataDir  a map data folder (osm.json + routes.json)
+ * @param {object} tiersOverlay  overrides.internal.poiTiers, merged over
+ *        routes.json's poi.tiers exactly as gen_internal.js merges it, so the
+ *        tier reported here is the tier the sheet would actually be drawn with.
+ * @returns {{ key:string, cat:string, name:string, ll:number[], tier:string,
+ *             as:string|null, printsName:boolean }[]}
+ */
+export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null) {
+  const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
+  let selectPois;
+  try {
+    ({ selectPois } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
+  } catch { return []; }
+
+  // osm2.json is optional — some payloads carry only the first sweep.
+  const sets = [];
+  for (const f of ['osm.json', 'osm2.json']) {
+    const j = readJson(path.join(dataDir, f), null);
+    if (j && Array.isArray(j.elements)) sets.push(j.elements);
+  }
+  if (!sets.length) return [];
+
+  const base = routes.poi || {};
+  const poiCfg = (tiersOverlay && Object.keys(tiersOverlay).length)
+    ? { ...base, tiers: { ...(base.tiers || {}), ...tiersOverlay } }
+    : base;
+
+  const report = {};
+  try { selectPois(sets, poiCfg, report); } catch { return []; }
+  return report.candidates || [];
+}
+
+/**
+ * The POI keys a customer's saved overrides may legitimately name: the UNION of
+ * what is drawn and what could be drawn.
+ *
+ * This is what every sanitizeOverrides() call site must validate against, and
+ * the union rather than either half on purpose:
+ *
+ *  • A key only in CANDIDATES is one already classified `miss` in the map
+ *    pack's own routes.json — off the sheet, and so absent from the drawn
+ *    enumeration entirely. Validate against that set alone and the next save
+ *    rejects the key that is keeping it off, drops the classification, and the
+ *    POI comes back. The re-apply during a monthly proposed update is the worst
+ *    place for it: the customer's answer would be silently undone by a refresh
+ *    they only clicked Accept on.
+ *  • A key only in DRAWN is one the map's own generator produced but the
+ *    vendored selector did not. That should be impossible — drawn is candidates
+ *    minus the missed ones — but a map pack that has not yet been brought
+ *    forward by track-engine.mjs runs the generator it was IMPORTED with, so
+ *    the two really can disagree. Losing a customer's existing edit to that is
+ *    not a trade worth making, and the union costs nothing.
+ */
+export function editablePoiKeysFromDir(dataDir, tiersOverlay = null) {
+  const keys = new Set();
+  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);
+  for (const p of enumeratePoisFromDir(dataDir)) keys.add(p.key);
+  return [...keys];
 }
 
 // The drawn-POI universe is static for an imported map (it only changes if the

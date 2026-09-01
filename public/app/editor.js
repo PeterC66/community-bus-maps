@@ -1008,6 +1008,13 @@ function showPending() {
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
+    // The landmark chooser (OA-212) is a page of its own: it needs the town's
+    // streets under the list, and the three-way answer does not fit a tick box.
+    for (const el of [$('landmarksLink'), $('poiPanelLink')]) {
+      if (!el) continue;
+      el.href = `/app/maps/${MAP_ID}/landmarks`;
+      el.style.display = '';
+    }
     buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildVersionList();
     buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); buildStatusStrip(); applyLock();
     buildExpertLinks();

@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
-    "test": "node scripts/changelog-assemble.mjs --check && node scripts/check-compose-env.mjs && node scripts/check-chrome.mjs && node scripts/test-vendored.mjs && node scripts/test-contrast.mjs && node scripts/test-p6.mjs && node scripts/test-p7.mjs && node scripts/test-p8a.mjs && node --env-file-if-exists=.env scripts/test-inline-svg.mjs && node scripts/test-schema-compat.mjs && node scripts/test-lifecycle.mjs && node scripts/test-engine-source.mjs && node scripts/prove-red-carry-forward.mjs && node scripts/test-carry-forward.mjs && node scripts/test-safe-subset.mjs && node scripts/test-change-summary.mjs && node scripts/test-worklist.mjs && node scripts/test-notify.mjs && node scripts/test-search.mjs && node scripts/test-upcoming-join.mjs && node scripts/test-sheet-version.mjs && node scripts/test-indexing.mjs && node scripts/test-caddyfile.mjs && node scripts/test-build-warnings.mjs && node scripts/prove-red-access-model.mjs && node scripts/test-access-model.mjs && node scripts/prove-red-operator-token.mjs && node scripts/test-operator-token.mjs && node scripts/test-audit-p1.mjs && node scripts/test-audit-2026-08-25.mjs && node scripts/test-backup-retention.mjs && node scripts/test-ssr.mjs",
+    "test": "node scripts/changelog-assemble.mjs --check && node scripts/check-compose-env.mjs && node scripts/check-chrome.mjs && node scripts/test-vendored.mjs && node scripts/test-contrast.mjs && node scripts/test-p6.mjs && node scripts/test-p7.mjs && node scripts/test-p8a.mjs && node --env-file-if-exists=.env scripts/test-inline-svg.mjs && node scripts/test-schema-compat.mjs && node scripts/test-lifecycle.mjs && node scripts/test-engine-source.mjs && node scripts/prove-red-carry-forward.mjs && node scripts/test-carry-forward.mjs && node scripts/test-safe-subset.mjs && node scripts/prove-red-landmark-tiers.mjs && node scripts/test-landmark-tiers.mjs && node scripts/test-change-summary.mjs && node scripts/test-worklist.mjs && node scripts/test-notify.mjs && node scripts/test-search.mjs && node scripts/test-upcoming-join.mjs && node scripts/test-sheet-version.mjs && node scripts/test-indexing.mjs && node scripts/test-caddyfile.mjs && node scripts/test-build-warnings.mjs && node scripts/prove-red-access-model.mjs && node scripts/test-access-model.mjs && node scripts/prove-red-operator-token.mjs && node scripts/test-operator-token.mjs && node scripts/test-audit-p1.mjs && node scripts/test-audit-2026-08-25.mjs && node scripts/test-backup-retention.mjs && node scripts/test-ssr.mjs",
     "chrome:apply": "node scripts/apply-chrome.mjs",
     "chrome:check": "node scripts/check-chrome.mjs",
     "check:vendored": "node scripts/check-vendored.mjs",
@@ -24,6 +24,8 @@
     "test:carry-forward": "node scripts/test-carry-forward.mjs",
     "test:prove-red-carry-forward": "node scripts/prove-red-carry-forward.mjs",
     "test:vendored": "node scripts/test-vendored.mjs",
+    "test:landmark-tiers": "node scripts/test-landmark-tiers.mjs",
+    "test:prove-red-landmark-tiers": "node scripts/prove-red-landmark-tiers.mjs",
     "test:selfsufficient": "node --env-file-if-exists=.env scripts/test-engine-selfsufficient.mjs",
     "test:prove-red-selfsufficient": "node --env-file-if-exists=.env scripts/prove-red-selfsufficient.mjs",
     "test:prove-red-fixture-drift": "node scripts/prove-red-fixture-drift.mjs",

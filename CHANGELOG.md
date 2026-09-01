@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.128 | 2026-09-01 | sha=21d06a75 -->
-**v1.128** · updated 1 September 2026
+<!-- docstamp v1.129 | 2026-09-01 | sha=1601f697 -->
+**v1.129** · updated 1 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -14,6 +14,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-01** — [R5 says where the Sitemaps page actually is, and records that Google verification is done](CHANGELOG.d/2026-09-01-r5-says-where-sitemaps-lives.md)
 - **2026-09-01** — [The search-engine submission gets a runbook, and a pre-flight whose pass is a positive statement](CHANGELOG.d/2026-09-01-search-engine-submission-runbook.md)
 - **2026-09-01** — [Google and Bing are both submitted, and R5 is the only place that can say so](CHANGELOG.d/2026-09-01-search-engines-both-submitted.md)
+- **2026-09-01** — [A screen for choosing landmarks, because the worksheet failed on its first reader](CHANGELOG.d/2026-09-01-the-landmark-chooser.md)
 - **2026-08-31** — [A one-way loop leaves the frame twice, and only one of those tails is a departure](CHANGELOG.d/2026-08-31-a-one-way-loop-leaves-the-frame-twice.md)
 - **2026-08-31** — [A read token for the worklist, and the standing laptop cookie it retires (again)](CHANGELOG.d/2026-08-31-a-read-token-for-the-worklist-oa-203.md)
 - **2026-08-31** — [/background.html — the site could say what it does and what it costs, and not why it exists](CHANGELOG.d/2026-08-31-background-the-page-that-says-why-any-of-this-exists.md)
