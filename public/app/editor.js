@@ -45,17 +45,34 @@ function inkFor(bg, want) {
 const routeInk = (r) => inkFor(staged.colors[r.id] || r.defaultColor, r.textOn);
 
 // ---- overrides <-> staged ----------------------------------------------------
+/*
+ * THIS PAGE MUST CARRY THE LANDMARK ANSWER THROUGH UNTOUCHED (OA-215).
+ *
+ * `overridesFromStaged` builds the overrides object from scratch and
+ * sanitizeOverrides() then rebuilds it from scratch again — so anything this
+ * page does not re-emit is DELETED on save. The chooser was careful about that
+ * in its own direction (it carries this page's colours) and this page was never
+ * taught the other half, so one save here silently threw away every must / may /
+ * miss and every rename a town had given us. `poiTiers` is opaque to this
+ * screen: it is read, held, and written back exactly as it arrived, and it is
+ * deliberately absent from sig() because nothing here can change it and a value
+ * nobody can edit must not make the Save button light up.
+ */
 function stagedFromOverrides(ov) {
   const colors = { ...(ov.routeColors || {}) };
   const hide = new Set(Object.keys((ov.internal && ov.internal.pois) || {})
     .filter((k) => ov.internal.pois[k] && ov.internal.pois[k].hide));
   const hiddenOps = new Set(Array.isArray(ov.hiddenOperators) ? ov.hiddenOperators : []);
-  return { colors, hide, hiddenOps };
+  const poiTiers = (ov.internal && ov.internal.poiTiers) || null;
+  return { colors, hide, hiddenOps, poiTiers };
 }
 function overridesFromStaged(s) {
   const ov = {};
   if (Object.keys(s.colors).length) ov.routeColors = { ...s.colors };
-  if (s.hide.size) ov.internal = { pois: Object.fromEntries([...s.hide].map((k) => [k, { hide: true }])) };
+  const internal = {};
+  if (s.hide.size) internal.pois = Object.fromEntries([...s.hide].map((k) => [k, { hide: true }]));
+  if (s.poiTiers && Object.keys(s.poiTiers).length) internal.poiTiers = s.poiTiers;
+  if (Object.keys(internal).length) ov.internal = internal;
   if (s.hiddenOps.size) ov.hiddenOperators = [...s.hiddenOps];
   return ov;
 }

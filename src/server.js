@@ -43,7 +43,7 @@ import { readFactsSnapshot, buildFacts } from './maps/facts.js';
 import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
-  enumerateCandidatesFromDir, editablePoiKeysFromDir,
+  enumerateCandidatesFromDir, editablePoiKeysFromDir, packPoiTiers,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
   swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
 } from './maps/engine.js';
@@ -1843,12 +1843,22 @@ app.get('/api/maps/:id/landmarks', async (req, reply) => {
   // Both are reported so the page can say which it is reading.
   const hidden = new Set(Object.keys((saved.internal && saved.internal.pois) || {})
     .filter((k) => saved.internal.pois[k] && saved.internal.pois[k].hide));
+  // WHICH ROWS HAVE BEEN ANSWERED, which is not the same question as which rows
+  // carry a tier other than `may` (OA-215). A deliberate "show if there is room"
+  // is recorded as an entry whose tier IS `may`, so the only way to see it is to
+  // ask which keys the two tier layers actually name — the map pack's own
+  // routes.json, and the customer's overrides.
+  const answeredKeys = new Set([
+    ...Object.keys(packPoiTiers(mapDataDir(id))),
+    ...Object.keys(tiers || {}),
+  ]);
   const cand = enumerateCandidatesFromDir(mapDataDir(id), tiers).map((p) => ({
     key: p.key, cat: p.cat, name: p.name, ll: p.ll,
     tier: p.tier === 'may' && hidden.has(p.key) ? 'miss' : p.tier,
     as: p.as || null,
     printsName: !!p.printsName,
     fromHide: p.tier === 'may' && hidden.has(p.key),
+    answered: answeredKeys.has(p.key) || hidden.has(p.key),
   }));
   return {
     ok: true,
@@ -1860,6 +1870,7 @@ app.get('/api/maps/:id/landmarks', async (req, reply) => {
       miss: cand.filter((p) => p.tier === 'miss').length,
       symbolOnly: cand.filter((p) => !p.printsName).length,
       fromHide: cand.filter((p) => p.fromHide).length,
+      answered: cand.filter((p) => p.answered).length,
     },
   };
 });

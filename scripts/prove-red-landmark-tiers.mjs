@@ -49,6 +49,10 @@ function scratch() {
   for (const dir of ['scripts', 'src']) {
     cpSync(path.join(ROOT, dir), path.join(tmp, dir), { recursive: true });
   }
+  // public/app only, and copied rather than linked because one mutation damages
+  // the editor page. The rest of public/ is 3.5 MB of images that nothing here
+  // reads, and this scratch tree is built once per mutation.
+  cpSync(path.join(ROOT, 'public', 'app'), path.join(tmp, 'public', 'app'), { recursive: true });
   // Linked, not copied: large, and nothing here damages them. NEVER point
   // damage() at a path under one of these — a junction leads back into the real
   // checkout, so an edit "to the copy" would vandalise the repository this
@@ -148,6 +152,7 @@ const say = (row) => {
 
 const SUBSET = 'src/maps/safeSubset.js';
 const ENGINE = 'src/maps/engine.js';
+const EDITOR = 'public/app/editor.js';
 
 const MUTATIONS = [
   {
@@ -187,10 +192,17 @@ const MUTATIONS = [
     expect: 'an all-space rename leaves the tier standing',
   },
   {
-    what: 'a `may` with no rename is recorded instead of dropped',
-    why: 'an untouched map stops serialising to {} and stops being byte-identical to the shipped baseline — the rule every other safe-subset key obeys',
-    edits: [[SUBSET, "if (tier === 'may' && !as) continue;", '']],
-    expect: 'may with no rename is dropped as a no-op',
+    what: 'an explicit `may` is dropped again',
+    why: 'THE OA-215 FAULT, restored. The middle answer stops reaching disk, so nothing can tell a row somebody deliberately left alone from a row nobody has reached — and a 145-row list becomes one you cannot work through in more than one sitting',
+    edits: [[SUBSET, '    tiers[k] = as ? { tier, as } : { tier };',
+             "    if (tier === 'may' && !as) continue;\n    tiers[k] = as ? { tier, as } : { tier };"]],
+    expect: 'an explicit may is recorded, so a reader can see what they have answered',
+  },
+  {
+    what: 'the editor stops carrying the landmark answer',
+    why: 'THE OTHER ONE THAT WOULD SHIP. sanitizeOverrides() rebuilds the overrides object from scratch, so a page that does not re-emit a key DELETES it — one save from the editor would throw away every must / may / miss and every rename a town had given us, silently, with a success message',
+    edits: [[EDITOR, '  if (s.poiTiers && Object.keys(s.poiTiers).length) internal.poiTiers = s.poiTiers;\n', '']],
+    expect: 'a landmark answer survives a save from the EDITOR page',
   },
   {
     what: 'the expert-only sweep forgets poiTiers is not the only internal key',

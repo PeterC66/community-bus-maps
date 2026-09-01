@@ -157,9 +157,19 @@ export function sanitizeOverrides(input, {
       rejected.push(`internal.poiTiers["${k}"].as (not a string)`); continue;
     }
 
-    // `may` with no rename is what every unclassified POI already does, so it
-    // earns no entry — an untouched map still serialises to {}.
-    if (tier === 'may' && !as) continue;
+    // AN EXPLICIT `may` IS KEPT (OA-215), and until today it was dropped here
+    // with the reasoning that it "changes nothing". It changes nothing about the
+    // SHEET — poi_select.js applies it and the drawing is byte-identical, which
+    // is why this is safe — but it is the whole of what the reader said, and
+    // discarding it left the chooser unable to tell "I have looked at this and
+    // it is right as it is" from "I have not reached this row yet". Across 145
+    // rows worked through over several sittings, that is the difference between
+    // a screen somebody can finish and one they cannot.
+    //
+    // The property the byte gate actually cares about is untouched: a map nobody
+    // has answered still serialises to {}, because the page sends no entry for a
+    // row nobody has answered. What is gone is only the belief that the SERVER
+    // should decide an answer is not worth recording.
     tiers[k] = as ? { tier, as } : { tier };
   }
 

@@ -52,7 +52,11 @@
           <div class="lm-maphead">
             <strong>The town, and where these places are</strong>
             <span class="spacer"></span>
-            <button class="btn btn-ghost btn-sm" id="zoomFit" type="button" title="Fit the whole town">Fit</button>
+            <!-- The wheel was the only zoom until OA-215, and the reader this
+                 page is written for works on a trackpad. -->
+            <button class="btn btn-ghost btn-sm lm-zoombtn" id="zoomOut" type="button" title="Zoom out (or press the minus key)" aria-label="Zoom out">&minus;</button>
+            <button class="btn btn-ghost btn-sm lm-zoombtn" id="zoomIn" type="button" title="Zoom in (or press the plus key, or double-click the map)" aria-label="Zoom in">+</button>
+            <button class="btn btn-ghost btn-sm" id="zoomFit" type="button" title="Fit the whole town (or press 0)">Fit</button>
           </div>
           <div class="lm-stage" id="mapStage">
             <div class="placeholder" id="mapPlaceholder">Loading the streets…</div>
@@ -60,7 +64,7 @@
           <!-- Said out loud, because a picture that looks like the sheet
                without being it is worse than no picture: it invites a
                judgement about crowding from the wrong drawing. -->
-          <p class="hint-line lm-mapnote">These are your town’s real streets, drawn plainly so you can see where each place is. It is <strong>not</strong> the printed sheet — that has the bus routes, the stop names and the panel competing for the same paper. Use <em>See the real sheet</em> below once you have made your choices.</p>
+          <p class="hint-line lm-mapnote">Drag the map to move it, and zoom with the &minus; and + buttons above, a double-click, or the wheel. These are your town’s real streets, drawn plainly so you can see where each place is. It is <strong>not</strong> the printed sheet — that has the bus routes, the stop names and the panel competing for the same paper. Use <em>See the real sheet</em> below once you have made your choices.</p>
           <div class="panel lm-actions">
             <div class="body">
               <div class="lm-tally" id="tally"></div>
@@ -86,12 +90,19 @@
           <header>Places <span class="count" id="poiCount"></span></header>
           <div class="body">
             <input class="field poi-search" id="search" type="search" placeholder="Find a place…" aria-label="Find a place">
+            <!-- "Losing its name now" used to sit here. It consulted no render of
+                 anything: it matched every place whose name the map is allowed to
+                 print, which is the exact complement of "Symbol only" beside it.
+                 Renamed to what it does, and joined by the two halves of the
+                 progress question a 145-row list needs (OA-215). -->
             <div class="lm-filters" id="filters">
               <button class="lm-chip active" data-filter="all" type="button">All</button>
-              <button class="lm-chip" data-filter="dropped" type="button">Losing its name now</button>
-              <button class="lm-chip" data-filter="symbol" type="button">Symbol only</button>
-              <button class="lm-chip" data-filter="answered" type="button">Answered</button>
+              <button class="lm-chip" data-filter="todo" type="button" title="The rows you have not answered yet">Not looked at yet</button>
+              <button class="lm-chip" data-filter="answered" type="button" title="Every row you have answered &mdash; including the ones you deliberately left as they are">Answered</button>
+              <button class="lm-chip" data-filter="named" type="button" title="Places whose name is printed beside the symbol">Named on the map</button>
+              <button class="lm-chip" data-filter="symbol" type="button" title="Places drawn as a symbol only &mdash; the name is never printed">Symbol only</button>
             </div>
+            <p class="hint-line lm-showing" id="showing"></p>
             <div class="lm-list" id="list"></div>
           </div>
         </div>

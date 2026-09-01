@@ -363,6 +363,19 @@ export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null) {
 }
 
 /**
+ * The tiers a map's own pack carries in routes.json — a town's answer as it was
+ * exported back into its source data, as opposed to the customer's live layer.
+ *
+ * The chooser needs both to say whether a row has been ANSWERED, and the merged
+ * tier alone cannot tell it: an explicit "show if there is room" and a row
+ * nobody has reached both arrive as `may` (OA-215).
+ */
+export function packPoiTiers(dataDir) {
+  const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
+  return (routes.poi && routes.poi.tiers) || {};
+}
+
+/**
  * The POI keys a customer's saved overrides may legitimately name: the UNION of
  * what is drawn and what could be drawn.
  *

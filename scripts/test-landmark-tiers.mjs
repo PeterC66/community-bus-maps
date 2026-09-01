@@ -1,4 +1,4 @@
-// The landmark chooser's two load-bearing pieces (OA-212).
+// The landmark chooser's three load-bearing pieces (OA-212, OA-215).
 //
 //   node scripts/test-landmark-tiers.mjs
 //
@@ -26,7 +26,14 @@
 //    local's answer is exported back into its source data, which is half of
 //    what this whole feature is for.
 //
-// Falsified by scripts/prove-red-landmark-tiers.mjs — break either and watch.
+// 3. THE EDITOR MUST NOT EAT THE ANSWER (OA-215). The editor page and the
+//    chooser write the same overrides object through the same endpoint, and
+//    sanitizeOverrides() rebuilds it from scratch — so whatever a page does not
+//    re-emit is deleted. The chooser was careful about the editor's colours from
+//    its first day and nothing had taught the editor about the chooser's tiers,
+//    so one save from the editor threw away every answer a town had given.
+//
+// Falsified by scripts/prove-red-landmark-tiers.mjs — break any of them and watch.
 
 import path from 'node:path';
 import { existsSync } from 'node:fs';
@@ -60,10 +67,15 @@ console.log('\npoiTiers — the three answers');
     { 'shop:Aldi': { tier: 'must' } });
   eq('miss is kept', tiers({ 'shop:Aldi': { tier: 'miss' } }).overrides.internal?.poiTiers,
     { 'shop:Aldi': { tier: 'miss' } });
-  // `may` is what every unclassified POI already does, so recording it would put
-  // a key in the file for a decision that changes nothing — and an untouched map
-  // must still serialise to {} to stay byte-identical to the shipped baseline.
-  eq('may with no rename is dropped as a no-op', tiers({ 'shop:Aldi': { tier: 'may' } }).overrides, {});
+  // AN EXPLICIT `may` IS RECORDED (OA-215), and this assertion used to say the
+  // opposite. Recording it changes nothing about the SHEET — poi_select.js
+  // applies it and the drawing is byte-identical — but it is the whole of what
+  // the reader said, and dropping it left the chooser unable to tell "I have
+  // looked at this and it is right as it is" from "I have not reached this row".
+  // An untouched map still serialises to {}, because the page sends nothing for
+  // a row nobody has answered; that property is asserted further down.
+  eq('an explicit may is recorded, so a reader can see what they have answered',
+    tiers({ 'shop:Aldi': { tier: 'may' } }).overrides.internal?.poiTiers, { 'shop:Aldi': { tier: 'may' } });
   eq('may WITH a rename is kept', tiers({ 'shop:Aldi': { tier: 'may', as: 'Aldi Desborough' } }).overrides.internal?.poiTiers,
     { 'shop:Aldi': { tier: 'may', as: 'Aldi Desborough' } });
 }
@@ -104,7 +116,8 @@ console.log('\npoiTiers — a rename is a name, not a payload');
   // holds only a space. Rejecting the entry would discard the real answer.
   eq('an all-space rename leaves the tier standing', tiers({ 'shop:Aldi': { tier: 'must', as: '   ' } }).overrides.internal?.poiTiers,
     { 'shop:Aldi': { tier: 'must' } });
-  eq('and a blank rename on a `may` is still a no-op', tiers({ 'shop:Aldi': { tier: 'may', as: '  ' } }).overrides, {});
+  eq('and a blank rename on a `may` leaves that answer standing too',
+    tiers({ 'shop:Aldi': { tier: 'may', as: '  ' } }).overrides.internal?.poiTiers, { 'shop:Aldi': { tier: 'may' } });
   eq('a non-string rename is refused', tiers({ 'shop:Aldi': { tier: 'must', as: 42 } }).overrides, {});
 
   // Both sides of the length boundary, because a cap tested on one side only is
@@ -131,6 +144,69 @@ console.log('\npoiTiers alongside everything else');
   eq('and does not reach the output', expert.overrides.internal?.rotationDeg, undefined);
 
   eq('an untouched map still serialises to {}', san({ internal: { poiTiers: {} } }).overrides, {});
+}
+
+// ---------------------------------------------------------------------------
+// The editor page's own round-trip (OA-215). There is no browser here, so the
+// two functions that do it are lifted out of the source by brace-matching and
+// run. Crude, and it is the only thing in this repository that can go red when
+// somebody rewrites them — the alternative was a grep for a filename, which
+// proves the string is present and nothing about what it does.
+// ---------------------------------------------------------------------------
+console.log('\nthe editor carries a landmark answer through untouched');
+{
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  let editorSrc = '';
+  try {
+    editorSrc = readFileSync(fileURLToPath(new URL('../public/app/editor.js', import.meta.url)), 'utf8');
+  } catch (e) { editorSrc = ''; }
+
+  /* Slice one top-level function out, from its declaration to its closing brace.
+   * Returns null rather than throwing: a suite that CRASHES prints no assertion
+   * name, and a harness reading it then reports the wrong cause. */
+  const lift = (name) => {
+    const i = editorSrc.indexOf(`function ${name}(`);
+    if (i < 0) return null;
+    let depth = 0;
+    for (let k = editorSrc.indexOf('{', i); k >= 0 && k < editorSrc.length; k++) {
+      if (editorSrc[k] === '{') depth++;
+      else if (editorSrc[k] === '}' && --depth === 0) return editorSrc.slice(i, k + 1);
+    }
+    return null;
+  };
+
+  let round = null;
+  let why = editorSrc ? '' : 'public/app/editor.js could not be read';
+  if (editorSrc) {
+    try {
+      const a = lift('stagedFromOverrides');
+      const b = lift('overridesFromStaged');
+      if (!a || !b) why = 'could not find both functions in public/app/editor.js';
+      else round = new Function(`${a}\n${b}\nreturn (ov) => overridesFromStaged(stagedFromOverrides(ov));`)();
+    } catch (e) { why = e.message; }
+  }
+  check('the editor round-trip can be read out of its own source', !!round, why);
+
+  if (round) {
+    const answer = { 'shop:Aldi': { tier: 'miss' }, 'community:The Hive': { tier: 'must', as: 'The Hive' } };
+    eq('a landmark answer survives a save from the EDITOR page',
+      round({ internal: { poiTiers: answer } }).internal?.poiTiers, answer);
+    eq('and a map whose only override is that answer does not come back empty',
+      Object.keys(round({ internal: { poiTiers: answer } })), ['internal']);
+    eq('a hide and an answer survive together',
+      round({ internal: { pois: { 'shop:Aldi': { hide: true } }, poiTiers: answer } }).internal,
+      { pois: { 'shop:Aldi': { hide: true } }, poiTiers: answer });
+
+    // The controls. Without them "carried" would be satisfied by a function that
+    // returned its input unchanged, which is not what this page does at all.
+    eq('route colours still round-trip', round({ routeColors: { 9: '#ff0000' } }).routeColors, { 9: '#ff0000' });
+    eq('a render-time hide still round-trips',
+      round({ internal: { pois: { 'shop:Aldi': { hide: true } } } }).internal?.pois, { 'shop:Aldi': { hide: true } });
+    eq('an empty overrides object still comes back empty', round({}), {});
+    eq('and an expert key the editor does not own is still not re-emitted',
+      round({ internal: { rotationDeg: 5 } }).internal, undefined);
+  }
 }
 
 // ---------------------------------------------------------------------------
