@@ -459,6 +459,8 @@ function renderChangeSummary(sum, pubKey) {
   if (sum.routes.length) parts.push(`<li><strong>${sum.routes.length}</strong> route colour${sum.routes.length === 1 ? '' : 's'} changed <span class="muted">(${sum.routes.map((r) => esc(r.id)).join(', ')})</span></li>`);
   if (sum.poisHidden.length) parts.push(`<li><strong>${sum.poisHidden.length}</strong> landmark${sum.poisHidden.length === 1 ? '' : 's'} hidden</li>`);
   if (sum.poisShown.length) parts.push(`<li><strong>${sum.poisShown.length}</strong> landmark${sum.poisShown.length === 1 ? '' : 's'} shown</li>`);
+  if ((sum.landmarks || []).length) parts.push(`<li><strong>${sum.landmarks.length}</strong> landmark${sum.landmarks.length === 1 ? '' : 's'} re-answered</li>`);
+  if ((sum.renames || []).length) parts.push(`<li><strong>${sum.renames.length}</strong> landmark${sum.renames.length === 1 ? '' : 's'} renamed</li>`);
   const yours = parts.length
     ? `<div class="change-box"><div class="change-title">${dataHtml ? 'What you changed' : `What publishing will change vs ${base}`}</div><ul class="change-list">${parts.join('')}</ul></div>`
     : (dataHtml ? '<p class="hint-line">You have made no changes of your own to this version — the difference is all in the data above.</p>' : '');

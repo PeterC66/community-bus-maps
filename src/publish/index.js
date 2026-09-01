@@ -92,6 +92,27 @@ function hiddenOf(ov) {
   const pois = ov && ov.internal && ov.internal.pois && typeof ov.internal.pois === 'object' ? ov.internal.pois : {};
   return new Set(Object.keys(pois).filter((k) => pois[k] && pois[k].hide === true));
 }
+/**
+ * The landmark chooser's answers (OA-212): key -> { tier, as }.
+ *
+ * A SECOND READER RATHER THAN A WIDENING OF hiddenOf(). The two say different
+ * things — `hide` stops a POI being drawn, a tier decides whether it is selected
+ * at all and can also rename it — and a reviewer needs to be told which. Folding
+ * them together would have made a rename invisible, which is the exact fault
+ * this function was widened to fix.
+ */
+function tiersOf(ov) {
+  const t = ov && ov.internal && ov.internal.poiTiers && typeof ov.internal.poiTiers === 'object' ? ov.internal.poiTiers : {};
+  const out = new Map();
+  for (const k of Object.keys(t)) {
+    const v = t[k];
+    if (!v || typeof v !== 'object') continue;
+    out.set(k, { tier: v.tier || 'may', as: v.as || null });
+  }
+  return out;
+}
+/** The reviewer's words for the three engine tiers. Never shows an engine key. */
+const TIER_WORDS = { must: 'always show', may: 'show if there is room', miss: 'do not show' };
 const eff = (colors, palette, r) => (colors[r] || palette[r] || '').toLowerCase();
 
 /**
@@ -113,6 +134,7 @@ const eff = (colors, palette, r) => (colors[r] || palette[r] || '').toLowerCase(
  * @param {boolean} opts.hasBaseline            true when `from` is a real published version, false = baseline
  * @param {Array} opts.dataChanges              accepted data refreshes carried since `from` (dataChangesSince())
  * @returns {{ base:string, unchanged:boolean, routes:Array, poisHidden:string[], poisShown:string[],
+ *            landmarks:Array, renames:Array,
  *            dataChanges:Array, dataChanged:boolean, overridesUnchanged:boolean }}
  */
 export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBaseline = false, dataChanges = [] } = {}) {
@@ -133,10 +155,42 @@ export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBas
   const poisHidden = [...toH].filter((k) => !fromH.has(k)).sort();  // newly hidden vs published
   const poisShown = [...fromH].filter((k) => !toH.has(k)).sort();   // newly shown vs published
 
+  /* LANDMARK ANSWERS (OA-212), and this block is why the paragraph above matters.
+   *
+   * The chooser gave a customer two new powers — decide whether a place is
+   * selected at all, and rename it — and for a few hours neither reached this
+   * function. A version that dropped a landmark, promoted another and renamed a
+   * third reported `unchanged: true`, so the review screen told an approver
+   * there was nothing to look at. That is worse than an incomplete summary: the
+   * documented promise is that what this shows is not a summary of the changes
+   * but ALL of them, and a gate that quietly stops covering a class of edit is
+   * the shape this project keeps meeting.
+   *
+   * A tier is reported when it CHANGES, in the reviewer's words rather than the
+   * engine's, and a rename is reported separately because it alters what the
+   * sheet says rather than what it contains. */
+  const toT = tiersOf(toOverrides), fromT = tiersOf(fromOverrides);
+  const tierKeys = new Set([...toT.keys(), ...fromT.keys()]);
+  const landmarks = [];
+  const renames = [];
+  for (const k of tierKeys) {
+    const a = fromT.get(k) || { tier: 'may', as: null };
+    const b = toT.get(k) || { tier: 'may', as: null };
+    if (a.tier !== b.tier) {
+      landmarks.push({ key: k, from: TIER_WORDS[a.tier] || a.tier, to: TIER_WORDS[b.tier] || b.tier });
+    }
+    if ((a.as || null) !== (b.as || null)) {
+      renames.push({ key: k, from: a.as, to: b.as });
+    }
+  }
+  landmarks.sort((x, y) => x.key.localeCompare(y.key));
+  renames.sort((x, y) => x.key.localeCompare(y.key));
+
   // Keep only refreshes that actually moved something — a no-op refresh is real
   // provenance but tells a reviewer nothing, and must not defeat "unchanged".
   const data = (Array.isArray(dataChanges) ? dataChanges : []).filter((d) => d && !isEmptyDataChange(d.summary));
-  const overridesUnchanged = routes.length === 0 && poisHidden.length === 0 && poisShown.length === 0;
+  const overridesUnchanged = routes.length === 0 && poisHidden.length === 0 && poisShown.length === 0
+    && landmarks.length === 0 && renames.length === 0;
 
   return {
     base: hasBaseline ? 'published' : 'baseline',
@@ -145,6 +199,8 @@ export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBas
     routes,
     poisHidden,
     poisShown,
+    landmarks,
+    renames,
     dataChanges: data,
     dataChanged: data.length > 0,
   };
