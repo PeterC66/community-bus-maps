@@ -96,6 +96,8 @@ function changeHtml(sum, pubKey) {
   }
   for (const k of sum.poisHidden) rows.push(`<li>Hide landmark <strong>${esc(k)}</strong></li>`);
   for (const k of sum.poisShown) rows.push(`<li>Show landmark <strong>${esc(k)}</strong></li>`);
+  for (const c of sum.landmarks || []) rows.push(`<li>Landmark <strong>${esc(c.key)}</strong> — ${esc(c.from)} → <strong>${esc(c.to)}</strong></li>`);
+  for (const r of sum.renames || []) rows.push(`<li>Landmark <strong>${esc(r.key)}</strong> renamed ${r.from ? `from “${esc(r.from)}” ` : ''}to <strong>${esc(r.to || '(its original name)')}</strong></li>`);
   const yours = rows.length
     ? `${dataHtml ? '<div class="change-title">What the customer changed</div>' : ''}<ul class="change-list detail">${rows.join('')}</ul>`
     : (dataHtml ? '<p class="hint-line">The customer made no changes of their own to this version.</p>' : '');
