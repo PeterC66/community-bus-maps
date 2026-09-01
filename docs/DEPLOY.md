@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.32 | 2026-08-31 | sha=f614c46d -->
-**v1.32** · updated 31 August 2026
+<!-- docstamp v1.33 | 2026-09-01 | sha=9fe93fd1 -->
+**v1.33** · updated 1 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -42,6 +42,24 @@ Copy `.env.example`. The ones that matter in production:
 | `BACKUP_RECIPIENT` | an **age public key** (`age1…`). Set it and `scripts/backup.mjs` writes the database copy encrypted, as `portal.sqlite.age`; leave it unset and the backup still runs but writes the database in the clear and says so on every run (`technical-audit_2026-08-25` N3). The matching **private key never goes on this host** — it lives in the operator's password manager, which is the whole point of an asymmetric key here. §5 below has the restore command. **Putting it in `.env` is not enough**: the `backup` service has no `env_file`, so `compose.yaml` must name it too, and it does — setting one without the other leaves the key looking correct in `.env` while every backup goes on writing plaintext. Prove it reached the container with `docker compose run --rm backup printenv BACKUP_RECIPIENT`, not by reading `.env`. |
 
 **Setting one of these in `.env` is only half of it, and the other half is silent.** The `portal` service in [`compose.yaml`](../compose.yaml) has no `env_file`: Compose reads `.env` only to substitute `${VARS}` into that file, so **a variable that is not also named under `environment:` there never reaches the container**, however correctly it is spelled. The app then takes its unset branch while the value sits in `.env` looking right, and nothing says the two disagree. It has caught four variables so far — `ALLOW_SELF_APPROVAL` and `ALLOW_INDEXING` (2026-08-21), `BACKUP_RECIPIENT` (2026-08-25) and `OPERATOR_TOKEN` (2026-08-31), the last of them by somebody who had read the warning in `compose.yaml` an hour earlier. That is the point: the warning was in the file nobody opens to add a variable. `npm run check:compose-env` now refuses the omission, names the variable and the file that reads it, and runs inside `npm test`. Prove it can still fail by deleting one variable's line from `compose.yaml` and running it — that is how it was falsified against the real `OPERATOR_TOKEN` fault on the day it was written.
+
+### Rotating a token
+
+`METRICS_TOKEN`, `STATUS_TOKEN` and `OPERATOR_TOKEN` are values this operation generates for itself, so rotating one is a scripted job rather than a recipe to follow by hand. Run it from the **repository root** (the folder holding `package.json`); the only thing to substitute is the variable name, and it must be one of those three:
+
+```bash
+npm run rotate:secret -- METRICS_TOKEN
+```
+
+Add `--dry-run` to see the preflight and change nothing. `RESEND_API_KEY` is deliberately **not** rotatable this way — it is issued by Resend, and 48 random hex characters would authenticate to nothing while presenting as sign-in emails that quietly stop arriving.
+
+**The new value is generated on the host and never comes back.** `openssl rand -hex 24` runs inside the remote shell and the result is written by a `printf` builtin, so it is never a process argument visible in `ps`, never echoed, and never enters shell history at either end — the script installs a value it does not itself see. Read it once from the host's `.env` if something else needs a copy.
+
+**It proves the rotation rather than reporting it**, in the three ways this system has had to learn. The file and the running process are compared by `sha256` fingerprint and must agree with each other and differ from the old one — a config read cannot tell you a container was recreated, and `docker compose up -d` is used rather than `restart`, which does not re-evaluate the `${VAR}` substitution. Then the **old** value is exercised against the live service and its refusal asserted: for `METRICS_TOKEN` that is `/health?deep=1` losing `gitSha`, for `OPERATOR_TOKEN` a 401 on `/api/admin/worklist`. `STATUS_TOKEN` has no safe read-only route — the only thing it opens is a POST that writes the status snapshot — so its revocation is reported **UNPROVED** rather than inferred from a config read.
+
+**It keeps no `.env` backup, on purpose.** The obvious `cp .env .env.bak-$(date)` leaves a cleartext duplicate of every *other* live secret sitting beside the original for ever; two such files were found on this host on 2026-09-01, one of them five weeks old and holding a live `RESEND_API_KEY`. The only thing such a backup preserves is a value being retired deliberately, so the old fingerprint is printed instead.
+
+**Rotating `STATUS_TOKEN` or `OPERATOR_TOKEN` breaks a laptop-side tool until its copy is updated** — `push-status.mjs` and `worklist.mjs` in the `bus-work` skill. The script says so in its preflight, before it changes anything, rather than at the end. `npm run test:rotate-secret` asserts every refusal above and breaks the `compose.yaml` preflight on purpose to show it can go red.
 
 ## 3. Run it
 
