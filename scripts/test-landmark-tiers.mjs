@@ -33,6 +33,20 @@
 //    its first day and nothing had taught the editor about the chooser's tiers,
 //    so one save from the editor threw away every answer a town had given.
 //
+// 4. THE CHOOSER CAN DRAW WHAT THE SELECTOR CAN PRODUCE (OA-220). The chooser
+//    shows the sheet's own twelve pictograms, keyed on the category poi_select.js
+//    assigns. That is a JOIN between two files with nothing holding it together:
+//    add a thirteenth category to classify() and the chooser silently shows a
+//    blank where a symbol should be, on every map that has one, and no gate
+//    anywhere notices. So the categories are read back out of classify()'s own
+//    source and every one is required to have a glyph.
+//
+// 5. THE THREE PURE PIECES OF THE CHOOSER (OA-220) — the road-name declutter,
+//    the tap test and the tally's wording — lifted and run the same way the
+//    editor's round-trip is. The declutter is the one that most needs it: a
+//    label it wrongly drops looks exactly like a road that has no name, so
+//    nothing about the drawing can tell you it is wrong.
+//
 // Falsified by scripts/prove-red-landmark-tiers.mjs — break any of them and watch.
 
 import path from 'node:path';
@@ -267,6 +281,124 @@ console.log('\nthe editable key universe — a POI missed AT SOURCE must stay ch
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4. Every category the selector can produce has a pictogram (OA-220).
+// ---------------------------------------------------------------------------
+console.log('\nthe chooser can draw every category the selector can produce');
+{
+  const { readFileSync: rf } = await import('node:fs');
+  const { fileURLToPath: fu } = await import('node:url');
+  const { poiGlyphs } = await import('../src/maps/engine.js');
+  const glyphs = poiGlyphs();
+  check('the glyph set loads out of the engine at all', !!glyphs && Object.keys(glyphs).length > 0,
+    'poiGlyphs() returned ' + JSON.stringify(glyphs));
+
+  // The categories classify() can return, read out of its own source rather
+  // than typed here — a hand-copied list is the third copy of a rule this
+  // system has already been bitten by twice.
+  let cats = [];
+  try {
+    const sel = rf(fu(new URL('../engine/poi_select.js', import.meta.url)), 'utf8');
+    const i = sel.indexOf('function classify(');
+    const j = sel.indexOf('\nfunction ', i + 1);
+    cats = [...sel.slice(i, j > 0 ? j : undefined).matchAll(/return\s*\[\s*'([a-z_]+)'/g)].map((m) => m[1]);
+  } catch { cats = []; }
+  check('classify() names a plausible number of categories', cats.length >= 10, 'found ' + cats.length);
+  eq('and every one of them has a pictogram the chooser can show',
+    [...new Set(cats)].filter((c) => !(glyphs || {})[c]), []);
+}
+
+// ---------------------------------------------------------------------------
+// 5. The chooser's three pure pieces, lifted out of the browser file (OA-220).
+// ---------------------------------------------------------------------------
+console.log('\nthe chooser: the declutter, the tap test and the tally');
+{
+  const { readFileSync: rf } = await import('node:fs');
+  const { fileURLToPath: fu } = await import('node:url');
+  let lmSrc = '';
+  try { lmSrc = rf(fu(new URL('../public/app/landmarks.js', import.meta.url)), 'utf8'); } catch { lmSrc = ''; }
+
+  // Same brace-matching slice the editor round-trip above uses, and the same
+  // reason: a grep for a name proves the string is present and nothing else.
+  const liftFn = (name) => {
+    const i = lmSrc.indexOf(`function ${name}(`);
+    if (i < 0) return null;
+    let depth = 0;
+    for (let k = lmSrc.indexOf('{', i); k >= 0 && k < lmSrc.length; k++) {
+      if (lmSrc[k] === '{') depth++;
+      else if (lmSrc[k] === '}' && --depth === 0) return lmSrc.slice(i, k + 1);
+    }
+    return null;
+  };
+  /* TIER_LABEL is lifted too, and that is the whole point of the tally
+   * assertions: they must be about the words the PAGE uses, not about a copy
+   * of them made here that would stay green while the page said anything. */
+  const liftConst = (name) => {
+    const i = lmSrc.indexOf(`const ${name} = `);
+    if (i < 0) return null;
+    const j = lmSrc.indexOf(';', i);
+    return j < 0 ? null : lmSrc.slice(i, j + 1);
+  };
+
+  let api = null;
+  let why = lmSrc ? '' : 'public/app/landmarks.js could not be read';
+  if (lmSrc) {
+    try {
+      const parts = ['pickRoadLabels', 'isTap', 'tallyText'].map(liftFn);
+      const tl = liftConst('TIER_LABEL');
+      if (parts.some((p) => !p) || !tl) why = 'could not find all three functions and TIER_LABEL in public/app/landmarks.js';
+      else api = new Function(`${tl}\n${parts.join('\n')}\nreturn { pickRoadLabels, isTap, tallyText, TIER_LABEL };`)();
+    } catch (e) { why = e.message; }
+  }
+  check('the three can be read out of the chooser own source', !!api, why);
+
+  if (api) {
+    const { pickRoadLabels: pick, isTap, tallyText, TIER_LABEL: TL } = api;
+    const at = (nm, x, y) => ({ n: nm, x, y });
+    const names = (r) => r.map((c) => c.n);
+    const W = 800; const H = 600; const PX = 11;
+
+    // The declutter. It is handed candidates already in stage pixels, longest
+    // road first, and its whole job is to say which of them get drawn.
+    eq('it keeps the order it was handed, which is longest road first',
+      names(pick([at('A', 10, 10), at('B', 10, 400)], W, H, 10, PX)), ['A', 'B']);
+    eq('a label whose anchor is off the stage is dropped',
+      names(pick([at('A', -5, 10), at('B', 10, 10)], W, H, 10, PX)), ['B']);
+    eq('the same road name is never printed twice in one view',
+      names(pick([at('Mill Lane', 10, 10), at('Mill Lane', 400, 400)], W, H, 10, PX)), ['Mill Lane']);
+    eq('two labels that would sit on top of each other become one',
+      names(pick([at('London Road', 100, 100), at('Cock Lane', 104, 102)], W, H, 10, PX)), ['London Road']);
+    eq('and the same two, far apart, are both kept',
+      names(pick([at('London Road', 100, 100), at('Cock Lane', 500, 400)], W, H, 10, PX)),
+      ['London Road', 'Cock Lane']);
+    // Without this one the whole declutter could return its input and stay green
+    // on everything above.
+    eq('the cap is honoured however many would fit',
+      pick([...Array(9)].map((_, i) => at('R' + i, 40 + i * 80, 300)), W, H, 3, PX).length, 3);
+
+    // The tap test. Not a boundary fixture by accident: 4 is the slop itself and
+    // it is asserted deliberately, to pin the comparison as inclusive.
+    eq('a pointer that barely moved is a tap', isTap(100, 100, 102, 101, 4), true);
+    eq('a pointer that was dragged across the map is not', isTap(100, 100, 140, 120, 4), false);
+    eq('exactly the slop still counts as a tap', isTap(100, 100, 104, 96, 4), true);
+    eq('one pixel past it does not', isTap(100, 100, 105, 100, 4), false);
+
+    // The tally. Peter, 2026-09-01, on the live page: "by left as they are do we
+    // mean Show if room". He did — and the figure was ALSO counting every row
+    // nobody had reached, so it named two populations at once.
+    const t = tallyText(171, 1, 22, 25);
+    const plain = t.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    check('the tally no longer claims anything was "left as they are"',
+      !/left as they are/i.test(plain), plain);
+    check('the middle figure uses the legend own words', plain.includes(TL.may), plain);
+    check('...and all three tiers are named the way the legend names them',
+      plain.includes(TL.must) && plain.includes(TL.miss), plain);
+    check('the middle figure is total minus must minus miss', plain.includes(TL.may + ' 148'), plain);
+    check('the progress is a separate sentence, and it counts answers',
+      /25 of 171 answered/.test(plain) && /146 not looked at yet/.test(plain), plain);
   }
 }
 

@@ -530,11 +530,52 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-road.minor { stroke: var(--muted); stroke-width: .8; opacity: .38; }
 .lm-road.major { stroke: var(--muted); stroke-width: 1.7; opacity: .85; }
 
-.lm-pt { vector-effect: non-scaling-stroke; cursor: pointer; r: calc(var(--lm-s, 1) * 0.0012); }
-.lm-pt.may { fill: var(--surface); stroke: var(--muted); stroke-width: 1.4; }
-.lm-pt.must { fill: var(--primary); stroke: var(--primary); stroke-width: 1.4; }
-.lm-pt.miss { fill: none; stroke: var(--err); stroke-width: 1.2; opacity: .5; }
-.lm-pt.sel { stroke: var(--accent); stroke-width: 3; }
+/* A mark is a group: the tier's disc, and — past the zoom threshold — the
+   sheet's own pictogram on top of it. The tier class sits on the GROUP, so one
+   rule set colours both halves. */
+.lm-mark { cursor: pointer; }
+/* No r here: the radius is written as an attribute by scaleMarks(), in pixels,
+   off the same scale as the pictogram it has to hug. A CSS calc in MAP units
+   held steady while you zoomed but not between one town and the next. */
+.lm-pt { vector-effect: non-scaling-stroke; }
+.lm-mark.may .lm-pt { fill: var(--surface); stroke: var(--muted); stroke-width: 1.4; }
+.lm-mark.must .lm-pt { fill: var(--primary); stroke: var(--primary); stroke-width: 1.4; }
+.lm-mark.miss .lm-pt { fill: none; stroke: var(--err); stroke-width: 1.2; opacity: .5; }
+.lm-mark.sel .lm-pt { stroke: var(--accent); stroke-width: 3; }
+
+/* --- the sheet's own pictograms (OA-220) -----------------------------------
+   The same twelve glyphs the paper prints, from the same engine/icons.js the
+   render loads, so the chooser teaches the vocabulary the reader will meet on
+   the sheet instead of a second one made of coloured dots.
+
+   They are OFF at the fitted view and on past GLYPH_AT, and that is a measured
+   limit rather than a preference: a glyph needs about 19 px where a dot needs
+   3, and a town's worth of them at the whole-town view overlap into porridge.
+   When they come on, the disc stops being the mark and becomes the RING around
+   the pictogram — which is how the ANSWER stays readable once the mark is a
+   picture rather than a colour. */
+.lm-glyph { display: none; pointer-events: none; }
+.lm-stage svg.glyphs .lm-glyph { display: block; }
+.lm-stage svg.glyphs .lm-pt { fill: var(--surface); }
+.lm-stage svg.glyphs .lm-mark.must .lm-pt { stroke-width: 3; }
+.lm-stage svg.glyphs .lm-mark.miss .lm-pt,
+.lm-stage svg.glyphs .lm-mark.miss .lm-glyph { opacity: .4; }
+
+.lm-icon { display: block; width: 20px; height: 20px; flex: none; align-self: center; }
+.lm-icon svg { width: 100%; height: 100%; display: block; }
+.lm-cathead .lm-icon { width: 17px; height: 17px; display: inline-block; }
+
+/* --- road names (OA-220) ---------------------------------------------------
+   Enough to orient by and no more. The halo is painted UNDER the letterform by
+   paint-order, and both it and the size are held constant on screen, because a
+   label that grows with the zoom stops being a label. */
+.lm-roadname {
+  fill: var(--muted); text-anchor: middle; dominant-baseline: middle;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px;
+  vector-effect: non-scaling-stroke; pointer-events: none;
+  font-weight: 600; letter-spacing: .02em;
+}
+#namesBtn[aria-pressed="false"] { opacity: .5; }
 
 .lm-actions { margin-top: 10px; }
 .lm-tally { font-size: .9rem; color: var(--muted); margin-bottom: 8px; }
@@ -563,7 +604,7 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-bulk { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .72rem; }
 
 .lm-row {
-  display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px;
   padding: 8px; border-bottom: 1px solid var(--border); border-left: 3px solid transparent;
 }
 .lm-row:last-child { border-bottom: 0; }
