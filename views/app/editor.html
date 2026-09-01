@@ -20,6 +20,7 @@
     <a class="navlink" href="/app">← My maps</a>
     <a class="navlink" href="/app/branding">Public details</a>
     <a class="navlink" id="diagramLink" href="#" style="display:none" title="Expert-only: hand-tune the tube-map diagram’s junction layout">Diagram layout</a>
+    <a class="navlink" id="landmarksLink" href="#" style="display:none" title="Say which places are landmarks people navigate by">Landmarks</a>
     <a class="navlink" id="adminLink" href="/app/admin" style="display:none" data-eev-hide>Admin</a>
     <span class="navlink" id="whoami"></span>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
@@ -74,7 +75,7 @@
           <div class="panel">
             <header>Points of interest <span class="count" id="poiCount"></span></header>
             <div class="body">
-              <p class="hint-line">Tick to show a landmark's icon on the “within” map; untick to hide it.</p>
+              <p class="hint-line">Tick to show a landmark’s icon on the “within” map; untick to hide it. Unticking here stops it being <em>drawn</em> but keeps its space reserved — to give the space back, and to say which places really matter, use <a href="#" id="poiPanelLink">Choose the landmarks</a>.</p>
               <input class="field poi-search" id="poiSearch" type="search" placeholder="Filter landmarks…" aria-label="Filter points of interest">
               <div class="poi-scroll" id="pois"></div>
             </div>

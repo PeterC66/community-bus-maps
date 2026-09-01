@@ -23,6 +23,27 @@
 
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
+/** The three answers the landmark chooser can give (OA-212). Engine keys, never shown. */
+const POI_TIERS = new Set(['must', 'may', 'miss']);
+
+/** Longest rename accepted. The sheet has no room for more and the placer would drop it. */
+const MAX_POI_NAME = 60;
+
+/**
+ * Characters a renamed POI may not carry. The double quote is the one that
+ * matters — see the note at the poiTiers block — and the angle brackets and
+ * control characters are refused with it because no place name needs them and a
+ * name that reaches an SVG should not be the thing that tests an escaper.
+ */
+function badPoiName(t) {
+  if (/["<>]/.test(t)) return true;
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i);
+    if (c < 0x20 || c === 0x7f) return true;   // control characters
+  }
+  return false;
+}
+
 /**
  * Why hiding an operator is refused on a map that carries a boarding plan
  * (OA-011). Exported because the EDITOR says the same sentence beside the
@@ -73,6 +94,7 @@ export function sanitizeOverrides(input, {
   if (Object.keys(rc).length) out.routeColors = rc;
 
   // --- internal.pois[key] = { hide:true } only, for known POIs ---
+  // (superseded by internal.poiTiers below; still accepted so saved maps work)
   const inInt = src.internal && typeof src.internal === 'object' ? src.internal : {};
   const inPois = inInt.pois && typeof inInt.pois === 'object' ? inInt.pois : {};
   const pois = {};
@@ -82,7 +104,70 @@ export function sanitizeOverrides(input, {
     if (o && typeof o === 'object' && o.hide === true) pois[k] = { hide: true };
     // hide:false / missing -> POI stays visible -> no entry (keeps file minimal)
   }
-  if (Object.keys(pois).length) out.internal = { pois };
+  // --- internal.poiTiers[key] = { tier, as } — the landmark chooser (OA-212) ---
+  //
+  // WHY THIS IS NOT `internal.pois[key].hide`, two lines up, which looks like it
+  // does the same job. `hide` is a RENDER-time override: the POI is still
+  // selected, still reserves its 4.2 mm box, still anchors the placer, and still
+  // counts in ci-reference, the byte gate and the quality ledger. A `miss` tier
+  // is applied in poi_select.js at SELECTION time, before any of that happens,
+  // so it is the only one of the two that gives the room back. A customer told
+  // "untick this to free up space" and handed `hide` would be told something
+  // false — which is why the chooser writes tiers, and why the editor's older
+  // tick box is being retired ONTO them rather than extended.
+  //
+  // Saved `hide` entries are still accepted above, so nothing already saved
+  // breaks. The chooser simply does not send them, and because this function
+  // rebuilds the overrides object from scratch, the next save through it drops
+  // them. That is exactly how a hidden POI becomes a properly missed one.
+  const inTiers = inInt.poiTiers && typeof inInt.poiTiers === 'object' ? inInt.poiTiers : {};
+  const tiers = {};
+  for (const k of Object.keys(inTiers)) {
+    // The key must be one this map actually has, and that list has to be the
+    // CANDIDATE set rather than the drawn set. A POI classified `miss` in the
+    // map's own routes.json is not on the sheet at all, so validating against
+    // the sheet would reject the very key that is keeping it off: the
+    // classification would be dropped on the next save and the POI would
+    // silently come back. See editablePoiKeysFromDir().
+    if (!poiSet.has(k)) { rejected.push(`internal.poiTiers["${k}"] (unknown POI)`); continue; }
+    const o = inTiers[k];
+    if (!o || typeof o !== 'object') { rejected.push(`internal.poiTiers["${k}"] (not an object)`); continue; }
+    const tier = o.tier === undefined ? 'may' : o.tier;
+    if (!POI_TIERS.has(tier)) { rejected.push(`internal.poiTiers["${k}"] (tier "${tier}" is not must/may/miss)`); continue; }
+
+    // The rename. Optional, and BLANK MEANS ABSENT rather than invalid: an
+    // earlier draft rejected the whole entry when `as` trimmed to nothing, which
+    // threw away the tier too — the main answer discarded because the optional
+    // box beside it held a space. test-landmark-tiers.mjs found it.
+    let as = null;
+    if (typeof o.as === 'string' && o.as.trim()) {
+      const t = o.as.trim();
+      if (t.length > MAX_POI_NAME) { rejected.push(`internal.poiTiers["${k}"].as (longer than ${MAX_POI_NAME} characters)`); continue; }
+      // A rename REPLACES the POI's identity, so this string becomes the key the
+      // generator writes into `data-key="…"` when it runs in editor mode. The
+      // engine's esc() escapes &, < and > — it does NOT escape a double quote,
+      // so a name carrying one would break out of that attribute. Refusing it
+      // here is the fix, and it is the right layer: this is the boundary that
+      // exists to validate untrusted input, it costs no real place name (not one
+      // of High Wycombe's 171 contains any of these), and it needs no second
+      // change to an engine file whose hash gates all twenty maps.
+      if (badPoiName(t)) { rejected.push(`internal.poiTiers["${k}"].as (contains a character a place name cannot carry)`); continue; }
+      as = t;
+    } else if (o.as !== undefined && o.as !== null && typeof o.as !== 'string') {
+      rejected.push(`internal.poiTiers["${k}"].as (not a string)`); continue;
+    }
+
+    // `may` with no rename is what every unclassified POI already does, so it
+    // earns no entry — an untouched map still serialises to {}.
+    if (tier === 'may' && !as) continue;
+    tiers[k] = as ? { tier, as } : { tier };
+  }
+
+  if (Object.keys(pois).length || Object.keys(tiers).length) {
+    out.internal = {};
+    if (Object.keys(pois).length) out.internal.pois = pois;
+    if (Object.keys(tiers).length) out.internal.poiTiers = tiers;
+  }
 
   // --- hiddenOperators: known operator name only, and only if this customer
   // has the feature enabled at all. Not enabled => reject every entry (even a
@@ -116,7 +201,7 @@ export function sanitizeOverrides(input, {
     if (k !== 'routeColors' && k !== 'internal' && k !== 'hiddenOperators') rejected.push(`${k} (expert-only)`);
   }
   for (const k of Object.keys(inInt)) {
-    if (k !== 'pois') rejected.push(`internal.${k} (expert-only)`);
+    if (k !== 'pois' && k !== 'poiTiers') rejected.push(`internal.${k} (expert-only)`);
   }
 
   return { overrides: out, rejected };

@@ -43,6 +43,7 @@ import { readFactsSnapshot, buildFacts } from './maps/facts.js';
 import { inlineSvg } from './public/inlineSvg.js';
 import {
   readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
+  enumerateCandidatesFromDir, editablePoiKeysFromDir,
   readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
   swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
 } from './maps/engine.js';
@@ -1513,6 +1514,17 @@ function boardingPlanActive(map, dataDir = mapDataDir(map.id)) {
   return effectiveOutputs(parseOutputs(map.outputs), dataDir).some((o) => o.key === 'boarding_plan');
 }
 
+/**
+ * A map's saved poiTiers overlay ({} if none). Passed to the candidate
+ * enumerator so the tier it reports is the tier the sheet is drawn with, and
+ * so a renamed POI is enumerated under BOTH its identities.
+ */
+function savedPoiTiers(id) {
+  const ov = readOverrides(id);
+  const t = ov && ov.internal && ov.internal.poiTiers;
+  return t && typeof t === 'object' ? t : {};
+}
+
 /** The three things sanitizeOverrides() needs to know about a map's customer + payload. */
 function safeSubsetAllow(map, meta, poiKeys, dataDir) {
   return {
@@ -1661,6 +1673,7 @@ app.get('/app/login.html', async (req, reply) => reply.sendFile('app/login.html'
 
 app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
 app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
+app.get('/app/maps/:id/landmarks', async (req, reply) => (req.user ? reply.sendFile('app/landmarks.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
 app.get('/app/branding', async (req, reply) => (req.user ? reply.sendFile('app/branding.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
 app.get('/app/admin', async (req, reply) => {
   if (!req.user) return reply.redirect('/app/login.html');
@@ -1798,7 +1811,7 @@ app.post('/api/maps/:id/preview', async (req, reply) => {
   if (!map) return reply.code(code).send({ ok: false, error });
   const id = map.id;
   const meta = readRoutesMeta(id);
-  const poiKeys = enumeratePois(id).map((p) => p.key);
+  const poiKeys = editablePoiKeysFromDir(mapDataDir(id), savedPoiTiers(id));
   const s = sanitizeOverrides((req.body || {}).overrides, safeSubsetAllow(map, meta, poiKeys));
   try {
     const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs)));
@@ -1807,6 +1820,93 @@ app.post('/api/maps/:id/preview', async (req, reply) => {
     req.log.error(e);
     return reply.code(500).send({ ok: false, error: 'Preview render failed: ' + e.message });
   }
+});
+
+/**
+ * The landmark chooser's list (OA-212): every POI this map COULD draw, with the
+ * answer it currently carries, grouped so a category can be answered in one go.
+ *
+ * Read-only, and it runs no generator: enumerateCandidatesFromDir() asks the
+ * selector directly. That matters twice over — it is fast enough to serve on
+ * page load, and it is the only enumeration that still lists a POI somebody has
+ * already classified `Do not show`.
+ */
+app.get('/api/maps/:id/landmarks', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const id = map.id;
+  const tiers = savedPoiTiers(id);
+  const saved = readOverrides(id);
+  // A POI hidden through the editor's older render-time tick is shown here as
+  // "Do not show" and rewritten as a tier on the next save (Peter, 2026-09-01).
+  // Both are reported so the page can say which it is reading.
+  const hidden = new Set(Object.keys((saved.internal && saved.internal.pois) || {})
+    .filter((k) => saved.internal.pois[k] && saved.internal.pois[k].hide));
+  const cand = enumerateCandidatesFromDir(mapDataDir(id), tiers).map((p) => ({
+    key: p.key, cat: p.cat, name: p.name, ll: p.ll,
+    tier: p.tier === 'may' && hidden.has(p.key) ? 'miss' : p.tier,
+    as: p.as || null,
+    printsName: !!p.printsName,
+    fromHide: p.tier === 'may' && hidden.has(p.key),
+  }));
+  return {
+    ok: true,
+    map: { id, name: map.name, slug: map.slug, kind: map.kind, status: map.status },
+    landmarks: cand,
+    counts: {
+      total: cand.length,
+      must: cand.filter((p) => p.tier === 'must').length,
+      miss: cand.filter((p) => p.tier === 'miss').length,
+      symbolOnly: cand.filter((p) => !p.printsName).length,
+      fromHide: cand.filter((p) => p.fromHide).length,
+    },
+  };
+});
+
+/**
+ * The street network and the POI points behind the chooser's map.
+ *
+ * DELIBERATELY NOT THE SHEET. It is the town's roads in plain lat/lon, drawn by
+ * the browser, so that ticking is instant and a judgement about whether
+ * somewhere is a landmark is made looking at where it actually is. It is served
+ * from the same roads_geo.json the sheet is built from, so the streets are the
+ * real ones — but the sheet's own projection, rotation and focus fisheye are NOT
+ * applied, and the page says so. A picture that looked like the sheet without
+ * being it would invite the reader to judge crowding from the wrong drawing;
+ * the "See the real sheet" button is what answers that question honestly.
+ *
+ * Slimmed on the way out: roads_geo.json is 1.3 MB for High Wycombe, most of it
+ * node id arrays nothing here needs.
+ */
+app.get('/api/maps/:id/basemap', async (req, reply) => {
+  const user = requireUser(req, reply); if (!user) return;
+  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+  if (!map) return reply.code(code).send({ ok: false, error });
+  const dir = mapDataDir(map.id);
+  let roads = null;
+  try { roads = JSON.parse(readFileSync(path.join(dir, 'roads_geo.json'), 'utf8')); } catch { roads = null; }
+  if (!roads || !Array.isArray(roads.ways)) {
+    return reply.code(404).send({ ok: false, error: 'This map has no street data to draw.' });
+  }
+  // Keep the classes that read as a street network at town scale. A service
+  // road or a driveway is noise here and is most of the file.
+  const KEEP = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary',
+    'unclassified', 'residential', 'motorway_link', 'trunk_link', 'primary_link',
+    'secondary_link', 'tertiary_link', 'living_street', 'pedestrian']);
+  const MAJOR = new Set(['motorway', 'trunk', 'primary', 'secondary', 'motorway_link', 'trunk_link', 'primary_link']);
+  const ways = [];
+  for (const w of roads.ways) {
+    const hw = w.tags && w.tags.highway;
+    if (!hw || !KEEP.has(hw)) continue;
+    if (!Array.isArray(w.geometry) || w.geometry.length < 2) continue;
+    ways.push({
+      g: w.geometry.map((c) => [Math.round(c[0] * 1e5) / 1e5, Math.round(c[1] * 1e5) / 1e5]),
+      m: MAJOR.has(hw) ? 1 : 0,
+      n: (w.tags.name || w.tags.ref || '') || undefined,
+    });
+  }
+  return { ok: true, bbox: roads.bbox || null, ways };
 });
 
 app.post('/api/maps/:id/save', async (req, reply) => {
@@ -1820,7 +1920,7 @@ app.post('/api/maps/:id/save', async (req, reply) => {
     return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw the request to make further changes.' });
   }
   const meta = readRoutesMeta(id);
-  const poiKeys = enumeratePois(id).map((p) => p.key);
+  const poiKeys = editablePoiKeysFromDir(mapDataDir(id), savedPoiTiers(id));
   const b = req.body || {};
   const s = sanitizeOverrides(b.overrides, safeSubsetAllow(map, meta, poiKeys));
   const { major, minor } = nextVersion(id);
@@ -2077,7 +2177,7 @@ app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
       // lay the map's own pins on it so the "after" side is what accepting gives.
       carryExpertTuning(id, stagedDir);
       const stagedMeta = readRoutesMetaFromDir(stagedDir);
-      const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
+      const poiKeys = editablePoiKeysFromDir(stagedDir, savedPoiTiers(id));
       const after = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir)); // re-apply onto proposed data
       return {
         before: previewFrom(mapDataDir(id), saved, outputs),
@@ -2127,7 +2227,7 @@ app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
       if (carried.length) req.log.info({ mapId: id, carried }, 'carried expert tuning into the refreshed data');
       // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
       const stagedMeta = readRoutesMetaFromDir(stagedDir);
-      const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
+      const poiKeys = editablePoiKeysFromDir(stagedDir, savedPoiTiers(id));
       const reapplied = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir));
       // Render from the staged data BEFORE committing the swap.
       const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
