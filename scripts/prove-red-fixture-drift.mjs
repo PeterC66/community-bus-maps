@@ -38,6 +38,15 @@
 // it is STRONGER than the committed pack — so a version of it that quietly
 // repointed anything would have broken the thing it was written to protect.
 //
+// SIX MORE TREES JOINED ON 2026-09-01 (OA-211), thirteen in all, and they belong
+// to the RESOLUTION that replaced the nagging rather than to the warning. They
+// are documented where they are, below case 6. The paragraph above still holds
+// exactly as written — every tree up there has no `manifest.json`, so nothing is
+// resolvable and nothing moves — but read it as being about this WARNING, not
+// about the resolver: what it ruled out was repointing QUIETLY, and away from
+// the live tree. The resolver moves an entry only FORWARD, only within the tree
+// the variable already chose, and prints what it did.
+//
 // IT TOUCHES NOTHING REAL. Every tree is built under os.tmpdir() from a handful
 // of one-line JSON files; the repository's own fixtures are never read, and the
 // ambient FIXTURE_DIR / PLACE_FIXTURE_DIR / BUSES_DIR are stripped from the
