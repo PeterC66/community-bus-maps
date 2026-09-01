@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.7 | 2026-09-01 | sha=e5992328 -->
-**v1.7** · updated 1 September 2026
+<!-- docstamp v1.8 | 2026-09-01 | sha=0b1d5707 -->
+**v1.8** · updated 1 September 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -82,7 +82,9 @@ A domain property can only be verified by **DNS**, and DNS for this domain is at
 
 **Leave the record in place permanently.** Google re-checks it periodically and silently un-verifies the property if it has gone; deleting it during a later DNS tidy-up is the way this quietly stops working.
 
-With the property verified, open **Sitemaps** in the left-hand navigation. It is not a top-level item — it sits inside the **Indexing** group, below *Pages* and beside *Video pages* and *Removals*, which is enough to send somebody hunting for it; `https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Abusmaps.uk` goes straight there for this property. Under **Add a new sitemap** the field is already prefixed with `https://busmaps.uk/`, so type only `sitemap.xml` and submit. A *Success* status means the file was fetched and parsed — it is not a statement that anything has been indexed, and Coverage will read "Discovered – currently not indexed" for most of the 48 for a while. Do not re-submit to hurry it along; re-submission tells Google nothing it does not already know.
+With the property verified, open **Sitemaps** in the left-hand navigation. It is not a top-level item — it sits inside the **Indexing** group, below *Pages* and beside *Video pages* and *Removals*, which is enough to send somebody hunting for it; `https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Abusmaps.uk` goes straight there for this property. Under **Add a new sitemap** the field is labelled *Enter sitemap URL* and is **not** prefixed with the origin, whatever a half-remembered screenshot may say — enter the whole thing, `https://busmaps.uk/sitemap.xml`, and submit. A *Success* status means the file was fetched and parsed — it is not a statement that anything has been indexed, and Coverage will read "Discovered – currently not indexed" for most of the 48 for a while. Do not re-submit to hurry it along; re-submission tells Google nothing it does not already know.
+
+**Expect *Couldn't fetch* on the first look, and do not chase it.** That was the status within a minute of the real submission on 2026-09-01, and it is **not** a report of a failed fetch — read the row across: *Type* **Unknown**, *Last read* **blank**, *Discovered pages* **0** is the state before Google has tried at all, and it clears by itself. What it is worth doing is proving the difference rather than waiting to find out, because everything checkable on our side was checked at the time and was fine: `200` as Googlebot, `Content-Type: application/xml`, a valid `urlset` with 48 `<url>` elements and no BOM, nothing in `robots.txt` blocking it, no rate limiter on that route, and `200` over **both** IPv4 and IPv6 — that last one being the check worth keeping, because an `AAAA` record pointing at a host that does not answer is the textbook cause of this message and is invisible to any `curl` run on a v4-only connection. The read-back that settles it is **URL Inspection** on `https://busmaps.uk/sitemap.xml` → **Test live URL**, which makes Google fetch it now and reports what its own crawler saw. That is the only instrument here that can tell *not tried yet* from *tried and failed*; ours can only say the file is fine.
 
 ### 2. Bing Webmaster Tools
 
