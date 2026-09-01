@@ -15,6 +15,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
+import { mergeGenWarnings } from '../render/genWarnings.js';
 import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, ENGINE_SOURCE, versionNumber, outputHint, readSheetDeclaration } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { buildFacts, FACTS_FILE } from './facts.js';
@@ -511,14 +512,22 @@ export function readOverrides(id) {
  * WITHOUT persisting anything. Returns SVG strings keyed by artefact base name.
  * Works for any map data dir — the live one (preview) or a staged proposed one
  * (the "after" side of a P5 old-vs-new comparison).
+ *
+ * `collect`, if given, is an array this pushes each run's generator warnings
+ * onto (OA-216). AN OUT-PARAMETER RATHER THAN A CHANGED RETURN SHAPE, on
+ * purpose: this returns a bare `{ base: svg }` map that four callers destructure
+ * by artefact name, and wrapping it would have meant changing the P5 old-vs-new
+ * comparison and the editor's live preview for the sake of a caller neither of
+ * them is. The routes that want the warnings ask for them; the rest are
+ * untouched.
  */
-export function previewFrom(dataDir, overrides, outputsConfig) {
+export function previewFrom(dataDir, overrides, outputsConfig, collect) {
   const tmp = path.join(os.tmpdir(), `cbm-preview-${process.pid}-${Date.now()}.json`);
   writeFileSync(tmp, JSON.stringify(mergeOverrides(readBaseOverrides(dataDir), overrides || {})));
   const result = {};
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
-      const { svgPath } = generateSvg({
+      const { svgPath, warnings } = generateSvg({
         dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
         // A preview is of no version at all — it is the customer's unsaved edits.
         // Without this it would fall back to routes.json, which on a map delivered
@@ -527,6 +536,7 @@ export function previewFrom(dataDir, overrides, outputsConfig) {
         // customer editing their own map.
         sheetVersion: 'Preview \u2014 unsaved',
       });
+      if (collect) collect.push(warnings);
       result[o.base] = readFileSync(svgPath, 'utf8');
     }
   } finally {
@@ -536,8 +546,8 @@ export function previewFrom(dataDir, overrides, outputsConfig) {
 }
 
 /** Preview a map's LIVE data with candidate overrides (the editor's live preview). */
-export function preview(id, overrides, outputsConfig) {
-  return previewFrom(mapDataDir(id), overrides, outputsConfig);
+export function preview(id, overrides, outputsConfig, collect) {
+  return previewFrom(mapDataDir(id), overrides, outputsConfig, collect);
 }
 
 /**
@@ -563,9 +573,14 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
 
   const files = {};
   const log = [];
+  // OA-216 — what each generator said on its way to a SUCCESSFUL render. Until
+  // 2026-09-01 this was thrown away, so a customer could mark twenty places
+  // *Must show*, be told "the map has been redrawn with your choices", and have
+  // three of them silently not happen.
+  const runs = [];
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
-      const { svgPath, log: genLog } = generateSvg({
+      const { svgPath, log: genLog, warnings } = generateSvg({
         dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
         // The PLAIN number, and deliberately nothing about the version's state.
         //
@@ -586,6 +601,11 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
         sheetVersion: versionNumber(storageKey),
       });
       if (genLog) log.push(`${o.gen}: ${genLog}`);
+      runs.push(warnings);
+      // The whole stream goes in the server log, editor-facing or not: the lines
+      // this does NOT show a customer are exactly the ones an operator wants
+      // when a sheet comes out wrong, and until now nobody could see any of them.
+      for (const line of warnings.all) log.push(`${o.gen}: ${line}`);
       const svgOut = path.join(outDir, `${o.base}.svg`);
       const jpgOut = path.join(outDir, `${o.base}.jpg`);
       cpSync(svgPath, svgOut);
@@ -625,7 +645,7 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
     const facts = buildFacts(dataDir);
     if (facts) writeFileSync(path.join(outDir, FACTS_FILE), JSON.stringify(facts, null, 2));
   } catch { /* versions rendered without a snapshot fall back to live data */ }
-  return { storageKey, files, log };
+  return { storageKey, files, log, warnings: mergeGenWarnings(runs) };
 }
 
 /**

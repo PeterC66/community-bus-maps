@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { fixBadgeContrast } from './badgeContrast.js';
 import { stampPilot } from './pilotStamp.js'; // PILOT: remove with docs/PILOT.md
+import { readGenWarnings } from './genWarnings.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ENGINE_DIR = path.resolve(HERE, '../../engine');
@@ -46,7 +47,8 @@ function svgNameFor(generator) {
 
 /**
  * Run a map's generator to (re)produce its SVG in `dataDir`.
- * @returns {{ svgPath: string, svgName: string, log: string }}
+ * @returns {{ svgPath: string, svgName: string, log: string,
+ *             warnings: { editor: {heading,detail,generator}[], all: string[] } }}
  */
 export function generateSvg({
   dataDir,
@@ -130,7 +132,26 @@ export function generateSvg({
     writeFileSync(svgPath, out);
   }
 
-  return { svgPath, svgName, log: (res.stdout || '').trim() };
+  // AND WHAT IT SAID ON THE WAY, WHICH UNTIL 2026-09-01 WAS DISCARDED (OA-216).
+  //
+  // The block above reads `res.stderr` only when the status is non-zero. Every
+  // warning that is NOT a refusal — a `poi.tiers` key that matched nothing, a
+  // rename that collided, a customer's *Must show* the placer could not seat —
+  // is written with `process.stderr.write` rather than `refuse()`, on purpose,
+  // because the sheet is still worth having. So all of them take the success
+  // path, and on that path the whole stream was thrown away unread. `log` is
+  // stdout, which none of them use.
+  //
+  // Returning it costs nothing and changes no bytes: spawnSync has captured the
+  // stream already, and this touches neither the SVG nor the generator's
+  // environment, so the P0 reproduce gate is unaffected. genWarnings.js decides
+  // which lines reach a customer, and says why the rest deliberately do not.
+  return {
+    svgPath,
+    svgName,
+    log: (res.stdout || '').trim(),
+    warnings: readGenWarnings(res.stderr, path.basename(generator)),
+  };
 }
 
 /**
