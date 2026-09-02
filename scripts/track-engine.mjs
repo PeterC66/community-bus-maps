@@ -80,6 +80,18 @@ if (!existsSync(MAPS)) {
 }
 
 let behind = 0, current = 0, skipped = 0;
+// A `?` ROW IS A FINDING AND EXITS NON-ZERO; a `·` row is a benign skip and does not.
+// Until 2026-09-02 both were only `skipped`, and the exit code read `behind` alone --
+// so a pack declaring a generator the engine no longer vendors printed the sentence
+// "which is not vendored", said "1 skipped", and PASSED. That is the shape this
+// script's own comment calls "a REAL finding, not a skip to shrug at", and the exit
+// code disagreed with the comment. It surfaced when gen_external_busway.js was
+// dropped (OA-224 Tier 4.1): the laptop's packs are all radial, but the live store
+// holds 46 and could not be read from here, so the question "did that break a live
+// map?" had to be one the next run ANSWERS rather than one somebody remembers to ask.
+// --apply does not clear it either, which is why it is not gated on !APPLY: there is
+// no file to copy, so applying cannot fix it.
+let findings = 0;
 const rows = [];
 
 for (const id of dirs(MAPS)) {
@@ -106,7 +118,7 @@ for (const id of dirs(MAPS)) {
     const declared = readEngineSource(dataDir);
     if (declared && declared.unreadable) {
       rows.push(['?', id, name, `${ENGINE_SOURCE_FILE} will not parse — answered, but we cannot hear it`]);
-      skipped++;
+      skipped++; findings++;
       continue;
     }
     const rel = declared && typeof declared.generators[name] === 'string' ? declared.generators[name] : null;
@@ -122,7 +134,7 @@ for (const id of dirs(MAPS)) {
       // skip to shrug at: either the declaration is wrong or a generator was
       // dropped without migrating the maps that name it.
       rows.push(['?', id, name, `declares ${rel}, which is not vendored — re-vendor, or fix ${ENGINE_SOURCE_FILE}`]);
-      skipped++;
+      skipped++; findings++;
       continue;
     }
     const was = hash(packFile), now = hash(vendored);
@@ -149,4 +161,10 @@ if (behind && !APPLY) {
 if (APPLY && behind) {
   console.log('\nStored sheets are UNCHANGED. Re-render a map to see the current engine in its output.');
 }
-process.exitCode = (behind && !APPLY) ? 1 : 0;
+if (findings) {
+  console.log(`
+${findings} pack(s) marked ? — a declaration naming a generator this engine`);
+  console.log('does not vendor, or one that will not parse. Neither is fixed by --apply:');
+  console.log('re-vendor the file the pack names, or correct its ' + ENGINE_SOURCE_FILE + '.');
+}
+process.exitCode = ((behind && !APPLY) || findings) ? 1 : 0;
