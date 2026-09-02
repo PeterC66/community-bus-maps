@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.33 | 2026-09-01 | sha=9fe93fd1 -->
-**v1.33** · updated 1 September 2026
+<!-- docstamp v1.34 | 2026-09-02 | sha=cecb101e -->
+**v1.34** · updated 2 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -183,6 +183,26 @@ npm run smoke:signin
 from the repo root on the laptop (`C:\Claude\community-bus-maps`). It POSTs one real sign-in request for `ADMIN_EMAIL` to the running service and then reads the **server log** for `magic link emailed` — the HTTP response is deliberately identical whether or not the address is registered, so it cannot be the evidence. It exits non-zero on a 503, on a provider that threw, on a link that went to the console instead of an inbox, and on no matching log line at all. `npm run deploy -- --skip-signin` skips it, and then nothing has proved a real sign-in email can be sent.
 
 Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
+
+### 4a. A re-vendor is not finished until the LIVE store has been tracked, and the live number is not the laptop's
+
+**A delivered map's data pack carries its own copy of the generators and `generateSvg()` runs THAT copy** (OA-130: track, not freeze). So deploying a re-vendored `engine/` reaches the portal and does not reach the maps already in it. `scripts/track-engine.mjs` is what closes that, it re-renders nothing, and no published byte changes — what changes is the NEXT render of each map.
+
+**Run it where the maps are, and read that number.** The script's store comes from `MAPS_DIR`, which derives from `DATA_DIR` — on the laptop that is the local dev store, which is a DIFFERENT set of maps from the live one. Measured 2026-09-02 after deploying `a65d9a7`: the laptop said *3 already current, 10 BEHIND*; the live store said **10 already current, 36 BEHIND**. A local run is not an answer about busmaps.uk, and a green local run after a re-vendor is the easiest way to believe the hand-off is done when 36 packs are still frozen at import.
+
+Report first, then apply, then re-read. From any folder on the laptop; the host path is real and there are no placeholders:
+
+```bash
+ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "cd /opt/community-bus-maps && docker compose exec -T portal node scripts/track-engine.mjs"
+```
+
+```bash
+ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "cd /opt/community-bus-maps && docker compose exec -T portal node scripts/track-engine.mjs --apply"
+```
+
+The reporting form exits non-zero while any pack is behind, so it works as a check as well as a report. The state to finish on is **`0 BEHIND, 0 skipped`** — a `skipped` pack is one whose `engine-source.json` does not say which external generator it was built from, and it is skipped rather than guessed because overwriting a busway map with the radial generator is a silent corruption found at the next render.
+
+**And `npm run check:vendored --skills` answers about the DISK, not about the commit.** It compares `engine/` with the skill sources in a working tree, so in this account's shared checkout another session's uncommitted edits read as `DRIFTED` on files your deploy never touched. That happened on 2026-09-02: four files reported drifted and all four matched the skills tree at `HEAD` byte-for-byte. Before believing a drift row, compare against `git show HEAD:<path>` in the skills repo.
 
 ## 5. Backups
 
