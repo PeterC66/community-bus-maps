@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.25 | 2026-09-01 | sha=406c1276 -->
-**v1.25** · updated 1 September 2026
+<!-- docstamp v1.26 | 2026-09-02 | sha=b101fb25 -->
+**v1.26** · updated 2 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -89,10 +89,14 @@ again for P8b/P8c.
 **None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
 fail, the change is wrong.
 
+## Conventions
+
+Flag names, exit codes, streams, the `--apply` / `--yes` vocabulary, naming and the Node pin: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md). One page, and it is the one to read before adding a script.
+
 ## Gates to run
 
 ```bash
-npm test          # P6 public front, P7 expert styles, request→publish→revert lifecycle
+npm test          # the whole suite - scripts/run-tests.mjs discovers every test-*/prove-red-* file
 npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (needs the fixture dirs)
 ```
 
