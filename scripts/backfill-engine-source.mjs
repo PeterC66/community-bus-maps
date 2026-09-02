@@ -45,13 +45,13 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readEngineSource, writeEngineSource, ENGINE_SOURCE_FILE } from './lib/engine-source.mjs';
+import { MAPS_DIR } from '../src/db/paths.js';
 
-// Resolved exactly as track-engine.mjs resolves it, and for the same reason:
-// importing src/db for one constant opens and migrates the database.
-const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : fileURLToPath(new URL('../data', import.meta.url));
-const MAPS = path.join(DATA_DIR, 'maps');
+// The path is resolved in src/db/paths.js, which imports nothing but node:path
+// and node:url -- importing src/db/index.js for one constant opens and migrates
+// the database, which is what this comment used to explain a second copy of
+// (OA-224 Tier 3.3).
+const MAPS = MAPS_DIR;
 const APPLY = process.argv.includes('--apply');
 
 const PACK_FILE = 'gen_external.js';

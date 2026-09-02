@@ -8,6 +8,7 @@
 // session is stored server-side.
 
 import crypto from 'node:crypto';
+import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
 import {
   getUserByEmail, insertMagicLink, consumeMagicLink,
   insertSession, getSession, deleteSession, touchSession,
@@ -106,9 +107,12 @@ export function sessionHandle(token) {
   return handleFromHash(sessionTokenHash(token));
 }
 
-/** The full stored hash of a raw token — what `session.token` holds since N3. */
+/** The full stored hash of a raw token — what `session.token` holds since N3.
+ *  The implementation is `src/hash.js`'s, shared with `src/db/index.js`, because
+ *  a token hashed on the way in by one spelling and looked up by another is a
+ *  fault nothing in the code would explain (OA-224 Tier 3.3). */
 export function sessionTokenHash(token) {
-  return crypto.createHash('sha256').update(String(token)).digest('hex');
+  return tokenHash(token);
 }
 
 /** The same handle, for callers holding the stored hash rather than a token. */

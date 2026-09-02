@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.0 | 2026-09-02 | sha=50fce3e7 -->
-**v1.0** · updated 2 September 2026
+<!-- docstamp v1.1 | 2026-09-02 | sha=7d135aed -->
+**v1.1** · updated 2 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -35,6 +35,8 @@ The distinction that matters is 1 against 2. A caller that treats every non-zero
 - The asymmetry is deliberate. A local mutator that runs by accident costs a `git checkout`; a deploy that runs by accident costs the live site, so it must be impossible to trigger without saying so.
 - `--check` is the read-only form of a generator (`changelog-assemble --check`). It exits `1` when the generated file is out of date, which is what makes it a CI step.
 - Long flags only, spelled `--like-this`. A flag that takes a value takes it as the next argument (`--only search`), not `--only=search`.
+- **Read them with `scripts/lib/cli.mjs`** — `arg`, `has`, `all`, `die` and `confirm` (2026-09-02, OA-224 Tier 3.3). Thirteen scripts each had their own three-line reader in four spellings, and `confirm('local' | 'remote')` is the two vocabularies above as one function, so a script cannot invent a fifth.
+- **A flag's value may not itself begin with `--`.** `--note --quiet` sets no note and leaves `--quiet` visible; before the shared reader it set the note to the string `"--quiet"` and swallowed the flag, silently, on scripts that write to the VPS. `argAllowingDashes` exists for a value that legitimately looks like a flag, and nothing here passes one.
 - Keep an old flag working as an alias when you rename one. A flag name is an interface with CI, the runbooks and a person's muscle memory.
 
 ## Naming
@@ -42,6 +44,12 @@ The distinction that matters is 1 against 2. A caller that treats every non-zero
 - `test-<thing>.mjs` — an assertion suite. `prove-red-<thing>.mjs` — the harness that breaks `<thing>` on purpose and requires each mutation to redden the assertion that names it. `check-<thing>.mjs` — a gate that reads state and reports. A script that does something is a verb (`import-map.mjs`, `propose-update.mjs`, `rotate-secret.mjs`).
 - The npm script is `test:<thing>` / `check:<thing>` for the matching file. **`npm test` discovers its tests** rather than listing them — see [`npm test` discovers its tests](DEVELOPING.md#npm-test-discovers-its-tests---adding-one-means-adding-the-file).
 - Shared helpers go in `scripts/lib/<thing>.mjs` and are imported, never copied. `src/` is the running service; `scripts/` is everything run by a person or by CI.
+
+## Importing for a path must not open a database
+
+**`src/db/index.js` opens the SQLite file, applies `schema.sql` and runs every migration at module load.** Import it when you need `db`, and never for a constant: `src/db/paths.js` exports `DATA_DIR`, `DB_PATH` and `MAPS_DIR`, imports nothing but `node:path` and `node:url`, and is what a script that only reads files off disk should use. Three scripts were migrating the live database as a side effect of wanting to know where `data/maps` is, and two more had already noticed and worked around it by re-deriving the path with a comment saying why — which is how a fourth spelling of it gets written (2026-09-02, OA-224 Tier 3.3).
+
+**One SHA-256, in `src/hash.js`.** `sha256` and `tokenHash`; a raw bearer token is never written to the database, and `tokenHash` takes the raw token so no caller can forget. It was spelled out at ten sites, two of which were the same security primitive under two names — a token hashed on the way in by one and looked up by the other, so the day the two differ every session stops resolving and nothing says why. The two audit tests still compute the hash themselves, deliberately: an independent computation in a test is the control, and a test using the function under test can only tell you it is deterministic.
 
 ## Node
 

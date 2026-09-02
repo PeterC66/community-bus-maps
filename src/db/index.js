@@ -2,17 +2,19 @@
 // The DB file lives under DATA_DIR (git-ignored) — never in the repo.
 
 import { DatabaseSync } from 'node:sqlite';
-import { createHash } from 'node:crypto';
+import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '../..'); // repo root — keeps data location cwd-independent
-export const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(ROOT, 'data');
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'portal.sqlite');
+// DATA_DIR and DB_PATH are resolved in paths.js, which imports nothing but
+// node:path and node:url (OA-224 Tier 3.3). Importing THIS module opens the
+// database and runs every migration, so a script that only wants to know where
+// the store is should import `./paths.js` and never this file. Re-exported here
+// so existing importers keep working.
+export { DATA_DIR, DB_PATH, MAPS_DIR } from './paths.js';
+import { DATA_DIR, DB_PATH } from './paths.js';
 
 mkdirSync(DATA_DIR, { recursive: true });
 
@@ -197,7 +199,7 @@ export function hashStoredTokens() {
       // stored twice — but a migration that throws mid-way through boot takes
       // the service down, so one bad row is skipped and reported rather than
       // being allowed to stop the other rows migrating.
-      try { upd.run(createHash('sha256').update(String(r.token)).digest('hex'), r.token); }
+      try { upd.run(tokenHash(r.token), r.token); }
       catch (e) { console.error(`[migrate] ${table}: could not hash one row — ${e.message}`); }
     }
     console.log(`[migrate] ${table}: hashed ${stale.length} stored token(s) (technical-audit_2026-08-25 N3)`);
@@ -1007,8 +1009,6 @@ export function updateUserAdmin(id, f) {
  * displayed handle and never holds a raw token at all — hence
  * deleteSessionByHash, which is the only function here taking a hash.
  */
-const tokenHash = (token) => createHash('sha256').update(String(token)).digest('hex');
-
 export function insertSession(token, userId, expiresAt) {
   db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(tokenHash(token), Number(userId), expiresAt);
 }

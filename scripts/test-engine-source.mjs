@@ -82,14 +82,25 @@ function run(script, root, args = []) {
 }
 
 /* track-engine.mjs and backfill resolve engine/ relative to their OWN location,
- * so the scratch world gets its own copy of both scripts beside its engine/. */
+ * so the scratch world gets its own copy of both scripts beside its engine/ —
+ * and of everything they import, because a module that is not here fails with
+ * ERR_MODULE_NOT_FOUND on every case at once, which reads as nine broken
+ * assertions rather than as one missing file. `lib/vendored.mjs` and
+ * `src/db/paths.js` joined the list on 2026-09-02 (OA-224 Tier 3.3 and 3.6),
+ * when the two scripts stopped carrying their own copies of the CRLF-normalised
+ * file hash and of the DATA_DIR resolution. That is the cost of sharing a
+ * helper, paid once here, against two more copies of a hash rule in the tree. */
 function install(root) {
   mkdirSync(path.join(root, 'scripts', 'lib'), { recursive: true });
+  mkdirSync(path.join(root, 'src', 'db'), { recursive: true });
   for (const f of ['track-engine.mjs', 'backfill-engine-source.mjs']) {
     writeFileSync(path.join(root, 'scripts', f), readFileSync(path.join(HERE, f)));
   }
-  writeFileSync(path.join(root, 'scripts', 'lib', 'engine-source.mjs'),
-    readFileSync(path.join(HERE, 'lib', 'engine-source.mjs')));
+  for (const f of ['engine-source.mjs', 'vendored.mjs']) {
+    writeFileSync(path.join(root, 'scripts', 'lib', f), readFileSync(path.join(HERE, 'lib', f)));
+  }
+  writeFileSync(path.join(root, 'src', 'db', 'paths.js'),
+    readFileSync(path.resolve(HERE, '..', 'src', 'db', 'paths.js')));
   return {
     track: path.join(root, 'scripts', 'track-engine.mjs'),
     backfill: path.join(root, 'scripts', 'backfill-engine-source.mjs'),

@@ -13,11 +13,8 @@
 // admin console) if you need to change an existing user's role.
 
 import { getUserByEmail, insertUser } from '../src/db/index.js';
+import { arg } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
 
 const email = arg('email');
 if (!email) {

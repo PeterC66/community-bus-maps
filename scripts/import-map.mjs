@@ -41,6 +41,7 @@ import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES, BUILD_WARNING
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
 import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
 import { requireScan } from './lib/vendored.mjs';
+import { arg, has } from './lib/cli.mjs';
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 
@@ -65,11 +66,6 @@ function findDisagreementsPdf(srcDir) {
   return null;
 }
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
-const has = (name) => process.argv.includes(`--${name}`);
 
 // AN UNOWNED MAP CAN NEVER BE PUBLICLY VISIBLE (OA-008).
 //

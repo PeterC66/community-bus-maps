@@ -200,8 +200,8 @@ Blockers from §2 are assumed. Grouped by who has to do them.
 
 ### Host setup
 
-| | Item |
-|---|---|
+| | Item | What was done |
+|---|---|---|
 | ☑ | ~~VPS provisioned; non-root user; SSH keys only; `ufw` to 22/80/443; `unattended-upgrades`~~ | done 2026-08-09 — OVHcloud, Ubuntu 26.04, `ubuntu` user, password auth + root login disabled, `ufw` active (22/80/443 only), `unattended-upgrades` already running |
 | ☑ | ~~Docker + compose; `docker compose up -d --build`; verify `/health?deep=1`~~ | done 2026-08-09 — repo cloned via a read-only GitHub deploy key, image built, `/health?deep=1` green with `gitSha`/`builtAt` matching the deployed commit |
 | ☑ | ~~Caddy in front — automatic TLS, forwards `X-Forwarded-Proto`, does not strip `/api/` or `/m/`~~ | installed + configured 2026-08-09 (tracked `Caddyfile`, `caddy validate` passes, service running). **Live and serving** as of 2026-08-09 — once DNS resolved, `sudo systemctl reload caddy` triggered an immediate cert issuance for `busmaps.uk` and `www.busmaps.uk` (Let's Encrypt, http-01 challenge). One gotcha hit along the way: the first `reload` failed because `/var/log/caddy/busmaps.access.log` was owned `root:root` (600) while Caddy runs as user `caddy` — fixed with `chown caddy:caddy` + `chmod 644`. `curl -I https://busmaps.uk` now returns `200 OK` over HTTPS. |

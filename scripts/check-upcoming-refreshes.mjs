@@ -28,11 +28,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { listMaps, listMessages, insertMessage, setMapBannerNoteAuto } from '../src/db/index.js';
 import { newestReportPath, reportDateOf, parseSections, bannerNoteFor, reportHasPlaces, mapsForSection, mapsForSectionLegacy, unscannedPlaceMaps } from './lib/upcoming-report.mjs';
+import { arg } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
 
 const reportPath = arg('report') || newestReportPath();
 if (!reportPath || !existsSync(reportPath)) {

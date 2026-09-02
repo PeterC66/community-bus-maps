@@ -86,12 +86,8 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkS6, findWaiver, refuses } from './lib/s6-freshness.mjs';
+import { arg, has } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
-const has = (name) => process.argv.includes(`--${name}`);
 
 const SRC = arg('src');
 const KIND = arg('kind', 'area');

@@ -27,13 +27,11 @@
 // encrypted backup in place.
 
 import { retentionDue, purgeExpiredPersonalData, personalDataFor, erasePersonalDataFor } from '../src/db/index.js';
+import { arg, has } from './lib/cli.mjs';
+// `valueOf` was this file's name for it, defaulting to the empty string.
+const valueOf = (f) => arg(f, '');
 
 const argv = process.argv.slice(2);
-const has = (f) => argv.includes(`--${f}`);
-const valueOf = (f) => {
-  const i = argv.indexOf(`--${f}`);
-  return i >= 0 && i + 1 < argv.length && !argv[i + 1].startsWith('--') ? argv[i + 1] : '';
-};
 const yes = has('yes');
 
 const usage = () => {
