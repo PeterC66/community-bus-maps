@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.1 | 2026-09-02 | sha=7d135aed -->
-**v1.1** · updated 2 September 2026
+<!-- docstamp v1.2 | 2026-09-02 | sha=4292471f -->
+**v1.2** · updated 2 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -50,6 +50,10 @@ The distinction that matters is 1 against 2. A caller that treats every non-zero
 **`src/db/index.js` opens the SQLite file, applies `schema.sql` and runs every migration at module load.** Import it when you need `db`, and never for a constant: `src/db/paths.js` exports `DATA_DIR`, `DB_PATH` and `MAPS_DIR`, imports nothing but `node:path` and `node:url`, and is what a script that only reads files off disk should use. Three scripts were migrating the live database as a side effect of wanting to know where `data/maps` is, and two more had already noticed and worked around it by re-deriving the path with a comment saying why — which is how a fourth spelling of it gets written (2026-09-02, OA-224 Tier 3.3).
 
 **One SHA-256, in `src/hash.js`.** `sha256` and `tokenHash`; a raw bearer token is never written to the database, and `tokenHash` takes the raw token so no caller can forget. It was spelled out at ten sites, two of which were the same security primitive under two names — a token hashed on the way in by one and looked up by the other, so the day the two differ every session stops resolving and nothing says why. The two audit tests still compute the hash themselves, deliberately: an independent computation in a test is the control, and a test using the function under test can only tell you it is deterministic.
+
+## Routes
+
+A section of `src/server.js` that is one audience behind one guard is a Fastify plugin in `src/routes/`, registered with its prefix and carrying the guard as a plugin-level `preHandler`, so a handler in that file cannot be added without it (OA-231, 2026-09-02; the admin console was first). A route that is the exception to its file's guard declares it as route config the guard reads — `{ config: { operatorRead: true } }` — never as a second call site. Route files import what they need from `src/http/helpers.js` and `src/maps/detail.js`; nothing in `src/routes/` reaches into `server.js`. The route table the app registers is recorded in `scripts/route-table.json` and asserted by `scripts/test-admin-plugin.mjs`; a cut that changes no route keeps that file byte-identical, and a change that does must re-record it in the same commit.
 
 ## Node
 

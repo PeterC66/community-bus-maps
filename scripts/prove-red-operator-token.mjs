@@ -107,13 +107,13 @@ const MUTATIONS = [
   {
     what: 'operatorRead admits everybody',
     why: 'the credential stops being checked at all — the shape a refactor produces when a helper is inlined wrongly',
-    edits: [['src/server.js', CHECK_TOKEN, '  return true;']],
+    edits: [['src/http/helpers.js', CHECK_TOKEN, '  return true;']],
     expect: 'no credential at all is still refused',
   },
   {
     what: 'operatorRead admits nobody',
     why: 'the other direction: without this arm the whole suite would pass with the token switched off, which is a check whose subject cannot exist',
-    edits: [['src/server.js', CHECK_TOKEN, '  return false;']],
+    edits: [['src/http/helpers.js', CHECK_TOKEN, '  return false;']],
     expect: 'the token reads /api/admin/worklist',
   },
   {
@@ -125,7 +125,9 @@ const MUTATIONS = [
   {
     what: 'GET /api/admin/worklist stops accepting it',
     why: 'the route the whole change exists for',
-    edits: [['src/server.js', 'if (!operatorRead(req) && !requireAdmin(req, reply)) return;', 'if (!requireAdmin(req, reply)) return;']],
+    // Re-anchored 2026-09-02 (OA-231): the route declares the exception as config and
+    // the plugin's one guard reads it; switching the flag off is the same door closing.
+    edits: [['src/routes/admin.js', "app.get('/worklist', { config: { operatorRead: true } }, async (req, reply) => {", "app.get('/worklist', { config: { operatorRead: false } }, async (req, reply) => {"]],
     expect: 'the token reads /api/admin/worklist',
   },
   {
@@ -137,35 +139,35 @@ const MUTATIONS = [
   {
     what: 'requireAdmin admits the token, so it reaches every admin GET',
     why: 'the token spreading past its two routes is the failure the row was filed to avoid; the method guard still holds every write shut',
-    edits: [['src/server.js', 'function requireAdmin(req, reply) {\n  if (!req.user) {', `function requireAdmin(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`]],
+    edits: [['src/http/helpers.js', 'function requireAdmin(req, reply) {\n  if (!req.user) {', `function requireAdmin(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`]],
     expect: 'GET /api/admin/applications refuses the token',
   },
   {
     what: '…and the method guard is gone too, so it reaches every admin WRITE',
     why: 'the pair above minus one line. It is the only way to show that req.method !== GET does anything, both real call sites being GET handlers',
     edits: [
-      ['src/server.js', 'function requireAdmin(req, reply) {\n  if (!req.user) {', `function requireAdmin(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`],
-      ['src/server.js', "  if (req.method !== 'GET') return false;", '  if (false) return false;'],
+      ['src/http/helpers.js', 'function requireAdmin(req, reply) {\n  if (!req.user) {', `function requireAdmin(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`],
+      ['src/http/helpers.js', "  if (req.method !== 'GET') return false;", '  if (false) return false;'],
     ],
     expect: 'POST a new admin user refuses it too',
   },
   {
     what: 'a third call site appears, on a route no forbidden-list names',
     why: 'the enumeration of forbidden routes can only cover what somebody remembered; this is the arm proving the source assertion covers the rest',
-    edits: [['src/server.js', 'function requireApprover(req, reply) {\n  if (!req.user) {', `function requireApprover(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`]],
+    edits: [['src/http/helpers.js', 'function requireApprover(req, reply) {\n  if (!req.user) {', `function requireApprover(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`]],
     expect: 'operatorRead is defined once and called exactly twice',
   },
   {
     what: 'an unset OPERATOR_TOKEN means everybody instead of nobody',
     why: 'a missing secret turning into an open door is the worst available reading of "unset", and every portal that has not set it yet is in that state',
-    edits: [['src/server.js', CHECK_TOKEN, '  return !process.env.OPERATOR_TOKEN || tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);']],
+    edits: [['src/http/helpers.js', CHECK_TOKEN, '  return !process.env.OPERATOR_TOKEN || tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);']],
     expect: 'with OPERATOR_TOKEN unset, the token stops working',
   },
   {
     what: 'the ?token= query form comes back',
     why: 'technical-audit_2026-08-25 N7 — Caddy logs the full request URI, so a token in a query string is a live credential written in clear into a file under no retention rule',
     edits: [[
-      'src/server.js',
+      'src/http/helpers.js',
       "const bearerToken = (req) => String(req.headers.authorization || '').replace(/^Bearer\\s+/i, '');",
       "const bearerToken = (req) => String(req.headers.authorization || (req.query && req.query.token) || '').replace(/^Bearer\\s+/i, '');",
     ]],

@@ -24,7 +24,7 @@
 // Runs against a throwaway DATA_DIR; it never touches real portal data, needs no
 // network, and sends no email.
 
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -161,12 +161,22 @@ console.log('\nWhere the token is consulted at all');
 // only ever cover the routes somebody remembered. So the real claim - the token
 // is consulted in TWO PLACES and nowhere else - is asserted against the source
 // instead, where it is a closed question rather than a sample.
-const SERVER = readFileSync(path.join(ROOT, 'src', 'server.js'), 'utf8');
-eq('operatorRead is defined once and called exactly twice', SERVER.split('operatorRead(').length - 1, 3);
-check('…once by GET /api/admin/worklist',
-  SERVER.includes('if (!operatorRead(req) && !requireAdmin(req, reply)) return;'));
+// Since OA-231 (2026-09-02) the source is three files, not one: the guards and
+// operatorRead() itself are src/http/helpers.js, the admin console is
+// src/routes/admin.js, and the rest is still src/server.js. So the closed
+// question is asked of EVERY file under src/, which is also the stronger form --
+// a third call site in a new route file is exactly what the old one-file read
+// would have missed.
+const srcFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? srcFiles(path.join(dir, e.name)) : e.name.endsWith('.js') ? [path.join(dir, e.name)] : []));
+const SRC = Object.fromEntries(srcFiles(path.join(ROOT, 'src')).map((f) => [path.relative(path.join(ROOT, 'src'), f).replace(/\\/g, '/'), readFileSync(f, 'utf8')]));
+const allSrc = Object.values(SRC).join('\n');
+eq('operatorRead is defined once and called exactly twice, across the whole of src/', allSrc.split('operatorRead(').length - 1, 3);
+check('…defined in src/http/helpers.js', SRC['http/helpers.js'].includes('function operatorRead(req) {'));
+check('…once by the guard of the admin plugin, for the route that declares the exception',
+  SRC['routes/admin.js'].includes('if (req.routeOptions.config.operatorRead && operatorRead(req)) return;')
+  && SRC['routes/admin.js'].includes("app.get('/worklist', { config: { operatorRead: true } }, async (req, reply) => {"));
 check('…and once by GET /api/maps',
-  SERVER.includes('const viaToken = operatorRead(req);'));
+  SRC['server.js'].includes('const viaToken = operatorRead(req);'));
 
 // ===========================================================================
 console.log('\nThe credential itself');

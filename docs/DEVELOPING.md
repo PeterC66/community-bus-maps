@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.21 | 2026-09-02 | sha=e7469fc4 -->
-**v1.21** · updated 2 September 2026
+<!-- docstamp v1.22 | 2026-09-02 | sha=2705b774 -->
+**v1.22** · updated 2 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -206,6 +206,10 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | What a customer is allowed to edit | `src/maps/engine.js` + the safe-subset validation — **server-enforced; never trust the client** |
 | Which outputs a customer may switch | `chooseOutputs()` in `src/maps/engine.js` — pure, so `test-p7.mjs` asserts the rules without a server. The tube-map diagram is `requestOnly` (hand-pinned, priced separately): a non-admin PATCH asking for it is **403**, not a silent no-op |
 | The publish gate / review checklist | `src/publish/` (pure functions — unit-testable) |
+| An admin-console route | `src/routes/admin.js` — a Fastify plugin under `/api/admin` with ONE plugin-level guard, so a route added there is admin-only without saying so; declare an exception as route config (`GET /worklist` and the operator token are the only one). `scripts/test-admin-plugin.mjs` asserts the door on every route in the live table |
+| A guard or a small request helper (`str`, `parseJson`, `baseUrl`, `requireUser`, `requireStepUp`, `operatorRead`) | `src/http/helpers.js` — the route files import these rather than closing over `server.js`'s scope (OA-231) |
+| What the signed-in app is told about one map (`mapDetail()`), or how a route loads a map it may edit or read | `src/maps/detail.js` — shared by the editor, review and monthly-refresh routes, moved out before those sections are cut into their own files |
+| The set of routes the app registers | `scripts/route-table.json`, recorded from the app itself; `test-admin-plugin.mjs` fails on a route gained or lost, so a deliberate change to the table means re-recording it with `node scripts/test-admin-plugin.mjs --record` from the repository root and committing the file with the route |
 | Monthly change acceptance (accept/decline a proposed update) | `src/refresh/` + `scripts/propose-update.mjs` |
 | Auth / sessions | `src/auth/` (magic link, server-side sessions, hand-rolled cookies, no deps) |
 | Public pages and listings | `src/public/` — a **read model** over the publish gate, PII-free by construction |
