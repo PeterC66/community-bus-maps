@@ -57,6 +57,7 @@ import { ORG_TYPES, MSG_KINDS, MAP_KINDS, str, isEmail, isHttps, parseOutputs, s
 import { withMapLock, loadOwnedMap, loadReadableMap, savedPoiTiers, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor } from './maps/detail.js';
 import adminRoutes from './routes/admin.js';
 import reviewRoutes from './routes/review.js';
+import proposedRoutes from './routes/proposed.js';
 import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
 import { notify, appUrl } from './email/notify.js';
@@ -1791,136 +1792,12 @@ app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
 });
 
 // ===========================================================================
-// Monthly change acceptance (P5) — the central pipeline stages a data refresh
-// (via scripts/propose-update.mjs); the customer reviews an old-vs-new preview
-// and Accepts (re-applies their overrides as a new MAJOR version, which is a
-// draft that still goes through the P4 publish gate) or Declines. Only the map's
-// own customer (or an admin) may act. The data fetch/judgement stays central.
+// Monthly change acceptance (P5) -- src/routes/proposed.js, one plugin under the
+// parametric prefix /api/maps/:id/proposed/:pid. Three routes: preview, accept,
+// decline. The plugin guard is requireUser only; loadOwnedMap() is the decision
+// that matters and it stays in the handlers, because it needs the map.
 // ===========================================================================
-
-// Old-vs-new preview: render the LIVE data (with saved overrides) and the STAGED
-// data (with those overrides re-applied — orphans dropped) so the customer can
-// compare exactly what accepting would produce. Nothing is persisted.
-app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
-  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
-  if (!map.cur_key) return reply.code(400).send({ ok: false, error: 'This map has no current version to compare against.' });
-
-  const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
-  const outputs = parseOutputs(map.outputs);
-  const saved = readOverrides(id);
-  try {
-    const result = await withMapLock(id, async () => {
-      // The staged payload comes from central data and carries no expert tuning;
-      // lay the map's own pins on it so the "after" side is what accepting gives.
-      carryExpertTuning(id, stagedDir);
-      const stagedMeta = readRoutesMetaFromDir(stagedDir);
-      const poiKeys = editablePoiKeysFromDir(stagedDir, savedPoiTiers(id));
-      const after = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir)); // re-apply onto proposed data
-      return {
-        before: previewFrom(mapDataDir(id), saved, outputs),
-        after: previewFrom(stagedDir, after.overrides, outputs),
-        dropped: after.rejected, // overrides the refresh made obsolete
-      };
-    });
-    return { ok: true, ...result, summary: parseJson(pu.summary_json) };
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Preview render failed: ' + e.message });
-  }
-});
-
-// Accept the refresh: render the new major version FROM the staged data first
-// (so a failure leaves the live map untouched), then swap the data in, re-apply
-// the overrides, and record the new draft head + audit. The published pointer is
-// unchanged — the new version must be reviewed (P4) before it goes public.
-app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
-  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
-  if (!map.current_version_id || !map.cur_key) {
-    return reply.code(400).send({ ok: false, error: 'This map has no current version to update.' });
-  }
-  // Accepting moves the head — not allowed while a publication awaits review.
-  if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw that request before accepting an update.' });
-  }
-
-  const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
-  const outputs = parseOutputs(map.outputs);
-  const saved = readOverrides(id);
-  const { major, minor } = nextMajorVersion(id);
-  const storageKey = `v${major}.${minor}`;
-  const decisionNote = str((req.body || {}).note, 1000);
-  const summary = parseJson(pu.summary_json);
-
-  try {
-    const applied = await withMapLock(id, async () => {
-      // Expert hand-tuning first: the new version is rendered FROM the staged data,
-      // so the pins must be in there before we render, not just after the swap.
-      const carried = carryExpertTuning(id, stagedDir);
-      if (carried.length) req.log.info({ mapId: id, carried }, 'carried expert tuning into the refreshed data');
-      // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
-      const stagedMeta = readRoutesMetaFromDir(stagedDir);
-      const poiKeys = editablePoiKeysFromDir(stagedDir, savedPoiTiers(id));
-      const reapplied = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir));
-      // Render from the staged data BEFORE committing the swap.
-      const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
-      // Render OK → make the staged data the live data (old data archived).
-      // What the swap carried forward from the archive is worth a line: the list is
-      // how the expert's pins and the pack's engine-source declaration survive a
-      // refresh, and a declaration it deliberately REFUSED to carry (OA-199) is a
-      // fact about this map that nothing else would ever say out loud.
-      const swap = swapInProposedData(id, pu.id);
-      if (swap.carried.length) req.log.info({ mapId: id, carried: swap.carried }, 'carried pack extras onto the refreshed data');
-      for (const d of swap.dropped) req.log.warn({ mapId: id, file: d.file }, `did NOT carry ${d.file} forward — ${d.why}`);
-      return { rend, overrides: reapplied.overrides, dropped: reapplied.rejected };
-    });
-
-    const noteBits = refreshNote(summary);
-    const versionId = insertVersion({
-      map_id: id, major, minor,
-      note: `Accepted update${noteBits ? ' — ' + noteBits : ''}`,
-      overrides: applied.overrides, storage_key: storageKey,
-      // The diff travels WITH the version, so every later screen can say what
-      // this version changed without digging through the audit log (findings A1).
-      data_change: { proposedId: pu.id, sourceNote: pu.source_note || '', summary },
-    });
-    setCurrentVersion(id, versionId);
-    decideProposedUpdate(pu.id, { status: 'accepted', reviewedBy: user.id, decisionNote, acceptedVersionId: versionId });
-    req.log.info({ mapId: id, version: storageKey, proposedId: pu.id, by: user.email }, 'monthly update accepted');
-    logAudit(req, 'refresh.accept', { mapId: id, versionId, detail: { proposedId: pu.id, version: storageKey, changeSummary: summary, droppedOverrides: applied.dropped, note: decisionNote } });
-    return {
-      ok: true, version: storageKey, dropped: applied.dropped,
-      files: applied.rend.files, downloads: visibleDownloadsForVersion(id, storageKey, outputs),
-    };
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Accepting the update failed: ' + e.message });
-  }
-});
-
-// Decline the refresh: keep the current data; mark the proposal declined.
-app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
-  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
-  const note = str((req.body || {}).note, 1000);
-  decideProposedUpdate(pu.id, { status: 'declined', reviewedBy: user.id, decisionNote: note });
-  req.log.info({ mapId: id, proposedId: pu.id, by: user.email }, 'monthly update declined');
-  logAudit(req, 'refresh.decline', { mapId: id, detail: { proposedId: pu.id, note } });
-  return { ok: true };
-});
+await app.register(proposedRoutes, { prefix: '/api/maps/:id/proposed/:pid' });
 
 // ===========================================================================
 // Expert side (P7) — the tube-map DIAGRAM pin editor.
