@@ -27,10 +27,15 @@
     "hash moving in the diff is the point — it is what tells a reviewer that a",
     "vendored file changed, rather than the change arriving silently.",
     "",
+    "WHERE THE SKILL TREE IS: `SKILL_ROOT` in .env, or --skills. This file used",
+    "to carry a `skillRootDefault` naming one laptop's absolute path, in a file",
+    "tracked into a repository that also runs on a VPS and in CI (OA-224 Tier",
+    "3.6). The scripts still read the key if a manifest has one, because the",
+    "vendored tests build a manifest that way, but this one no longer does.",
+    "",
     "See engine/README.md, engine/area/README.md, engine/place/README.md and the",
     "skill's references/changing-the-engine.md §4 for the hand-off itself."
   ],
-  "skillRootDefault": "C:/u3a St Ives/.claude/skills",
   "files": [
     {
       "path": "font_metrics.js",

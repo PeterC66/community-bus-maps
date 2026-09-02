@@ -15,12 +15,8 @@
 
 import { listMaps, getMapBySlug, getUserByEmail, insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion, setMapStatus, recordAudit } from '../src/db/index.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
+import { arg, has } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
-const has = (name) => process.argv.includes(`--${name}`);
 
 const actorEmail = arg('actor');
 if (!actorEmail) {

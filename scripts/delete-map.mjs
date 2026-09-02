@@ -28,12 +28,8 @@ import {
   db, getMap, getMapBySlug, recordAudit,
 } from '../src/db/index.js';
 import { mapDir } from '../src/maps/store.js';
+import { arg, has } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
-const has = (name) => process.argv.includes(`--${name}`);
 
 const slug = arg('slug');
 const mapArg = arg('map');

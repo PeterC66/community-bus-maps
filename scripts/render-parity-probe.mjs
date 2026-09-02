@@ -32,7 +32,7 @@
 //   node scripts/render-parity-probe.mjs --write-baseline # record it as the baseline
 //   node scripts/render-parity-probe.mjs --strict         # exit 1 if it differs from the baseline
 
-import { createHash } from 'node:crypto';
+import { sha256 } from '../src/hash.js';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -55,7 +55,7 @@ const STRICT = args.has('--strict');
 // to catch -- so it gets its own flag and can safely gate CI on its own.
 const STRICT_FONTS = args.has('--strict-fonts') || STRICT;
 
-const sha = (buf) => createHash('sha256').update(buf).digest('hex');
+const sha = sha256;   // the ONE sha256 (OA-224 Tier 3.3)
 
 /*
  * BREADCRUMBS, AND WHY THIS SCRIPT NEEDED THEM (2026-08-29, OA-052 / OA-103).

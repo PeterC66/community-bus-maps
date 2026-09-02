@@ -43,19 +43,19 @@
 
 import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from 'node:fs';
 import { readEngineSource, ENGINE_SOURCE_FILE } from './lib/engine-source.mjs';
-import { createHash } from 'node:crypto';
+import { hashOf } from './lib/vendored.mjs';   // the ONE CRLF-normalised file hash (OA-224 Tier 3.3)
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-// DATA_DIR is resolved the same way src/db/index.js resolves it, rather than by
-// importing that module for one constant: importing it OPENS AND MIGRATES the
-// database as a side effect, which is a lot of machinery — and a lot of ways to
-// fail — for a script that only reads files off disk.
-const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : fileURLToPath(new URL('../data', import.meta.url));
+// The store's location comes from src/db/paths.js, which imports nothing but
+// node:path and node:url. Importing src/db/index.js for one constant OPENS AND
+// MIGRATES the database as a side effect, which is a lot of machinery — and a
+// lot of ways to fail — for a script that only reads files off disk. This file
+// carried its own copy of the resolution to avoid exactly that, and so did
+// backfill-engine-source.mjs; OA-224 Tier 3.3 made it one module instead.
+import { MAPS_DIR } from '../src/db/paths.js';
 
 const APPLY = process.argv.includes('--apply');
-const MAPS = path.join(DATA_DIR, 'maps');
+const MAPS = MAPS_DIR;
 const ENGINE = fileURLToPath(new URL('../engine', import.meta.url));
 
 // pack filename -> the vendored file it must equal. Only unambiguous ones.
@@ -70,8 +70,7 @@ const AMBIGUOUS = { 'gen_external.js': 'engine/area/gen_external_{radial,busway}
 
 // CRLF-normalised, the same rule engine/vendored.json uses, so a checkout under
 // core.autocrlf=true does not report every pack as behind.
-const hash = (p) => createHash('sha256')
-  .update(readFileSync(p, 'utf8').replace(/\r\n/g, '\n')).digest('hex').slice(0, 12);
+const hash = (p) => hashOf(p).slice(0, 12);
 
 const dirs = (p) => (existsSync(p) ? readdirSync(p).filter((d) => statSync(path.join(p, d)).isDirectory()) : []);
 

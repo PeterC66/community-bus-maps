@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.20 | 2026-09-02 | sha=a2317b5f -->
-**v1.20** · updated 2 September 2026
+<!-- docstamp v1.21 | 2026-09-02 | sha=e7469fc4 -->
+**v1.21** · updated 2 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -157,6 +157,10 @@ That is also why CI keeps its own full audit rather than trusting the hook: the 
 ### `engine/` is vendored, and `engine/vendored.json` is the list
 
 Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one of the two map skills or a portal-owned wrapper, and `engine/vendored.json` says which, with a hash. `npm test` runs `scripts/test-vendored.mjs`, which fails on an edited copy, a missing one, or a file the manifest does not name — so vendoring something new means classifying it, not just copying it. After a deliberate re-vendor run `node scripts/check-vendored.mjs --update` from the repository root and commit the manifest with the file. Run `npm run check:vendored` with no flags on a machine that also has the skill trees and it additionally tells you whether the SOURCE has moved on; in CI that half is skipped and says so. See [`../engine/README.md`](../engine/README.md).
+
+**Adding a file to the vendored set is a command, not a hand-edit** (2026-09-02, OA-224 Tier 3.6). When a vendored generator starts requiring a module the portal has never been given, `check-vendored` reports it `UNRESOLVED` and now prints the exact command to fix it, run from the repository root: `node scripts/vendor-engine.mjs --add <engine/path.js> --source <path under the skill root>`. It writes the manifest row, copies the file, and lets `restampManifest()` fill in the SHA-256 from the bytes that landed — the hash is never typed, which matters because a hash is the one thing in this repository nobody can check by eye. It refuses a `--source` the skill tree does not have (exit 3) and a path that already has a row (exit 2). Where the skill trees are present it resolves the source by looking; where they are not it offers the likely paths and says the source is unverified, because a guess printed as a fact is how a wrong `source` gets committed, and a wrong `source` makes `DRIFTED` mean nothing for that row for ever.
+
+**Where the skill trees are is `SKILL_ROOT` in `.env`**, documented in `.env.example`, and `npm run check:vendored` and `npm run vendor:engine` load `.env` so they can see it. Until 2026-09-02 it was `skillRootDefault` inside `engine/vendored.json` — one laptop's absolute path, tracked into a repository that also runs on a VPS and in CI.
 
 ### Which pack `verify` gates, and the per-machine `.env` keys that change it
 

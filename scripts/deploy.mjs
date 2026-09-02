@@ -25,8 +25,8 @@
 // the other laptop-side scripts.
 
 import { spawnSync } from 'node:child_process';
+import { has } from './lib/cli.mjs';
 
-const has = (name) => process.argv.includes(`--${name}`);
 const DRY_RUN = has('dry-run');
 const SKIP_BACKUP = has('skip-backup');
 

@@ -37,13 +37,11 @@
 //   --quiet          suppress the log excerpt on success
 
 import { spawnSync } from 'node:child_process';
+import { arg, has } from './lib/cli.mjs';
+// `flag` was this file's name for it, and it defaulted to null rather than undefined.
+const flag = (name) => arg(name, null);
 
 const argv = process.argv.slice(2);
-const flag = (name) => {
-  const i = argv.indexOf(`--${name}`);
-  return i === -1 ? null : argv[i + 1];
-};
-const has = (name) => argv.includes(`--${name}`);
 
 const HOST = process.env.DEPLOY_HOST;
 const SSH_KEY = process.env.DEPLOY_SSH_KEY;

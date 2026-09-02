@@ -21,11 +21,8 @@ import path from 'node:path';
 import { db } from '../src/db/index.js';
 import { proposedRoot, archiveRoot } from '../src/maps/store.js';
 import { dirSize } from '../src/ops/index.js';
+import { arg } from './lib/cli.mjs';
 
-const arg = (name, def) => {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-};
 const yes = process.argv.includes('--yes');
 const dry = !yes;
 const quiet = process.argv.includes('--quiet');

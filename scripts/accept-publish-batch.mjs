@@ -62,12 +62,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import crypto from 'node:crypto';
+import { arg, has } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
-const has = (name) => process.argv.includes(`--${name}`);
 
 const BASE_URL = (arg('base-url', process.env.PUBLIC_BASE_URL) || 'https://busmaps.uk').replace(/\/$/, '');
 const REVIEWED_BY = arg('reviewed-by');

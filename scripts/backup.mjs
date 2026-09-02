@@ -35,12 +35,8 @@ import { DATA_DIR } from '../src/db/index.js';
 import { MAPS_DIR, mapDataDir, rendersDir } from '../src/maps/store.js';
 import { dirSize } from '../src/ops/index.js';
 import { planRetention } from '../src/ops/backup-retention.js';
+import { arg, has as flag } from './lib/cli.mjs';
 
-const arg = (name, def) => {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-};
-const flag = (name) => process.argv.includes(`--${name}`);
 const quiet = flag('quiet');
 const say = (...a) => { if (!quiet) console.log(...a); };
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;

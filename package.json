@@ -15,15 +15,16 @@
     "test": "node scripts/run-tests.mjs",
     "chrome:apply": "node scripts/apply-chrome.mjs",
     "chrome:check": "node scripts/check-chrome.mjs",
-    "check:vendored": "node scripts/check-vendored.mjs",
+    "check:vendored": "node --env-file-if-exists=.env scripts/check-vendored.mjs",
     "check:compose-env": "node scripts/check-compose-env.mjs",
     "track:engine": "node scripts/track-engine.mjs",
-    "vendor:engine": "node scripts/vendor-engine.mjs",
+    "vendor:engine": "node --env-file-if-exists=.env scripts/vendor-engine.mjs",
     "test:engine-source": "node scripts/test-engine-source.mjs",
     "test:prove-red-engine-source": "node scripts/prove-red-engine-source.mjs",
     "test:carry-forward": "node scripts/test-carry-forward.mjs",
     "test:prove-red-carry-forward": "node scripts/prove-red-carry-forward.mjs",
     "test:vendored": "node scripts/test-vendored.mjs",
+    "test:portal-lib": "node scripts/test-portal-lib.mjs",
     "test:landmark-tiers": "node scripts/test-landmark-tiers.mjs",
     "test:prove-red-landmark-tiers": "node scripts/prove-red-landmark-tiers.mjs",
     "test:selfsufficient": "node --env-file-if-exists=.env scripts/test-engine-selfsufficient.mjs",
@@ -77,7 +78,8 @@
     "test:audit-2026-08-25": "node scripts/test-audit-2026-08-25.mjs",
     "test:backup-retention": "node scripts/test-backup-retention.mjs",
     "test:change-summary": "node scripts/test-change-summary.mjs",
-    "test:prove-red-run-tests": "node scripts/prove-red-run-tests.mjs"
+    "test:prove-red-run-tests": "node scripts/prove-red-run-tests.mjs",
+    "test:prove-red-portal-lib": "node scripts/prove-red-portal-lib.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",
