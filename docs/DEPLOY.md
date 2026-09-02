@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.35 | 2026-09-02 | sha=004a5ae6 -->
-**v1.35** · updated 2 September 2026
+<!-- docstamp v1.36 | 2026-09-02 | sha=8f36e660 -->
+**v1.36** · updated 2 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -181,6 +181,16 @@ npm run smoke:signin
 ```
 
 from the repo root on the laptop (`C:\Claude\community-bus-maps`). It POSTs one real sign-in request for `ADMIN_EMAIL` to the running service and then reads the **server log** for `magic link emailed` — the HTTP response is deliberately identical whether or not the address is registered, so it cannot be the evidence. It exits non-zero on a 503, on a provider that threw, on a link that went to the console instead of an inbox, and on no matching log line at all. `npm run deploy -- --skip-signin` skips it, and then nothing has proved a real sign-in email can be sent.
+
+**And ask whether every route is still there, because nothing else can.** `/health?deep=1` asks whether the process came up, the byte gates ask whether the drawn output still matches, and `npm test` asks the laptop's build — none of them can see a route that stopped being registered, and a route that stops being registered does not throw. It 404s, quietly, to whoever asks for it next. Run this from the repository root (`C:\Claude\community-bus-maps`); it defaults to the live site and takes no placeholders:
+
+```bash
+npm run check:live-routes
+```
+
+It asks the RUNNING site, anonymously, about every route in `scripts/route-table.json` — the snapshot recorded from the unsplit server and owned by `test-admin-plugin.mjs`, so the list comes from something other than the app under test. It is safe against production: guarded routes refuse before doing anything, and the six a stranger may legitimately POST to are sent an empty body that each refuses without creating a row. Two different things return 404 and it tells them apart **by the body**, which was measured rather than assumed: `{"message":"Route GET:/x not found"...}` is the router saying the route is GONE, while `{"ok":false,"error":"No published map with that name."}` is the app answering correctly about a slug nobody published. It also catches the opposite fault — a route that is still there and answers **2xx** to a stranger — and it **exits 2 on a route it has no rule for** rather than skipping it, so the check cannot quietly shrink as routes are added. `npm run test:prove-red-live-routes` breaks a route, a guard, a page redirect and a rule in turn against a scratch server on a free port, and requires each to redden the message that names it.
+
+**It was written after doing it by hand twice** — four routes after `94773e3` and twenty-eight after `fd438a6`, both times because OA-231 had moved routes between files and no gate in any of the three repositories could see a lost one.
 
 Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
 
