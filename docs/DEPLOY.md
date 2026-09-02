@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.34 | 2026-09-02 | sha=cecb101e -->
-**v1.34** · updated 2 September 2026
+<!-- docstamp v1.35 | 2026-09-02 | sha=004a5ae6 -->
+**v1.35** · updated 2 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -200,7 +200,7 @@ ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "cd /opt/community-bus
 ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "cd /opt/community-bus-maps && docker compose exec -T portal node scripts/track-engine.mjs --apply"
 ```
 
-The reporting form exits non-zero while any pack is behind, so it works as a check as well as a report. The state to finish on is **`0 BEHIND, 0 skipped`** — a `skipped` pack is one whose `engine-source.json` does not say which external generator it was built from, and it is skipped rather than guessed because overwriting a busway map with the radial generator is a silent corruption found at the next render.
+The reporting form exits non-zero while any pack is behind, so it works as a check as well as a report. The state to finish on is **`0 BEHIND, 0 skipped`** — a `skipped` pack is one whose `engine-source.json` does not say which external generator it was built from, and it is skipped rather than guessed because overwriting a map with the wrong generator is a silent corruption found at the next render. **Read the marks, not only the counts (2026-09-02):** a `·` skip is that benign not-recorded case, but a `?` skip is a pack naming a generator this engine does not vendor, or a declaration that will not parse — neither is fixed by `--apply`, and since 2026-09-02 either makes the run exit non-zero. Until then both were only `skipped`, and the exit code read `BEHIND` alone: a pack declaring a dropped generator printed the words "which is not vendored" and passed.
 
 **And `npm run check:vendored --skills` answers about the DISK, not about the commit.** It compares `engine/` with the skill sources in a working tree, so in this account's shared checkout another session's uncommitted edits read as `DRIFTED` on files your deploy never touched. That happened on 2026-09-02: four files reported drifted and all four matched the skills tree at `HEAD` byte-for-byte. Before believing a drift row, compare against `git show HEAD:<path>` in the skills repo.
 

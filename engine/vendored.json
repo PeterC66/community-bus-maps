@@ -91,18 +91,10 @@
       "vendoredOn": "2026-08-25"
     },
     {
-      "path": "area/gen_external_busway.js",
-      "kind": "vendored",
-      "source": "make-bus-leaflet/assets/gen_external_busway.js",
-      "sha256": "71e110f1bf84cb2b72188310b06f086d1204561cca08592c0d5504f88993a511",
-      "vendoredOn": "2026-09-02",
-      "note": "The busway external template; import-map.mjs copies it in as gen_external.js under --external-style busway."
-    },
-    {
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "f712ac20b82552e8de5707aaf49f47bb9450d51b118bf828ed3ead563e12af8c",
+      "sha256": "580c175dd5bc70c71a0bc61fd53eb473c8e0ef89fd15b188f1db62edcece8a68",
       "vendoredOn": "2026-09-02",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
@@ -110,7 +102,7 @@
       "path": "expert/diagram_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/diagram_internal.js",
-      "sha256": "2df7195547c99d14ffd00eb8426df445f4dabacffa0b300663072010623c5946",
+      "sha256": "fd4766bc253771da29af4ab552d41d19944e6e1ad72c83cffeded9ae4b396b08",
       "vendoredOn": "2026-09-02",
       "note": "The tube-map pre-stage, run by the portal-owned gen_internal_diagram.js wrapper."
     },
@@ -118,7 +110,7 @@
       "path": "expert/gen_boarding.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_boarding.js",
-      "sha256": "f9245e2bbb1df16b30b0b489736963da6eae581f0cbe3fd2a44d4563e9d16d9c",
+      "sha256": "0f007bcc2a192fe3b98a78f90a5c9421544cee870adf6cc72f255e2ebd0b2038",
       "vendoredOn": "2026-09-02",
       "note": "The portal's fifth output since 2026-08-23; portal-owned in the sense that it is not copied into a map's data."
     },
@@ -126,7 +118,7 @@
       "path": "expert/schematize_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/schematize_internal.js",
-      "sha256": "e1f207a7036cd101a4375972d965aaffa5b03ac432b7b7bda8363d935c720e9f",
+      "sha256": "f8c3c2d6538d775cf2021b62feb369a7ca27fc8359d237472bc9f76807148ace",
       "vendoredOn": "2026-09-02",
       "note": "The octolinear geometry pre-stage, run by the portal-owned gen_internal_schematic.js wrapper."
     },
@@ -144,14 +136,14 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "4c914dba67c99ebd0ab00ef3a80994f4706359dd30a7a742ea4737a846f58589",
+      "sha256": "6e23cb7cba684bd06e9010ed14ad48360107d2ed211694a47fc927298b983ecb",
       "vendoredOn": "2026-09-02"
     },
     {
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "801305e942a9d45c5ec65e4eee92470c6e2a1695dae42557d75794c26aadcafa",
+      "sha256": "7abda94ded222851c3c73fd0b81aa9b5499f092c1ce160bf8522f4cd2dafc056",
       "vendoredOn": "2026-09-02",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -159,8 +151,8 @@
       "path": "place/gen_internal_place.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_internal_place.js",
-      "sha256": "03a26035d7a037f12094d74b7ec66f3ddd558bcaa48815be8ba0b986ff7da9f2",
-      "vendoredOn": "2026-08-28",
+      "sha256": "7473ee8876e62a77c1b9962d4c24ca3c540761380fadb7093c603ed26ff75841",
+      "vendoredOn": "2026-09-02",
       "note": "The thin place wrapper around gen_internal.js (title token + version stamp)."
     },
     {
@@ -199,8 +191,8 @@
       "path": "dash_fit.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/dash_fit.js",
-      "sha256": "544bdeb2496844eb6d9de79ae129d3f076268762e39da06614c31cc285d46770",
-      "vendoredOn": "2026-08-30",
+      "sha256": "8d678093d2d5272ac95af4069c25a23f62a2320abb300dc5fb971a85aeba5f89",
+      "vendoredOn": "2026-09-02",
       "note": "The dashed-spoke pattern and its mid-gap fit. Required at load by area/gen_external_radial.js, area/gen_external_busway.js and place/gen_external_places.js, which is the point of it: it was three copies of one primitive and the fix reached one of them twice running."
     },
     {
@@ -263,7 +255,7 @@
       "path": "engine_paths.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/engine_paths.js",
-      "sha256": "9ff1065c3c1a8c4d3889a535c291163a9efcf74cc4ef80760b68e5fdcb5364ef",
+      "sha256": "4d24c66d6f1e6df9b1b52e85ddac7073d80d7238935b6c484be1e1ff98d96f49",
       "vendoredOn": "2026-09-02"
     },
     {
@@ -277,7 +269,7 @@
       "path": "external_primitives.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/external_primitives.js",
-      "sha256": "b422d4abdd7a94e7f359c89107595d4ae5417c2a0d39a0eec7cf5dfe3227888a",
+      "sha256": "fc2f487c57e49d2efc40d4a082aa17160e606d5359f9a0a1dcadfe6396bdfb3a",
       "vendoredOn": "2026-09-02"
     },
     {
