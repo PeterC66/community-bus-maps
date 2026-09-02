@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.19 | 2026-09-01 | sha=e41d40bf -->
-**v1.19** · updated 1 September 2026
+<!-- docstamp v1.20 | 2026-09-02 | sha=a2317b5f -->
+**v1.20** · updated 2 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -103,6 +103,10 @@ So the marking is derived at download time on the **authenticated per-version ro
 
 ---
 
+## Conventions
+
+Flag names, exit codes, which stream carries what, how a mutating script asks permission, the naming rule and the Node pin are all settled in one place: [`docs/CONVENTIONS.md`](CONVENTIONS.md). Read it before writing a new script in `scripts/`.
+
 ## The gates you must run
 
 ```bash
@@ -111,8 +115,18 @@ npm run verify:place    # same for a place map
 npm run test:p7         # expert styles (schematic + diagram), 6 gated outputs
 npm run test:lifecycle  # request → build → publish → revert lifecycle
 npm run check:vendored  # engine/ still matches what it was vendored from
-npm test                # public front (P6)
+npm test                # the whole suite - it prints its own count and timings
 ```
+
+### `npm test` discovers its tests - adding one means adding the file
+
+`npm test` runs [`scripts/run-tests.mjs`](../scripts/run-tests.mjs), which **globs `scripts/test-*.mjs` and `scripts/prove-red-*.mjs`** and runs every one of them. Until 2026-09-02 it was a 36-command `&&` chain in `package.json`, and that chain had three faults the runner exists to remove. It stopped at the first failure, so one red test hid every test after it. Nothing tied it to the files on disk, and four of the thirty-seven had drifted out of it unnoticed. And it named each invocation a second time, so a chain entry that forgot `--env-file-if-exists=.env` would have run a different command under the same name - which is why the runner takes each file's command **from the `package.json` script that owns it** rather than rebuilding it.
+
+So **adding a test is adding the file**. Give it an npm script too (`test:<thing>`), because that script is what the runner invokes and what you will want when running it alone; the runner names any file that has no script, in case that was an oversight rather than a choice.
+
+**A test that cannot run here needs an entry in the runner's `EXCLUDED` map with a reason that says where it DOES run** - the two current entries need `BUSES_DIR` and run in `verify.yml`. The runner refuses to start (exit 2) on an exclusion with no reason or one naming a file that is no longer there, so an exclusion cannot quietly become a hole. Exit codes are the house rule: 0 ok, 1 a test failed, 2 the runner was used wrongly.
+
+The runner is itself falsified by [`scripts/prove-red-run-tests.mjs`](../scripts/prove-red-run-tests.mjs) (`npm run test:prove-red-run-tests`), which runs FIRST in `test.yml` for the usual reason: a bug in the thing that decides whether the suite is green does not make one test wrong, it makes the whole verdict wrong in the reassuring direction. Six cases on scratch repositories plus two controls, ~3 s.
 
 ### Re-stamp a document you edited BEFORE you commit it — and a hook now refuses if you forget
 
@@ -138,7 +152,7 @@ That is also why CI keeps its own full audit rather than trusting the hook: the 
 
 ### The inlined SVG is allowlisted, and adding to the artwork means adding to the list
 
-`src/public/svgSanitise.js` keeps eight elements and 38 attributes — a census of what the generators actually draw — and removes everything else, counting what it removed. If the engine starts emitting something new (a `<tspan>`, a gradient, a `style` attribute), the web view will silently lose it and `scripts/test-svg-sanitise.mjs` will go red on the fixture corpus. That is the intended prompt: widen the allowlist deliberately, in that file, and re-run `npm run test:svg`. Do **not** widen it to `style` or to any URL-valued attribute without saying why in the Caddyfile's CSP block, which reasons about exactly this sink.
+`src/public/svgSanitise.js` keeps eight elements and 38 attributes — a census of what the generators actually draw — and removes everything else, counting what it removed. If the engine starts emitting something new (a `<tspan>`, a gradient, a `style` attribute), the web view will silently lose it and `scripts/test-inline-svg.mjs` will go red on the fixture corpus. That is the intended prompt: widen the allowlist deliberately, in that file, and re-run `npm run test:svg`. Do **not** widen it to `style` or to any URL-valued attribute without saying why in the Caddyfile's CSP block, which reasons about exactly this sink.
 
 ### `engine/` is vendored, and `engine/vendored.json` is the list
 

@@ -45,5 +45,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # FALSIFY THE RUNNER FIRST. `npm test` is no longer a chain of commands
+      # this file can read - it is one script that DISCOVERS the tests, so a bug
+      # in it does not make one test wrong, it makes the whole verdict wrong in
+      # the reassuring direction. Six cases on scratch repositories under the
+      # temp dir, plus two controls; ~3 s, no database, no fixture repository.
+      - name: prove the test runner can go red
+        run: npm run test:prove-red-run-tests
+
       - name: npm test
         run: npm test
