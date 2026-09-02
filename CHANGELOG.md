@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.146 | 2026-09-02 | sha=a5f736e4 -->
-**v1.146** · updated 2 September 2026
+<!-- docstamp v1.147 | 2026-09-02 | sha=53afade4 -->
+**v1.147** · updated 2 September 2026
 
 <<<<<<< HEAD
 =======
@@ -26,6 +26,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-02** — [The email took the map name as markup](CHANGELOG.d/2026-09-02-the-email-took-the-name-as-markup.md)
 - **2026-09-02** — [The vendored engine gains three shared modules, and the check that should have noticed the third was blind to it](CHANGELOG.d/2026-09-02-the-engine-arrives-with-three-new-modules.md)
 - **2026-09-02** — [DEPLOY.md §4a: a re-vendor is not finished until the LIVE store is tracked, and the live number is not the laptop's](CHANGELOG.d/2026-09-02-the-live-track-number-is-not-the-laptops.md)
+- **2026-09-02** — [The signed-in app's page shells are a plugin, and the obvious way to guard them is the wrong one](CHANGELOG.d/2026-09-02-the-page-shells-are-a-plugin-and-the-obvious-fix-is-the-wrong-one.md)
 - **2026-09-02** — [The two expert pre-stages take their projection from the engine, and a fifth shared module arrives](CHANGELOG.d/2026-09-02-the-pre-stages-draw-with-the-real-projection.md)
 - **2026-09-01** — [A Must show the sheet could not fit now says so, instead of exiting 0](CHANGELOG.d/2026-09-01-a-must-show-that-could-not-be-fitted-now-says-so.md)
 - **2026-09-01** — [A dot is a mark, not a target — and the focus zoom is now written as presses of the + button](CHANGELOG.d/2026-09-01-marker-size-and-focus-zoom.md)

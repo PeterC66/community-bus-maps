@@ -20,7 +20,6 @@ import fastifyStatic from '@fastify/static';
 import path from 'node:path';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { fileURLToPath } from 'node:url';
 import { insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, dataChangesSince, setMapOutputs, setMapStatus, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedMaps, updateCustomerAdmin, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, nextMajorVersion, decideProposedUpdate, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, deleteSession, purgeExpiredPersonalData, peekMagicLink } from './db/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
@@ -53,34 +52,20 @@ import { robotsTxt } from './public/robots.js';
 import { STATIC_PAGES } from './public/staticPages.js';
 import { loggableUrl } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
-import { ORG_TYPES, MSG_KINDS, MAP_KINDS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead } from './http/helpers.js';
+import { ORG_TYPES, MSG_KINDS, MAP_KINDS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape } from './http/helpers.js';
 import { withMapLock, loadOwnedMap, loadReadableMap, savedPoiTiers, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor } from './maps/detail.js';
 import adminRoutes from './routes/admin.js';
 import reviewRoutes from './routes/review.js';
 import proposedRoutes from './routes/proposed.js';
 import editorRoutes from './routes/editor.js';
+import pageRoutes from './routes/pages.js';
+// The repository, public-asset and view roots (OA-231): a route file may not
+// reach into server.js, so they live in a module with no side effects.
+import { PUBLIC_DIR } from './paths.js';
 import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
 import { notify, appUrl } from './email/notify.js';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT_DIR = path.resolve(HERE, '..');
-const PUBLIC_DIR = path.resolve(HERE, '../public');
-// The signed-in app's HTML shells. OUTSIDE public/ on purpose
-// (technical-audit_2026-08-19 S7): @fastify/static serves the whole of
-// PUBLIC_DIR, so while these lived at public/app/*.html the guarded route
-// `/app/admin` correctly 302'd an anonymous visitor to the login page and
-// `/app/admin.html` handed the same file to anybody who asked. No data leaked —
-// every API behind those shells returns 401, checked at the time across
-// /api/maps, /api/me, /api/admin/* and /api/review/pending — but a role check on
-// the pretty URL that reads like an access control and is not one is exactly the
-// thing a reviewer tests. Now the only way to a shell is through its route.
-//
-// The app's .js and .css stay under public/app/ and stay public: the browser has
-// to be able to fetch them, they are the same code every signed-in user runs,
-// and nothing in them is a secret. It is the shells that carried the false
-// promise, not the assets.
-const VIEWS_DIR = path.resolve(HERE, '../views');
 const PORT = Number(process.env.PORT || 5180);
 const HOST = process.env.HOST || '127.0.0.1';
 const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
@@ -1006,10 +991,6 @@ app.get('/sitemap.xml', async (req, reply) => {
   ].join('\n');
 });
 
-function xmlEscape(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
-}
-
 function notFoundPage(what) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1266,74 +1247,15 @@ app.patch('/api/customer/settings', async (req, reply) => {
   return { ok: true, watermarkEnabled: !!fresh.watermark_enabled };
 });
 
+
 // ===========================================================================
-// Authenticated app (P1 editor spine, now tenant-scoped in P2)
+// The signed-in app's HTML SHELLS -- src/routes/pages.js, one plugin under /app
+// (OA-231). Ten pages, including the P7 diagram editor's shell, which is here
+// because this plugin owns the /app subtree. The hook redirects an anonymous
+// caller to the sign-in page (which declares itself the exception); the four
+// ROLE checks stay in the handlers and redirect rather than refuse.
 // ===========================================================================
-
-// Anonymous by design — it is the sign-in page. It needs a route only because
-// it is no longer a static file; the URL is unchanged so every existing
-// redirect, bookmark and `location.href` in the app keeps working.
-app.get('/app/login.html', async (req, reply) => reply.sendFile('app/login.html', VIEWS_DIR));
-
-app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/maps/:id/landmarks', async (req, reply) => (req.user ? reply.sendFile('app/landmarks.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/branding', async (req, reply) => (req.user ? reply.sendFile('app/branding.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/admin', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/admin.html', VIEWS_DIR);
-});
-app.get('/app/review', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/review.html', VIEWS_DIR);
-});
-
-// The services-and-stops list a reviewer opens in a second tab from
-// /app/review. It was reachable by anyone until 2026-08-20 because it was a
-// static file with no route of its own — the clearest single case of S7. Same
-// guard as the review page that links to it. The `.html` stays in the URL
-// because review.js links to it by that name.
-app.get('/app/review-services.html', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/review-services.html', VIEWS_DIR);
-});
-
-// Admin-only view of the developer CHANGELOG.md. NOT public: entries there
-// name real past security findings (e.g. the S6 self-approval bypass, the S4
-// /health disclosure) in the same detail as the rest of this repo's docs, so
-// publishing it verbatim would hand a visitor a list of things that used to
-// be wrong. Rendered as escaped plain text, not parsed markdown — this is a
-// read-only convenience for Peter, not a document worth a markdown dependency
-// for. The public-facing counterpart is /changelog.html, fed by the small
-// curated file at public/data/whats-new.json instead of this one.
-app.get('/app/changelog', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'admin') return reply.redirect('/app');
-  let body;
-  try {
-    body = readFileSync(path.join(ROOT_DIR, 'CHANGELOG.md'), 'utf8');
-  } catch {
-    body = '(CHANGELOG.md not found on this instance.)';
-  }
-  reply.type('text/html; charset=utf-8');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Changelog (admin) — BusMaps.uk</title>
-<link rel="stylesheet" href="/css/styles.css">
-<link rel="stylesheet" href="/app/app.css">
-<script src="/js/site-banner.js" defer></script></head>
-<body><header class="site-header"><div class="container"><nav class="nav">
-<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
-<a class="navlink" href="/app/admin">Admin</a></nav></div></header>
-<main class="app-main"><div class="app-sub"><h1>Changelog (admin)</h1><span class="spacer"></span></div>
-<p class="hint-line">The raw developer CHANGELOG.md, for reference only — not shown to visitors. The public "What's new" is /changelog.html, edited separately.</p>
-<pre style="white-space:pre-wrap;font-size:.85rem;line-height:1.5;max-width:900px;">${xmlEscape(body)}</pre>
-</main></body></html>`;
-});
+await app.register(pageRoutes, { prefix: '/app' });
 
 // ---------------------------------------------------------------------------
 // The editor spine's API -- src/routes/editor.js, one plugin under /api/maps
@@ -1385,12 +1307,6 @@ await app.register(proposedRoutes, { prefix: '/api/maps/:id/proposed/:pid' });
 // `diagram-layout.json` and then goes through the ordinary versioned render, so
 // the result is a draft that still needs an approver's review (P4).
 // ===========================================================================
-
-app.get('/app/maps/:id/diagram', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'admin') return reply.redirect(`/app/maps/${Number(req.params.id)}`);
-  return reply.sendFile('app/diagram.html', VIEWS_DIR);
-});
 
 // Load a map for expert work: admin-only, must have data + the diagram configured.
 function loadDiagramMap(req, reply) {
