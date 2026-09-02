@@ -204,6 +204,15 @@ const app = Fastify({
   trustProxy: 1,
 });
 
+// THE ROUTE TABLE, recorded as it is built (OA-231, 2026-09-02). scripts/test-admin-plugin.mjs
+// asserts it against scripts/route-table.json, the table this file registered on the
+// day before the admin console moved into src/routes/admin.js -- so a route that moves
+// between files is invisible to the check and a route that is gained or lost is not.
+// onRoute has to be added before the first route, and the app is built on import, so
+// the observer lives here rather than in the test.
+export const ROUTE_TABLE = [];
+app.addHook('onRoute', (r) => { for (const m of [].concat(r.method)) ROUTE_TABLE.push(`${m} ${r.url}`); });
+
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
 
 // Resolve the signed-in user (from the session cookie) for app/api/auth routes.

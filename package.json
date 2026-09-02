@@ -68,6 +68,7 @@
     "changelog": "node scripts/changelog-assemble.mjs",
     "changelog:check": "node scripts/changelog-assemble.mjs --check",
     "test:access-model": "node scripts/test-access-model.mjs",
+    "test:admin-plugin": "node scripts/test-admin-plugin.mjs",
     "test:prove-red-access-model": "node scripts/prove-red-access-model.mjs",
     "test:operator-token": "node scripts/test-operator-token.mjs",
     "test:prove-red-operator-token": "node scripts/prove-red-operator-token.mjs",
