@@ -233,10 +233,34 @@ console.log('\nreverting the pointer');
 }
 
 // ---- the route's own guards (server-only, asserted against the source) ------
+//
+// THE SUBJECT MOVED ON 2026-09-02 and these read src/routes/review.js now: the P4
+// section became a Fastify plugin under /api/review (OA-231, Tier 4.4). They are
+// still source-level assertions because what they claim is that the handler is
+// WRITTEN a particular way — a message it must print, a pure chooser it must call
+// rather than inline — and no request can tell you that.
+//
+// THE GATING ONE CHANGED RATHER THAN MOVED. It used to look for
+// `const user = requireApprover` immediately inside the revert handler, which
+// stopped being true the moment the guard became the plugin's single preHandler.
+// What replaced it is the stronger claim: the plugin declares the guard ONCE, and
+// no handler in the file carries a copy — a second call site is how eight guards
+// drift apart again. That the door actually refuses is asserted BEHAVIOURALLY, by
+// scripts/test-review-plugin.mjs against a running app, with three mutations in
+// scripts/prove-red-review-plugin.mjs. Nothing was lost here; the claim was moved
+// somewhere a regex cannot reach and strengthened on the way.
 console.log('\nroute guards');
 {
-  const src = await import('node:fs').then((fs) => fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8'));
-  check('revert is approver-gated', /revert', async \(req, reply\) => \{\s*const user = requireApprover/.test(src));
+  const src = await import('node:fs').then((fs) => fs.readFileSync(new URL('../src/routes/review.js', import.meta.url), 'utf8'));
+  // COUNTED IN CODE, NOT IN PROSE. The plugin's header explains the guard and
+  // names requireApprover() twice while doing so, so a count over the whole file
+  // reads 3 and the check fails for a reason that has nothing to do with the
+  // door — this repository has that failure shape written down as "a search that
+  // matches its own subject". Comment lines are dropped before counting.
+  const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  check('the review plugin declares the approver guard exactly once, as a preHandler',
+    /addHook\('preHandler'[\s\S]{0,160}requireApprover\(req, reply\)/.test(code)
+      && (code.match(/requireApprover\(/g) || []).length === 1);
   check('a reason is required', /Please record why you are reverting/.test(src));
   check('an open publish request blocks a revert', /awaiting review\. Decide that request first/.test(src));
   check('the revert is audited', /'version\.revert'/.test(src));
