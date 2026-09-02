@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.3 | 2026-09-02 | sha=f233ff30 -->
-**v1.3** · updated 2 September 2026
+<!-- docstamp v1.4 | 2026-09-02 | sha=cdbabcf0 -->
+**v1.4** · updated 2 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -53,7 +53,7 @@ The distinction that matters is 1 against 2. A caller that treats every non-zero
 
 ## Routes
 
-A section of `src/server.js` that is one audience behind one guard is a Fastify plugin in `src/routes/`, registered with its prefix and carrying the guard as a plugin-level `preHandler`, so a handler in that file cannot be added without it (OA-231, 2026-09-02; the admin console was first, the review gate second). A route that is the exception to its file's guard declares it as route config the guard reads — `{ config: { operatorRead: true } }` — never as a second call site. Route files import what they need from `src/http/helpers.js` and `src/maps/detail.js`; nothing in `src/routes/` reaches into `server.js`. The route table the app registers is recorded in `scripts/route-table.json` and asserted by `scripts/test-admin-plugin.mjs`; a cut that changes no route keeps that file byte-identical, and a change that does must re-record it in the same commit. **That snapshot has ONE owner and later cuts do not re-assert it** — a second copy of the assertion is a second thing to keep in step; a new section's own test adds only the door its guard is responsible for.
+A section of `src/server.js` that is one audience behind one guard is a Fastify plugin in `src/routes/`, registered with its prefix and carrying the guard as a plugin-level `preHandler`, so a handler in that file cannot be added without it (OA-231, 2026-09-02; the admin console was first, the review gate second, monthly acceptance third). A route that is the exception to its file's guard declares it as route config the guard reads — `{ config: { operatorRead: true } }` — never as a second call site. Route files import what they need from `src/http/helpers.js` and `src/maps/detail.js`; nothing in `src/routes/` reaches into `server.js`. **Prefix a plugin with the subtree it actually owns, parameters included** — `src/routes/proposed.js` registers under `/api/maps/:id/proposed/:pid`, not under `/api/maps`, because it holds three of the several dozen routes below `/api/maps` and the editor spine still owns the rest. A prefix that overstates what a file governs is a claim a later reader will act on. **And where a plugin's hook is only part of the access decision, say so in the file and TEST the other part**: that plugin's hook is `requireUser`, while `loadOwnedMap()` — the map's own customer, or an admin — stays in the handlers because it needs the map, and a cut that hoisted the cheap guard and lost the per-map one would pass every anonymous-is-refused assertion ever written. The route table the app registers is recorded in `scripts/route-table.json` and asserted by `scripts/test-admin-plugin.mjs`; a cut that changes no route keeps that file byte-identical, and a change that does must re-record it in the same commit. **That snapshot has ONE owner and later cuts do not re-assert it** — a second copy of the assertion is a second thing to keep in step; a new section's own test adds only the door its guard is responsible for.
 
 ## Node
 

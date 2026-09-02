@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.23 | 2026-09-02 | sha=6c44135f -->
-**v1.23** · updated 2 September 2026
+<!-- docstamp v1.24 | 2026-09-02 | sha=e00b1c3d -->
+**v1.24** · updated 2 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -211,7 +211,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | A guard or a small request helper (`str`, `parseJson`, `baseUrl`, `requireUser`, `requireStepUp`, `operatorRead`) | `src/http/helpers.js` — the route files import these rather than closing over `server.js`'s scope (OA-231) |
 | What the signed-in app is told about one map (`mapDetail()`), or how a route loads a map it may edit or read | `src/maps/detail.js` — shared by the editor, review and monthly-refresh routes, moved out before those sections are cut into their own files |
 | The set of routes the app registers | `scripts/route-table.json`, recorded from the app itself; `test-admin-plugin.mjs` fails on a route gained or lost, so a deliberate change to the table means re-recording it with `node scripts/test-admin-plugin.mjs --record` from the repository root and committing the file with the route |
-| Monthly change acceptance (accept/decline a proposed update) | `src/refresh/` + `scripts/propose-update.mjs` |
+| Monthly change acceptance (accept/decline a proposed update) | `src/refresh/` + `scripts/propose-update.mjs`; the three HTTP routes are `src/routes/proposed.js`, a Fastify plugin under the parametric prefix `/api/maps/:id/proposed/:pid`. **Its plugin guard is `requireUser` only** — the decision that matters is `loadOwnedMap()` in the handlers, because it needs the map. `scripts/test-proposed-plugin.mjs` asserts both, and `scripts/prove-red-proposed-plugin.mjs` breaks the ownership check to prove the suite can see past the door |
 | Auth / sessions | `src/auth/` (magic link, server-side sessions, hand-rolled cookies, no deps) |
 | Public pages and listings | `src/public/` — a **read model** over the publish gate, PII-free by construction |
 | Per-customer branding | `src/branding/` — a server-enforced whitelist. It decorates the **page**, not the printed sheet |
