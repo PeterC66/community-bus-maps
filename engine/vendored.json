@@ -110,8 +110,8 @@
       "path": "expert/diagram_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/diagram_internal.js",
-      "sha256": "cecb9b2ae27d222ce22a9726c2ba9dd9a51f1f38b56b67b75ea63c79e1fef606",
-      "vendoredOn": "2026-08-27",
+      "sha256": "2df7195547c99d14ffd00eb8426df445f4dabacffa0b300663072010623c5946",
+      "vendoredOn": "2026-09-02",
       "note": "The tube-map pre-stage, run by the portal-owned gen_internal_diagram.js wrapper."
     },
     {
@@ -126,8 +126,8 @@
       "path": "expert/schematize_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/schematize_internal.js",
-      "sha256": "e27a64e74a033ae8f5dc68ebf6892ad5d00d594abb14354be5e3ef5373427a16",
-      "vendoredOn": "2026-08-28",
+      "sha256": "e1f207a7036cd101a4375972d965aaffa5b03ac432b7b7bda8363d935c720e9f",
+      "vendoredOn": "2026-09-02",
       "note": "The octolinear geometry pre-stage, run by the portal-owned gen_internal_schematic.js wrapper."
     },
     {
@@ -151,7 +151,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "6841b40f835c84483401f55d383fae9462e53f55a7ef9647a538a20b99f6297d",
+      "sha256": "801305e942a9d45c5ec65e4eee92470c6e2a1695dae42557d75794c26aadcafa",
       "vendoredOn": "2026-09-02",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -167,8 +167,8 @@
       "path": "strict_guards.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/strict_guards.js",
-      "sha256": "fc71ea5745c4dd9f6334769af8e4623812527280d82f125f440ae7d9a31249da",
-      "vendoredOn": "2026-08-27",
+      "sha256": "e81e682811dbcf4ca0f1ab2dceaa50c6403cf6cc90b9a536dd7baf4a8ee71715",
+      "vendoredOn": "2026-09-02",
       "note": "The refusal contract. Required at LOAD by gen_internal.js and gen_boarding.js, so a partial vendor throws before either reads an input."
     },
     {
@@ -278,6 +278,13 @@
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/external_primitives.js",
       "sha256": "b422d4abdd7a94e7f359c89107595d4ae5417c2a0d39a0eec7cf5dfe3227888a",
+      "vendoredOn": "2026-09-02"
+    },
+    {
+      "path": "internal_roads_config.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/internal_roads_config.js",
+      "sha256": "40ce493d81790591ce61597606c54216166b59f5331a8bce2bf7d75e0f53bb76",
       "vendoredOn": "2026-09-02"
     }
   ]
