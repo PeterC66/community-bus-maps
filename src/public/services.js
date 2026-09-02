@@ -18,12 +18,13 @@
 
 import { mapDataDir, versionDir } from '../maps/store.js';
 import { buildFacts, readFactsSnapshot, parseValidFrom, stripLeadingId } from '../maps/facts.js';
+import { staleAfterMonths } from '../config.js';
 
 // How long after its data's valid-from date a map is called out as possibly out
 // of date. The refresh cycle is monthly, so anything past two full seasons has
 // been left alone through several offered updates. Configurable because it is a
 // policy number, not an engineering one.
-export const STALE_AFTER_MONTHS = Math.max(1, Number(process.env.STALE_AFTER_MONTHS) || 6);
+export const STALE_AFTER_MONTHS = staleAfterMonths();   // snapshotted at load, as it always was
 
 /**
  * The facts of one publicly-visible map row, or null when its payload has none.

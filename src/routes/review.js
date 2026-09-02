@@ -36,6 +36,7 @@ import { bumpSearchIndex } from '../search/index.js';
 import { downloadsForVersion, publishedHistoryFor } from '../maps/detail.js';
 import { notify, appUrl } from '../email/notify.js';
 import { parseJson, requireApprover, requireStepUp, stepUpDeadline, str } from '../http/helpers.js';
+import { allowSelfApproval } from '../config.js';
 
 export default async function reviewRoutes(app) {
   app.addHook('preHandler', async (req, reply) => {
@@ -161,7 +162,7 @@ export default async function reviewRoutes(app) {
   // WHEN TO TURN IT OFF: as soon as a second person holds `approver`. Until then
   // leaving it unset would simply stop Peter publishing anything, which is a
   // worse outcome than a recorded self-approval — see docs/R3-review-and-publish.md.
-  const ALLOW_SELF_APPROVAL = process.env.ALLOW_SELF_APPROVAL === '1';
+  const ALLOW_SELF_APPROVAL = allowSelfApproval();
 
   app.post('/:id/approve', async (req, reply) => {
     const user = req.user;                       // the plugin guard above proved it

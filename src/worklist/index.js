@@ -29,6 +29,7 @@ import {
 } from '../db/index.js';
 import { loadStatusSnapshot } from '../status-snapshot.js';
 import { emailHealth, FAILURE_THRESHOLD } from '../email/health.js';
+import { publicBaseUrl } from '../config.js';
 
 // Ranks are "who is blocked", not "which queue". Lower acts first.
 // 0 is reserved for the skill's failing-gate items — nothing the portal knows
@@ -78,7 +79,7 @@ function summariseFlag(body) {
  *   skill's terminal output and the console agree on what to open)
  * @returns {{ meta: object, items: object[] }}
  */
-export function buildWorklist({ baseUrl = process.env.PUBLIC_BASE_URL || '' } = {}) {
+export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
   const url = (p) => `${String(baseUrl).replace(/\/$/, '')}${p}`;
   const items = [];
   const add = (it) => items.push(it);

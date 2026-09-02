@@ -100,7 +100,11 @@ const results = [];
   rmSync(tmp, { recursive: true, force: true });
 }
 
-const CHECK_TOKEN = '  return tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);';
+// Re-anchored 2026-09-03 (OA-224 Tier 5, portal-src F7): the env read moved into
+// src/config.js and helpers.js now calls the accessor. The harness found it — three
+// arms went STALE ANCHOR, which is a broken harness reporting itself rather than a
+// quiet pass, and is the whole reason `damage()` counts its matches.
+const CHECK_TOKEN = '  return tokenMatches(bearerToken(req), operatorToken());';
 const ADMIT_AS_ADMIN = "  if (operatorRead(req)) return { id: 0, role: 'admin' };\n";
 
 const MUTATIONS = [
@@ -162,7 +166,7 @@ const MUTATIONS = [
   {
     what: 'an unset OPERATOR_TOKEN means everybody instead of nobody',
     why: 'a missing secret turning into an open door is the worst available reading of "unset", and every portal that has not set it yet is in that state',
-    edits: [['src/http/helpers.js', CHECK_TOKEN, '  return !process.env.OPERATOR_TOKEN || tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);']],
+    edits: [['src/http/helpers.js', CHECK_TOKEN, '  return !operatorToken() || tokenMatches(bearerToken(req), operatorToken());']],
     expect: 'with OPERATOR_TOKEN unset, the token stops working',
   },
   {

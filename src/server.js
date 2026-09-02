@@ -47,11 +47,12 @@ import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseR
 import { logAudit } from './audit/index.js';
 import { writePlacesSidecar } from './search/place-index.js';
 import { searchPlaces, bumpSearchIndex } from './search/index.js';
-import { PILOT, INDEXING, ENVIRONMENT } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
+import { PILOT, INDEXING, ENVIRONMENT, listenOn, noListen, statusToken } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { robotsTxt } from './public/robots.js';
 import { STATIC_PAGES } from './public/staticPages.js';
 import { loggableUrl } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
+import { errorEnvelope, notFoundEnvelope, wantsJson } from './http/errors.js';
 import { ORG_TYPES, MSG_KINDS, MAP_KINDS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape } from './http/helpers.js';
 import { withMapLock, loadOwnedMap, loadReadableMap, savedPoiTiers, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor } from './maps/detail.js';
 import adminRoutes from './routes/admin.js';
@@ -66,8 +67,7 @@ import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
 import { notify, appUrl } from './email/notify.js';
 
-const PORT = Number(process.env.PORT || 5180);
-const HOST = process.env.HOST || '127.0.0.1';
+const { port: PORT, host: HOST } = listenOn();
 const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
 
 // trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
@@ -133,6 +133,48 @@ const app = Fastify({
 // the observer lives here rather than in the test.
 export const ROUTE_TABLE = [];
 app.addHook('onRoute', (r) => { for (const m of [].concat(r.method)) ROUTE_TABLE.push(`${m} ${r.url}`); });
+
+/* ONE SHAPE FOR AN UNEXPECTED FAILURE, AND ONE FOR A PATH THAT IS NOT ROUTED
+ * (OA-224 Tier 5, portal-src F4).
+ *
+ * 24 `try` blocks and 11 explicit `.code(500)` cover the failures this code
+ * knows about, and every one of them answers `{ok:false,error}` — the envelope
+ * the client reads in 128 places. Anything ELSE fell through to Fastify's
+ * default, which is `{statusCode,error,message}`: a different shape, carrying a
+ * different key, for exactly the cases nobody anticipated. A client that reads
+ * `error` got Fastify's short name ("Internal Server Error") where it expected a
+ * sentence, and `ok` was absent, so `if (!r.ok)` — the standard test in this
+ * app's JavaScript — read undefined and took the success branch.
+ *
+ * The handlers are HTML-aware, because this server answers two audiences: an
+ * `/api/` caller gets the envelope, a browser navigating to a dead URL gets the
+ * same not-found page the public map routes already serve.
+ *
+ * THE 404 BODY IS LOAD-BEARING AND THAT IS WHY IT CARRIES A CODE.
+ * `scripts/check-live-routes.mjs` asks a deployed site whether every route in
+ * the snapshot still answers, and it has to tell a ROUTER 404 (the route is
+ * gone) from a HANDLER 404 (the route is there and the thing behind it is not,
+ * which is what /m/:slug must do for an unpublished slug). It used to do that by
+ * matching Fastify's default message string — a discriminator nobody had
+ * declared and anybody could have broken by adding the handler below. It now
+ * keys on `code: 'route_not_found'`, which is stated here, asserted by
+ * scripts/test-error-envelope.mjs, and cannot be changed silently — and the body
+ * ALSO repeats Fastify's old message, so that checker and this handler can land
+ * in either order without a day of false alarms. */
+app.setNotFoundHandler((req, reply) => {
+  if (wantsJson(req)) return reply.code(404).send(notFoundEnvelope(req.method, req.url));
+  return reply.code(404).type('text/html').send(notFoundPage('page'));
+});
+
+app.setErrorHandler((err, req, reply) => {
+  const { status, body } = errorEnvelope(err);
+  // A 5xx is ours and is logged with the stack; a 4xx Fastify raised is the
+  // caller's and is not an incident.
+  if (status >= 500) req.log.error({ err }, 'unhandled error');
+  else req.log.warn({ err: err.message }, 'request refused');
+  if (wantsJson(req)) return reply.code(status).send(body);
+  return reply.code(status).type('text/html').send(notFoundPage('page'));
+});
 
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
 
@@ -399,7 +441,7 @@ app.post('/api/admin/status', async (req, reply) => {
   // Bearer header only, constant-time, since 2026-08-25 — same change and same
   // reasoning as opsAuthorised() above (N7). This one never had a caller using
   // the query form: bus-work's push-status.mjs has always sent a header.
-  const viaToken = tokenMatches(bearerToken(req), process.env.STATUS_TOKEN);
+  const viaToken = tokenMatches(bearerToken(req), statusToken());
   const viaAdmin = req.user && req.user.role === 'admin';
   if (!viaToken && !viaAdmin) return reply.code(404).send({ ok: false });
 
@@ -1458,7 +1500,7 @@ export { app };
 // exactly as before. It exists so the test suite cannot fail in CI over a port
 // that happened to be busy -- a test that is flaky for a reason unrelated to
 // what it asserts is a test people learn to re-run rather than read.
-if (process.env.CBM_NO_LISTEN === '1') {
+if (noListen()) {
   await app.ready();
   app.log.info(`BusMaps.uk portal (${VERSION}) built, not listening (CBM_NO_LISTEN=1)`);
 } else {

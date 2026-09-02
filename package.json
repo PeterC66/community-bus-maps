@@ -88,7 +88,9 @@
     "test:editor-plugin": "node scripts/test-editor-plugin.mjs",
     "test:prove-red-editor-plugin": "node scripts/prove-red-editor-plugin.mjs",
     "test:pages-plugin": "node scripts/test-pages-plugin.mjs",
-    "test:prove-red-pages-plugin": "node scripts/prove-red-pages-plugin.mjs"
+    "test:prove-red-pages-plugin": "node scripts/prove-red-pages-plugin.mjs",
+    "test:env-inventory": "node scripts/test-env-inventory.mjs",
+    "test:error-envelope": "node scripts/test-error-envelope.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

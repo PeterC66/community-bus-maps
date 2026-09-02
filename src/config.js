@@ -68,3 +68,69 @@ export const INDEXING = {
 export const ENVIRONMENT = {
   isProduction: process.env.NODE_ENV === 'production',
 };
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * THE ENVIRONMENT, IN ONE PLACE (OA-224 Tier 5, portal-src F7).
+ *
+ * `process.env` was read in eight files: 20 reads outside this one, including
+ * every secret the system has. This file held three flags. The cost of that is
+ * not tidiness — it is that nothing could answer "what does this deployment
+ * read, and what happens if it is unset?", and the fail-direction of each
+ * variable, which this codebase argues about carefully for PILOT and INDEXING,
+ * was invisible for the rest.
+ *
+ * ACCESSORS, NOT CONSTANTS, and the reason is measured rather than stylistic:
+ * `test-operator-token.mjs` UNSETS `OPERATOR_TOKEN` at runtime and asserts the
+ * token stops working. A module-level snapshot would make that assertion pass
+ * for the wrong reason for ever. Each caller decides when to read; the ones that
+ * legitimately snapshot at load (`BASE_URL`, `DEV_LINKS`, `STALE_AFTER_MONTHS`)
+ * still do, by calling the accessor once at module scope, which keeps their
+ * existing behaviour exactly.
+ *
+ * TWO FILES KEEP THEIR OWN READS, declared here rather than forgotten:
+ *   src/db/paths.js   DATA_DIR, DB_PATH   — it exists so a script can learn a
+ *                     path without importing anything that opens a database, and
+ *                     importing this file to get one would undo that.
+ *   src/version.js    BUILT_AT, SOURCE_COMMIT — build stamps injected into the
+ *                     image, read by code that must not depend on config.
+ * `scripts/test-env-inventory.mjs` asserts that list is the whole of it: a
+ * `process.env` read anywhere else under `src/` is a finding.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The public origin, with EVERY trailing slash removed.
+ *
+ * IT USED TO BE READ THREE WAYS. `http/helpers.js` stripped all trailing slashes,
+ * `email/notify.js` stripped one, and `worklist/index.js` stripped none — so a
+ * `PUBLIC_BASE_URL` ending in `/` gave the app `https://busmaps.uk/maps`, an email
+ * the same, and the operator's worklist `https://busmaps.uk//maps`. Three
+ * spellings of one value is the shape `sessionTokenHash`/`tokenHash` had (Tier
+ * 3.3), and it is a bug the day they disagree. One reading now, the strictest. */
+export const publicBaseUrl = () => String(process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+
+/** Which email provider is configured, '' when none. '' means the dev fallback
+ *  that prints the sign-in link to the console — see DEV_LINKS. */
+export const emailProvider = () => process.env.EMAIL_PROVIDER || '';
+/** The From: on everything we send. */
+export const emailFrom = () => process.env.EMAIL_FROM || 'BusMaps.uk <noreply@busmaps.uk>';
+/** Resend's API key, '' when unset. Deliberately NOT rotatable by rotate-secret.mjs. */
+export const resendApiKey = () => process.env.RESEND_API_KEY || '';
+
+/* The three ops tokens. All three fail CLOSED when unset: tokenMatches() refuses
+ * an empty expectation, so an unconfigured portal admits nobody rather than
+ * everybody — the arm prove-red-operator-token.mjs exists to hold. */
+export const metricsToken = () => process.env.METRICS_TOKEN || '';
+export const operatorToken = () => process.env.OPERATOR_TOKEN || '';
+export const statusToken = () => process.env.STATUS_TOKEN || '';
+
+/** Dev-only: let an approver publish a version they submitted themselves. OFF
+ *  unless explicitly '1' — separation of duties fails towards the strict state. */
+export const allowSelfApproval = () => process.env.ALLOW_SELF_APPROVAL === '1';
+
+/** How old a map's data may be before the public page says so. Six months. */
+export const staleAfterMonths = () => Math.max(1, Number(process.env.STALE_AFTER_MONTHS) || 6);
+
+/** Where the server listens. 127.0.0.1 by default: Caddy is the only thing that
+ *  should be able to reach it directly. */
+export const listenOn = () => ({ port: Number(process.env.PORT || 5180), host: process.env.HOST || '127.0.0.1' });
+/** Build the app without binding a socket — set only by the test harnesses. */
+export const noListen = () => process.env.CBM_NO_LISTEN === '1';
