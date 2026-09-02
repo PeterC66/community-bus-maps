@@ -52,6 +52,9 @@ import { MAPS_DIR } from '../src/db/paths.js';
 // the database, which is what this comment used to explain a second copy of
 // (OA-224 Tier 3.3).
 const MAPS = MAPS_DIR;
+// The vendored engine, resolved the same way track-engine.mjs resolves it, so the
+// two agree about what is on disk.
+const ENGINE = fileURLToPath(new URL('../engine', import.meta.url));
 const APPLY = process.argv.includes('--apply');
 
 const PACK_FILE = 'gen_external.js';
@@ -119,6 +122,20 @@ for (const id of dirs(MAPS).sort((a, b) => String(a).localeCompare(String(b), 'e
   }
 
   const rel = CANDIDATES[byData];
+  // A PACK CAN STILL BE BUSWAY EVEN THOUGH THE ENGINE NO LONGER IS (2026-09-02).
+  // gen_external_busway.js was dropped from the engine and unvendored; the two
+  // signals above can still both say `busway` for a pack imported before that day,
+  // because they read the PACK, which is exactly what makes them trustworthy. What
+  // must not happen is writing a declaration pointing at a file that is not there:
+  // the tracker would then report that pack as a finding for ever, and the record
+  // would be this script's invention rather than a fact about the map. Say so and
+  // leave it undeclared, which is the recoverable state.
+  if (!existsSync(path.join(ENGINE, rel))) {
+    rows.push(['✗', id, `reads as ${byData} (${dataWhy}, and ${codeWhy}) but ${rel} is not vendored`
+      + ` — nothing written. This pack predates that generator being dropped and needs a person.`]);
+    undecided++;
+    continue;
+  }
   rows.push([APPLY ? '→' : '+', id, `${byData} — ${dataWhy}, and ${codeWhy}`]);
   if (APPLY) writeEngineSource(dataDir, { [PACK_FILE]: rel }, 'backfill');
   wrote++;

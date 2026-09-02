@@ -180,8 +180,20 @@ const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.ur
 // generators of its own -- see engine/area/README.md. gen_internal.js is shared
 // with the place engine and is vendored once, in engine/place/.
 const AREA_ENGINE_DIR = fileURLToPath(new URL('../engine/area', import.meta.url));
-const AREA_STYLE = ['radial', 'busway'].includes(arg('external-style'))
-  ? arg('external-style') : 'radial';
+// --external-style TOOK TWO VALUES UNTIL 2026-09-02, and now takes one, because
+// the engine vendors one area external template. The flag is kept and VALIDATED
+// rather than deleted: a runbook, a shell history or a person's memory will go on
+// passing `--external-style busway` for a while, and the difference between
+// refusing that by name and silently importing the radial generator under a
+// busway declaration is the difference between a message and a corrupt pack.
+const STYLE_ARG = arg('external-style');
+if (STYLE_ARG != null && STYLE_ARG !== 'radial') {
+  console.error(`✗ --external-style ${STYLE_ARG}: the only area external template is 'radial'.`);
+  console.error("  gen_external_busway.js was dropped on 2026-09-02 (buses-data OA-224 Tier 4.1);");
+  console.error('  it had been drawn by no committed sheet since 2026-08-03. Drop the flag.');
+  process.exit(2);
+}
+const AREA_STYLE = 'radial';
 const PLACE_GENS = ['gen_internal.js', 'gen_internal_place.js', 'gen_external_places.js'];
 const AREA_GENS = ['gen_internal.js', 'gen_external.js'];
 const isPlace = kind === 'place';
@@ -237,7 +249,6 @@ if (isPlace) {
     }
     areaFallback = vendored;
     console.log(`· --src carries no generators — using the vendored area engine (external style: ${AREA_STYLE}).`);
-    console.log('  Pass --external-style busway if the external map uses the busway template.');
   } else {
     for (const g of AREA_GENS) if (!existsSync(path.join(SRC, g))) console.warn(`· note: ${g} not present — that output will be skipped`);
   }
