@@ -208,6 +208,15 @@ function operatorRead(req) {
   return tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);
 }
 
+// Escape for XML/HTML text and attributes. Used by sitemap.xml and by the
+// admin-only changelog page, which prints the developer CHANGELOG.md as escaped
+// plain text rather than parsed markdown. It lived in server.js until 2026-09-02;
+// the changelog page moved to src/routes/pages.js and a route file may not reach
+// into server.js, so this moved out with it (OA-231).
+function xmlEscape(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+}
+
 export {
-  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead,
+  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape,
 };
