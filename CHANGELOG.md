@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.140 | 2026-09-02 | sha=3605cab9 -->
-**v1.140** · updated 2 September 2026
+<!-- docstamp v1.141 | 2026-09-02 | sha=fa9823bf -->
+**v1.141** · updated 2 September 2026
 
 <<<<<<< HEAD
 =======
@@ -21,6 +21,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-02** — [npm test discovers its tests, and four of them had drifted out of the chain](CHANGELOG.d/2026-09-02-npm-test-discovers-its-tests.md)
 - **2026-09-02** — [One argument reader, one SHA-256, and a path you can import without opening a database](CHANGELOG.d/2026-09-02-one-argument-reader-one-sha-256-and-a.md)
 - **2026-09-02** — [The email took the map name as markup](CHANGELOG.d/2026-09-02-the-email-took-the-name-as-markup.md)
+- **2026-09-02** — [The vendored engine gains three shared modules, and the check that should have noticed the third was blind to it](CHANGELOG.d/2026-09-02-the-engine-arrives-with-three-new-modules.md)
 - **2026-09-01** — [A Must show the sheet could not fit now says so, instead of exiting 0](CHANGELOG.d/2026-09-01-a-must-show-that-could-not-be-fitted-now-says-so.md)
 - **2026-09-01** — [A dot is a mark, not a target — and the focus zoom is now written as presses of the + button](CHANGELOG.d/2026-09-01-marker-size-and-focus-zoom.md)
 - **2026-09-01** — [R5 says where the Sitemaps page actually is, and records that Google verification is done](CHANGELOG.d/2026-09-01-r5-says-where-sitemaps-lives.md)
