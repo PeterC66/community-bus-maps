@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.144 | 2026-09-02 | sha=cf546150 -->
-**v1.144** · updated 2 September 2026
+<!-- docstamp v1.145 | 2026-09-02 | sha=3bf0aad1 -->
+**v1.145** · updated 2 September 2026
 
 <<<<<<< HEAD
 =======
@@ -18,6 +18,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-09-02** — [A place sheet can refuse](CHANGELOG.d/2026-09-02-a-place-sheet-can-refuse.md)
+- **2026-09-02** — [Four fast-uri advisories, two patch bumps, and nothing else in the lockfile](CHANGELOG.d/2026-09-02-fast-uri-four-advisories-two-patch-bumps.md)
 - **2026-09-02** — [npm test discovers its tests, and four of them had drifted out of the chain](CHANGELOG.d/2026-09-02-npm-test-discovers-its-tests.md)
 - **2026-09-02** — [One argument reader, one SHA-256, and a path you can import without opening a database](CHANGELOG.d/2026-09-02-one-argument-reader-one-sha-256-and-a.md)
 - **2026-09-02** — [The admin console is a Fastify plugin with one guard, and the route table is now something a test can hold](CHANGELOG.d/2026-09-02-the-admin-console-is-a-plugin-with-one-guard.md)
