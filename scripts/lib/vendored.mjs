@@ -101,6 +101,32 @@ const SKILL_ASSETS_REQUIRE = [
   //    the check blinder.
   /\b_dep\(\s*['"]([A-Za-z0-9_.-]+\.js)['"]\s*\)/g,
 
+  // 4. The ANCHORED form, `path.join(path.dirname(_LABELLER), 'x.js')` and its
+  //    factored spelling `_from('x.js')`. This is a SECOND rule the generators
+  //    express, not a variant of the first: it pins a module to the folder
+  //    another was already found in, so the labeller and its metrics table
+  //    cannot come from two different engines.
+  //
+  //    THE HEADER OF THIS FILE PREDICTED THIS IN WRITING AND IT HAPPENED ANYWAY.
+  //    "Two things this cannot see" named `font_metrics.js`, reached by exactly
+  //    this arithmetic, and said plainly that neither "would be caught if a
+  //    future edit introduced them for the first time". On 2026-09-02 a future
+  //    edit did: OA-224 Tier 3.5 added `external_primitives.js`, required by all
+  //    three external generators through this idiom ALONE, and the scan reported
+  //    "every module they require is here" over an engine that did not have it.
+  //    The vendored radial would have thrown MODULE_NOT_FOUND on the first
+  //    external render anywhere the skill tree is absent — which is the VPS. The
+  //    same edit put the engine's own dependency scanner in the same hole on the
+  //    same day, which is the argument for reading a stated limit as a bug
+  //    report rather than as a disclaimer.
+  //
+  //    Both spellings resolve a LITERAL name straight into require(), which is
+  //    the property that makes them this scan's business and keeps the `&&`
+  //    candidate-list form out. `font_metrics.js` and `svg_primitives.js` become
+  //    visible for the first time as a side effect; both were already rows.
+  /path\.dirname\([A-Za-z0-9_$]+\)\s*,\s*['"]([A-Za-z0-9_.-]+\.js)['"]/g,
+  /\b_from\(\s*['"]([A-Za-z0-9_.-]+\.js)['"]\s*\)/g,
+
   // NOT the `&&` candidate-list form, and that exclusion is deliberate — see the
   // note above this block. `process.env.SKILL_ASSETS && path.join(…)` is ONE
   // candidate of three that existsSync() chooses between, and the file reports
@@ -153,14 +179,16 @@ export function listEngineFiles(engineDir) {
  * it. So the population to enumerate is not the tree and not the manifest: it is
  * what the vendored CODE asks for.
  *
- * TWO THINGS THIS CANNOT SEE, both already manifest rows with notes saying so:
- *   • `font_metrics.js` — reached by `path.dirname(_LABELLER)` arithmetic rather
- *     than a literal, so no string in the file names it.
+ * ONE THING THIS CANNOT SEE, and one it could not until 2026-09-02:
  *   • `qr.js` — required lazily INSIDE footer.js, only when a sheet asks for a
- *     code, so a missing copy fails one town months later.
- * Both are caught by MISSING if they are deleted; neither would be caught if a
- * future edit introduced them for the first time. That is a smaller hole than
- * the one this closes, and it is stated rather than papered over.
+ *     code, so a missing copy fails one town months later. Still invisible here.
+ *   • `font_metrics.js` — reached by `path.dirname(_LABELLER)` arithmetic. This
+ *     paragraph used to say the same of it, and add that neither "would be
+ *     caught if a future edit introduced them for the first time". A future edit
+ *     then introduced `external_primitives.js` through that very idiom and this
+ *     scan called the engine complete without it. Pattern 4 now reads the idiom,
+ *     so the arithmetic case is closed and `qr.js` is the whole of what is left.
+ *     A stated limit is a bug report with a date on it.
  *
  * @returns {Array<{file: string, kind: string, status: string, note: string}>}
  *          one row per unresolvable module (empty when everything resolves)

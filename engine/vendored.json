@@ -49,8 +49,8 @@
       "path": "footer.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/footer.js",
-      "sha256": "3a84357e3e1f981f71b97be61184c10ac06c5da86a574922d5a6813c3714d8fd",
-      "vendoredOn": "2026-08-25",
+      "sha256": "fc64deefa0ccbb67dac4c787288c789652bce26f4690ddcf6d2a678575528661",
+      "vendoredOn": "2026-09-02",
       "note": "Resolved through SKILL_ASSETS by every generator; the file that drifted silently in August 2026."
     },
     {
@@ -64,8 +64,8 @@
       "path": "labeller.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/labeller.js",
-      "sha256": "de42cae368c3d5f832d25e2f5f66dd7bdb9fdf62a2bd78c1ce90d0b68502b59d",
-      "vendoredOn": "2026-09-01"
+      "sha256": "0c63330b042e6e6b63ff309fd992d47f8e71cd2f09be680f68e3fd1a06588671",
+      "vendoredOn": "2026-09-02"
     },
     {
       "path": "lane_normals.js",
@@ -94,16 +94,16 @@
       "path": "area/gen_external_busway.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_busway.js",
-      "sha256": "9e6e78e8f45101b6b522b1b8b90e4fa03fc56af386aa412b0a8714cefda74764",
-      "vendoredOn": "2026-08-30",
+      "sha256": "71e110f1bf84cb2b72188310b06f086d1204561cca08592c0d5504f88993a511",
+      "vendoredOn": "2026-09-02",
       "note": "The busway external template; import-map.mjs copies it in as gen_external.js under --external-style busway."
     },
     {
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "5b338ab4126ec1d791e42b5654b61139558677d6a238cc1aaeab3a5d34684b9c",
-      "vendoredOn": "2026-08-31",
+      "sha256": "f712ac20b82552e8de5707aaf49f47bb9450d51b118bf828ed3ead563e12af8c",
+      "vendoredOn": "2026-09-02",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
     {
@@ -118,8 +118,8 @@
       "path": "expert/gen_boarding.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_boarding.js",
-      "sha256": "82289f6412dfe5a53a2d39aca6c9165fbf0658e87cae29a1cf13ca0961057d5c",
-      "vendoredOn": "2026-08-31",
+      "sha256": "f9245e2bbb1df16b30b0b489736963da6eae581f0cbe3fd2a44d4563e9d16d9c",
+      "vendoredOn": "2026-09-02",
       "note": "The portal's fifth output since 2026-08-23; portal-owned in the sense that it is not copied into a map's data."
     },
     {
@@ -144,15 +144,15 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "fa7bc0a6ca2e729d41fbf9ba87c804504454f758b5e1f6650560f6728633f43f",
-      "vendoredOn": "2026-09-01"
+      "sha256": "4c914dba67c99ebd0ab00ef3a80994f4706359dd30a7a742ea4737a846f58589",
+      "vendoredOn": "2026-09-02"
     },
     {
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "45f3754312780c8b99c400e7d74d051128871c2dd8f9d9e231bbbe39c900fa1f",
-      "vendoredOn": "2026-09-01",
+      "sha256": "6841b40f835c84483401f55d383fae9462e53f55a7ef9647a538a20b99f6297d",
+      "vendoredOn": "2026-09-02",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
@@ -207,8 +207,8 @@
       "path": "svg_primitives.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/svg_primitives.js",
-      "sha256": "3323e1f6bb8120f9565fd7724b11774ad542aacc7a2f89c799365dbb398ca737",
-      "vendoredOn": "2026-08-28",
+      "sha256": "fb4910e237f62da7b1d97ebabb8d27db045cf3f5048a1e91d9bb43fa239f631d",
+      "vendoredOn": "2026-09-02",
       "note": "The eight small marks the internal sheet is drawn out of — esc, gk, the badge measurements, badge/badgeStack/cross. Required at load by gen_internal.js."
     },
     {
@@ -231,8 +231,8 @@
       "path": "services_panel.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/services_panel.js",
-      "sha256": "c1d4a0fec566343ea84b2b70a1f9a75dd79fb311d6eab79e225d3d9ad0d3ec82",
-      "vendoredOn": "2026-08-30",
+      "sha256": "a8d0186b04c6ce7ddb324c4b6e06a6e0d87f7e5b6f2945df0230367dd4e3fc35",
+      "vendoredOn": "2026-09-02",
       "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
     },
     {
@@ -258,6 +258,27 @@
       "sha256": "58c7e813b5944d60bf7c09c0829098e100ff8e3b1f6a56e17d609b6c87975f4d",
       "vendoredOn": "2026-08-27",
       "note": "Siting the NAME of a river, road, railway or canal, and the four guards that refuse a name nobody can read or that names nothing. Required at load by gen_internal.js."
+    },
+    {
+      "path": "engine_paths.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/engine_paths.js",
+      "sha256": "9ff1065c3c1a8c4d3889a535c291163a9efcf74cc4ef80760b68e5fdcb5364ef",
+      "vendoredOn": "2026-09-02"
+    },
+    {
+      "path": "page.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/page.js",
+      "sha256": "128007f2a826067156fbb7947215d52f6614aafff47dd445e7c038e5a38ca6f4",
+      "vendoredOn": "2026-09-02"
+    },
+    {
+      "path": "external_primitives.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/external_primitives.js",
+      "sha256": "b422d4abdd7a94e7f359c89107595d4ae5417c2a0d39a0eec7cf5dfe3227888a",
+      "vendoredOn": "2026-09-02"
     }
   ]
 }

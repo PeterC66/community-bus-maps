@@ -160,7 +160,7 @@ console.log('\nthe tree walk:');
   check('it ignores the manifest itself and anything that is not .js', !files.some((f) => f.endsWith('.json')));
 }
 
-console.log('\nhow the vendored code ASKS for a module — all three idioms:');
+console.log('\nhow the vendored code ASKS for a module — all four idioms:');
 {
   // The scan's population is "what the vendored code requires", so it has to
   // recognise every way the engine writes a resolver. It has not always: on
@@ -174,6 +174,14 @@ console.log('\nhow the vendored code ASKS for a module — all three idioms:');
     'ternary.js': "const p = process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS,'wanted_a.js') : 'x';",
     'ifreturn.js': "function d(){ if (process.env.SKILL_ASSETS) return path.join(process.env.SKILL_ASSETS,'wanted_b.js'); }",
     'factored.js': "const _dep = (n) => path.join(process.env.SKILL_ASSETS, n);\nrequire(_dep('wanted_c.js'));",
+    // The ANCHORED form, added 2026-09-02. Neither of these mentions
+    // SKILL_ASSETS at all: they pin a module to the folder another was already
+    // found in. `external_primitives.js` is required by all three external
+    // generators through this idiom ALONE, and the scan called the engine
+    // complete without it — the failure this file's header had predicted in
+    // writing and then not been widened for.
+    'anchored.js': "const FONT = require(path.join(path.dirname(_LABELLER), 'wanted_d.js'));",
+    'anchored_factored.js': "const _from = siblingOf(_LABELLER);\nrequire(_from('wanted_e.js'));",
   };
   for (const [file, body] of Object.entries(forms)) {
     writeFileSync(path.join(t.engineDir, file), body + '\n');
@@ -190,6 +198,8 @@ console.log('\nhow the vendored code ASKS for a module — all three idioms:');
   check('the ternary form is seen', statusOf(r, 'wanted_a.js') === 'UNRESOLVED', statusOf(r, 'wanted_a.js'));
   check('the if-return form is seen', statusOf(r, 'wanted_b.js') === 'UNRESOLVED', statusOf(r, 'wanted_b.js'));
   check('the factored _dep form is seen — the one that went blind', statusOf(r, 'wanted_c.js') === 'UNRESOLVED', statusOf(r, 'wanted_c.js'));
+  check('the anchored path.dirname form is seen — the one that went blind next', statusOf(r, 'wanted_d.js') === 'UNRESOLVED', statusOf(r, 'wanted_d.js'));
+  check('and its factored _from spelling', statusOf(r, 'wanted_e.js') === 'UNRESOLVED', statusOf(r, 'wanted_e.js'));
   check('and the audit fails rather than reporting all clear', r.ok === false);
 
   // The && candidate-list form is EXCLUDED on purpose: it is one of three
