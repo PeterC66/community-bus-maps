@@ -84,7 +84,9 @@
     "test:review-plugin": "node scripts/test-review-plugin.mjs",
     "test:prove-red-review-plugin": "node scripts/prove-red-review-plugin.mjs",
     "test:proposed-plugin": "node scripts/test-proposed-plugin.mjs",
-    "test:prove-red-proposed-plugin": "node scripts/prove-red-proposed-plugin.mjs"
+    "test:prove-red-proposed-plugin": "node scripts/prove-red-proposed-plugin.mjs",
+    "test:editor-plugin": "node scripts/test-editor-plugin.mjs",
+    "test:prove-red-editor-plugin": "node scripts/prove-red-editor-plugin.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

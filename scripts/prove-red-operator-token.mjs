@@ -119,7 +119,8 @@ const MUTATIONS = [
   {
     what: 'GET /api/maps stops accepting the token',
     why: 'half the worklist would silently print no maps rather than fail — the tool cross-references its local tree against this list',
-    edits: [['src/server.js', '  const viaToken = operatorRead(req);', '  const viaToken = false;']],
+    // Re-anchored 2026-09-02 (OA-231): the handler moved into the editor plugin.
+    edits: [['src/routes/editor.js', '  const viaToken = operatorRead(req);', '  const viaToken = false;']],
     expect: 'the token reads /api/maps',
   },
   {
@@ -133,7 +134,8 @@ const MUTATIONS = [
   {
     what: '/api/maps stops scoping its answer for anybody',
     why: 'the control that stops "the token sees both maps" being satisfied by a route that shows every customer their neighbours',
-    edits: [['src/server.js', '  const scope = isAdmin ? {} : { customerId: user.customer_id };', '  const scope = {};']],
+    // Re-anchored 2026-09-02 (OA-231): the handler moved into the editor plugin.
+    edits: [['src/routes/editor.js', '  const scope = isAdmin ? {} : { customerId: user.customer_id };', '  const scope = {};']],
     expect: 'an editor session still sees only its own',
   },
   {
@@ -152,10 +154,10 @@ const MUTATIONS = [
     expect: 'POST a new admin user refuses it too',
   },
   {
-    what: 'a third call site appears, on a route no forbidden-list names',
+    what: 'a fourth call site appears, on a route no forbidden-list names',
     why: 'the enumeration of forbidden routes can only cover what somebody remembered; this is the arm proving the source assertion covers the rest',
     edits: [['src/http/helpers.js', 'function requireApprover(req, reply) {\n  if (!req.user) {', `function requireApprover(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`]],
-    expect: 'operatorRead is defined once and called exactly twice',
+    expect: 'operatorRead is defined once and called exactly three times',
   },
   {
     what: 'an unset OPERATOR_TOKEN means everybody instead of nobody',
