@@ -170,13 +170,23 @@ console.log('\nWhere the token is consulted at all');
 const srcFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? srcFiles(path.join(dir, e.name)) : e.name.endsWith('.js') ? [path.join(dir, e.name)] : []));
 const SRC = Object.fromEntries(srcFiles(path.join(ROOT, 'src')).map((f) => [path.relative(path.join(ROOT, 'src'), f).replace(/\\/g, '/'), readFileSync(f, 'utf8')]));
 const allSrc = Object.values(SRC).join('\n');
-eq('operatorRead is defined once and called exactly twice, across the whole of src/', allSrc.split('operatorRead(').length - 1, 3);
+eq('operatorRead is defined once and called exactly three times, across the whole of src/', allSrc.split('operatorRead(').length - 1, 4);
 check('…defined in src/http/helpers.js', SRC['http/helpers.js'].includes('function operatorRead(req) {'));
 check('…once by the guard of the admin plugin, for the route that declares the exception',
   SRC['routes/admin.js'].includes('if (req.routeOptions.config.operatorRead && operatorRead(req)) return;')
   && SRC['routes/admin.js'].includes("app.get('/worklist', { config: { operatorRead: true } }, async (req, reply) => {"));
-check('…and once by GET /api/maps',
-  SRC['server.js'].includes('const viaToken = operatorRead(req);'));
+// THE THIRD CALL SITE IS THE SECOND HALF OF THE SECOND ONE, not a new place the
+// token is trusted (OA-231, 2026-09-02). GET /api/maps moved into the editor
+// plugin, so its own guard has to admit the tokened call the same way the admin
+// plugin's does -- the count went 3 -> 4 because a hook that used to be absent
+// now exists, and BOTH lines below have to be present for the exception to work
+// at all: the config flag without the guard reading it is refused, and the guard
+// without the flag never fires.
+check('…once by the guard of the editor plugin, for the route that declares the exception',
+  SRC['routes/editor.js'].includes('if (req.routeOptions.config.operatorRead && operatorRead(req)) return;')
+  && SRC['routes/editor.js'].includes("app.get('/', { prefixTrailingSlash: 'no-slash', config: { operatorRead: true } }, async (req, reply) => {"));
+check('…and once by the handler of GET /api/maps, which asks whether THIS call came by token',
+  SRC['routes/editor.js'].includes('const viaToken = operatorRead(req);'));
 
 // ===========================================================================
 console.log('\nThe credential itself');

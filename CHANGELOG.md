@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.145 | 2026-09-02 | sha=3bf0aad1 -->
-**v1.145** · updated 2 September 2026
+<!-- docstamp v1.146 | 2026-09-02 | sha=a5f736e4 -->
+**v1.146** · updated 2 September 2026
 
 <<<<<<< HEAD
 =======
@@ -22,6 +22,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-02** — [npm test discovers its tests, and four of them had drifted out of the chain](CHANGELOG.d/2026-09-02-npm-test-discovers-its-tests.md)
 - **2026-09-02** — [One argument reader, one SHA-256, and a path you can import without opening a database](CHANGELOG.d/2026-09-02-one-argument-reader-one-sha-256-and-a.md)
 - **2026-09-02** — [The admin console is a Fastify plugin with one guard, and the route table is now something a test can hold](CHANGELOG.d/2026-09-02-the-admin-console-is-a-plugin-with-one-guard.md)
+- **2026-09-02** — [The editor spine's API is a plugin, and the two guards behind its door differ by exactly one role](CHANGELOG.d/2026-09-02-the-editor-spine-is-a-plugin-and-two-guards-differ-by-one-role.md)
 - **2026-09-02** — [The email took the map name as markup](CHANGELOG.d/2026-09-02-the-email-took-the-name-as-markup.md)
 - **2026-09-02** — [The vendored engine gains three shared modules, and the check that should have noticed the third was blind to it](CHANGELOG.d/2026-09-02-the-engine-arrives-with-three-new-modules.md)
 - **2026-09-02** — [DEPLOY.md §4a: a re-vendor is not finished until the LIVE store is tracked, and the live number is not the laptop's](CHANGELOG.d/2026-09-02-the-live-track-number-is-not-the-laptops.md)
