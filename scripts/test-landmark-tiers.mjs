@@ -402,6 +402,184 @@ console.log('\nthe chooser: the declutter, the tap test and the tally');
   }
 }
 
+// ---------------------------------------------------------------------------
+// 6. THE ROW ITSELF: its pictogram, its name, and whether this page can be seen
+//    to say anything at all (Peter, 2026-09-03).
+//
+//    Four faults, and three of them are JOINS between two files that nothing
+//    held together:
+//
+//    a) A <use> of a <symbol> with no x/y/width/height takes the defaults
+//       x=0, y=0, width=100%, height=100%. Put that inside an <svg> whose own
+//       viewBox starts at -10 -10 and the symbol's viewport lands at 0,0 to
+//       20,20 in a space that shows -10 to +10: you see its top-left QUARTER,
+//       in the bottom-right of the box. The map layer writes the placement out
+//       and was always right; the list layer did not and was wrong everywhere.
+//
+//    b) classify() returns `t.name || ''` for pharmacies and GP surgeries — the
+//       sheet never prints those names, so an unnamed one costs it nothing. The
+//       chooser then drew a row with no title at all, and no reader could tell
+//       which chemist they were being asked about. Three towns have one today.
+//
+//    c) The row's "symbol only — its name is never printed" repeated the group
+//       heading's own tagline on every row of a group where every row is like
+//       that, in a column already starved of width.
+//
+//    d) AND THE ONE THAT MATTERS MOST: `.notice` in app.css is display:none and
+//       `.notice.show` is what reveals it. Every other page writes the `show`
+//       class. This one did not, at five sites, so nothing this page ever tried
+//       to say could be seen — the save result, the server-unreachable error,
+//       the export confirmation, the *Must show* soft cap, and showWarnings(),
+//       whose entire purpose is to tell a reader which of their choices the
+//       generator could not seat.
+// ---------------------------------------------------------------------------
+console.log('\nthe chooser: the pictogram, the name, and whether the page can speak');
+{
+  const { readFileSync: rf } = await import('node:fs');
+  const { fileURLToPath: fu } = await import('node:url');
+  const read = (rel) => { try { return rf(fu(new URL(rel, import.meta.url)), 'utf8'); } catch { return ''; } };
+  const lmSrc = read('../public/app/landmarks.js');
+  const cssSrc = read('../public/app/app.css');
+
+  const liftFn = (name) => {
+    const i = lmSrc.indexOf(`function ${name}(`);
+    if (i < 0) return null;
+    let depth = 0;
+    for (let k = lmSrc.indexOf('{', i); k >= 0 && k < lmSrc.length; k++) {
+      if (lmSrc[k] === '{') depth++;
+      else if (lmSrc[k] === '}' && --depth === 0) return lmSrc.slice(i, k + 1);
+    }
+    return null;
+  };
+  const liftConst = (name) => {
+    const i = lmSrc.indexOf(`const ${name} = `);
+    if (i < 0) return null;
+    const j = lmSrc.indexOf(';', i);
+    return j < 0 ? null : lmSrc.slice(i, j + 1);
+  };
+
+  // --- a) the pictogram is PLACED, not merely referenced --------------------
+  let g = null; let gWhy = lmSrc ? '' : 'public/app/landmarks.js could not be read';
+  if (lmSrc) {
+    const f = liftFn('glyphSpan');
+    if (!f) gWhy = 'glyphSpan() not found in the chooser';
+    else {
+      try {
+        g = new Function(`const GLYPHS = { shop: '<circle/>' };\nconst esc = (s) => String(s);\n${f}\nreturn glyphSpan;`)();
+      } catch (e) { gWhy = e.message; }
+    }
+  }
+  check('glyphSpan() can be read out of the chooser own source', !!g, gWhy);
+  if (g) {
+    const html = g('shop');
+    const box = (html.match(/viewBox="([^"]*)"/) || [])[1] || '';
+    // THE RULE, stated as the rule rather than as the string: the box the row
+    // draws into must START AT THE ORIGIN, because a <use> with no x/y puts the
+    // symbol's viewport at 0,0 of whatever user space it lands in.
+    const origin = box.trim().split(/ +/).slice(0, 2).join(' ');
+    check('the row draws its pictogram into a box that starts at the origin', origin === '0 0',
+      `viewBox="${box}" — a symbol <use> with no x/y sits at 0,0, so a box starting anywhere else shows only part of the glyph`);
+    check('...and the <use> is the plain form the sprite is built for', html.includes('<use href="#lmg-shop"/>'), html);
+  }
+  // The sprite still declares the symbol centred on its own middle, which is
+  // what makes the origin rule above necessary rather than arbitrary.
+  const sprite = liftFn('installGlyphSprite') || '';
+  check('the sprite still centres each symbol on its own middle',
+    sprite.includes('viewBox="-10 -10 20 20"'), sprite.slice(0, 200));
+  // And the OTHER correct form, on the map, stays correct: it writes the
+  // placement out longhand, which is exactly why the map never had this fault.
+  check('the map layer still places its own <use> explicitly',
+    lmSrc.includes('x="-10" y="-10" width="20" height="20"'),
+    'drawPoints() must keep writing the placement, or the marks move instead');
+
+  // --- b) and c) the words on a row ----------------------------------------
+  let api = null; let why = lmSrc ? '' : 'public/app/landmarks.js could not be read';
+  if (lmSrc) {
+    const fns = ['displayName', 'statusWords', 'showEl'].map(liftFn);
+    const consts = ['CAT_LABEL', 'CAT_ONE', 'catLabel', 'nameless'].map(liftConst);
+    if (fns.some((f) => !f) || consts.some((c) => !c)) {
+      why = 'could not find displayName/statusWords/showEl and their constants in public/app/landmarks.js';
+    } else {
+      try {
+        api = new Function(`${consts.join('\n')}\n${fns.join('\n')}\n`
+          + 'return { displayName, statusWords, showEl, CAT_ONE };')();
+      } catch (e) { why = e.message; }
+    }
+  }
+  check('the row helpers can be read out of the chooser own source', !!api, why);
+
+  if (api) {
+    const { displayName, statusWords, CAT_ONE, showEl } = api;
+    const P = (o) => ({ key: 'x', cat: 'pharmacy', name: '', printsName: false, ...o });
+
+    eq('a place with a name is called by it', displayName(P({ name: 'Boots' }), null), 'Boots');
+    eq('a rename beats the name the data has', displayName(P({ name: 'Boots' }), { as: 'The chemist' }), 'The chemist');
+    const blank = displayName(P({ name: '' }), null);
+    check('a place with NO name still gets something a reader can act on', blank.trim().length > 0, JSON.stringify(blank));
+    check('...and what it gets names the kind of place it is, not the engine key',
+      blank.includes('pharmacy') && !blank.includes('pharmacy:'), blank);
+    eq('a rename rescues a nameless place completely', displayName(P({ name: '' }), { as: 'Aqsa' }), 'Aqsa');
+    eq('whitespace is not a name', displayName(P({ name: '   ' }), null), blank);
+
+    // The same JOIN as check 4 above, one level down: a thirteenth category
+    // added to classify() would fall back to a lower-cased plural heading.
+    let cats = [];
+    try {
+      const sel = read('../engine/poi_select.js');
+      const i = sel.indexOf('function classify(');
+      const j = sel.indexOf('\nfunction ', i + 1);
+      cats = [...sel.slice(i, j > 0 ? j : undefined).matchAll(/return\s*\[\s*'([a-z_]+)'/g)].map((m) => m[1]);
+    } catch { cats = []; }
+    check('classify() still names a plausible number of categories', cats.length >= 10, 'found ' + cats.length);
+    eq('and every one of them has a singular for the nameless row',
+      [...new Set(cats)].filter((c) => !CAT_ONE[c]), []);
+
+    // c) the sub-line, and the group heading that had already said it
+    eq('in a group where nothing prints its name, the row says nothing extra',
+      statusWords(P({ name: 'Boots', printsName: false }), false), '');
+    check('in a MIXED group it says which half this row is in',
+      statusWords(P({ name: 'Boots', printsName: false }), true).includes('not printed'),
+      statusWords(P({ name: 'Boots', printsName: false }), true));
+    eq('and a row that DOES print its name says nothing either way',
+      statusWords(P({ name: 'Asda', cat: 'shop', printsName: true }), true), '');
+    for (const mixed of [false, true]) {
+      check(`a nameless row explains itself whether or not the group is mixed (mixed=${mixed})`,
+        /no name/i.test(statusWords(P({ name: '' }), mixed)), statusWords(P({ name: '' }), mixed));
+    }
+
+    // --- d) the page can be SEEN to speak ----------------------------------
+    // THE JOIN. Each half was fine on its own and the pair was not.
+    const noticeRule = (cssSrc.match(/\.notice \{[^}]*\}/) || [''])[0];
+    check('app.css really does keep .notice hidden until something says otherwise',
+      /display:\s*none/.test(noticeRule), noticeRule || 'no .notice rule found in public/app/app.css');
+    // The trailing class terminates: without it `.notice.shown` satisfies a
+    // search for `.notice.show`, and the arm that renames the rule survived the
+    // first run of this very check.
+    check('...and .notice.show is the thing that says otherwise',
+      /\.notice\.show(?![\w-])/.test(cssSrc),
+      'no .notice.show rule — the class this page adds would do nothing');
+
+    const el = { hidden: true, cls: new Set() };
+    el.classList = { toggle(c, on) { if (on) el.cls.add(c); else el.cls.delete(c); } };
+    showEl(el, true);
+    check('showEl() adds the one class the stylesheet is looking for', el.cls.has('show'), [...el.cls].join(','));
+    eq('...and clears the hidden attribute with it', el.hidden, false);
+    showEl(el, false);
+    check('and takes both away again', !el.cls.has('show') && el.hidden === true,
+      `${[...el.cls].join(',')} hidden=${el.hidden}`);
+
+    // No second way in. This is exactly what broke: two sites reached for the
+    // `hidden` attribute and three for style.display, and a class rule beats
+    // both. showEl() is the only door now, so the JOIN above covers the page.
+    check('nothing in the chooser reveals a notice by the hidden attribute any more',
+      !/\.hidden = (true|false)/.test(lmSrc),
+      'a bare `hidden` toggle cannot beat `.notice { display: none }` — go through showEl()');
+    check('...nor by clearing an inline display on a notice',
+      !/\$\('notice'\)[^;]*\.style\.display/.test(lmSrc) && !lmSrc.includes('nEl.style.display'),
+      'style.display = "" hands the question straight back to the stylesheet that says none');
+  }
+}
+
 if (failures) {
   console.error(`\n✗ ${failures} landmark-tier check(s) failed`);
   process.exit(1);

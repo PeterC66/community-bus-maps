@@ -161,6 +161,41 @@ const CAT_LABEL = {
 };
 const catLabel = (c) => CAT_LABEL[c] || c;
 
+/**
+ * The same twelve, one at a time, for the row that has no name of its own.
+ *
+ * Not derived from CAT_LABEL by trimming an "s": "Pharmacies" and "Parks and
+ * recreation grounds" do not survive it, and a heading that reads "Unnamed
+ * pharmacie" is worse than the blank it replaces.
+ */
+const CAT_ONE = {
+  shop: 'supermarket', gp: 'GP surgery', pharmacy: 'pharmacy',
+  library: 'library', museum: 'museum', leisure: 'leisure centre',
+  school: 'school', park: 'park', industrial: 'industrial estate',
+  community: 'community centre', townhall: 'town hall', allotments: 'allotment site',
+};
+
+/**
+ * WHAT THE ROW IS CALLED, INCLUDING WHEN NOTHING CALLS IT ANYTHING.
+ *
+ * classify() in poi_select.js returns `t.name || ''` for pharmacies and GP
+ * surgeries, because neither prints its name on the sheet — an unnamed chemist
+ * costs the paper nothing. It costs this page everything: the row arrived with
+ * an empty title and a reader could see a tier, a symbol and no way at all to
+ * tell which chemist they were answering about. High Wycombe, Huntingdon and
+ * St Neots have one such row each today.
+ *
+ * The fallback is deliberately not a guess at the name. It says the map's data
+ * has none, and the row's own rename box is where a local puts that right.
+ */
+function displayName(p, st) {
+  const given = ((st && st.as) || p.name || '').trim();
+  return given || `Unnamed ${CAT_ONE[p.cat] || catLabel(p.cat).toLowerCase()}`;
+}
+
+/** Has this place a name of its own in the map's data? */
+const nameless = (p) => !(p.name || '').trim();
+
 /** Does this browser want to be animated at all? */
 const motionOK = () => !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -649,8 +684,16 @@ window.addEventListener('resize', () => { GLYPH_K = null; applyView(); });
  * beside a name the reader can already read, hence aria-hidden.
  */
 function glyphSpan(cat) {
+  // viewBox="0 0 20 20" AND NOT the symbol's own "-10 -10 20 20", which is what
+  // this said until Peter reported seeing about a fifth of each icon. A <use>
+  // of a <symbol> with no x/y/width/height gets the defaults x=0, y=0,
+  // width=100%, height=100% — so the symbol's viewport lands at 0,0→20,20 in a
+  // user space that only shows -10→+10, and you see the symbol's top-left
+  // QUARTER pushed into the bottom-right of its box. The map layer never had
+  // this: drawPoints() writes x/y/width/height on its <use> explicitly. Two
+  // ways to be right and this file was using one of them in one place only.
   return GLYPHS && GLYPHS[cat]
-    ? `<span class="lm-icon" aria-hidden="true"><svg viewBox="-10 -10 20 20"><use href="#lmg-${esc(cat)}"/></svg></span>`
+    ? `<span class="lm-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#lmg-${esc(cat)}"/></svg></span>`
     : '<span class="lm-icon" aria-hidden="true"></span>';
 }
 
@@ -663,9 +706,23 @@ function installGlyphSprite(glyphs) {
     .map((cat) => `<symbol id="lmg-${esc(cat)}" viewBox="-10 -10 20 20">${glyphs[cat]}</symbol>`).join('');
 }
 
-function statusWords(p) {
+/**
+ * The small print under a row's title — and MOSTLY there is none (Peter,
+ * 2026-09-03).
+ *
+ * "symbol only — its name is never printed" used to be on every row that did
+ * not print its name, which in a group where NO row prints its name is the
+ * group heading's own tagline repeated thirteen times down a column already
+ * starved of width. It earns its place only where the group is MIXED and the
+ * reader cannot tell the two halves apart from the heading.
+ *
+ * @param {object} p        the candidate
+ * @param {boolean} mixed   does this group hold both kinds?
+ */
+function statusWords(p, mixed) {
   const bits = [];
-  if (!p.printsName) bits.push('symbol only — its name is never printed');
+  if (nameless(p)) bits.push('no name in the map data — click to find it on the map, and name it below');
+  if (!p.printsName && mixed) bits.push('name not printed');
   return bits.join(' · ');
 }
 
@@ -704,7 +761,16 @@ function listAnchor() {
   const top = box.getBoundingClientRect().top;
   for (const r of box.querySelectorAll('.lm-row')) {
     const b = r.getBoundingClientRect();
-    if (b.bottom > top + 1) return { key: r.dataset.key, dy: b.top - top };
+    if (b.bottom <= top + 1) continue;
+    // Skip a row the coming rebuild will DROP. Since answering a row now
+    // re-applies the filter, the topmost visible row under "Not looked at yet"
+    // is very often the one that just stopped matching — anchor to that and
+    // restoreAnchor() finds nothing to restore to, so the list jumps by a row
+    // at the exact moment the reader is reading it. matches() is asked after
+    // STATE has already been updated, so it answers about the list to come.
+    const p = LANDMARKS.find((l) => l.key === r.dataset.key);
+    if (p && !matches(p)) continue;
+    return { key: r.dataset.key, dy: b.top - top };
   }
   return null;
 }
@@ -746,6 +812,9 @@ function buildList() {
   for (const cat of cats) {
     const rows = byCat.get(cat);
     const named = rows.some((p) => p.printsName);
+    // Both kinds present: the heading cannot speak for the whole group, so each
+    // row says which it is. Otherwise the heading's tagline covers all of them.
+    const mixed = named && rows.some((p) => !p.printsName);
     html += `<div class="lm-cat">
       <div class="lm-cathead">
         ${glyphSpan(cat)}<b>${esc(catLabel(cat))}</b> <span class="count">${rows.length}</span>
@@ -758,11 +827,11 @@ function buildList() {
       </div>`;
     for (const p of rows) {
       const st = STATE.get(p.key) || { tier: 'may', as: null, set: false };
-      const sw = statusWords(p);
+      const sw = statusWords(p, mixed);
       html += `<div class="lm-row ${st.tier} ${st.set ? 'set' : ''} ${st.as ? 'renamed' : ''} ${SELECTED === p.key ? 'sel' : ''}" data-key="${esc(p.key)}">
         ${glyphSpan(p.cat)}
         <div class="lm-name">
-          <span class="lm-title">${esc(st.as || p.name)}</span>
+          <span class="lm-title${nameless(p) && !(st.as || '').trim() ? ' lm-noname' : ''}">${esc(displayName(p, st))}</span>
           ${st.as ? `<span class="lm-was">was ${esc(p.name)}</span>` : ''}
           ${sw ? `<span class="lm-sub">${esc(sw)}</span>` : ''}
         </div>
@@ -839,6 +908,28 @@ function setFilter(f) {
   buildList();
 }
 
+/**
+ * A row has just been answered: repaint it, and take it away if the filter it
+ * is sitting under no longer wants it (Peter, 2026-09-03).
+ *
+ * paintRow() alone was the whole of the old behaviour, and it was deliberate —
+ * a full rebuild used to throw the reader back to the top of 145 rows, which is
+ * what listAnchor() exists to stop. The cost was that "Not looked at yet" went
+ * on showing rows you had just looked at until you clicked the chip again to
+ * make it re-ask its own question. The BULK buttons rebuilt and single answers
+ * did not, so one list obeyed two rules depending on which control you used.
+ *
+ * The rebuild is immediate rather than faded: the reported expectation is that
+ * an answered row goes away. listAnchor() now declines to anchor to a row that
+ * is about to be dropped, which is what keeps everything above the reader's eye
+ * still while it goes.
+ */
+function afterAnswer(row, tier) {
+  paintRow(row, tier);
+  const p = LANDMARKS.find((l) => l.key === row.dataset.key);
+  if (p && !matches(p)) buildList();
+}
+
 /** Repaint one row's classes after its answer changed, without a full rebuild. */
 function paintRow(row, tier) {
   const st = STATE.get(row.dataset.key) || {};
@@ -855,7 +946,7 @@ $('list').addEventListener('change', (e) => {
   // radiogroup and fire change without ever producing a click.
   if (row && e.target.type === 'radio') {
     setTier(row.dataset.key, e.target.value);
-    paintRow(row, e.target.value);
+    afterAnswer(row, e.target.value);
     return;
   }
   if (row && e.target.classList.contains('lm-rename')) {
@@ -889,7 +980,7 @@ $('list').addEventListener('click', (e) => {
     if (input) {
       input.checked = true;
       setTier(row.dataset.key, input.value);
-      paintRow(row, input.value);
+      afterAnswer(row, input.value);
     }
     return;
   }
@@ -996,9 +1087,9 @@ function onEdit() {
   // could only ASK people to be sparing; a counter can show them.
   const warn = $('mustWarn');
   if (musts > MUST_SOFT_CAP) {
-    warn.hidden = false;
+    showEl(warn, true);
     warn.textContent = `${musts} places are marked “Must show”. Each one is printed whatever it costs, so they take room from each other — past a dozen or so the map starts dropping other things to fit them. That is allowed, and it is worth a second look.`;
-  } else warn.hidden = true;
+  } else showEl(warn, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -1073,14 +1164,52 @@ $('sheetClose').addEventListener('click', () => $('sheetDialog').close());
 // The other half of Peter's decision of 2026-09-01: the answer lives here AND
 // is exportable, so a rebuild from the map's source data does not lose it.
 $('exportBtn').addEventListener('click', async () => {
-  const block = JSON.stringify({ tiers: tiersPayload() }, null, 2);
+  const tiers = tiersPayload();
+  const n = Object.keys(tiers).length;
+  const block = JSON.stringify({ tiers }, null, 2);
+  const where = 'It goes in the map’s routes.json, inside its "poi" block.';
+  if (!n) { note('Nothing to copy yet — no place on this map has been answered.', 'warn'); return; }
   try {
     await navigator.clipboard.writeText(block);
-    note('Copied. It goes in the map’s routes.json, inside its "poi" block.', 'ok');
+    // SAY SO ON THE BUTTON (Peter, 2026-09-03: "I could not tell if it worked").
+    // The only acknowledgement this had was the notice at the FOOT of the panel
+    // whose head holds the button, and on a 171-row page that is off screen.
+    flashBtn($('exportBtn'), 'Copied ✓');
+    note(`${n} answered place${n === 1 ? '' : 's'} copied to the clipboard. ${where}`, 'ok');
   } catch {
-    note('Copy this into the map’s routes.json, inside its "poi" block:\n' + block);
+    // navigator.clipboard needs a secure context, so over plain http this throws
+    // every time — and the old fallback put the whole block into a one-line
+    // notice. A read-only textarea, already selected, can actually be copied.
+    showBlock(`The clipboard is not available on this connection, so here it is. ${where}`, block);
   }
 });
+
+/** Say what just happened ON the control that did it, then put the words back. */
+function flashBtn(btn, words) {
+  if (btn.dataset.was === undefined) btn.dataset.was = btn.textContent;
+  btn.textContent = words;
+  clearTimeout(btn._flash);
+  btn._flash = setTimeout(() => { btn.textContent = btn.dataset.was; }, 2200);
+}
+
+/** The notice, plus a read-only textarea for a block too big to be prose. */
+function showBlock(headline, block) {
+  const nEl = $('notice');
+  nEl.textContent = '';
+  nEl.className = 'notice warn';
+  showEl(nEl, true);
+  const p = document.createElement('p');
+  p.style.margin = '0 0 .4em';
+  p.textContent = headline;
+  nEl.appendChild(p);
+  const ta = document.createElement('textarea');
+  ta.className = 'field lm-block';
+  ta.readOnly = true;
+  ta.value = block;
+  nEl.appendChild(ta);
+  ta.focus();
+  ta.select();
+}
 
 $('resetBtn').addEventListener('click', () => {
   STATE = new Map();
@@ -1088,11 +1217,39 @@ $('resetBtn').addEventListener('click', () => {
   buildList(); onEdit();
 });
 
+/**
+ * EVERY MESSAGE THIS PAGE HAS EVER TRIED TO SHOW WAS INVISIBLE (measured in a
+ * browser, 2026-09-03, chasing Peter's "I could not tell if it worked").
+ *
+ * `.notice` in app.css is `display: none`, and `.notice.show` is what turns it
+ * on. Every other page in the portal — admin, editor, review, branding, diagram
+ * — writes `'notice show ' + kind`. This file wrote `'notice ' + kind` at three
+ * sites and then tried to reveal the element with `style.display = ''`, which
+ * removes the inline style and hands the question straight back to the
+ * stylesheet that says none. The two `hidden` attribute toggles had the same
+ * fate from the other direction: `hidden = false` cannot beat a class rule.
+ *
+ * So all five channels were dead: the save result, the error when the server
+ * cannot be reached, the export confirmation, the *Must show* soft-cap counter,
+ * the old-tick-box explanation — and showWarnings(), whose whole purpose is to
+ * say which of the reader's *Must show* choices the generator could not seat.
+ * OA-216 called that "the cheapest place to learn a Must show cannot be
+ * seated"; nobody has ever read one.
+ *
+ * There is no test that could have caught it in this file alone. It is a JOIN
+ * between a class name here and a rule in a stylesheet, and the only thing that
+ * knows both is a browser.
+ */
+function showEl(el, on) {
+  el.hidden = !on;
+  el.classList.toggle('show', !!on);
+}
+
 function note(msg, kind) {
   const n = $('notice');
   n.textContent = msg || '';
   n.className = 'notice' + (kind ? ' ' + kind : '');
-  n.style.display = msg ? '' : 'none';
+  showEl(n, !!msg);
 }
 
 /* WHAT THE DRAWING ACTUALLY DID WITH THE ANSWER (OA-216).
@@ -1112,7 +1269,7 @@ function showWarnings(list, headline) {
   const n = $('notice');
   n.textContent = '';
   n.className = 'notice warn';
-  n.style.display = '';
+  showEl(n, true);
   const h = document.createElement('p');
   h.style.margin = '0 0 .4em';
   h.textContent = headline;
@@ -1164,9 +1321,9 @@ async function load() {
   // finally given back rather than merely left blank.
   const hn = $('hideNotice');
   if (l.counts.fromHide) {
-    hn.hidden = false;
+    showEl(hn, true);
     hn.textContent = `${l.counts.fromHide} place${l.counts.fromHide === 1 ? ' was' : 's were'} already switched off with the older tick box, which only stopped ${l.counts.fromHide === 1 ? 'it' : 'them'} being drawn — the space stayed reserved. ${l.counts.fromHide === 1 ? 'It is' : 'They are'} shown here as “Do not show”, and saving will give that space back, so the map will re-arrange a little.`;
-  } else hn.hidden = true;
+  } else showEl(hn, false);
 
   $('introLine').textContent = `${LANDMARKS.length} places are on your map because OpenStreetMap has them, not because anyone decided they belonged there. `
     + `${l.counts.symbolOnly} of them draw a symbol whose name is never printed, and they take up exactly as much room as the ones with names. `
