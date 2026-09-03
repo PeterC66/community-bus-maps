@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.36 | 2026-09-02 | sha=8f36e660 -->
-**v1.36** · updated 2 September 2026
+<!-- docstamp v1.37 | 2026-09-03 | sha=e3f5f59f -->
+**v1.37** · updated 3 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -229,6 +229,28 @@ age -d -i backup-age-key.txt -o portal.sqlite portal.sqlite.age
 `backup-age-key.txt` is the identity file holding that private key; `portal.sqlite.age` is the encrypted copy inside the snapshot folder you are restoring from. `manifest.json` in that folder records which public key it was encrypted to, under `dbEncryptedTo`, so a snapshot found in two years says which key opens it. Only the database is encrypted — `maps/` is published material and restores unchanged (`technical-audit_2026-08-25` N3).
 
 The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent** copy of a committed state while the server is running — copying `portal.sqlite` with `cp` under WAL can capture a torn file plus a stale `-wal`, so don't. Each run writes `<out>/<timestamp>/` with `portal.sqlite`, `maps/<id>/{data,renders,overrides.json}` and a `manifest.json`, then prunes on the rule in [`src/ops/backup-retention.js`](../src/ops/backup-retention.js): anything older than `--keep-days` goes, snapshots older than `--keep-recent-hours` are thinned to the newest of each UTC day, and the newest `--keep` are held whatever their age. **`--keep` is a floor, not the window.** Until 2026-08-28 it was the whole rule and meant 14 *folders*: `npm run deploy` takes a backup before every release, so a dozen manual runs in one working day cut the retention window from a fortnight to 25 hours, and it did exactly that on 2026-08-27. Run it from cron/a timer daily, and keep at least one copy **off the box**.
+
+### Drill the DECRYPTION first, and do it without touching the live site
+
+**An untried decryption is not a backup.** The restore below was performed for real on 2026-08-09 — *before* encryption existed. `BACKUP_RECIPIENT` arrived on 2026-08-25, since when every snapshot's database is `portal.sqlite.age` and every restore starts with an `age -d` that had never been run on a real snapshot (codebase review 2026-09-01, portal-ops B1). That failure mode is the worst available: it is discovered on the day the database is gone, and the answer about the key arrives months too late to do anything about it.
+
+`scripts/restore-drill.mjs` answers the only question the drill exists for — *does this snapshot become a working database?* — in a temporary directory. It decrypts, runs `PRAGMA integrity_check` and `foreign_key_check`, then **opens the result with `src/db/index.js`**, which is what runs the migrations and is the step that turns *the file decrypted* into *this release can serve it*; then it counts the rows that would tell you a restore had silently produced an empty database, and checks `maps/` against the manifest. It never stops a container, never writes to `DATA_DIR`, and never touches the live volume — that half stays a human operation, below, because a script that can replace the live database is a script that can replace it by accident.
+
+Copy a snapshot down from the host first (it is read, never modified), then run from the repository root (`C:\Claude\community-bus-maps`). Both paths below are yours to fill in: `<snapshot>` is the backup folder holding `manifest.json`, and `<key file>` is the age **private** key from the password manager, written to a file — `age` reads it directly, and it is never printed, copied or logged:
+
+```bash
+node scripts/restore-drill.mjs --snapshot <snapshot> --identity <key file>
+```
+
+Exit 0 the snapshot restores, 1 it does not, 2 the arguments are wrong. Add `--keep` to leave the decrypted database for inspection, and remember it is a full copy of live data.
+
+**Falsified before it was trusted, 2026-09-03**: run against a snapshot encrypted to a throwaway key it reports every check green through the migrations and the row counts; run against the *same* snapshot with a different identity it fails on `age -d`, names the recipient the manifest records, and exits 1. What has NOT yet been drilled is the live snapshot with the real key — that needs the private key, and Claude does not handle credentials. **Do that once and date it here.**
+
+| Drilled | What | Result |
+|---|---|---|
+| 2026-08-09 | Full restore into the live volume, unencrypted database | Passed; corrected this section's volume assumption |
+| 2026-09-03 | `restore-drill.mjs` end-to-end on an encrypted snapshot, throwaway key | Passed, and seen to fail on the wrong key |
+| — | `restore-drill.mjs` on a **live** snapshot with the real `BACKUP_RECIPIENT` key | **not yet done** |
 
 ### Restore drill (do it once, before you need it)
 
