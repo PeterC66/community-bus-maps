@@ -37,9 +37,21 @@
  * inside a consistency tidy-up.
  */
 
-/** What goes in an INSERT/UPDATE. The one spelling, so a new column cannot pick
- *  a different one by accident. It is a SQL fragment rather than a JS value
- *  because the clock that matters is the database's, not the app process's. */
+/** The database's own clock, as a SQL fragment. The one spelling, so a new
+ *  column cannot pick a different one by accident. It is a fragment rather than
+ *  a JS value because the clock that matters is the database's, not the app
+ *  process's.
+ *
+ *  IT IS FOR COMPARISONS TOO, not only writes. This said "what goes in an
+ *  INSERT/UPDATE" until 2026-09-03, and half the sites it was meant to own are
+ *  `expires_at > datetime('now')` reads in the session and magic-link queries.
+ *  Scoping it to writes is part of why it landed with ZERO callers against 31
+ *  literals and stayed that way for a day (the 2026-09-03 review, portal-src
+ *  F27). `scripts/test-db-dates.mjs` now asserts that no `.js` under `src/`
+ *  except this file spells the literal out, so the next one cannot be quiet.
+ *
+ *  `src/db/schema.sql` is deliberately outside that rule: DDL defaults are SQL,
+ *  not JavaScript, and there is nowhere for them to import a constant from. */
 export const NOW_SQL = "datetime('now')";
 
 /**

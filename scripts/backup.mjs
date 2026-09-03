@@ -31,9 +31,9 @@ import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFile
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { DATA_DIR } from '../src/db/index.js';
+import { DATA_DIR } from '../src/db/paths.js';   // paths only: a backup must not migrate the database it is about to copy (OA-232 Tier 1.6)
 import { MAPS_DIR, mapDataDir, rendersDir } from '../src/maps/store.js';
-import { dirSize } from '../src/ops/index.js';
+import { dirSize } from '../src/ops/dir-size.js';   // the fs walk without the database behind it
 import { planRetention } from '../src/ops/backup-retention.js';
 import { arg, has as flag } from './lib/cli.mjs';
 

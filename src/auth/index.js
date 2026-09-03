@@ -60,8 +60,10 @@ const MAGIC_MINUTES = 15;
 
 const newToken = (bytes = 32) => crypto.randomBytes(bytes).toString('base64url');
 
-// A UTC timestamp in SQLite's own format ("YYYY-MM-DD HH:MM:SS"), so that
-// `expires_at > datetime('now')` compares correctly as strings.
+// A UTC timestamp in SQLite's own format ("YYYY-MM-DD HH:MM:SS"), so that an
+// `expires_at > NOW_SQL` comparison works as a string compare. NOW_SQL is
+// `src/db/dates.js`'s name for the database's own clock; spelling the fragment
+// out here, even in a comment, is what `test-db-dates.mjs` refuses.
 function sqlDatePlus(ms) {
   return new Date(Date.now() + ms).toISOString().slice(0, 19).replace('T', ' ');
 }

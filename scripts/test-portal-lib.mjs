@@ -106,6 +106,34 @@ console.log('\nsrc/db/paths.js — importing it cannot open a database');
   check('CONTROL: importing src/db/index.js does create the store', existsSync(dataDir2));
 }
 
+console.log('\nbackup.mjs cannot migrate the database it is about to copy');
+{
+  // OA-232 Tier 1.6 / the 2026-09-03 review's portal-ops D6. `backup.mjs` took
+  // DATA_DIR from `src/db/index.js`, which applies schema.sql and runs every
+  // migration at module load -- so the script whose job is to copy a database
+  // first CHANGED it. Repointing that one import fixed half the chain: `dirSize`
+  // came from `src/ops/index.js`, which imports `db`, and `src/maps/store.js`
+  // took DATA_DIR the same way. All three moved.
+  //
+  // THE POPULATION IS READ OUT OF backup.mjs, NOT TYPED. A list of three modules
+  // would certify the three that were fixed and say nothing about a fourth one
+  // somebody adds later. This parses the script's own relative imports and loads
+  // every one of them in a child process with a scratch DATA_DIR -- so a future
+  // `import { db } from '../src/db/index.js'` in backup.mjs turns this red.
+  const src = readFileSync(path.join(ROOT, 'scripts', 'backup.mjs'), 'utf8');
+  const specs = [...src.matchAll(/^import[^']*'(\.[^']+)'/gm)].map((m) => m[1]);
+  check('the parse found backup.mjs local imports', specs.length >= 4, `found ${specs.length}`);
+  const dataDir = path.join(scratch, 'backup-never-created');
+  const base = new URL('../scripts/backup.mjs', import.meta.url);
+  const urls = specs.map((sp) => new URL(sp, base).href);
+  const r = spawnSync(process.execPath, ['-e',
+    `Promise.all(${JSON.stringify(urls)}.map((u) => import(u))).then(() => console.log('loaded'))`],
+    { encoding: 'utf8', env: { ...process.env, DATA_DIR: dataDir, DB_PATH: path.join(dataDir, 'portal.sqlite') } });
+  check('every module backup.mjs imports loads', r.stdout.includes('loaded'), r.stderr.trim().slice(0, 300));
+  check('and between them they create nothing', !existsSync(dataDir),
+    existsSync(dataDir) ? readdirSync(dataDir).join(', ') : '');
+}
+
 console.log('\nvendor-engine.mjs --add — the row, and its hash');
 {
   // A throwaway portal + skill tree. The script resolves ROOT from its own

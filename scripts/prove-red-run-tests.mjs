@@ -56,6 +56,35 @@ let failures = 0;
 const fail = (m) => { console.error(`  x ${m}`); failures++; };
 const ok = (m) => console.log(`  + ${m}`);
 
+/**
+ * The scripts the real runner runs BEFORE the tests, read out of its own
+ * PREFLIGHT array.
+ *
+ * This was a typed list of three until 2026-09-03, sitting eight lines above a
+ * comment explaining why the EXCLUDED list is READ and not copied -- and it went
+ * stale the moment OA-232 Tier 2.3 added `check-vendored.mjs --no-skills` as a
+ * fourth: six of this harness's assertions failed with MODULE_NOT_FOUND against
+ * a scratch tree that had no such file. The same lesson, applied to one list and
+ * not to its sibling. The entries carry arguments, so the filename is the first
+ * word.
+ */
+function preflightInRunner() {
+  const block = readFileSync(RUNNER, 'utf8').match(/const PREFLIGHT = \[([\s\S]*?)\n\];/);
+  if (!block) {
+    console.error('Could not find PREFLIGHT in run-tests.mjs -- this harness has gone stale.');
+    process.exit(2);
+  }
+  // Array ENTRIES only — a whole line that is a quoted string. The block also
+  // holds `//` comments naming other `.mjs` files, and a looser pattern happily
+  // pulled a filename out of one of those.
+  const names = [...block[1].matchAll(/^\s*'([^']+\.mjs)[^']*',\s*$/gm)].map((m) => m[1]);
+  if (!names.length) {
+    console.error('PREFLIGHT in run-tests.mjs parsed to nothing -- this harness has gone stale.');
+    process.exit(2);
+  }
+  return names;
+}
+
 /** The filenames the real runner excludes, read out of its own EXCLUDED map. */
 function excludedInRunner() {
   const block = readFileSync(RUNNER, 'utf8').match(/const EXCLUDED = \{([\s\S]*?)\n\};/);
@@ -67,7 +96,7 @@ function excludedInRunner() {
 }
 
 /**
- * A scratch repository: package.json, the three preflight stubs the runner
+ * A scratch repository: package.json, a stub for every preflight the runner
  * always runs, and whatever test files the case asks for.
  *
  * files:   { 'test-a.mjs': 0 | 1 | <source string> }   0 = passes, 1 = fails
@@ -77,7 +106,9 @@ function excludedInRunner() {
 function tree({ files = {}, scripts = {}, patch = null, env = null } = {}) {
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'prove-runner-'));
   mkdirSync(path.join(tmp, 'scripts'));
-  for (const stub of ['changelog-assemble.mjs', 'check-compose-env.mjs', 'check-chrome.mjs']) {
+  // The runner's real PREFLIGHT entries, read off the runner for the same reason
+  // as EXCLUDED below. Each becomes a stub that passes.
+  for (const stub of preflightInRunner()) {
     writeFileSync(path.join(tmp, 'scripts', stub), 'process.exit(0);\n');
   }
   // The runner's real EXCLUDED entries, read off the runner rather than copied,
@@ -128,8 +159,11 @@ withTree({ files: { 'test-a.mjs': 0, 'test-b.mjs': 0, 'test-c.mjs': 0 } }, ({ co
   else fail(`control: three passing tests exited ${code}\n${out}`);
   if (/0 failed/.test(out)) ok('control: the summary says 0 failed');
   else fail('control: the summary did not say "0 failed"');
-  if (/6 run/.test(out)) ok('control: 3 preflight + 3 tests = 6 run');
-  else fail(`control: expected "6 run" in the summary\n${out}`);
+  // Derived, not typed, for the reason the stub list above is derived: this said
+  // "6 run" and went red when the runner gained a fourth preflight.
+  const expected = preflightInRunner().length + 3;
+  if (new RegExp(`${expected} run`).test(out)) ok(`control: ${preflightInRunner().length} preflight + 3 tests = ${expected} run`);
+  else fail(`control: expected "${expected} run" in the summary\n${out}`);
   // The excluded files ARE present in the scratch tree and fail if run, so a
   // green control is also proof that the SKIP path skips.
   if (!/is supposed to be excluded/.test(out)) ok('control: the excluded files were skipped, not run');

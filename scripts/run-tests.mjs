@@ -39,6 +39,14 @@ const PREFLIGHT = [
   'changelog-assemble.mjs --check',
   'check-compose-env.mjs',
   'check-chrome.mjs',
+  // The vendored-engine audit: UNLISTED / MISSING / EDITED / UNRESOLVED. It ran
+  // in NO workflow and was no preflight until 2026-09-03 (the review's
+  // portal-ops T8); the only thing exercising `auditVendored` against the real
+  // tree was one section of `test-vendored.mjs`. `--no-skills` is the form CI
+  // can run: it verifies the hashes of what is here, and says out loud that it
+  // cannot tell whether the SKILL has moved on. `status.js` on the laptop is
+  // what asks that half.
+  'check-vendored.mjs --no-skills',
 ];
 
 // A discovered file may be skipped ONLY with a reason that names where it DOES

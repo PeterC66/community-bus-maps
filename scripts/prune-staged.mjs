@@ -20,7 +20,7 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { db } from '../src/db/index.js';
 import { proposedRoot, archiveRoot } from '../src/maps/store.js';
-import { dirSize } from '../src/ops/index.js';
+import { dirSize } from '../src/ops/dir-size.js';
 import { arg } from './lib/cli.mjs';
 
 const yes = process.argv.includes('--yes');

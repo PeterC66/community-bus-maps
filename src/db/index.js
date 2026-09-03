@@ -16,6 +16,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // so existing importers keep working.
 export { DATA_DIR, DB_PATH, MAPS_DIR } from './paths.js';
 import { DATA_DIR, DB_PATH } from './paths.js';
+import { NOW_SQL } from './dates.js';   // the ONE spelling of a write clock (OA-232 Tier 2.1)
 
 mkdirSync(DATA_DIR, { recursive: true });
 
@@ -215,7 +216,7 @@ export function recordedSchemaVersion() {
   db.exec(`CREATE TABLE IF NOT EXISTS schema_version (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
     version     INTEGER NOT NULL,
-    applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    applied_at  TEXT NOT NULL DEFAULT (${NOW_SQL})
   )`);
   const seen = recordedSchemaVersion();
   if (seen !== null && seen > SCHEMA_VERSION) {
@@ -225,7 +226,7 @@ export function recordedSchemaVersion() {
       + ' Reading a newer database with older code is supported (additive columns only) but is'
       + ' the state a rollback leaves behind — see docs/DEPLOY.md and scripts/test-schema-compat.mjs.');
   } else if (seen !== SCHEMA_VERSION) {
-    db.prepare(`INSERT INTO schema_version (id, version, applied_at) VALUES (1, ?, datetime('now'))
+    db.prepare(`INSERT INTO schema_version (id, version, applied_at) VALUES (1, ?, ${NOW_SQL})
                 ON CONFLICT(id) DO UPDATE SET version = excluded.version, applied_at = excluded.applied_at`)
       .run(SCHEMA_VERSION);
   }
@@ -337,7 +338,7 @@ export function getApplication(id) {
   return db.prepare('SELECT * FROM application WHERE id = ?').get(Number(id));
 }
 export function setApplicationReviewed(id, status, customerId = null) {
-  db.prepare("UPDATE application SET status = ?, reviewed_at = datetime('now'), customer_id = ? WHERE id = ?")
+  db.prepare(`UPDATE application SET status = ?, reviewed_at = ${NOW_SQL}, customer_id = ? WHERE id = ?`)
     .run(status, customerId != null ? Number(customerId) : null, Number(id));
 }
 
@@ -535,7 +536,7 @@ export function setMapOutputs(mapId, outputs) {
  */
 export function setMapBannerNote(mapId, note, source = 'manual') {
   db.prepare(
-    "UPDATE map SET banner_note = ?, banner_note_source = ?, banner_note_set_at = datetime('now') WHERE id = ?",
+    `UPDATE map SET banner_note = ?, banner_note_source = ?, banner_note_set_at = ${NOW_SQL} WHERE id = ?`,
   ).run(note ? String(note) : null, source === 'auto' ? 'auto' : 'manual', Number(mapId));
 }
 
@@ -718,7 +719,7 @@ export function listPendingPublishRequests() {
 export function decidePublishRequest(id, { status, reviewedBy, decisionNote, evidence }) {
   db.prepare(
     `UPDATE publish_request
-        SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'),
+        SET status = ?, reviewed_by = ?, reviewed_at = ${NOW_SQL},
             decision_note = ?, evidence_json = ?
       WHERE id = ?`,
   ).run(
@@ -731,7 +732,7 @@ export function decidePublishRequest(id, { status, reviewedBy, decisionNote, evi
 }
 
 export function withdrawPublishRequest(id) {
-  db.prepare("UPDATE publish_request SET status = 'withdrawn', reviewed_at = datetime('now') WHERE id = ? AND status = 'pending'").run(Number(id));
+  db.prepare(`UPDATE publish_request SET status = 'withdrawn', reviewed_at = ${NOW_SQL} WHERE id = ? AND status = 'pending'`).run(Number(id));
 }
 
 /** Publish-request history for one map (newest first). */
@@ -846,7 +847,7 @@ export function getOpenProposedForMap(mapId) {
 
 /** Mark every still-pending proposed update for a map as superseded (a newer refresh arrived). */
 export function supersedePendingProposed(mapId) {
-  db.prepare("UPDATE proposed_update SET status = 'superseded', reviewed_at = datetime('now') WHERE map_id = ? AND status = 'pending'")
+  db.prepare(`UPDATE proposed_update SET status = 'superseded', reviewed_at = ${NOW_SQL} WHERE map_id = ? AND status = 'pending'`)
     .run(Number(mapId));
 }
 
@@ -861,7 +862,7 @@ export function setProposedSummary(id, summary) {
 export function decideProposedUpdate(id, { status, reviewedBy, decisionNote, acceptedVersionId = null }) {
   db.prepare(
     `UPDATE proposed_update
-        SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'),
+        SET status = ?, reviewed_by = ?, reviewed_at = ${NOW_SQL},
             decision_note = ?, accepted_version_id = ?
       WHERE id = ?`,
   ).run(
@@ -1084,7 +1085,7 @@ export function getSession(token) {
       `SELECT s.token AS token_hash, s.created_at, s.expires_at,
               u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id
          FROM session s JOIN user u ON u.id = s.user_id
-        WHERE s.token = ? AND s.expires_at > datetime('now')`,
+        WHERE s.token = ? AND s.expires_at > ${NOW_SQL}`,
     )
     .get(tokenHash(token));
 }
@@ -1096,7 +1097,7 @@ export function deleteSessionByHash(hash) {
   return db.prepare('DELETE FROM session WHERE token = ?').run(String(hash)).changes;
 }
 export function purgeExpiredSessions() {
-  db.prepare("DELETE FROM session WHERE expires_at <= datetime('now')").run();
+  db.prepare(`DELETE FROM session WHERE expires_at <= ${NOW_SQL}`).run();
 }
 
 /**
@@ -1105,7 +1106,7 @@ export function purgeExpiredSessions() {
  */
 export function touchSession(token, expiresAt) {
   const r = db
-    .prepare("UPDATE session SET expires_at = ? WHERE token = ? AND expires_at > datetime('now')")
+    .prepare(`UPDATE session SET expires_at = ? WHERE token = ? AND expires_at > ${NOW_SQL}`)
     .run(expiresAt, tokenHash(token));
   return r.changes > 0;
 }
@@ -1128,7 +1129,7 @@ export function listSessions() {
          FROM session s
          JOIN user u ON u.id = s.user_id
          LEFT JOIN customer c ON c.id = u.customer_id
-        WHERE s.expires_at > datetime('now')
+        WHERE s.expires_at > ${NOW_SQL}
         ORDER BY s.created_at DESC`,
     )
     .all();
@@ -1152,17 +1153,17 @@ export function insertMagicLink(token, email, expiresAt) {
  */
 export function peekMagicLink(token) {
   return db
-    .prepare("SELECT email, expires_at FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
+    .prepare(`SELECT email, expires_at FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > ${NOW_SQL}`)
     .get(tokenHash(token));
 }
 export function consumeMagicLink(token) {
   // atomically mark a valid, unused, unexpired token as used; return its row or undefined
   const hash = tokenHash(token);
   const row = db
-    .prepare("SELECT * FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
+    .prepare(`SELECT * FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > ${NOW_SQL}`)
     .get(hash);
   if (!row) return undefined;
-  db.prepare("UPDATE magic_link SET used_at = datetime('now') WHERE token = ?").run(hash);
+  db.prepare(`UPDATE magic_link SET used_at = ${NOW_SQL} WHERE token = ?`).run(hash);
   return row;
 }
 

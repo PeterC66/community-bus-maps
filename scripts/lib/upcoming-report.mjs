@@ -12,7 +12,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-export const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
+export { BUSES_DIR } from './buses-dir.mjs';
+import { BUSES_DIR } from './buses-dir.mjs';
 export const UPCOMING_DIR = path.join(BUSES_DIR, '_gtfs', 'upcoming');
 
 export function newestReportPath() {
