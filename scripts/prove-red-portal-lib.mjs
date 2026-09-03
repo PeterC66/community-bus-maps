@@ -43,10 +43,21 @@ const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-prove-portal-lib-'));
 const TREE = path.join(scratch, 'repo');
 cpSync(ROOT, TREE, {
   recursive: true,
+  /* By SEGMENT, not by prefix, and that is a fix rather than a tidy-up. The
+   * prefix form only ever excluded the TOP-LEVEL node_modules, so a nested one
+   * was copied — and on 2026-09-03 a `git worktree` under `.claude/worktrees/`
+   * carried a node_modules SYMLINK that `cpSync` tried to recreate, throwing
+   * EPERM and killing this harness outright before its first mutation. The
+   * result was a suite that passed or failed according to whether another
+   * session happened to have a worktree open, which reads exactly like a flaky
+   * test and is not one. `.claude` is excluded whole: worktrees there are full
+   * checkouts of this repository and nothing in this harness wants them. */
   filter: (src) => {
     const rel = path.relative(ROOT, src);
-    return !rel.startsWith('node_modules') && !rel.startsWith('.git') && !rel.startsWith('data')
-      && !rel.startsWith('backups');
+    if (!rel) return true;
+    const segs = rel.split(/[\/]/);
+    if (segs.some(seg => seg === 'node_modules' || seg === '.git' || seg === '.claude')) return false;
+    return !['data', 'backups'].includes(segs[0]);
   },
 });
 

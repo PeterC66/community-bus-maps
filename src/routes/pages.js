@@ -42,6 +42,7 @@
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { ROOT_DIR, VIEWS_DIR } from '../paths.js';
+import { entriesFromDir } from '../changelog.js';
 import { xmlEscape } from '../http/helpers.js';
 
 export default async function pageRoutes(app) {
@@ -79,21 +80,35 @@ export default async function pageRoutes(app) {
     return reply.sendFile('app/review-services.html', VIEWS_DIR);
   });
 
-  // Admin-only view of the developer CHANGELOG.md. NOT public: entries there
-  // name real past security findings (e.g. the S6 self-approval bypass, the S4
-  // /health disclosure) in the same detail as the rest of this repo's docs, so
-  // publishing it verbatim would hand a visitor a list of things that used to
-  // be wrong. Rendered as escaped plain text, not parsed markdown — this is a
-  // read-only convenience for Peter, not a document worth a markdown dependency
-  // for. The public-facing counterpart is /changelog.html, fed by the small
+  // Admin-only view of the developer changelog. NOT public: entries name real
+  // past security findings (e.g. the S6 self-approval bypass, the S4 /health
+  // disclosure) in the same detail as the rest of this repo's docs, so
+  // publishing them verbatim would hand a visitor a list of things that used to
+  // be wrong. The public-facing counterpart is /changelog.html, fed by the small
   // curated file at public/data/whats-new.json instead of this one.
+  //
+  // BUILT FROM CHANGELOG.d/ ON EVERY REQUEST, not read from CHANGELOG.md, since
+  // 2026-09-03. That file is generated and gitignored now — the committed index
+  // was touched by 60 of the last 60 commits and conflicted between concurrent
+  // sessions every time — so it is not in the deployed image at all. Reading it
+  // here would have degraded to "(not found on this instance)" the moment this
+  // shipped. Generating instead makes the page ALWAYS CURRENT, which the
+  // committed file never was: it was only ever as fresh as the last person to
+  // remember `npm run changelog`.
+  //
+  // Titles only, deliberately. The prose of each entry is one click away in the
+  // repository, and rendering 88 fragments of markdown here would need a
+  // markdown dependency for a read-only convenience for one person.
   app.get('/changelog', async (req, reply) => {
     if (req.user.role !== 'admin') return reply.redirect('/app');
     let body;
     try {
-      body = readFileSync(path.join(ROOT_DIR, 'CHANGELOG.md'), 'utf8');
+      const entries = entriesFromDir(path.join(ROOT_DIR, 'CHANGELOG.d'));
+      body = entries.length
+        ? entries.map(e => `${e.date}  ${e.title}`).join('\n')
+        : '(no changelog fragments found on this instance.)';
     } catch {
-      body = '(CHANGELOG.md not found on this instance.)';
+      body = '(the changelog fragments could not be read on this instance.)';
     }
     reply.type('text/html; charset=utf-8');
     return `<!doctype html><html lang="en"><head><meta charset="utf-8">
