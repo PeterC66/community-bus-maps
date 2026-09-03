@@ -29,12 +29,13 @@
 import { sendEmail } from './index.js';
 import { escapeHtml as h } from '../html.js';
 import { listUsersAdmin } from '../db/index.js';
+import { publicBaseUrl } from '../config.js';
 
 const SITE = 'BusMaps.uk';
 
 /** Absolute URL for a portal path, from PUBLIC_BASE_URL (blank ⇒ a bare path). */
 export function appUrl(pathname) {
-  const base = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+  const base = publicBaseUrl();   // one normalisation for all three readers (Tier 5, F7)
   return `${base}${pathname}`;
 }
 

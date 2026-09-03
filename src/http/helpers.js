@@ -9,6 +9,7 @@
 // env reader" item the same review lists for later, not a claim this file makes.
 import crypto from 'node:crypto';
 import { STEP_UP_MINUTES, stepUpFresh } from '../auth/index.js';
+import { emailProvider, metricsToken, operatorToken, publicBaseUrl } from '../config.js';
 
 // ---- request-shaped values and the constants the routes validate against ----
 // The five pain-point classes the shopfront is organised around, plus 'other'.
@@ -28,7 +29,7 @@ const MSG_STATUSES = ['new', 'read', 'answered'];
 const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
 // so the whole apply→approve→sign-in loop is demoable without a mailbox.
-const DEV_LINKS = !process.env.EMAIL_PROVIDER;
+const DEV_LINKS = !emailProvider();   // snapshotted at load, as it always was
 
 const str = (v, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const isEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
@@ -62,7 +63,7 @@ const parseJson = (s) => { try { return JSON.parse(s || '{}') || {}; } catch { r
 // baseUrl() already preferred it — the auth links simply were not going through
 // baseUrl(). They do now, and every absolute URL this file builds comes from one
 // function.
-const BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+const BASE_URL = publicBaseUrl();     // snapshotted at load, as it always was
 const baseUrl = (req) => BASE_URL || `${req.protocol}://${req.headers.host}`;
 const authLink = (req, token) => `${baseUrl(req)}/auth/verify?token=${token}`;
 
@@ -169,7 +170,7 @@ const bearerToken = (req) => String(req.headers.authorization || '').replace(/^B
 // /health and /metrics want the same answer, and two hand-rolled copies of one
 // authorisation rule are two chances to drift apart.
 function opsAuthorised(req) {
-  const viaToken = tokenMatches(bearerToken(req), process.env.METRICS_TOKEN);
+  const viaToken = tokenMatches(bearerToken(req), metricsToken());
   const viaAdmin = Boolean(req.user) && req.user.role === 'admin';
   return viaToken || viaAdmin;
 }
@@ -205,7 +206,7 @@ function opsAuthorised(req) {
 // constant-time, for the reasons written out above tokenMatches().
 function operatorRead(req) {
   if (req.method !== 'GET') return false;
-  return tokenMatches(bearerToken(req), process.env.OPERATOR_TOKEN);
+  return tokenMatches(bearerToken(req), operatorToken());
 }
 
 // Escape for XML/HTML text and attributes. Used by sitemap.xml and by the

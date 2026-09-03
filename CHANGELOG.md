@@ -1,13 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.148 | 2026-09-02 | sha=be3408fd -->
-**v1.148** · updated 2 September 2026
-
-<<<<<<< HEAD
-=======
-<!-- docstamp v1.137 | 2026-09-02 | sha=28a97a73 -->
->>>>>>> fd6bbfc (OA-224 Tier 1.4: re-vendor gen_external_places.js -- a place sheet can refuse)
-**v1.137** · updated 2 September 2026
+<!-- docstamp v1.149 | 2026-09-03 | sha=ce6a1342 -->
+**v1.149** · updated 3 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -17,6 +11,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 
 <!-- changelog-index:start -->
 
+- **2026-09-03** — [One shape for an unexpected failure, and one file that reads the environment](CHANGELOG.d/2026-09-03-one-shape-for-a-failure-and-one-place-that-reads-the-environment.md)
 - **2026-09-02** — [A place sheet can refuse](CHANGELOG.d/2026-09-02-a-place-sheet-can-refuse.md)
 - **2026-09-02** — [A post-deploy check that asks the running site whether its routes are still there — the one question no other gate can ask](CHANGELOG.d/2026-09-02-a-post-deploy-check-that-asks-whether-the-routes-are-still-there.md)
 - **2026-09-02** — [Four fast-uri advisories, two patch bumps, and nothing else in the lockfile](CHANGELOG.d/2026-09-02-fast-uri-four-advisories-two-patch-bumps.md)

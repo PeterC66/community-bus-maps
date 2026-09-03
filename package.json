@@ -90,7 +90,9 @@
     "test:pages-plugin": "node scripts/test-pages-plugin.mjs",
     "test:prove-red-pages-plugin": "node scripts/prove-red-pages-plugin.mjs",
     "check:live-routes": "node scripts/check-live-routes.mjs",
-    "test:prove-red-live-routes": "node scripts/prove-red-live-routes.mjs"
+    "test:prove-red-live-routes": "node scripts/prove-red-live-routes.mjs",
+    "test:env-inventory": "node scripts/test-env-inventory.mjs",
+    "test:error-envelope": "node scripts/test-error-envelope.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

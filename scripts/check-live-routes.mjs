@@ -25,8 +25,13 @@
 // by the BODY rather than by the code. Measured against the live site rather than
 // assumed:
 //
-//   router 404   {"message":"Route GET:/api/nope not found","error":"Not Found","statusCode":404}
+//   router 404   {"ok":false,"code":"route_not_found","error":"No route for GET /api/nope.",
+//                 "message":"Route GET:/api/nope not found"}
 //   handler 404  {"ok":false,"error":"No published map with that name."}   ← the app answering
+//
+// `code` is the DECLARED discriminator (src/server.js's setNotFoundHandler says so,
+// and test-error-envelope.mjs asserts it). `message` repeats Fastify's own pre-handler
+// wording and is matched as a fallback for a deployment older than that handler.
 //
 // The first means the route is GONE. The second means the route is there and the
 // thing behind it is not, which is correct behaviour for `/m/:slug` with a slug
@@ -108,9 +113,19 @@ const classify = (row) => {
   return null;
 };
 
-/** Fastify's own not-found body. THE discriminator, and it is the reason this
- *  script can make a universal claim without a policy per route. */
-const isRouterMiss = (status, body) => status === 404 && /^\{"message":"Route [A-Z]+:[^"]*not found"/.test(body.trim());
+/** THE discriminator, and it is the reason this script can make a universal claim
+ *  without a policy per route. Two spellings, and the ORDER OF THE KEYS IS NOT ONE
+ *  OF THEM: this test was `/^\{"message":"Route .../` until 2026-09-03, which read
+ *  the shim `notFoundEnvelope()` deliberately kept — but read it in POSITION ONE,
+ *  where `ok` and `code` now sit. It reported a deleted route as a guard failure,
+ *  so the two changes were not in fact safe in either order. Match the FIELD, never
+ *  the layout. */
+const isRouterMiss = (status, body) => {
+  if (status !== 404) return false;
+  const t = body.trim();
+  if (/"code"\s*:\s*"route_not_found"/.test(t)) return true;
+  return /"message"\s*:\s*"Route [A-Z]+:[^"]*not found"/.test(t);
+};
 
 /* ── real identifiers, so a parameterised public route is asked a real question ──
  * A published slug turns "/m/:slug does not 404 from the router" into "/m/<a real

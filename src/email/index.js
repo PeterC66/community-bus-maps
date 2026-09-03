@@ -10,11 +10,12 @@
 import { sendViaResend } from './resend.js';
 import { recordSendFailure, recordSendSuccess } from './health.js';
 import { escapeHtml as h } from '../html.js';
+import { emailFrom, emailProvider } from '../config.js';
 
 const PROVIDERS = { resend: sendViaResend };
 
 function fromAddress() {
-  return process.env.EMAIL_FROM || 'BusMaps.uk <noreply@busmaps.uk>';
+  return emailFrom();
 }
 
 function magicLinkContent({ link, kind }) {
@@ -44,7 +45,7 @@ export async function sendMagicLink({ to, link, kind = 'signin' }) {
  * ./notify.js, which is the only other thing this service ever emails about.
  */
 export async function sendEmail({ to, subject, text, html }) {
-  const provider = process.env.EMAIL_PROVIDER;
+  const provider = emailProvider();
   // Not a failure: no provider is the documented dev default, and the caller
   // falls back to printing the link. Counting it as a send failure would make
   // every development run look like a broken mail server.
