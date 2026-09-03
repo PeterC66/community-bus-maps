@@ -39,7 +39,7 @@ updates:
   # the other half of that trade: the pin stops the bytes moving unannounced, and
   # this stops the pin quietly ageing into an unpatched Debian. Monthly, because
   # a base-image bump is not a merge-on-green change -- it needs `npm run verify`
-  # and the digest recorded in CHANGELOG.md.
+  # and the digest recorded in a CHANGELOG.d/ fragment.
   - package-ecosystem: docker
     directory: /
     schedule:
