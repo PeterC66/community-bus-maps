@@ -41,6 +41,12 @@
 //   --identity   the age identity file holding the PRIVATE key, from the password
 //                manager. Only needed when the snapshot's database is encrypted;
 //                the file is read by `age`, never printed, never copied.
+//   --db-only    you copied ONLY manifest.json and the database off the host, not
+//                the maps/ tree (which is most of a snapshot's half-gigabyte and
+//                is not encrypted anyway). The maps check is then skipped OUT
+//                LOUD, naming how many maps went unverified. Without this flag an
+//                absent maps/ is a FAILURE, because the usual reason a folder is
+//                missing is that something went wrong.
 //   --keep       leave the decrypted copy for inspection instead of deleting it.
 //                It is a full copy of the live database: delete it yourself.
 //
@@ -59,11 +65,12 @@ const arg = (name) => {
   return i === -1 || i + 1 >= argv.length || argv[i + 1].startsWith('--') ? null : argv[i + 1];
 };
 const KEEP = argv.includes('--keep');
+const DB_ONLY = argv.includes('--db-only');
 const SNAPSHOT = arg('snapshot');
 const IDENTITY = arg('identity');
 
 if (!SNAPSHOT) {
-  console.error('usage: node scripts/restore-drill.mjs --snapshot <folder> [--identity <age key file>] [--keep]');
+  console.error('usage: node scripts/restore-drill.mjs --snapshot FOLDER [--identity KEYFILE] [--db-only] [--keep]');
   console.error('  run from the repository root; --snapshot is a backup folder holding manifest.json');
   process.exit(2);
 }
@@ -171,8 +178,19 @@ try {
   // ---- 5. the maps folder ------------------------------------------------------
   console.log('\nthe published material (maps/ is not encrypted — it is public):');
   const mapsDir = path.join(SNAPSHOT, 'maps');
-  if (!existsSync(mapsDir)) {
-    check((manifest.maps || []).length === 0, 'maps/ is present', 'the manifest lists maps and the folder is absent');
+  if (DB_ONLY) {
+    // AN ANNOUNCED SKIP, NEVER AN INFERRED ONE. A snapshot's maps/ is most of its
+    // half-gigabyte, so copying only the database off the host to drill the
+    // DECRYPTION is a reasonable thing to do — but "the folder was absent so I
+    // said nothing" is how a check quietly stops covering half its subject. The
+    // caller has to ask for this, and the run says what it did not look at.
+    console.log(`  skip  maps/ NOT checked — --db-only was given. The manifest lists `
+      + `${(manifest.maps || []).length} map(s) and none of them was verified.`);
+    console.log('        maps/ is published material and restores unencrypted; what this run drilled is the database.');
+  } else if (!existsSync(mapsDir)) {
+    check((manifest.maps || []).length === 0, 'maps/ is present',
+      `the manifest lists ${(manifest.maps || []).length} map(s) and the folder is absent — `
+      + 'if you copied only the database on purpose, say --db-only and the run will record that');
   } else {
     const onDisk = readdirSync(mapsDir).filter((d) => statSync(path.join(mapsDir, d)).isDirectory());
     const listed = (manifest.maps || []).map((m) => String(m.id));
@@ -193,5 +211,7 @@ if (failures) {
   console.error(`${failures} check(s) failed — this snapshot does NOT restore. Fix it before you need it.`);
   process.exit(1);
 }
-console.log('This snapshot decrypts, opens, migrates and holds the data it should.');
+console.log(DB_ONLY
+  ? 'This snapshot\'s DATABASE decrypts, opens, migrates and holds the data it should. maps/ was not checked.'
+  : 'This snapshot decrypts, opens, migrates and holds the data it should.');
 console.log('Record the date in docs/DEPLOY.md under "Restore drill" — an undated drill is a drill nobody can rely on.');

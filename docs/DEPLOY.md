@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.37 | 2026-09-03 | sha=e3f5f59f -->
-**v1.37** · updated 3 September 2026
+<!-- docstamp v1.38 | 2026-09-03 | sha=dc484d13 -->
+**v1.38** · updated 3 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -236,13 +236,25 @@ The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent*
 
 `scripts/restore-drill.mjs` answers the only question the drill exists for — *does this snapshot become a working database?* — in a temporary directory. It decrypts, runs `PRAGMA integrity_check` and `foreign_key_check`, then **opens the result with `src/db/index.js`**, which is what runs the migrations and is the step that turns *the file decrypted* into *this release can serve it*; then it counts the rows that would tell you a restore had silently produced an empty database, and checks `maps/` against the manifest. It never stops a container, never writes to `DATA_DIR`, and never touches the live volume — that half stays a human operation, below, because a script that can replace the live database is a script that can replace it by accident.
 
-Copy a snapshot down from the host first (it is read, never modified), then run from the repository root (`C:\Claude\community-bus-maps`). Both paths below are yours to fill in: `<snapshot>` is the backup folder holding `manifest.json`, and `<key file>` is the age **private** key from the password manager, written to a file — `age` reads it directly, and it is never printed, copied or logged:
+**Do not copy an angle-bracket placeholder into a shell.** PowerShell treats `<` as a reserved operator and refuses the line with *The '<' operator is reserved for future use* — which is what happened the first time this section was written, on 2026-09-03. Every command below carries **real paths**, and the two you have to change are named after it.
+
+**Step 1 — copy a snapshot down from the host.** It is read, never modified. `maps/` is most of a snapshot's half-gigabyte and is not encrypted anyway, so for a decryption drill copy just the manifest and the database. Run from any folder; the only thing to change is the timestamp folder name, which you can list with `ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "ls /opt/community-bus-maps/backups"`:
 
 ```bash
-node scripts/restore-drill.mjs --snapshot <snapshot> --identity <key file>
+scp -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87:/opt/community-bus-maps/backups/2026-09-02T22-29-58/manifest.json ubuntu@51.38.80.87:/opt/community-bus-maps/backups/2026-09-02T22-29-58/portal.sqlite.age C:/Claude/community-bus-maps/backups/live-2026-09-02T22-29-58/
 ```
 
-Exit 0 the snapshot restores, 1 it does not, 2 the arguments are wrong. Add `--keep` to leave the decrypted database for inspection, and remember it is a full copy of live data.
+**Step 2 — put the private key in a file.** From the password manager, into a plain text file. `age` reads the file itself, so the key never passes through Node, is never printed and is never logged. Put it somewhere outside the repository — `C:/Users/Peter/age-backup-key.txt` below — and delete it when you are done.
+
+**Step 3 — run the drill**, from the repository root (`C:\Claude\community-bus-maps`):
+
+```bash
+node scripts/restore-drill.mjs --snapshot C:/Claude/community-bus-maps/backups/live-2026-09-02T22-29-58 --identity C:/Users/Peter/age-backup-key.txt --db-only
+```
+
+**The two things to change** are the snapshot folder (whatever you called it in step 1) and the identity file (wherever you put the key in step 2). Nothing else in that line is a placeholder.
+
+`--db-only` says you copied the database and not `maps/`; the run then SKIPS the maps check out loud and names how many maps went unverified, rather than passing quietly. Drop it if you copied the whole snapshot. Exit 0 the snapshot restores, 1 it does not, 2 the arguments are wrong. Add `--keep` to leave the decrypted database for inspection — it is a full copy of live data, so delete it afterwards.
 
 **Falsified before it was trusted, 2026-09-03**: run against a snapshot encrypted to a throwaway key it reports every check green through the migrations and the row counts; run against the *same* snapshot with a different identity it fails on `age -d`, names the recipient the manifest records, and exits 1. What has NOT yet been drilled is the live snapshot with the real key — that needs the private key, and Claude does not handle credentials. **Do that once and date it here.**
 
