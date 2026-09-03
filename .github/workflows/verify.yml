@@ -52,6 +52,18 @@
 
 name: verify (byte-identical)
 
+# ONE RUN PER REF (OA-232 Tier 2.3, the 2026-09-03 review's portal-ops W2).
+# None of the four workflows had a concurrency group, so a second push to a PR
+# left the first run going: two runs of the byte gates against the same branch,
+# competing for the same self-hosted-shaped work, and a stale run able to finish
+# AFTER the new one and be the last verdict a reader sees. `cancel-in-progress`
+# is safe for every job here because none of them writes anything outside its own
+# runner -- these are checks, not deploys.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
 on:
   push:
     branches: [main]
@@ -154,29 +166,21 @@ jobs:
           echo "Areas/_portal-fixture:"; ls -la buses-data/Areas/_portal-fixture
           echo "Places/_portal-fixture:"; ls -la buses-data/Places/_portal-fixture
 
-      # The resolver that CHOOSES the fixture, falsified before the three gates
-      # that trust it. A local `.env` may aim FIXTURE_DIR at the live render tree
-      # instead — a stronger gate when the path is current and a different one
-      # when it is not, which is how this laptop spent six days gating a v6.55
-      # pack while this job gated the v6.59 the committed fixture was refreshed
-      # from (OA-180). `resolveFixtures()` now says so, and this proves the
-      # sentence can appear AND that it stays away on the five shapes that do not
-      # deserve it — including the one CI itself is in, where FIXTURE_DIR is
-      # unset. Needs no fixture repository: seven scratch trees under the temp
-      # dir, ~2 s.
-      - name: prove the fixture-drift warning can go red
-        working-directory: community-bus-maps
-        run: npm run test:prove-red-fixture-drift
-
-      # EVERYTHING OA-143 ADDED IS A REFUSAL, and a refusal is the hardest thing
-      # to keep honest: code that has quietly stopped refusing passes every "it
-      # tracks the declared generator" assertion while silently overwriting a
-      # busway map with the radial one. Four mutations, each required to redden
-      # the assertion that claims to be about it, plus an intact control.
-      # Filesystem only — no fixture repository, no database, ~2 s.
-      - name: prove the engine-source guards can go red
-        working-directory: community-bus-maps
-        run: npm run test:prove-red-engine-source
+      # TWO PROVE-REDS USED TO RUN HERE AND NO LONGER DO (OA-232 Tier 2.3, the
+      # 2026-09-03 review's portal-ops W6). `test:prove-red-fixture-drift` and
+      # `test:prove-red-engine-source` were added here, before the byte gates
+      # that trust what they falsify, at a time when this was the only workflow
+      # that could reach them. Since 2026-09-02 `npm test` is a RUNNER that
+      # discovers every `prove-red-*.mjs` and `test-*.mjs` under `scripts/`, and
+      # `test.yml` runs it on every push and PR — so both were running twice per
+      # push, and the copies here were the ones behind the cross-repo PAT.
+      #
+      # Neither needs the fixture repository: the drift one builds seven scratch
+      # trees under the temp dir, the engine-source one is filesystem only. That
+      # is exactly why they can live in the job with no secrets and no cross-repo
+      # checkout, where a PAT expiry cannot take them down with the byte gates.
+      # `run-tests.mjs` refuses to skip a discovered file without a reason naming
+      # where it DOES run, so nothing can quietly drop out of that suite.
 
       - name: verify:area — the portal reproduces a shipped town sheet
         working-directory: community-bus-maps

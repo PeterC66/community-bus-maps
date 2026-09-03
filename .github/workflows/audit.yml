@@ -16,6 +16,18 @@
 
 name: dependency audit
 
+# ONE RUN PER REF (OA-232 Tier 2.3, the 2026-09-03 review's portal-ops W2).
+# None of the four workflows had a concurrency group, so a second push to a PR
+# left the first run going: two runs of the byte gates against the same branch,
+# competing for the same self-hosted-shaped work, and a stale run able to finish
+# AFTER the new one and be the last verdict a reader sees. `cancel-in-progress`
+# is safe for every job here because none of them writes anything outside its own
+# runner -- these are checks, not deploys.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
 on:
   push:
     branches: [main]

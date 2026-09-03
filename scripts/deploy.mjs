@@ -191,3 +191,18 @@ console.log(`  Deployed ${gitSha || '(dry run)'} at ${builtAt || '(dry run)'}.`)
 console.log('  Read the /health output above — and if it carries no gitSha/checks, that is the');
 console.log('  METRICS_TOKEN gate, not a healthy answer. Confirm the commit independently before');
 console.log('  calling it done: curl a file that only the new build serves (docs/DEPLOY.md §3a).');
+
+// 7. THE ONE CHECK THAT CAN SEE A LOST ROUTE, named here rather than only in the
+// docs (OA-232 Tier 1.6, the 2026-09-03 review's portal-ops W7).
+//
+// Everything above asks whether the process came up. None of it can see a route
+// that stopped being REGISTERED, because that does not throw -- it 404s, quietly,
+// to whoever asks for it next, and five plugin cuts in two days is exactly when
+// that happens. It is not run automatically from here on purpose: it interrogates
+// the LIVE site over the network, and a deploy script that fires a second network
+// pass at the end has one more way to fail after the deploy has already landed.
+// Printing it costs nothing and is the difference between a documented step and a
+// remembered one.
+console.log('\n  Then, from this folder, ask whether every route is still there:');
+console.log('      npm run check:live-routes');
+console.log('  It asks the running site about every route in scripts/route-table.json (docs/DEPLOY.md §4).');

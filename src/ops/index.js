@@ -10,9 +10,11 @@
 // endpoint that throws is worse than one that reports a problem.
 
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirSize } from './dir-size.js';
 import path from 'node:path';
 import sharp from 'sharp';
 import { db, DATA_DIR } from '../db/index.js';
+import { NOW_SQL } from '../db/dates.js';   // the ONE spelling of the database clock (OA-232 Tier 2.1)
 import { MAPS_DIR, mapDir, mapDataDir, rendersDir, proposedRoot, archiveRoot } from '../maps/store.js';
 import { ENGINE_DIR } from '../render/renderMap.js';
 import { EXPERT_DIR } from '../maps/engine.js';
@@ -20,22 +22,10 @@ import { configStatus, emailHealth } from '../email/health.js';
 
 const STARTED = Date.now();
 
-/** Recursive size of a folder in bytes (0 when it does not exist). */
-export function dirSize(dir) {
-  let total = 0;
-  let stack = [dir];
-  while (stack.length) {
-    const d = stack.pop();
-    let entries;
-    try { entries = readdirSync(d, { withFileTypes: true }); } catch { continue; }
-    for (const e of entries) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) stack.push(p);
-      else { try { total += statSync(p).size; } catch { /* vanished */ } }
-    }
-  }
-  return total;
-}
+// `dirSize` moved to ./dir-size.js on 2026-09-03 and is re-exported here so
+// every existing importer keeps working. It is a pure fs walk, and two scripts
+// wanted it without wanting the database this module opens (OA-232 Tier 1.6).
+export { dirSize } from './dir-size.js';
 
 /**
  * Readiness: the DB answers, the object store is writable, the engine files are
@@ -128,7 +118,7 @@ export function activitySnapshot() {
     pendingProposedUpdates: one("SELECT COUNT(*) AS c FROM proposed_update WHERE status = 'pending'").c,
     settledProposedUpdates: one("SELECT COUNT(*) AS c FROM proposed_update WHERE status <> 'pending'").c,
     auditEvents: one('SELECT COUNT(*) AS c FROM audit_log').c,
-    sessions: one("SELECT COUNT(*) AS c FROM session WHERE expires_at > datetime('now')").c,
+    sessions: one(`SELECT COUNT(*) AS c FROM session WHERE expires_at > ${NOW_SQL}`).c,
     lastVersionAt: (one('SELECT MAX(created_at) AS c FROM map_version') || {}).c || null,
     lastPublishAt: (one("SELECT MAX(created_at) AS c FROM audit_log WHERE action = 'version.publish'") || {}).c || null,
     lastAuditAt: (one('SELECT MAX(created_at) AS c FROM audit_log') || {}).c || null,

@@ -9,10 +9,19 @@
 //   node scripts/check-vendored.mjs --json
 //
 // --skills points at the folder holding make-bus-leaflet/ and
-// make-place-bus-leaflet/. It defaults to `skillRootDefault` in
-// engine/vendored.json, and SKILL_ROOT overrides that. Where the skill tree is
-// not present — CI, or a second developer's machine — the source half of the
-// audit is SKIPPED and says so by name; it never silently passes.
+// make-place-bus-leaflet/. **It comes from `SKILL_ROOT` in `.env`** (see
+// `.env.example`), which this script loads; `--skills` overrides that. This
+// header said the default was `skillRootDefault` in engine/vendored.json for a
+// day after that key was REMOVED from the manifest on 2026-09-02 — it was one
+// laptop's absolute path in a file that also ships to a VPS and to CI — and the
+// 2026-09-03 review caught the header still describing it (portal-ops V4). The
+// read at the bottom of the resolution chain is kept on purpose, as a legacy
+// fallback for an old manifest, and `test-vendored.mjs` exercises it; nothing
+// tracked here carries the key, and `test-portal-lib.mjs` asserts that.
+//
+// Where the skill tree is not present — CI, or a second developer's machine —
+// the source half of the audit is SKIPPED and says so by name; it never silently
+// passes.
 //
 // Three populations are enumerated, not one, and the third was added on
 // 2026-08-26 because the first two between them could not see a real hand-off:

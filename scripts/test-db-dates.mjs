@@ -73,23 +73,41 @@ console.log('\nthe census — nobody converts a stored timestamp by hand:');
 const HAND_ROLLED = [
   // `.replace(' ', 'T')` — the shape all nine sites had.
   { re: /replace\(\s*['"] ['"]\s*,\s*['"]T['"]\s*\)/, why: "the ' ' -> 'T' fix-up" },
+  // The literal clock. See the block below for why this arm did not exist until
+  // 2026-09-03 and what had to change before it could.
+  { re: /datetime\('now'\)/, why: "a literal datetime('now') — import NOW_SQL" },
 ];
 const ALLOWED = new Set(['src/db/dates.js']);
 
-/* THE ARM THAT IS DELIBERATELY NOT HERE, and why — it was written, run, and
- * removed rather than shipped. A second arm flagged any literal `datetime('now')`
- * outside db/, on the reasoning that NOW_SQL should be the one spelling. It
- * produced two findings on its first run and BOTH WERE FALSE: a comment in
- * auth/index.js explaining that `expires_at > datetime('now')` compares correctly
- * as strings, and ops/index.js:131 doing exactly that comparison. A `datetime('now')`
- * in a WHERE clause is not a stored value at all — it is the clock, in the one
- * place the clock belongs — and a rule that cannot tell a comparison from a write
- * would sit red on that line for ever. A check that produces false findings is
- * muted within a week, and then it is not protecting the true ones either.
+/* THE ARM THAT WAS DELIBERATELY NOT HERE, AND WHY IT IS HERE NOW (2026-09-03).
  *
- * So NOW_SQL is a convention with a name and a docstring, asserted above to be the
- * one spelling, and not a census. The census covers the READ conversion, which is
- * where the nine copies actually were. */
+ * This block used to say the second arm had been written, run and REMOVED. It
+ * flagged any literal `datetime('now')`, produced two findings on its first run,
+ * and both were false: a comment in auth/index.js saying `expires_at >
+ * datetime('now')` compares correctly as strings, and ops/index.js:131 doing that
+ * comparison. The reasoning was that a `datetime('now')` in a WHERE clause is not
+ * a stored value — it is the clock — and a rule that cannot tell a comparison
+ * from a write would sit red on that line for ever.
+ *
+ * THE REASONING WAS RIGHT AND THE CONCLUSION WAS BACKWARDS. What made the arm
+ * produce false findings was not the arm; it was NOW_SQL's own docstring, which
+ * said "what goes in an INSERT/UPDATE" and so excluded exactly the sites the arm
+ * was reporting. With the constant scoped to writes, a check on every spelling
+ * had to be wrong. Leaving the arm out left the constant with ZERO callers and 31
+ * literals a day later — the 2026-09-03 review's portal-src F27, and the shape it
+ * named across eight helpers: a helper that arrives with a test of ITSELF and no
+ * test of its callers is adopted wherever its author happened to look and nowhere
+ * else.
+ *
+ * So the fix is one word in dates.js and then this arm. NOW_SQL is the database's
+ * clock, in reads as well as writes; db/index.js's fifteen sites and
+ * ops/index.js:131 import it; and auth/index.js:64, the comment, now names the
+ * constant. The arm runs against zero findings, which was MEASURED and not
+ * assumed — it went in before the last two call sites were converted and reported
+ * both of them.
+ *
+ * `src/db/schema.sql` is out of scope and always was: the walk reads `.js` only,
+ * and a DDL default has nowhere to import a constant from. */
 
 const walk = (dir, out = []) => {
   for (const e of readdirSync(dir)) {

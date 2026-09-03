@@ -34,6 +34,7 @@ import { grid } from '../public/js/shared/map-card.mjs';
 import { servicesView } from '../public/js/shared/services-view.mjs';
 import { readFactsSnapshot, buildFacts } from './maps/facts.js';
 import { inlineSvg } from './public/inlineSvg.js';
+import { escapeHtml } from './html.js';   // the ONE server-side HTML escaper (OA-232 Tier 2.1)
 import { readRoutesMeta, readRoutesMetaFromDir, enumerateCandidatesFromDir, editablePoiKeysFromDir, packPoiTiers, poiGlyphs, readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs, swapInProposedData, carryExpertTuning, outputsNeedingRender } from './maps/engine.js';
 import { sanitizeOverrides } from './maps/safeSubset.js';
 import { mergeGenWarnings } from './render/genWarnings.js';
@@ -571,8 +572,6 @@ function shell(name) {
   if (!shellCache.has(name)) shellCache.set(name, readFileSync(path.join(PUBLIC_DIR, name), 'utf8'));
   return shellCache.get(name);
 }
-const htmlAttr = (s) => String(s == null ? '' : s)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function sendShell(reply, name, head, fillBody = null) {
   // Drop the shell's own placeholder <title>/description/og tags first, so the
@@ -617,13 +616,13 @@ function mapHead(req, m, { services = false } = {}) {
     isAccessibleForFree: true,
   };
   return [
-    `<title>${htmlAttr(title)} — BusMaps.uk</title>`,
-    `<link rel="canonical" href="${htmlAttr(canonical)}">`,
-    `<meta name="description" content="${htmlAttr(desc)}">`,
-    `<meta property="og:title" content="${htmlAttr(title)}">`,
-    `<meta property="og:description" content="${htmlAttr(desc)}">`,
-    `<meta property="og:url" content="${htmlAttr(canonical)}">`,
-    card ? `<meta property="og:image" content="${htmlAttr(card)}">` : '',
+    `<title>${escapeHtml(title)} — BusMaps.uk</title>`,
+    `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+    `<meta name="description" content="${escapeHtml(desc)}">`,
+    `<meta property="og:title" content="${escapeHtml(title)}">`,
+    `<meta property="og:description" content="${escapeHtml(desc)}">`,
+    `<meta property="og:url" content="${escapeHtml(canonical)}">`,
+    card ? `<meta property="og:image" content="${escapeHtml(card)}">` : '',
     `<meta name="twitter:card" content="${card ? 'summary_large_image' : 'summary'}">`,
     `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
   ].filter(Boolean).map((l) => '  ' + l).join('\n');
@@ -1155,9 +1154,10 @@ app.post('/api/auth/request', async (req, reply) => {
 // browser fetch it once.
 // Attribute-safe, because the token goes into a value="" — `escText` in
 // inlineSvg.js is text-node-safe only, and the difference is a quote character.
-const escapeHtml = (v) => String(v == null ? '' : v)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// That is `escapeHtml` from ./html.js, imported at the top of this file since
+// 2026-09-03; this file kept a private copy of it, and a second four-character
+// `htmlAttr`, for a day after html.js landed as "the one escaper" (the
+// 2026-09-03 review, portal-src F26).
 
 const verifyPage = (token, email) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

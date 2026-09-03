@@ -19,9 +19,18 @@
 // the contract, and scripts/test-ssr.mjs is what proves the contract holds
 // before anything reaches a visitor.
 
-/** Escape a value for a double-quoted HTML attribute. */
-export const attr = (s) => String(s == null ? '' : s)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+import { escapeHtml } from '../html.js';   // the ONE server-side HTML escaper
+
+/** Escape a value for a double-quoted HTML attribute.
+ *
+ *  This was its own four-character copy until 2026-09-03. `src/html.js` is the
+ *  one server-side HTML escaper and covers `'` as well, which is a superset of
+ *  what an attribute needs, so adopting it can only make an attribute safer —
+ *  the visible difference is `&#39;` where a value contains an apostrophe, which
+ *  renders identically. The name is kept because this module's callers ask for
+ *  `attr` and the intent at the call site is attribute-position (OA-232 Tier
+ *  2.1, the review's portal-src F26). */
+export const attr = escapeHtml;
 
 function elementRe(id) {
   // The opening tag carrying this id, its contents, and its closing tag.

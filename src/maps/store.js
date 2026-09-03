@@ -11,9 +11,12 @@
 
 import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { DATA_DIR } from '../db/index.js';
+import { DATA_DIR, MAPS_DIR } from '../db/paths.js';   // paths only — importing this cannot open a database (OA-232 Tier 1.6)
 
-export const MAPS_DIR = path.join(DATA_DIR, 'maps');
+// Re-exported, not redeclared: `src/db/paths.js` already owns this join and had
+// its own copy of it. Two spellings of one path is how the DATA_DIR duplication
+// started (OA-224 Tier 3.3).
+export { MAPS_DIR };
 
 export function mapDir(id) {
   return path.join(MAPS_DIR, String(id));
@@ -91,7 +94,10 @@ export const DIAGRAM_LAYOUT = 'diagram-layout.json';
 // this module: `test-engine-source.mjs` builds a scratch world holding a copy of
 // `scripts/` ONLY, so a src/ import would break the suite that guards the tracker.
 // Importing the other way round would drag `src/db` - and a database migration -
-// into a script whose whole point is to run without one. So the two literals are
+// into a script whose whole point is to run without one. (That is no longer true
+// of THIS module, which took its paths off `db/paths.js` on 2026-09-03; it is
+// still true of the direction that matters, because `test-engine-source.mjs`
+// builds a scratch world holding `scripts/` only.) So the two literals are
 // asserted equal in `scripts/test-carry-forward.mjs` rather than wished equal.
 export const ENGINE_SOURCE = 'engine-source.json';
 export function diagramLayoutPath(id) {
