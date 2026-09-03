@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.152 | 2026-09-03 | sha=7fa9210f -->
-**v1.152** · updated 3 September 2026
+<!-- docstamp v1.153 | 2026-09-03 | sha=3af44402 -->
+**v1.153** · updated 3 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -12,6 +12,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 <!-- changelog-index:start -->
 
 - **2026-09-03** — [One shape for an unexpected failure, and one file that reads the environment](CHANGELOG.d/2026-09-03-one-shape-for-a-failure-and-one-place-that-reads-the-environment.md)
+- **2026-09-03** — [The engine takes one luminance module, and the place skill stops carrying its own resolvers](CHANGELOG.d/2026-09-03-the-engine-takes-one-luminance-module.md)
 - **2026-09-03** — [The helpers are adopted, and each one now has a check saying its callers use it](CHANGELOG.d/2026-09-03-the-helpers-are-adopted-and-each-one-has-a-check.md)
 - **2026-09-03** — [The landmark chooser could not speak, and had been showing a quarter of every icon](CHANGELOG.d/2026-09-03-the-landmark-chooser-could-not-speak-and-showed-a-quarter-of-each-icon.md)
 - **2026-09-03** — [The schema says what its comments said, and one place reads a timestamp](CHANGELOG.d/2026-09-03-the-schema-says-what-its-comments-said.md)
