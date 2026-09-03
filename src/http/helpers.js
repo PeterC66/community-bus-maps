@@ -219,6 +219,40 @@ function xmlEscape(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 }
 
+// ---- the per-IP rate limit for public POSTs -------------------------------
+// Moved here from src/server.js on 2026-09-03 (OA-232 Tier 3.2) BEFORE the
+// public front was cut into src/routes/public.js, not during it — the same
+// order src/routes/pages.js records for VIEWS_DIR and xmlEscape(). It has four
+// callers and they end up in two files: /api/apply, /api/contact and
+// /api/public/feedback are in the plugin, and the auth sign-in POST is not.
+//
+// ONE MAP, DELIBERATELY, and that is why this is a module rather than a factory.
+// The counter is per process and per IP, and a second instance of it would give
+// a caller a fresh twenty requests by choosing a different route file.
+//
+// Nothing evicted from this map until 2026-08-19, so it grew one entry per
+// distinct client address for the life of the process — slow memory exhaustion
+// (technical-audit_2026-08-19 S3). Two bounds now, belt and braces: a periodic
+// sweep of entries whose window has closed, and a hard cap that clears the lot
+// the way inlineCache already does. Clearing wholesale only forgives in-flight
+// counts, so the failure mode is a moment's extra leniency, never a lockout.
+const hits = new Map();
+const HITS_MAX = 20_000;
+function sweepHits(windowMs = 60_000) {
+  const now = Date.now();
+  if (hits.size > HITS_MAX) { hits.clear(); return; }
+  for (const [ip, rec] of hits) if (now - rec.t > windowMs) hits.delete(ip);
+}
+function rateLimited(ip, max = 20, windowMs = 60_000) {
+  const now = Date.now();
+  const rec = hits.get(ip) || { n: 0, t: now };
+  if (now - rec.t > windowMs) { rec.n = 0; rec.t = now; }
+  rec.n += 1;
+  hits.set(ip, rec);
+  if (hits.size > HITS_MAX) sweepHits(windowMs);
+  return rec.n > max;
+}
+
 export {
-  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape,
+  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited,
 };

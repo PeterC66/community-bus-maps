@@ -1,7 +1,7 @@
 ﻿# Developing the portal — how to change it safely
 
-<!-- docstamp v1.24 | 2026-09-02 | sha=e00b1c3d -->
-**v1.24** · updated 2 September 2026
+<!-- docstamp v1.25 | 2026-09-03 | sha=4b6e497f -->
+**v1.25** · updated 3 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -219,7 +219,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | Badge legibility after a recolour | `src/render/badgeContrast.js` (+ the mirrored rule in `public/app/editor.js`), `scripts/fix-badge-contrast.mjs` |
 | Contrast of a tinted chip on a web page (badges, pills, the organisation badge) | `public/css/styles.css` tokens `--accent-tint-ink` / the `.org-badge` ink, gated by `scripts/test-contrast.mjs` |
 | Ops: health, metrics, backup | `src/ops/`, `scripts/backup.mjs`, `scripts/prune-staged.mjs` |
-| **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/server.js` — see [`PILOT.md`](PILOT.md) |
+| **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/routes/public.js` — see [`PILOT.md`](PILOT.md) |
 | Whether a demo org is labelled "Sample" | `customer.is_demo` → `src/branding/index.js` → `src/public/` → `public/js/public-*.js` |
 | Importing a finished map | `scripts/import-map.mjs` (`--request <id>` builds an approved request in place) |
 | A static per-map extra that isn't a render output (e.g. `disagreements.pdf`) | Add it to `OUTPUT_FILES` in `src/maps/store.js` as one extra entry (outside the `OUTPUTS`-driven list) so the existing generic download/serve routes pick it up for free; copy it into the version folder at the end of `renderVersion()` (`src/maps/engine.js`); add it to `carryExpertTuning()`'s file list so a staged monthly refresh that doesn't bring its own still carries the old one forward |

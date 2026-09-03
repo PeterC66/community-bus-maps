@@ -90,6 +90,8 @@
     "test:prove-red-editor-plugin": "node scripts/prove-red-editor-plugin.mjs",
     "test:pages-plugin": "node scripts/test-pages-plugin.mjs",
     "test:prove-red-pages-plugin": "node scripts/prove-red-pages-plugin.mjs",
+    "test:public-plugin": "node scripts/test-public-plugin.mjs",
+    "test:prove-red-public-plugin": "node scripts/prove-red-public-plugin.mjs",
     "check:live-routes": "node scripts/check-live-routes.mjs",
     "test:prove-red-live-routes": "node scripts/prove-red-live-routes.mjs",
     "test:env-inventory": "node scripts/test-env-inventory.mjs",
