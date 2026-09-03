@@ -154,6 +154,7 @@ const SUBSET = 'src/maps/safeSubset.js';
 const ENGINE = 'src/maps/engine.js';
 const EDITOR = 'public/app/editor.js';
 const CHOOSER = 'public/app/landmarks.js';
+const CSS = 'public/app/app.css';
 
 const MUTATIONS = [
   {
@@ -256,6 +257,48 @@ const MUTATIONS = [
     edits: [[ENGINE, '  for (const p of enumeratePoisFromDir(dataDir)) keys.add(p.key);\n  return [...keys];', '  for (const p of enumeratePoisFromDir(dataDir)) keys.add(p.key);\n  return [...keys];'],
       [SUBSET, 'const poiSet = new Set(poiKeys);', 'const poiSet = { has: () => true };']],
     expect: 'an unknown POI is dropped',
+  },
+  {
+    what: 'the row draws its pictogram into the symbol own box again',
+    why: 'THE REPORTED FAULT. A <use> with no x/y puts the symbol viewport at 0,0 of the current user space, so an outer viewBox of "-10 -10 20 20" shows the glyph top-left QUARTER in the bottom-right of the box. Peter saw about a fifth of every icon and no gate anywhere could see it',
+    edits: [[CHOOSER, '<svg viewBox="0 0 20 20"><use href="#lmg-', '<svg viewBox="-10 -10 20 20"><use href="#lmg-']],
+    expect: 'the row draws its pictogram into a box that starts at the origin',
+  },
+  {
+    what: 'a nameless place goes back to having no title at all',
+    why: 'classify() gives pharmacies and GP surgeries `t.name || ""`, which the sheet does not care about because it never prints those names. The chooser row then has nothing in it, and the reader is asked to rule on a chemist they cannot identify',
+    edits: [[CHOOSER, 'return given || `Unnamed ${CAT_ONE[p.cat] || catLabel(p.cat).toLowerCase()}`;', 'return given;']],
+    expect: 'a place with NO name still gets something a reader can act on',
+  },
+  {
+    what: 'a category loses its singular',
+    why: 'the other half of the same fault: a thirteenth category added to classify() would fall through to a lower-cased PLURAL heading, so the row would read "Unnamed parks and recreation grounds". It is the join between two files and only the join can check it',
+    edits: [[CHOOSER, " museum: 'museum',", '']],
+    expect: 'and every one of them has a singular for the nameless row',
+  },
+  {
+    what: 'the row prints the group heading own words again',
+    why: '"symbol only — its name is never printed" on all thirteen rows of a group whose heading already says "the map never prints these names", down a column that has no width to spare',
+    edits: [[CHOOSER, "if (!p.printsName && mixed) bits.push('name not printed');", "if (!p.printsName) bits.push('name not printed');"]],
+    expect: 'in a group where nothing prints its name, the row says nothing extra',
+  },
+  {
+    what: 'showEl stops adding the class the stylesheet needs',
+    why: 'THE FAULT THAT HID EVERY OTHER MESSAGE. `.notice` is display:none and `.notice.show` reveals it; this page wrote the class name at five sites and never the `show`, so the save result, the server error, the export confirmation, the Must-show soft cap and showWarnings() were all invisible from the day they were written',
+    edits: [[CHOOSER, "el.classList.toggle('show', !!on);", "el.classList.toggle('shown', !!on);"]],
+    expect: 'showEl() adds the one class the stylesheet is looking for',
+  },
+  {
+    what: 'the stylesheet stops offering a way to reveal a notice',
+    why: 'the same join from the other side. Rename the rule and every page in the portal goes quiet, not just this one — and each file on its own still reads correctly',
+    edits: [[CSS, '.notice.show { display: block; }', '.notice.shown { display: block; }']],
+    expect: '...and .notice.show is the thing that says otherwise',
+  },
+  {
+    what: 'one site goes back to toggling the hidden attribute',
+    why: 'a bare `hidden = false` cannot beat a class rule that says display:none, and it reads like perfectly good code. Two of the five dead sites were exactly this, and neither looked wrong',
+    edits: [[CHOOSER, '    showEl(warn, true);', '    warn.hidden = false;']],
+    expect: 'nothing in the chooser reveals a notice by the hidden attribute any more',
   },
 ];
 
