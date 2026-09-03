@@ -9,6 +9,7 @@
 
 import crypto from 'node:crypto';
 import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
+import { dbDateMs } from '../db/dates.js';
 import {
   getUserByEmail, insertMagicLink, consumeMagicLink,
   insertSession, getSession, deleteSession, touchSession,
@@ -132,7 +133,7 @@ export function resolveUser(req) {
   // SESSION_DAYS after that moment — so no extra column is needed to know
   // whether it is time to slide again.
   let expiresAt = s.expires_at;
-  const lastSlide = new Date(`${String(s.expires_at).replace(' ', 'T')}Z`).getTime() - SESSION_DAYS * 86_400_000;
+  const lastSlide = dbDateMs(s.expires_at) - SESSION_DAYS * 86_400_000;
   let slid = false;
   if (Number.isFinite(lastSlide) && Date.now() - lastSlide > SLIDE_EVERY_MS) {
     const next = sqlDatePlus(SESSION_DAYS * 86_400_000);
@@ -155,7 +156,7 @@ export function resolveUser(req) {
  */
 export function stepUpFresh(user, { minutes = STEP_UP_MINUTES } = {}) {
   if (!user || !user.sessionCreatedAt) return false;
-  const t = new Date(`${String(user.sessionCreatedAt).replace(' ', 'T')}Z`).getTime();
+  const t = dbDateMs(user.sessionCreatedAt);
   if (!Number.isFinite(t)) return false;
   return Date.now() - t <= minutes * 60_000;
 }

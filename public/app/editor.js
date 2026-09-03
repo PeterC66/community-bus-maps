@@ -426,16 +426,16 @@ function buildVersionList() {
   const list = detail.versions || [];
   if (list.length < 2) { box.innerHTML = ''; return; }  // nothing to "go back" to yet
   const rows = list.map((v) => {
-    const key = v.storage_key;
+    const key = v.versionKey;
     const isHead = key === detail.currentVersion;
     const isPub = key === detail.publishedVersion;
-    const state = isPub ? VER_STATE.published : (VER_STATE[v.review_state] || VER_STATE.draft);
+    const state = isPub ? VER_STATE.published : (VER_STATE[v.reviewState] || VER_STATE.draft);
     const dls = (v.downloads || []).length ? dlRow(v.downloads) : '<p class="hint-line">Files for this version are no longer on disk.</p>';
     const copy = !isHead && v.overrides && !isLocked()
       ? `<button class="link-btn v-copy" data-ver="${esc(key)}" type="button">Copy these settings into a new draft</button>` : '';
     return `<details class="ver-row${isHead ? ' head' : ''}">
       <summary><strong>${esc(key)}</strong> ${state}
-        <span class="muted">${esc(PC().fmtDay(v.created_at))}</span>
+        <span class="muted">${esc(PC().fmtDay(v.createdAt))}</span>
         ${isHead ? '<span class="muted">· the one you are editing</span>' : ''}
         ${v.note ? `<span class="ver-note">${esc(v.note)}</span>` : ''}</summary>
       <div class="ver-body">${dls}${copy}</div>
@@ -448,7 +448,7 @@ function buildVersionList() {
 }
 
 function copySettingsFrom(key) {
-  const v = (detail.versions || []).find((x) => x.storage_key === key);
+  const v = (detail.versions || []).find((x) => x.versionKey === key);
   if (!v || !v.overrides) return;
   staged = stagedFromOverrides(v.overrides);
   buildRoutes(); buildOperators(); buildPois(); onEdit();
@@ -720,7 +720,7 @@ function stripState() {
   const lastReq = hist[0] || null;
   const approvedPub = hist.find((h) => h.status === 'approved' && h.version_key === pub) || null;
   const sentBack = !pending && lastReq && lastReq.status === 'rejected' && lastReq.version_key === head ? lastReq : null;
-  const headVer = (detail.versions || []).find((v) => v.storage_key === head) || null;
+  const headVer = (detail.versions || []).find((v) => v.versionKey === head) || null;
   // An approver or admin looking at somebody else's map is not the one being asked,
   // so the strip says "their move" — the same read-out, from the other side of the
   // handoff. (Admins carry no customer of their own, hence the explicit test.)
@@ -733,7 +733,7 @@ function stripState() {
 
   const common = {
     offeredAt: pu ? pu.createdAt : (accepted ? accepted.created_at : null),
-    draftAt: headVer ? headVer.created_at : null,
+    draftAt: headVer ? headVer.createdAt : null,
     sentAt: pending ? pending.createdAt : (lastReq ? lastReq.created_at : null),
     publishedAt: approvedPub ? approvedPub.reviewed_at : null,
     fromRefresh: !!accepted, sentBack, mine,

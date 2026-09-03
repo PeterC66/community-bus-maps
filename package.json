@@ -7,7 +7,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "author": "Peter Cooper",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
@@ -92,6 +92,10 @@
     "check:live-routes": "node scripts/check-live-routes.mjs",
     "test:prove-red-live-routes": "node scripts/prove-red-live-routes.mjs",
     "test:env-inventory": "node scripts/test-env-inventory.mjs",
+    "test:node-pin": "node scripts/test-node-pin.mjs",
+    "test:db-dates": "node scripts/test-db-dates.mjs",
+    "test:db-constraints": "node scripts/test-db-constraints.mjs",
+    "test:map-detail-keys": "node scripts/test-map-detail-keys.mjs",
     "test:error-envelope": "node scripts/test-error-envelope.mjs"
   },
   "dependencies": {

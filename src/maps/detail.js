@@ -188,10 +188,31 @@ function mapDetail(m) {
     // Every version, with the files that still exist and the overrides it was
     // rendered from — the editor lists them, so "earlier versions stay
     // available" is something the customer can see (findings H8).
+    // CAMELCASE, LIKE EVERY SIBLING IN THIS OBJECT (OA-224 Tier 4.5, portal-src F9).
+    // This array emitted `storage_key`, `review_state` and `created_at` — the DB's
+    // spelling — next to `currentVersion`, `hideOperatorsEnabled` and `headState`,
+    // so the same payload used two conventions and a caller had to know which side
+    // of the boundary each field came from. The rule is now written down in
+    // docs/CONVENTIONS.md: snake_case is the DATABASE's, camelCase is the API's,
+    // and `versionKey` is what the API calls `map_version.storage_key`.
+    //
+    // THE THREE OLD KEYS ARE STILL EMITTED, and that is deliberate rather than
+    // timid. `views/app/editor.html` loads `/app/editor.js` with no cache-busting
+    // query, so for as long as a browser holds the previous file, an old client is
+    // talking to a new server. Dropping them in the same release would break the
+    // editor for exactly the customers who had used it most recently.
+    //
+    // THEY GO once no cached client can predate 2026-09-03 — in practice, the next
+    // release after this one. scripts/test-map-detail-keys.mjs asserts BOTH sets
+    // and names that condition, so removing the shim is a test that fails rather
+    // than a comment somebody has to notice.
     versions: listVersions(id).map((v) => ({
-      id: v.id, storage_key: v.storage_key, note: v.note, review_state: v.review_state,
-      created_at: v.created_at, overrides: parseJson(v.overrides_json),
+      id: v.id,
+      versionKey: v.storage_key, reviewState: v.review_state, createdAt: v.created_at,
+      note: v.note, overrides: parseJson(v.overrides_json),
       downloads: visibleDownloadsForVersion(id, v.storage_key, parseOutputs(m.outputs)),
+      // --- the compatibility shim; see above. Remove with its test. ---
+      storage_key: v.storage_key, review_state: v.review_state, created_at: v.created_at,
     })),
     downloads: m.cur_key ? visibleDownloadsForVersion(id, m.cur_key, parseOutputs(m.outputs)) : [],
     // --- publish gate ---

@@ -66,6 +66,7 @@ import { PUBLIC_DIR } from './paths.js';
 import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
 import { notify, appUrl } from './email/notify.js';
+import { dbDateToIso } from './db/dates.js';
 
 const { port: PORT, host: HOST } = listenOn();
 const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
@@ -1023,10 +1024,10 @@ app.get('/sitemap.xml', async (req, reply) => {
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ...STATIC_PAGES.map((p) => url(p)),
-    ...maps.map((m) => url(mapPageUrl(m.slug), (m.publishedAt || '').replace(' ', 'T') + 'Z')),
+    ...maps.map((m) => url(mapPageUrl(m.slug), dbDateToIso(m.publishedAt))),
     // P8a — the text alternative is a page in its own right, and the one most
     // worth finding in a search for "buses in <town>".
-    ...maps.filter((m) => m.servicesUrl).map((m) => url(m.servicesUrl, (m.publishedAt || '').replace(' ', 'T') + 'Z')),
+    ...maps.filter((m) => m.servicesUrl).map((m) => url(m.servicesUrl, dbDateToIso(m.publishedAt))),
     ...orgs.map((o) => url(orgPageUrl(o.slug))),
     '</urlset>',
     '',

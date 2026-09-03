@@ -10,6 +10,7 @@
 import crypto from 'node:crypto';
 import { STEP_UP_MINUTES, stepUpFresh } from '../auth/index.js';
 import { emailProvider, metricsToken, operatorToken, publicBaseUrl } from '../config.js';
+import { dbDateMs } from '../db/dates.js';
 
 // ---- request-shaped values and the constants the routes validate against ----
 // The five pain-point classes the shopfront is organised around, plus 'other'.
@@ -113,7 +114,7 @@ function requireApprover(req, reply) {
 // the two can never disagree about the same session.
 function stepUpDeadline(user) {
   if (!user || !user.sessionCreatedAt) return null;
-  const t = new Date(`${String(user.sessionCreatedAt).replace(' ', 'T')}Z`).getTime();
+  const t = dbDateMs(user.sessionCreatedAt);
   if (!Number.isFinite(t)) return null;
   return new Date(t + STEP_UP_MINUTES * 60_000).toISOString();
 }

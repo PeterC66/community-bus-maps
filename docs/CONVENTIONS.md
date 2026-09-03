@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.8 | 2026-09-03 | sha=e4b19071 -->
-**v1.8** · updated 3 September 2026
+<!-- docstamp v1.9 | 2026-09-03 | sha=67f7e4e7 -->
+**v1.9** · updated 3 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -44,6 +44,17 @@ The distinction that matters is 1 against 2. A caller that treats every non-zero
 - `test-<thing>.mjs` — an assertion suite. `prove-red-<thing>.mjs` — the harness that breaks `<thing>` on purpose and requires each mutation to redden the assertion that names it. `check-<thing>.mjs` — a gate that reads state and reports. A script that does something is a verb (`import-map.mjs`, `propose-update.mjs`, `rotate-secret.mjs`).
 - The npm script is `test:<thing>` / `check:<thing>` for the matching file. **`npm test` discovers its tests** rather than listing them — see [`npm test` discovers its tests](DEVELOPING.md#npm-test-discovers-its-tests---adding-one-means-adding-the-file).
 - Shared helpers go in `scripts/lib/<thing>.mjs` and are imported, never copied. `src/` is the running service; `scripts/` is everything run by a person or by CI.
+- **snake_case is the DATABASE's spelling; camelCase is the API's, and the boundary is where a row becomes a payload.** A column is `storage_key`, `review_state`, `created_at`; the JSON a browser receives is `versionKey`, `reviewState`, `createdAt`. **`versionKey` is the API's name for `map_version.storage_key`** — one thing had five names across `src/` (`storage_key` 36, `storageKey` 52, `versionKey` 18, `version_key` 16, plus `cur_key` and `pub_key`), and the sharp end of it was `mapDetail().versions[]` emitting three raw column names beside siblings called `currentVersion` and `headState`, so one payload used two conventions and a caller had to know which side of the boundary each field came from (2026-09-03, OA-224 Tier 4.5, portal-src F9). `scripts/test-map-detail-keys.mjs` asserts it. **A rename at that boundary needs a shim, because `/app/editor.js` is loaded with no cache-busting query** — a cached browser is an old client against a new server — so both spellings ship for one release and the test asserts BOTH, which makes removing the shim a failing test rather than a comment somebody has to notice.
+
+## What the database enforces, and where it is written
+
+**A state enum is a trigger, not a comment.** `map.status` and `map_version.review_state` had six and five legal values respectively, and until 2026-09-03 both existed only as a `--` comment beside the column — `schema.sql` carried 15 `REFERENCES`, no `CHECK` and no index (OA-224 Tier 4.5, portal-src F12). A handler writing `Published` or `pubished` was accepted by the database, failed no test, and took the map off the public site, because every public query filters on that exact string. The lists now live in [`src/db/enums.js`](../src/db/enums.js), which also builds the `BEFORE INSERT`/`BEFORE UPDATE` triggers that `ABORT` anything else; `scripts/test-db-constraints.mjs` asserts that the guard refuses what the list forbids, **accepts every value it allows** (a trigger with a typo in its own list passes the refusal test perfectly while making a legal state unwritable), and that `schema.sql`'s comment still names exactly the same values in the same order — because moving a list out of a comment only helps if something joins the two.
+
+**Triggers rather than `CHECK`, and the reason is SQLite's.** A constraint cannot be added to an existing table; a `CHECK` means the twelve-step rebuild, and this database runs with `PRAGMA foreign_keys = ON` across the one CIRCULAR reference in the schema (`map.published_version_id` → `map_version`, `map_version.map_id` → `map`). A trigger is additive, reversible by `DROP TRIGGER`, visible in `sqlite_master`, and leaves `docs/DEPLOY.md`'s rollback promise untouched. The one thing it cannot do is reject a row already in the table, so the migration asks that separately against the real rows and **warns rather than throws** — an unrecognised value is a reason to look, not a reason for the site to be down.
+
+**An index is added because a query plan changed, not because a column looks like a key.** The two that exist — `idx_map_customer` and the partial `idx_map_published` — were each measured with `EXPLAIN QUERY PLAN` against a copy of the real database and each turned a `SCAN` into a `SEARCH`. Two that the review asked for are deliberately absent for the same reason: `map_version(map_id)` is *already* an index, because `UNIQUE (map_id, major, minor)` gives SQLite one; and `audit_log(map_id)` serves no query, since `listAudit()` orders by the primary key. An index with no reader costs write time for ever and hides the ones that earn their place.
+
+**One reader of a stored timestamp.** [`src/db/dates.js`](../src/db/dates.js) — `parseDbDate`, `dbDateToIso`, `dbDateMs` for reads and `NOW_SQL` for writes. The conversion from SQLite's `2026-09-03 01:23:45` to a JS instant was hand-written at nine sites in five files with only one of them checking the shape first (portal-src F11). **The stored format is deliberately unchanged**: writing ISO would break the documented rollback — older code's `+ 'Z'` on an already-ISO value gives `...ZZ` and an Invalid Date, which this codebase renders as an empty string — and any partial migration leaves a mixed store that sorts wrongly, because `T` is `0x54` and a space is `0x20`, so an 11pm row in the old form sorts before a 1am row in the new one. Both were measured, and `scripts/test-db-dates.mjs` re-measures them so the reasoning cannot go stale silently.
 
 ## Importing for a path must not open a database
 
@@ -63,9 +74,9 @@ A section of `src/server.js` that is one audience behind one guard is a Fastify 
 
 ## Node
 
-**Node 24.** The Dockerfile's base image is `node:24-slim`, pinned by digest, and all four workflows install 24. `node:sqlite` is the store and is still flagged experimental, so the runtime is not a free variable.
+**Node 24, and the Dockerfile is the authority.** The base image is `node:24-slim`, pinned by digest; `verify.yml` derives its `setup-node` version from that `FROM` line rather than repeating it, three other workflows pin `24` literally, and `package.json`'s `engines` says `>=24`. `node:sqlite` is the store and is still flagged experimental, so the runtime is not a free variable.
 
-`package.json`'s `engines` still says `>=22`, which is looser than anything that is actually tested. That divergence is real and is OA-224 Tier 5's "one Node 24 pin everywhere"; it is named here rather than fixed here so that this page describes one rule and the migration is a change somebody can gate.
+**`engines` said `>=22` until 2026-09-03** (OA-224 Tier 5, cross-repo F15) — a floor no build, no workflow and no container had ever used, and the only one of these five pins a person reads before installing a toolchain. `scripts/test-node-pin.mjs` now joins them: it reads the major out of the Dockerfile and requires `engines` and every literal workflow pin to name it, and it deliberately does NOT require `verify.yml` to spell the number out, because that workflow is the one that already got this right. It was watched go red on the real `>=22` before the fix went in.
 
 ## Git
 
