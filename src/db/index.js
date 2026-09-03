@@ -3,6 +3,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
+import { ENUMS, allEnumGuardSql } from './enums.js';   // the two state enums (OA-224 Tier 4.5)
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,8 +69,12 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  * outage, which is the opposite of what a rollback is for.
  *
  * 1 = the schema as it stood on 2026-08-25, after the N3 token-hash migration.
+ * 2 = 2026-09-03, OA-224 Tier 4.5: the two state enums are enforced by triggers
+ *     and two measured indexes exist. Both are ADDITIVE — no column changed type,
+ *     no value was rewritten, no table was rebuilt — so the rollback promise above
+ *     is unaffected and a v1 release opens a v2 database exactly as before.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
@@ -149,6 +154,62 @@ export function recordedSchemaVersion() {
   }
 
   hashStoredTokens();
+
+  // -------------------------------------------------------------------------
+  // OA-224 Tier 4.5 — the schema says what its comments said.
+  //
+  // The two state enums existed only as a `--` comment beside the column, so a
+  // handler writing 'Published' or 'pubished' was accepted by the database, broke
+  // no test, and took the map off the public site, because every public query
+  // filters on that exact string. src/db/enums.js holds the lists, the reasoning
+  // for triggers rather than CHECK, and the SQL; scripts/test-db-constraints.mjs
+  // holds schema.sql's comments to it.
+  //
+  // Reinstalled on every boot rather than created once: the trigger body carries
+  // the value list, so a list that gains a value has to reach the database.
+  for (const stmt of allEnumGuardSql()) db.exec(stmt);
+
+  // A trigger only sees a write. It says nothing about the rows already there —
+  // which a rebuild's CHECK would have refused outright — so that question is
+  // asked separately, once, and answered out loud. A WARNING and not a throw, on
+  // the same argument as the schema-version notice below: a value this code does
+  // not recognise is a reason to look, not a reason for the site to be down.
+  for (const [qualified, values] of Object.entries(ENUMS)) {
+    const [table, column] = qualified.split('.');
+    const list = values.map((v) => `'${v}'`).join(', ');
+    const bad = db.prepare(
+      `SELECT ${column} AS v, COUNT(*) AS c FROM ${table} WHERE ${column} NOT IN (${list}) GROUP BY ${column}`,
+    ).all();
+    for (const row of bad) {
+      console.warn(`[migrate] ${qualified} holds ${row.c} row(s) with the unrecognised value `
+        + `${JSON.stringify(row.v)}. The new guard rejects it on the next write to those rows; `
+        + `existing rows are left alone. Legal values: ${values.join(', ')}.`);
+    }
+  }
+
+  // Two indexes, and only two, because each one was MEASURED with EXPLAIN QUERY
+  // PLAN against the real database rather than reasoned about:
+  //
+  //   map(customer_id)          SCAN map -> SEARCH USING COVERING INDEX. Every
+  //                             authenticated page starts from "this customer's
+  //                             maps", and the public list JOINs on it.
+  //   map(published_version_id) SCAN m -> SEARCH, on the public listing — the
+  //                             hottest anonymous path, and the one whose cost
+  //                             grows with every map ever published. PARTIAL,
+  //                             because the only rows it is ever asked about are
+  //                             the ones where it is NOT NULL.
+  //
+  // TWO THINGS THE REVIEW ASKED FOR ARE DELIBERATELY ABSENT, both because the
+  // measurement disagreed with the finding. `map_version(map_id)` is ALREADY an
+  // index: the `UNIQUE (map_id, major, minor)` constraint gives SQLite
+  // `sqlite_autoindex_map_version_1`, and every per-map version query already
+  // reports SEARCH ... USING COVERING INDEX. And `audit_log(map_id)` indexes a
+  // query nobody runs — `listAudit()` orders by `a.id DESC LIMIT ?` and takes the
+  // primary key. An index with no reader costs write time for ever and hides the
+  // ones that earn their place.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_map_customer ON map(customer_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_map_published ON map(published_version_id) '
+        + 'WHERE published_version_id IS NOT NULL');
 
   // Last, so the stamp means "every migration above ran", not "we got here".
   db.exec(`CREATE TABLE IF NOT EXISTS schema_version (

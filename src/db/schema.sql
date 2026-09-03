@@ -1,5 +1,21 @@
 -- Minimal P0 schema: the two things the public shopfront produces.
 -- (Full customer/map/version/approval model arrives with the authenticated app.)
+--
+-- WHAT IS NOT IN THIS FILE. Two kinds of rule are installed by the migration in
+-- src/db/index.js rather than declared here, and both for the same reason: this
+-- file is `CREATE TABLE IF NOT EXISTS`, so it describes a NEW database and says
+-- nothing to one that already exists.
+--
+--   * The two state enums (map.status, map_version.review_state) are enforced by
+--     BEFORE INSERT/UPDATE triggers built from src/db/enums.js. They are triggers
+--     and not CHECK constraints because SQLite cannot add a constraint to an
+--     existing table, and the twelve-step rebuild that would be needed touches the
+--     one pair of tables in this schema with a CIRCULAR foreign key. enums.js
+--     carries the whole argument.
+--   * Two indexes, each measured with EXPLAIN QUERY PLAN before it was added.
+--
+-- So `.schema` on a live database is the authority on what is enforced, and this
+-- file is the authority on what a fresh one starts as.
 
 CREATE TABLE IF NOT EXISTS application (
   id            INTEGER PRIMARY KEY,
@@ -144,6 +160,9 @@ CREATE TABLE IF NOT EXISTS map (
   requested_by        INTEGER REFERENCES user(id),   -- the user who requested it (P3)
   outputs             TEXT NOT NULL DEFAULT '{}',    -- JSON: which of the 4 outputs this map produces (P2 toggles)
   status              TEXT NOT NULL DEFAULT 'draft', -- requested|approved|building|draft|published|archived (P1: draft)
+                                                  -- ENFORCED, since 2026-09-03: src/db/enums.js MAP_STATUSES installs a
+                                                  -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
+                                                  -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
   current_version_id  INTEGER REFERENCES map_version(id),  -- latest rendered version (the working head shown in the editor)
   published_version_id INTEGER REFERENCES map_version(id),  -- P4: the public-current pointer (the signed-off version); NULL until first publish
   public_listed       INTEGER NOT NULL DEFAULT 1,    -- P6: show the published version on the public site (customer's choice)
@@ -167,6 +186,9 @@ CREATE TABLE IF NOT EXISTS map_version (
                                             -- unchanged (findings A1).
   storage_key     TEXT NOT NULL,            -- render folder name under maps/<id>/renders/, e.g. 'v1.0'
   review_state    TEXT NOT NULL DEFAULT 'draft', -- P4: draft|pending|published|superseded|rejected
+                                                -- ENFORCED, since 2026-09-03: src/db/enums.js REVIEW_STATES installs a
+                                                -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
+                                                -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
   UNIQUE (map_id, major, minor)
 );
 

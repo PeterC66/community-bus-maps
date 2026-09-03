@@ -66,9 +66,53 @@ console.log(`\ncomparing HEAD against ${refs.previous.slice(0, 7)} — "${refs.p
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-schema-compat-'));
 const oldRoot = path.join(scratch, 'old');
 mkdirSync(path.join(oldRoot, 'src', 'db'), { recursive: true });
-for (const f of ['src/db/index.js', 'src/db/schema.sql']) {
-  writeFileSync(path.join(oldRoot, f), git('show', `${refs.previous}:${f}`) + '\n');
+
+/*
+ * WHAT TO COPY OUT OF THE OLD COMMIT, AND WHY IT IS DERIVED RATHER THAN LISTED.
+ *
+ * This was the two-item list `['src/db/index.js', 'src/db/schema.sql']` until
+ * 2026-09-03, and it was a landmine with a date on it. `src/db/index.js` stopped
+ * being self-contained on 2026-09-02, when OA-224 Tier 3.3 gave it
+ * `import { tokenHash } from '../hash.js'` and `import { DATA_DIR } from './paths.js'`.
+ * The test kept passing only because `refs.previous` still pointed at a commit
+ * BEFORE that split — so the fault was invisible, sitting one commit of src/db/
+ * away from turning every arm of this test into "cannot find module". The very
+ * next change to src/db/ would have been the one to trip it, and it would have
+ * looked like that change's fault.
+ *
+ * So the file set is READ OUT OF THE OLD COMMIT rather than typed here: follow
+ * the relative imports from `src/db/index.js` transitively, at that ref, and copy
+ * whatever they name. A future split of that module is then already handled, and
+ * a missing file is reported as a missing file rather than as a broken test.
+ */
+function collectOldFiles(ref, entry) {
+  const seen = new Map();               // repo-relative path -> content
+  const queue = [entry];
+  while (queue.length) {
+    const rel = queue.shift();
+    if (seen.has(rel)) continue;
+    let body;
+    try {
+      body = git('show', `${ref}:${rel}`);
+    } catch {
+      throw new Error(`${rel} is imported at ${ref.slice(0, 7)} and is not in that commit`);
+    }
+    seen.set(rel, body);
+    if (!rel.endsWith('.js')) continue;
+    for (const m of body.matchAll(/(?:^|\n)\s*(?:import|export)[^'"\n]*?from\s*['"](\.[^'"]+)['"]/g)) {
+      queue.push(path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1])));
+    }
+  }
+  return seen;
 }
+
+const oldFiles = collectOldFiles(refs.previous, 'src/db/index.js');
+oldFiles.set('src/db/schema.sql', git('show', `${refs.previous}:src/db/schema.sql`));
+for (const [rel, body] of oldFiles) {
+  mkdirSync(path.join(oldRoot, path.dirname(rel)), { recursive: true });
+  writeFileSync(path.join(oldRoot, rel), body + '\n');
+}
+console.log(`  (copied ${oldFiles.size} file(s) from ${refs.previous.slice(0, 7)}: ${[...oldFiles.keys()].join(', ')})`);
 
 // The probe. One file, run twice, told by DB_MODULE_URL which release's db module
 // to import - importing it is what runs that release's migrations against the

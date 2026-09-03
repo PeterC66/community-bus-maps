@@ -1,25 +1,6 @@
 #!/bin/sh
-# Refuse a commit whose staged .md carries a stamp describing different content.
-#
-# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
-# at the END of a turn — so a commit made DURING a turn carries the new content and
-# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
-# committed content" step correctly calls it stale. Whether a given commit is red
-# depends only on where the turn boundary happened to fall, which is why it looks
-# intermittent and why it is not.
-#
-# It has already happened here: commit "Docstamp: three committed stamps did not
-# describe their committed content" (#149, 2026-08-29) is exactly this fault,
-# three documents' worth, found by CI after the push rather than before it. In the
-# sibling `buses-data` repo the same fault took 10 of 15 gates runs red in a day.
-#
-# CI reporting it minutes later is the wrong end of the problem: by then the commit
-# is pushed and somebody has to decide whether a red run matters, which is how a
-# gate gets muted. This refuses the commit instead.
-#
-# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
-# A document that was already stale is not this commit's fault, and a hook that
-# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+# Two refusals: a leftover merge-conflict marker, and a stamp describing different
+# content. Both are things git itself will happily commit.
 #
 # THIS HOOK IS NOT AUTOMATICALLY ACTIVE IN A FRESH CLONE. `core.hooksPath` is local
 # git config and does not travel with the repository, so each clone or worktree must
@@ -32,11 +13,102 @@
 # See docs/DEVELOPING.md.
 set -e
 
+# ---------------------------------------------------------------------------
+# indent -- print a block indented four spaces, WITHOUT a pipeline.
+#
+# WHY IT IS NOT `printf ... | sed`. MEASURED in the sibling buses-data repository,
+# in a throwaway checkout: with the sed form, `git commit 2>&1 | head -4` printed
+# the refusal and then GIT EXITED 0 AND THE COMMIT LANDED. `head` stops reading
+# after its four lines and closes the pipe; the `sed` inside the hook is killed
+# writing to it, and the hook dies partway through its own refusal without ever
+# reaching `exit 1`. Unpiped, and piped to `tail`, the identical commit was
+# correctly refused. That made every refusal here conditional on how the caller
+# happened to read the output. A guard that can be switched off by `| head` is not
+# a guard, so every write stays inside the hook's own process.
+indent() {
+  while IFS= read -r _line; do
+    echo "    $_line"
+  done <<INDENT_EOF
+$1
+INDENT_EOF
+}
+
+# ---------------------------------------------------------------------------
+# A leftover merge-conflict marker in a staged file.
+#
+# WHY THIS EXISTS. GIT DOES NOT STOP THIS. Git refuses a commit only while a merge
+# is IN PROGRESS with unmerged paths; the moment you `git add` the file, git treats
+# it as resolved and commits whatever is in it, markers and all. It is a REFUSAL
+# rather than a warning because, unlike an untracked sibling, it can never be
+# deliberate: there is no state of this repository in which a line beginning with a
+# conflict marker is the content somebody meant to commit.
+#
+# THE FAULT IS THIS REPOSITORY'S OWN, AND IT WAS SITTING ON `main` WHEN THIS LANDED.
+# The check was written in buses-data on 2026-08-31, motivated by an incident HERE
+# -- two sessions' changelog fragments meeting on main -- and it was never copied
+# across (codebase review 2026-09-01, cross-repo F23: this hook was a strict subset
+# of the other one). On 2026-09-03, rebasing #211, `main`'s CHANGELOG.md was found
+# to be carrying three committed conflict-marker lines with a stale duplicate
+# docstamp beneath them. Nothing had said so, because nothing was asking.
+#
+# WHAT MAKES IT WORTH A GUARD is a shape both repositories have: a GENERATED file
+# whose header the generator does not rewrite. CHANGELOG.md is rebuilt from the
+# CHANGELOG.d/ fragments by `npm run changelog` -- and it leaves everything above
+# the generated block alone, which is exactly where the docstamp lives. So "just
+# regenerate it" resolves the entries and leaves a conflict sitting across the two
+# `sha=` lines, looking resolved because the tool ran and exited 0. That is how
+# these markers reached main: on the same file, `npm run changelog` reported
+# "changelog index is up to date" with the markers still in the header above it.
+#
+# IT IS FIRST IN THIS FILE ON PURPOSE. The stamper block below exits 0 early when
+# the stamp-docs skill tree is absent, which is right for the stamp check and would
+# have silently disabled this one on every machine without that tree.
+#
+# It reads ADDED lines in the staged diff, so it fires on the commit that introduces
+# a marker and not for ever afterwards. A document that quotes the markers inline in
+# backticks does not trip it, which the failure-shape write-up depends on.
+conflicts=$(git diff --cached --check 2>/dev/null | grep 'leftover conflict marker' || true)
+if [ -n "$conflicts" ]; then
+  echo ""
+  echo "pre-commit: refused -- staged content still carries merge-conflict markers:"
+  indent "$conflicts"
+  echo ""
+  echo "  git does NOT catch this once the file is staged. Resolve the file, re-add it,"
+  echo "  and commit again. If it is a GENERATED file -- CHANGELOG.md, say -- regenerate"
+  echo "  it rather than hand-resolving the body, then check the HEADER as well: the"
+  echo "  generator does not rewrite the docstamp, so a conflict can survive the"
+  echo "  regenerate sitting across the two sha= lines."
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# A staged .md whose stamp describes different content.
+#
+# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
+# at the END of a turn -- so a commit made DURING a turn carries the new content and
+# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
+# committed content" step correctly calls it stale. Whether a given commit is red
+# depends only on where the turn boundary happened to fall, which is why it looks
+# intermittent and why it is not.
+#
+# It has already happened here: commit "Docstamp: three committed stamps did not
+# describe their committed content" (#149, 2026-08-29) is exactly this fault, three
+# documents' worth, found by CI after the push rather than before it. In the sibling
+# buses-data repo the same fault took 10 of 15 gates runs red in a day.
+#
+# CI reporting it minutes later is the wrong end of the problem: by then the commit
+# is pushed and somebody has to decide whether a red run matters, which is how a
+# gate gets muted. This refuses the commit instead.
+#
+# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
+# A document that was already stale is not this commit's fault, and a hook that
+# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
 STAMPER="$HOME/.claude/skills/stamp-docs/scripts/check_committed_stamps.py"
 
 # A missing stamper must not block committing. The stamp-docs skill tree is not part
 # of this repository, and a hook that dies on a machine without it would teach
-# whoever hits that to bypass the hook permanently.
+# whoever hits that to bypass the hook permanently. The conflict check above runs
+# either way, which is why it is above this line and not below it.
 if [ ! -f "$STAMPER" ]; then
   exit 0
 fi

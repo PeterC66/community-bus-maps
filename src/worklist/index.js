@@ -30,6 +30,7 @@ import {
 import { loadStatusSnapshot } from '../status-snapshot.js';
 import { emailHealth, FAILURE_THRESHOLD } from '../email/health.js';
 import { publicBaseUrl } from '../config.js';
+import { dbDateMs } from '../db/dates.js';
 
 // Ranks are "who is blocked", not "which queue". Lower acts first.
 // 0 is reserved for the skill's failing-gate items — nothing the portal knows
@@ -45,7 +46,7 @@ export const bandFor = (rank) => (BANDS.find((b) => rank <= b.max) || BANDS[BAND
 // SQLite stores "YYYY-MM-DD HH:MM:SS" in UTC; anything already ISO passes through.
 export function daysSince(v) {
   if (!v) return null;
-  const t = new Date(/^\d{4}-\d{2}-\d{2} /.test(String(v)) ? `${String(v).replace(' ', 'T')}Z` : v).getTime();
+  const t = dbDateMs(v);
   return Number.isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
 }
 

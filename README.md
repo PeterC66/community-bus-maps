@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.17 | 2026-08-28 | sha=5b1f6412 -->
-**v1.17** · updated 28 August 2026
+<!-- docstamp v1.18 | 2026-09-03 | sha=599e39a8 -->
+**v1.18** · updated 3 September 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -117,10 +117,13 @@ Three conditions make a map public, and they are enforced **in SQL**, not at the
 
 Customers set their public identity at **/app/branding** — public name, one-line blurb, website, badge (emoji or initials) and an accent colour from a fixed list. It is server-validated by a whitelist (`src/branding/index.js`) in the same spirit as the safe subset, and it decorates the public *page*: the printed sheet is untouched. No email or phone is brandable, so a public page never exposes contact details — feedback comes back through our own form (and lands in the admin **Messages** tab against that map).
 
+Run the suite from the repository root (`C:\Claude\community-bus-maps`); it takes no arguments:
+
 ```bash
-npm test          # P6 checks: the branding whitelist, the public SQL gate, slugs, both migration paths
-                  # P8a checks: the facts model (area + place), provenance/staleness, the inline-SVG transform
+npm test
 ```
+
+`scripts/run-tests.mjs` **discovers** every `test-*`/`prove-red-*` file in `scripts/` rather than working from a list, so a new test is in the suite the moment it lands and an excluded one has to name where it does run. Read the file and verdict counts off the run — this paragraph used to enumerate two phases' worth of checks and had been wrong for months. To see the plan without running it: `npm test -- --list`.
 
 ## The expert side (P7)
 

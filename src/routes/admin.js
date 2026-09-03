@@ -29,6 +29,7 @@ import { bumpSearchIndex } from '../search/index.js';
 import { APP_VERSION } from '../version.js';
 import { sendMagicLink } from '../email/index.js';
 import { notify } from '../email/notify.js';
+import { dbDateMs } from '../db/dates.js';
 import { DEV_LINKS, MSG_STATUSES, ORG_TYPES, authLink, baseUrl, isEmail, isHttps, operatorRead, parseJson, requireAdmin, requireStepUp, str } from '../http/helpers.js';
 
 export default async function adminRoutes(app) {
@@ -438,7 +439,7 @@ export default async function adminRoutes(app) {
         expiresAt: r.expires_at,
         // expires_at is always exactly SESSION_DAYS after the last use, so it is
         // also the record of when that was — no extra column needed.
-        lastSeenAt: new Date(new Date(`${String(r.expires_at).replace(' ', 'T')}Z`).getTime() - SESSION_DAYS * 86_400_000)
+        lastSeenAt: new Date(dbDateMs(r.expires_at) - SESSION_DAYS * 86_400_000)
           .toISOString().slice(0, 19).replace('T', ' '),
       })),
     };

@@ -27,6 +27,7 @@
 import { existsSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { rasterise } from './renderMap.js';
+import { parseDbDate } from '../db/dates.js';
 
 // footer.js draws it end-anchored in the footer's own grey. Capturing the whole
 // element and its attributes lets the replacement inherit them, so the marked line
@@ -38,8 +39,8 @@ const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** '2026-08-19 14:02:11' or an ISO string -> '19 Aug 2026 14:02'. */
 function when(created) {
-  const d = new Date(String(created || '').replace(' ', 'T') + (String(created || '').includes('Z') ? '' : 'Z'));
-  if (Number.isNaN(d.getTime())) return null;
+  const d = parseDbDate(created);
+  if (!d) return null;
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
