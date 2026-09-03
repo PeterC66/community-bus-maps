@@ -583,6 +583,8 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 #namesBtn[aria-pressed="false"] { opacity: .5; }
 
 .lm-actions { margin-top: 10px; }
+/* The export block, when the clipboard is not available to put it on. */
+.lm-block { width: 100%; min-height: 9em; font-family: var(--mono, ui-monospace, monospace); font-size: .72rem; }
 .lm-tally { font-size: .9rem; color: var(--muted); margin-bottom: 8px; }
 
 .lm-listcard .body { padding-top: 12px; }
@@ -608,8 +610,26 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-tagline { color: var(--muted); font-style: italic; }
 .lm-bulk { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .72rem; }
 
+/* THE NAME GETS THE WIDTH, AND THE THREE ANSWERS GET THEIR OWN LINE UNLESS
+   THERE IS ROOM FOR BOTH (Peter, 2026-09-03).
+
+   `auto 1fr auto` is only as good as the space left over, and there is none:
+   the three pills spell out their answers in full — that wording is the whole
+   design of this page — and they measure about 530 px together. The list panel
+   is 480 px in the two-column layout and about 730 px in the one-column one, so
+   the 1fr column was pushed to its MIN-CONTENT width in both, and every row
+   became five lines of one-word-per-line with a name broken across two of them.
+
+   So the row stacks by default and goes back to one line only when its own
+   container is wide enough to hold both. A container query rather than a media
+   query because the deciding width is the PANEL's, not the window's — the same
+   window gives this panel 480 px or 730 px depending on the layout above it. A
+   browser without @container gets the stacked form, which is the one that
+   always fits. */
+.lm-listcard { container-type: inline-size; }
+
 .lm-row {
-  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px;
   padding: 8px; border-bottom: 1px solid var(--border); border-left: 3px solid transparent;
 }
 .lm-row:last-child { border-bottom: 0; }
@@ -624,8 +644,17 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-title { display: block; font-size: .92rem; font-weight: 600; }
 .lm-was { display: block; color: var(--muted); font-size: .74rem; }
 .lm-sub { display: block; color: var(--muted); font-size: .74rem; }
+/* A title this page supplied because the map's data had none. Italic and muted
+   so it cannot be misread as the place's actual name — the reader is being told
+   what is missing, not what it is called. */
+.lm-noname { font-style: italic; color: var(--muted); font-weight: 500; }
 
-.lm-choices { display: inline-flex; gap: 4px; align-self: center; }
+.lm-choices { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; align-self: center; }
+
+@container (min-width: 840px) {
+  .lm-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .lm-choices { grid-column: 3; flex-wrap: nowrap; }
+}
 .lm-opt { position: relative; }
 .lm-opt input { position: absolute; opacity: 0; pointer-events: none; }
 .lm-opt span {
