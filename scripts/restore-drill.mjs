@@ -107,8 +107,41 @@ try {
       console.error('        The private key lives in the password manager; write it to a file and pass it here.');
       process.exit(2);
     }
-    check(existsSync(IDENTITY), 'the identity file is where you said', IDENTITY);
-    if (!existsSync(IDENTITY)) process.exit(2);
+    /* SAY WHAT IS WRONG, NOT WHAT WAS HOPED. The first version of this printed
+     * `FAIL  the identity file is where you said — <path>`, which asserts the
+     * positive and then prints the path, so it reads as though the file HAD been
+     * found and something else had gone wrong. A wrong path is the likeliest
+     * mistake here and it deserves a sentence that names it, plus the near misses,
+     * because Notepad appends `.txt` and a key saved to Documents rather than the
+     * home folder is the same typo twice over. */
+    if (!existsSync(IDENTITY)) {
+      console.log(`  FAIL  no identity file at ${IDENTITY}`);
+      const dir = path.dirname(IDENTITY);
+      const stem = path.basename(IDENTITY).replace(/\.[^.]*$/, '').toLowerCase().slice(0, 8);
+      /* THE NAMED FOLDER AND ITS OBVIOUS SIBLINGS. Searching only the folder the
+       * caller typed misses the mistake that actually happened on 2026-09-03: the
+       * key was saved to Documents and the command named the home folder, so the
+       * near-miss was one level sideways and the script had nothing to say. These
+       * three are where a Save As dialog puts a file on this machine. */
+      const look = [dir, path.join(dir, 'Documents'), path.join(dir, 'Downloads'), path.join(dir, 'Desktop')];
+      const near = [];
+      for (const d of look) {
+        try {
+          for (const f of readdirSync(d)) {
+            if (f.toLowerCase().includes(stem)) near.push(path.join(d, f));
+          }
+        } catch { /* not a directory we can read; the next one may be */ }
+      }
+      if (near.length) {
+        console.log('        did you mean one of these?');
+        for (const f of near) console.log(`          ${f.replace(/\\/g, '/')}`);
+      } else if (!existsSync(dir)) {
+        console.log(`        (the folder ${dir} does not exist either)`);
+      }
+      console.log('        The private key lives in the password manager; write it to a file and pass that path.');
+      process.exit(2);
+    }
+    check(true, 'the identity file is where you said');
     try {
       // `age` reads the key file itself: the private key never passes through
       // this process, is never printed, and is never written anywhere else.
