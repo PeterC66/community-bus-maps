@@ -1,7 +1,7 @@
 ﻿# Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.5 | 2026-08-21 | sha=4a47fd19 -->
-**v1.5** · updated 21 August 2026
+<!-- docstamp v1.6 | 2026-09-03 | sha=fc6c3a3e -->
+**v1.6** · updated 3 September 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -19,7 +19,7 @@ Considered and rejected: *experimental* (reads as "may break your data" — wron
 
 | Surface | What appears | Where |
 |---|---|---|
-| Every web page (17 static files + the 404) | Amber banner above the header; `[Pilot]` prefix on the tab title | `/js/site-banner.js`, generated in `src/server.js` |
+| Every web page (17 static files + the 404) | Amber banner above the header; `[Pilot]` prefix on the tab title | `/js/site-banner.js`, generated in `src/routes/public.js` |
 | Every rendered sheet | Red band across the top: *PILOT — SAMPLE MAP · Made to test the system…* | `src/render/pilotStamp.js` |
 | FAQ | The `#pilot` entry — the banner's link target, and the honest long version | `public/faq.html` |
 

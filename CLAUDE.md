@@ -1,7 +1,7 @@
 ﻿# BusMaps.uk — portal
 
-<!-- docstamp v1.26 | 2026-09-02 | sha=b101fb25 -->
-**v1.26** · updated 2 September 2026
+<!-- docstamp v1.27 | 2026-09-03 | sha=752898e0 -->
+**v1.27** · updated 3 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -117,7 +117,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
   Both are ignored now — the habit that matters is **look at what `git add -A` actually staged
   before committing in a repo with a public remote.**
   Private operator records live in a separate local-only folder, never synced.
-- **An edit to a server-rendered shell needs the server restarted, including under `npm run dev`.** `shell()` in `src/server.js` reads `public/map.html`, `public/services.html` and their siblings **once** into `shellCache` and never invalidates it, and `node --watch` only restarts on files it has *imported* — so an HTML edit is invisible to `/m/<slug>` until the process is stopped and started. Found on 2026-08-27 by screenshotting a page whose new element was in the file and not in the response. CSS and the client JS reload normally; only the SSR shells are cached.
+- **An edit to a server-rendered shell needs the server restarted, including under `npm run dev`.** `shell()` in `src/routes/public.js` (it was in `src/server.js` until OA-232 Tier 3.2) reads `public/map.html`, `public/services.html` and their siblings **once** into `shellCache` and never invalidates it, and `node --watch` only restarts on files it has *imported* — so an HTML edit is invisible to `/m/<slug>` until the process is stopped and started. Found on 2026-08-27 by screenshotting a page whose new element was in the file and not in the response. CSS and the client JS reload normally; only the SSR shells are cached.
 - Server-enforced always; client-side checks are UX, not security.
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
 - Record what changed and why as a **fragment** in `CHANGELOG.d/` — `YYYY-MM-DD-slug.md`, with `date:` and `title:` front matter — then run `npm run changelog` from the repository root to rebuild the index. **Do not write into `CHANGELOG.md` itself; it is generated and your entry will be overwritten.** One file per entry is what stops two sessions conflicting over the same file on the same day. `npm test` fails if the index is out of date. See [`CHANGELOG.d/README.md`](CHANGELOG.d/README.md).

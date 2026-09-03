@@ -1,7 +1,7 @@
 # Runbook R5 — Marketing site, public front & messages
 
-<!-- docstamp v1.9 | 2026-09-01 | sha=ca2b8556 -->
-**v1.9** · updated 1 September 2026
+<!-- docstamp v1.10 | 2026-09-03 | sha=bb17ec4c -->
+**v1.10** · updated 3 September 2026
 
 **Serves:** maintaining the website · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -40,7 +40,7 @@ Plain HTML, edited directly, sharing one header/footer and `/css/styles.css`:
 `/maps` (gallery), `/m/<slug>` (a published map: sheets, downloads, org credit, **report a problem**), and `/o/<org-slug>` (an organisation's page) are built from the database — **you don't edit them**. A map appears there only when **all three** hold (enforced in SQL): it has a **published** version, its customer is **active**, and the customer has left it **listed**.
 
 - **Publish ≠ public.** Publishing (R3) makes a version official; the customer's **listing** switch (`/app/maps/:id` → the public toggle) decides whether it shows. Either can be off.
-- `robots.txt` is automatic, and `sitemap.xml` generates the **map and organisation** entries by itself from `PUBLIC_BASE_URL` (DEPLOY §2). The **static** pages are a hand-kept list — `STATIC_PAGES` in `src/server.js` — so **a new shopfront page needs adding there as well as to the footers**. `terms.html` sat in every footer and out of the sitemap for a week because that step was missed; the rule is that the two lists name the same pages.
+- `robots.txt` is automatic, and `sitemap.xml` generates the **map and organisation** entries by itself from `PUBLIC_BASE_URL` (DEPLOY §2). The **static** pages are a hand-kept list — `STATIC_PAGES` in `src/public/staticPages.js`, read by the `sitemap.xml` route in `src/routes/public.js` — so **a new shopfront page needs adding there as well as to the footers**. `terms.html` sat in every footer and out of the sitemap for a week because that step was missed; the rule is that the two lists name the same pages.
 
 ## Search engines — verification and the sitemap
 
