@@ -1,7 +1,7 @@
 ﻿# Deploying and running the portal (P7)
 
-<!-- docstamp v1.38 | 2026-09-03 | sha=dc484d13 -->
-**v1.38** · updated 3 September 2026
+<!-- docstamp v1.39 | 2026-09-03 | sha=0eee3843 -->
+**v1.39** · updated 3 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -256,13 +256,15 @@ node scripts/restore-drill.mjs --snapshot C:/Claude/community-bus-maps/backups/l
 
 `--db-only` says you copied the database and not `maps/`; the run then SKIPS the maps check out loud and names how many maps went unverified, rather than passing quietly. Drop it if you copied the whole snapshot. Exit 0 the snapshot restores, 1 it does not, 2 the arguments are wrong. Add `--keep` to leave the decrypted database for inspection — it is a full copy of live data, so delete it afterwards.
 
-**Falsified before it was trusted, 2026-09-03**: run against a snapshot encrypted to a throwaway key it reports every check green through the migrations and the row counts; run against the *same* snapshot with a different identity it fails on `age -d`, names the recipient the manifest records, and exits 1. What has NOT yet been drilled is the live snapshot with the real key — that needs the private key, and Claude does not handle credentials. **Do that once and date it here.**
+**Falsified before it was trusted, 2026-09-03**: run against a snapshot encrypted to a throwaway key it reports every check green through the migrations and the row counts; run against the *same* snapshot with a different identity it fails on `age -d`, names the recipient the manifest records, and exits 1.
+
+**And then run for real, the same day.** The live `2026-09-02T22-29-58` snapshot, with the key from the password manager, passed every check. That is the first time an encrypted snapshot has been opened since `BACKUP_RECIPIENT` was added on 2026-08-25 — for nine days the backups were, strictly, untested. **Re-drill whenever `BACKUP_RECIPIENT` changes**, which is the only event that can invalidate this result, and add a row to the table below; a rotated key with no drill behind it is the same unknown all over again. Delete the identity file afterwards.
 
 | Drilled | What | Result |
 |---|---|---|
 | 2026-08-09 | Full restore into the live volume, unencrypted database | Passed; corrected this section's volume assumption |
 | 2026-09-03 | `restore-drill.mjs` end-to-end on an encrypted snapshot, throwaway key | Passed, and seen to fail on the wrong key |
-| — | `restore-drill.mjs` on a **live** snapshot with the real `BACKUP_RECIPIENT` key | **not yet done** |
+| 2026-09-03 | `restore-drill.mjs` on the **live** `2026-09-02T22-29-58` snapshot with the real `BACKUP_RECIPIENT` key, `--db-only` | **Passed, every check green.** The first time an encrypted snapshot had been opened since `BACKUP_RECIPIENT` was added on 2026-08-25 |
 
 ### Restore drill (do it once, before you need it)
 
