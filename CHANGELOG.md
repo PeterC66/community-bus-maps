@@ -1,7 +1,7 @@
 # Changelog
 
-<!-- docstamp v1.153 | 2026-09-03 | sha=3af44402 -->
-**v1.153** · updated 3 September 2026
+<!-- docstamp v1.154 | 2026-09-03 | sha=4147c7ee -->
+**v1.154** · updated 3 September 2026
 
 Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (YYYY-MM-DD).
 
@@ -15,6 +15,7 @@ Notable changes to BusMaps.uk. Loosely follows Keep a Changelog; dates are ISO (
 - **2026-09-03** — [The engine takes one luminance module, and the place skill stops carrying its own resolvers](CHANGELOG.d/2026-09-03-the-engine-takes-one-luminance-module.md)
 - **2026-09-03** — [The helpers are adopted, and each one now has a check saying its callers use it](CHANGELOG.d/2026-09-03-the-helpers-are-adopted-and-each-one-has-a-check.md)
 - **2026-09-03** — [The landmark chooser could not speak, and had been showing a quarter of every icon](CHANGELOG.d/2026-09-03-the-landmark-chooser-could-not-speak-and-showed-a-quarter-of-each-icon.md)
+- **2026-09-03** — [The public front is a plugin, and the cut cannot undo itself](CHANGELOG.d/2026-09-03-the-public-front-is-a-plugin-and-the-cut-cannot-undo-itself.md)
 - **2026-09-03** — [The schema says what its comments said, and one place reads a timestamp](CHANGELOG.d/2026-09-03-the-schema-says-what-its-comments-said.md)
 - **2026-09-02** — [A place sheet can refuse](CHANGELOG.d/2026-09-02-a-place-sheet-can-refuse.md)
 - **2026-09-02** — [A post-deploy check that asks the running site whether its routes are still there — the one question no other gate can ask](CHANGELOG.d/2026-09-02-a-post-deploy-check-that-asks-whether-the-routes-are-still-there.md)
