@@ -1,4 +1,7 @@
-### The documents nobody had ever checked
+---
+date: 2026-09-04
+title: "The documents nobody had ever checked, and the nineteen faults in them"
+---
 
 Two checkers that had been widened eight times inside the other two repositories now read this one. `check-tables.mjs` was green on the first run — 303 rows across 17 documents in `docs/`, 11 at the root, 8 under `engine/`, and no table at all in `CHANGELOG.d/`. `check-doc-links.mjs` reported 49 findings and **19 of them were real**.
 
