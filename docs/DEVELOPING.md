@@ -1,4 +1,4 @@
-﻿# Developing the portal — how to change it safely
+# Developing the portal — how to change it safely
 
 <!-- docstamp v1.25 | 2026-09-03 | sha=4b6e497f -->
 **v1.25** · updated 3 September 2026

@@ -1,4 +1,4 @@
-﻿# Operations Handbook (H1) — BusMaps.uk portal
+# Operations Handbook (H1) — BusMaps.uk portal
 
 <!-- docstamp v1.22 | 2026-08-31 | sha=2badfde1 -->
 **v1.22** · updated 31 August 2026

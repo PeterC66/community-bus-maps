@@ -1,4 +1,4 @@
-﻿# Runbook R6 — Incident response
+# Runbook R6 — Incident response
 
 <!-- docstamp v1.4 | 2026-08-28 | sha=8e84ab28 -->
 **v1.4** · updated 28 August 2026

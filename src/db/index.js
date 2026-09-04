@@ -1,4 +1,4 @@
-﻿// SQLite via Node's built-in node:sqlite (no native build step).
+// SQLite via Node's built-in node:sqlite (no native build step).
 // The DB file lives under DATA_DIR (git-ignored) — never in the repo.
 
 import { DatabaseSync } from 'node:sqlite';

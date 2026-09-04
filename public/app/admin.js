@@ -1,4 +1,4 @@
-﻿// Admin console (P3): review applications, run the map-request lifecycle, and
+// Admin console (P3): review applications, run the map-request lifecycle, and
 // manage customers/quotas. Admin-only — the page redirects non-admins; the API
 // independently enforces the admin role on every route.
 

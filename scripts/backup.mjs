@@ -1,4 +1,4 @@
-﻿// Backup the portal's state (P7 ops).
+// Backup the portal's state (P7 ops).
 //
 //   node scripts/backup.mjs [--out <dir>] [--keep-days 14] [--keep 7]
 //                           [--keep-recent-hours 48] [--no-renders] [--quiet]

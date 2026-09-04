@@ -1,4 +1,4 @@
-﻿# The Dummy's Guide — developing, testing, and demonstrating the portal
+# The Dummy's Guide — developing, testing, and demonstrating the portal
 
 <!-- docstamp v1.8 | 2026-08-12 | sha=65debeca -->
 **v1.8** · updated 12 August 2026

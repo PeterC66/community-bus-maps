@@ -1,4 +1,4 @@
-﻿// Seed a multi-customer demo: an admin (you), a few demo organisations each with
+// Seed a multi-customer demo: an admin (you), a few demo organisations each with
 // an editor user, and their maps imported from the separate Buses repo. Safe to
 // re-run — existing customers/users/maps are reused, not duplicated.
 //

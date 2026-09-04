@@ -1,4 +1,4 @@
-﻿# Runbook R1 — Create a new area or place map
+# Runbook R1 — Create a new area or place map
 
 <!-- docstamp v1.12 | 2026-08-30 | sha=9c98f14b -->
 **v1.12** · updated 30 August 2026

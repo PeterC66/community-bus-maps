@@ -1,4 +1,4 @@
-﻿// Monthly-refresh domain logic (P5) — the deterministic data diff.
+// Monthly-refresh domain logic (P5) — the deterministic data diff.
 //
 // When the central pipeline restages a map's data, the customer needs to see, in
 // plain terms, WHAT the refresh changed before accepting it. This module diffs

@@ -1,4 +1,4 @@
-﻿// Review console (P4). Approvers/admins review a submitted map version before
+// Review console (P4). Approvers/admins review a submitted map version before
 // it becomes the official public version. Gated to approver/admin; the server
 // independently enforces the role and the completed-checklist requirement.
 

@@ -1,4 +1,4 @@
-﻿# Documentation development plan — the operator layer
+# Documentation development plan — the operator layer
 
 <!-- docstamp v1.7 | 2026-08-27 | sha=64772326 -->
 **v1.7** · updated 27 August 2026

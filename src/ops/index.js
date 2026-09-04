@@ -1,4 +1,4 @@
-﻿// Ops instrumentation (P7).
+// Ops instrumentation (P7).
 //
 // Everything an operator needs to answer "is this healthy, and what is it using?"
 // without shelling into the box: a readiness probe that actually exercises the

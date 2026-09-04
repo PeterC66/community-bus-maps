@@ -103,6 +103,51 @@ fi
 # SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
 # A document that was already stale is not this commit's fault, and a hook that
 # refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+# ---------------------------------------------------------------------------
+# A byte-order mark, or a file carrying two kinds of line ending.
+#
+# WHY THIS REPOSITORY NEEDED IT MOST (buses-data OA-241, 2026-09-04). A sweep of
+# all three repositories found 47 faults here against 6 in buses-data and 2 in
+# claude-skills: 46 BOMs, among them CLAUDE.md, README.md, twelve docs/*.md,
+# twelve views/app/*.html and src/server.js. A BOM sits INVISIBLY before the first
+# character, so it breaks any edit matching the start of a file while showing up in
+# no diff and no review. They were stripped in the change that added this; the test
+# suite was 61/61 before and after.
+#
+# WHY THE HOOK AND NOT CI. The checker lives in buses-data, which is PRIVATE, and
+# this repository is public -- so a CI step would need CROSS_REPO_PAT2, and hanging
+# a hygiene check off that token is exactly what buses-data's `docs` job was
+# separated out to avoid: a token expiry must not take the documentation checks
+# down with the byte gates. Moving the checker to claude-skills, which is public,
+# is the honest fix and is not done yet. It is also the only place the MIXED-EOL
+# half could ever live: the index normalises to LF on staging and actions/checkout
+# builds a uniform tree, so mixed line endings are a property of a WORKING TREE
+# that no commit and no CI run can express.
+#
+# THE PATH IS CONFIGURABLE and defaults to where buses-data sits on the machine
+# this was written on. Point it somewhere else with, from this repository's root:
+#
+#   git config hooks.busesDataPath "/c/some/other/buses-data"
+#
+# A MISSING CHECKER MUST NOT BLOCK COMMITTING, the same rule the stamper below
+# follows: buses-data is not part of this repository, and a hook that dies on a
+# machine without it teaches whoever hits that to bypass the hook for good.
+BUSES_DATA=$(git config --get hooks.busesDataPath || echo "/c/u3a St Ives/Using AI/Buses")
+HYGIENE="$BUSES_DATA/Documentation/check-file-hygiene.mjs"
+if [ -f "$HYGIENE" ] && command -v node >/dev/null 2>&1; then
+  hygiene_out=$(node "$HYGIENE" --staged --root "$(git rev-parse --show-toplevel)" 2>&1) || {
+    echo ""
+    echo "pre-commit: refused -- staged files carry layout faults that confound an edit:"
+    indent "$hygiene_out"
+    echo ""
+    echo "  A BOM is invisible and shows up in no diff. MIXED-EOL is invisible to git"
+    echo "  itself: the index normalises to LF on staging, so the diff looks clean."
+    echo "  Rewrite the file without the mark, or with one kind of line ending."
+    echo "  (bypass with --no-verify only for a captured file kept as it arrived)"
+    exit 1
+  }
+fi
+
 STAMPER="$HOME/.claude/skills/stamp-docs/scripts/check_committed_stamps.py"
 
 # A missing stamper must not block committing. The stamp-docs skill tree is not part

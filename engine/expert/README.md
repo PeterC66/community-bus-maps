@@ -1,4 +1,4 @@
-﻿# engine/expert/ — the vendored EXPERT-STYLE engines (P7)
+# engine/expert/ — the vendored EXPERT-STYLE engines (P7)
 
 <!-- docstamp v1.4 | 2026-08-23 | sha=eb7485e4 -->
 **v1.4** · updated 23 August 2026

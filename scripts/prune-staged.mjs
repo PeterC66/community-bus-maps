@@ -1,4 +1,4 @@
-﻿// Reclaim space from settled monthly refreshes (P7 ops).
+// Reclaim space from settled monthly refreshes (P7 ops).
 //
 //   node scripts/prune-staged.mjs [--days 90]              # dry run (default)
 //   node scripts/prune-staged.mjs [--days 90] --yes         # actually delete

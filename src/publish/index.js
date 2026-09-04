@@ -1,4 +1,4 @@
-﻿// Publish-gate domain logic (P4) — pure, deterministic, no I/O.
+// Publish-gate domain logic (P4) — pure, deterministic, no I/O.
 //
 // Two pieces of evidence back a review:
 //   1. changeSummary() — exactly what this version changes versus the currently

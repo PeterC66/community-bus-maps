@@ -1,4 +1,4 @@
-﻿// The public read model (P6).
+// The public read model (P6).
 //
 // Everything the unauthenticated site shows is derived here, from the rows the
 // P6 queries in src/db/index.js already restricted to *published, listed maps of
