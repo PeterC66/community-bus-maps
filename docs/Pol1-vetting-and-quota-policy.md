@@ -1,11 +1,11 @@
 # Vetting & quota policy (Pol1)
 
-<!-- docstamp v1.2 | 2026-08-30 | sha=0286aa42 -->
-**v1.2** · updated 30 August 2026
+<!-- docstamp v1.3 | 2026-09-04 | sha=915556d9 -->
+**v1.3** · updated 4 September 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
-**Purpose.** The criteria you apply when deciding an application (R2), and the default quotas — so decisions are consistent and defensible. This is the generic rulebook; the **actual decisions** (real organisations) go in the private [vetting decisions log](../../community-bus-maps-ops/P2-vetting-decisions-log.md) (`ops/`).
+**Purpose.** The criteria you apply when deciding an application (R2), and the default quotas — so decisions are consistent and defensible. This is the generic rulebook; the **actual decisions** (real organisations) go in the private vetting decisions log, `P2-vetting-decisions-log.md` in the ops folder (`C:\Claude\community-bus-maps-ops\`).
 
 > **Pilot.** No application has ever been approved. During the pilot, prefer a **small number** of organisations that will actually tell you what is wrong, and be explicit with them about what they are joining (R2, [`PILOT.md`](PILOT.md)). The criteria below are the standing rulebook regardless.
 

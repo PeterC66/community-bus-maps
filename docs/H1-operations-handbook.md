@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.22 | 2026-08-31 | sha=2badfde1 -->
-**v1.22** · updated 31 August 2026
+<!-- docstamp v1.23 | 2026-09-04 | sha=6c4fd386 -->
+**v1.23** · updated 4 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -168,6 +168,8 @@ If someone (or a future session) has to pick this up:
 ---
 
 ## Appendix — quick command reference
+
+Run these from the repository root (`C:\Claude\community-bus-maps`). There are no placeholders except the quoted paths, which are explained beside each command.
 
 ```bash
 npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) and /app

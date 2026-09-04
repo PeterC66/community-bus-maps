@@ -1,11 +1,13 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.29 | 2026-09-03 | sha=ba4f6c1b -->
-**v1.29** · updated 3 September 2026
+<!-- docstamp v1.30 | 2026-09-04 | sha=47316782 -->
+**v1.30** · updated 4 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
 non-commercial/internal use, competing commercial use needs a separate licence — see `LICENSE`).
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 Node + Fastify + `node:sqlite`, no template engine, no framework.
 
 ## Read this first: the system is a PILOT

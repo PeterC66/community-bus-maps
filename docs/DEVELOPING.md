@@ -1,11 +1,13 @@
 # Developing the portal — how to change it safely
 
-<!-- docstamp v1.25 | 2026-09-03 | sha=4b6e497f -->
-**v1.25** · updated 3 September 2026
+<!-- docstamp v1.26 | 2026-09-04 | sha=c1c3ba86 -->
+**v1.26** · updated 4 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
 `README.md` covers architecture and quick start — read that first. Start here when you are about to edit code.
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 ## Three separate copies of the code — none of them update each other automatically
 

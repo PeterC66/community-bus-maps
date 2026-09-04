@@ -1,7 +1,7 @@
 # The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.8 | 2026-08-12 | sha=65debeca -->
-**v1.8** · updated 12 August 2026
+<!-- docstamp v1.9 | 2026-09-04 | sha=3d994665 -->
+**v1.9** · updated 4 September 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
@@ -318,7 +318,7 @@ What never happens without you explicitly asking for it, in this or any session:
 | [`docs/DEPLOY.md`](DEPLOY.md) | you're moving from "demo" to "real production hosting somewhere" — persistence, backups, the restore drill, upgrading |
 | [`docs/H1-operations-handbook.md`](H1-operations-handbook.md) + `R1`–`R6-*.md` | the service is live and you're running day-to-day: onboarding a customer, publishing, handling an incident |
 | [`docs/LICENSING.md`](LICENSING.md) | before announcing anything publicly — the OSM/BODS attribution and terms review |
-| [`CHANGELOG.md`](../CHANGELOG.md) | "what changed and when" |
+| [`CHANGELOG.d/`](../CHANGELOG.d/README.md) | "what changed and when" — one file per entry; `npm run changelog` builds the local page |
 
 ---
 
