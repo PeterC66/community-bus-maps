@@ -94,8 +94,8 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "651742331f893ea7c12ab1587e1d2ee457164a6ab8a1e9c94b44bfb72edb3656",
-      "vendoredOn": "2026-09-03",
+      "sha256": "9a387f1fc9804c0c20677b7e9b77a74a184aebcec31bf1a538449fd718def731",
+      "vendoredOn": "2026-09-04",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
     {
@@ -136,15 +136,15 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "ebcf9bc91bbbc8a61de194e2ef316136aee68c4c78cee670b2f0fca5792ac2ef",
-      "vendoredOn": "2026-09-03"
+      "sha256": "7d90ddd278cd8b8771eaae88ba7034183f3359f99163f38be7aab49095b46417",
+      "vendoredOn": "2026-09-04"
     },
     {
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "3c478fb1ee54a6b2460c72c67ba87722173c5e298a778b22a26eee8bdd0bab9c",
-      "vendoredOn": "2026-09-03",
+      "sha256": "0e7424371a8ba7b9d1b6ac0ce8dec6ef4e66d54476b5f2679f4078534a659212",
+      "vendoredOn": "2026-09-04",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
@@ -167,8 +167,8 @@
       "path": "poi_select.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/poi_select.js",
-      "sha256": "a208dc35dde0c369a0564f8140d71101d59c63f8196e804e17b16fdef8529733",
-      "vendoredOn": "2026-09-01",
+      "sha256": "9f85bdf3afd9a0c07f751e08ec6ef9cdbc4eafd5de6a479862955017223ca6d2",
+      "vendoredOn": "2026-09-04",
       "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
     },
     {
@@ -269,8 +269,8 @@
       "path": "external_primitives.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/external_primitives.js",
-      "sha256": "fc2f487c57e49d2efc40d4a082aa17160e606d5359f9a0a1dcadfe6396bdfb3a",
-      "vendoredOn": "2026-09-02"
+      "sha256": "7143c8d2514662dac03268d02bc8d403e03e035a56a60ffafd5e5b275596635c",
+      "vendoredOn": "2026-09-04"
     },
     {
       "path": "internal_roads_config.js",
