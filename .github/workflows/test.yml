@@ -142,16 +142,26 @@ jobs:
   # resolve on one laptop and nowhere else, and eleven command blocks that never
   # said which folder they run from.
   #
-  # THE TOKEN IS THE COST, AND IT IS THE THIRD TIME IT HAS BEEN PAID. The
-  # checkers are in buses-data, which is private, so this job cannot be in the
-  # secret-free tier `test` above is in -- a CROSS_REPO_PAT2 expiry (22 Nov 2026)
-  # takes the documentation checks down. It is a SEPARATE JOB for exactly that
-  # reason: the property `test` claims, that no token expiry can stop the tests or
-  # the hygiene check, is a property of that job and survives this one. The fix is
-  # to move these two checkers to claude-skills as the hygiene checker moved on
-  # 2026-09-04 (OA-241), after which all three repositories run them with no
-  # secret at all; `claude-skills/tools/README.md` has said that move is owed
-  # since that day, and buses-data OA-246 is the row for it.
+  # THE TOKEN IS GONE, and that was the whole of buses-data OA-246 (2026-09-04).
+  # Until that day the checkers lived in buses-data, which is PRIVATE, so this job
+  # checked that repository out with CROSS_REPO_PAT2 and would have died with the
+  # token on 22 November 2026. They moved into `claude-skills/tools/`, beside
+  # `check-file-hygiene.mjs`, which is public -- so the checkout below carries no
+  # secret and this job is now in the same secret-free tier as `test`.
+  #
+  # WHY IT IS STILL A JOB OF ITS OWN, which OA-246 predicted it would not be. The
+  # row expected these steps to fold into `test`, since `test` already checks
+  # `claude-skills` out for the hygiene checker. They cannot, and the reason is a
+  # property of this workflow rather than of the checkers: `test` checks THIS
+  # repository out at the workspace ROOT, so the sibling `claude-skills/` checkout
+  # lands INSIDE the tree. `check-file-hygiene.mjs` is unaffected because it asks
+  # git which files are tracked and the sibling is not; these two WALK THE DISK,
+  # so a `--tree .` there would read another repository's documents into this
+  # repository's totals. Folding them in would mean moving the portal checkout
+  # into a subdirectory, which every other step's paths depend on. A separate job
+  # costs nothing here -- Actions bills only PRIVATE repositories and this one is
+  # public -- and it keeps what a separate job is actually for: a failure in
+  # `test` cannot hide a documentation finding.
   docs:
     runs-on: ubuntu-latest
     # These take about two seconds. Five minutes is a hang, and the gates job in
@@ -164,15 +174,15 @@ jobs:
         with:
           path: community-bus-maps
 
-      # Only Documentation/ -- the two checkers, their harnesses and lib/.
-      # buses-data carries the whole map estate and none of it is read here.
-      - name: Checkout the checkers from buses-data
+      # NO TOKEN, which is the point of the move. sparse-checkout because only
+      # `tools/` is wanted; claude-skills carries every generator and none of it
+      # is read here. The same checkout `test` above makes for the hygiene checker.
+      - name: Checkout the checkers from claude-skills
         uses: actions/checkout@v7
         with:
-          repository: PeterC66/buses-data
-          token: ${{ secrets.CROSS_REPO_PAT2 }}
-          path: buses-data
-          sparse-checkout: Documentation
+          repository: PeterC66/claude-skills
+          path: claude-skills
+          sparse-checkout: tools
 
       # Both checkers are dependency-free ESM reading only node:fs and node:path,
       # so there is nothing to install. 24 to match the `test` job and the
@@ -188,26 +198,30 @@ jobs:
       # directions -- because a narrowed declaration form produces visible false
       # findings while a widened one silences a C1 that should have fired.
       - name: Prove the table checker can go red
-        working-directory: buses-data
-        run: node Documentation/prove-red-tables.mjs
+        working-directory: claude-skills
+        run: node tools/prove-red-tables.mjs
 
       - name: Prove the link checker can go red
-        working-directory: buses-data
-        run: node Documentation/prove-red-doc-links.mjs
+        working-directory: claude-skills
+        run: node tools/prove-red-doc-links.mjs
 
       # --tree, not --root: --root is flat by contract (prove-red-tables.mjs
       # drives it and asserts an exact row count), and this repository nests its
       # documents under docs/, docs/_archive/ and engine/.
       - name: Tables are still tables
-        working-directory: buses-data
-        run: node Documentation/check-tables.mjs --tree "$GITHUB_WORKSPACE/community-bus-maps"
+        working-directory: community-bus-maps
+        run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-tables.mjs" --tree .
 
-      # --root here, because THIS checker already walks recursively from it. It
-      # reads `.doc-links.json` from the root it is pointed at, which is where this
-      # repository declares that `CHANGELOG.d/` renders from the repository root.
+      # NO FLAG AT ALL SINCE OA-246. This checker resolves its corpus from the
+      # repository it is RUN FROM -- `working-directory` above -- and reads that
+      # repository's `.doc-links.json`, which is where this one declares that
+      # `CHANGELOG.d/` renders from the repository root. Declaring no `dirs` means
+      # the widest scope, its whole tree, which is exactly what `--root .` gave it
+      # before the move: 128 documents plus 4 archived, measured identical on the
+      # day rather than assumed from a green run.
       - name: Links, anchors, section citations and documented commands
-        working-directory: buses-data
-        run: node Documentation/check-doc-links.mjs --root "$GITHUB_WORKSPACE/community-bus-maps"
+        working-directory: community-bus-maps
+        run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-links.mjs"
 
       # `check-doc-coverage.mjs` deliberately does NOT run here, and that was
       # measured rather than assumed. It asks whether every working document is
