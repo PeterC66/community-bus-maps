@@ -145,6 +145,14 @@
       "dataAsAt": "2026-08-28T18:41",
       "why": "Its S6 PASSED on 2026-08-28 and went stale hours later for a CONFIG-only reason: the checkedAt rollout gave all 20 maps a new S3 so the footer could stop claiming every map was cross-checked in June 2026. No service data moved. The four other maps the rollout made stale were re-run the same day reusing the blind answer they already owned; this one cannot, because redteam_source says BUY -- its S1/S2 have moved since that answer was derived, so reuse would not be independent.",
       "removeBy": "Buy a fresh blind red team for St Neots Tesco Extra (redteam_source.js says BUY), run S6 against the current S3, then delete this entry."
+    },
+    {
+      "map": "Beaconsfield Simpson Centre",
+      "until": "2026-09-19",
+      "s6AsAt": "2026-08-29T17:36",
+      "dataAsAt": "2026-09-04T21:52",
+      "why": "The newer data is a design-key-only S3: design.laneRibbon (OA-176 4.21) adopted on Peter’s decision of 2026-09-04. S1 is unchanged since 2026-08-29_1102, so every service fact the S6 of 2026-08-29 checked is the one drawn; what moved is the lane order on the internal sheet, judged on the crop in buses-data Development Docs/lane-ribbon-crops_2026-09-04. redteam_source.js should find no fact moved and reuse the answer, so the P6 re-run costs no red team.",
+      "removeBy": "Run P6 for Beaconsfield Simpson Centre against the current S3 (make-place-bus-leaflet, stage P6; redteam_source.js first), then delete this entry."
     }
   ]
 }
