@@ -1,7 +1,7 @@
 # Accessibility — what we commit to, and how to check it
 
-<!-- docstamp v1.0 | 2026-08-13 | sha=a6d0125e -->
-**v1.0** · updated 13 August 2026
+<!-- docstamp v1.1 | 2026-09-04 | sha=b419fa51 -->
+**v1.1** · updated 4 September 2026
 
 *Operator-facing. The public statement is [`/accessibility.html`](../public/accessibility.html);
 this is the reasoning behind it and the checks that keep it true.*
@@ -62,7 +62,7 @@ and its service list, and view a page at 400% browser zoom. Record what you foun
 ## If someone reports a barrier
 
 Treat it as an incident, not a feature request — see
-[`runbook-incident-response.md`](runbook-incident-response.md). Reply, say what you will do, and if
+[`R6-incident-response.md`](R6-incident-response.md). Reply, say what you will do, and if
 the fix is not quick, offer the information in another format in the meantime. The public statement
 promises a reply, not a timescale, and that is deliberate: we are a volunteer-run pilot and should
 not claim a service level we cannot keep.
@@ -71,6 +71,6 @@ not claim a service level we cannot keep.
 
 - [`/accessibility.html`](../public/accessibility.html) — the public statement, including the
   paragraph a customer can paste into their own.
-- [`runbook-review-and-publish.md`](runbook-review-and-publish.md) — where the check sits.
+- [`R3-review-and-publish.md`](R3-review-and-publish.md) — where the check sits.
 - `portal-online-maps-plan_2026-07-26.md` (Buses repo) — the three-tier plan; accessibility is the
   cross-cutting obligation that made the embed tier worth doing properly.

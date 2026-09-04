@@ -115,3 +115,105 @@ jobs:
       # generated corpus and no verbatim records, so the bare rules are right.
       - name: files carry no BOM, no trailing whitespace, no missing newline
         run: node claude-skills/tools/check-file-hygiene.mjs --root .
+
+  # NOTHING HAD EVER READ THIS REPOSITORY'S DOCUMENTS (buses-data OA-227,
+  # 2026-09-04). `check-tables.mjs` and `check-doc-links.mjs` were widened eight
+  # times between 2026-08-27 and 2026-09-02 and every widening was within one of
+  # the other two repositories: buses-data's own folders, then claude-skills
+  # (OA-222). This is the third document set of three -- the runbooks R1-R6,
+  # DEPLOY.md, DEVELOPING.md, H1-operations-handbook.md, PRODUCT.md and 96
+  # changelog fragments -- and it is the set a session reads BEFORE touching the
+  # live site.
+  #
+  # WHY IT RUNS HERE AND NOT IN BUSES-DATA, which is where the checkers live. A
+  # check belongs in the suite that fires when its SUBJECT changes -- the rule
+  # OA-218 settled for the falsification harnesses and OA-222 applied one
+  # repository along. Run only over there, a glued row committed here would land
+  # green here and redden buses-data's next unrelated run.
+  #
+  # IT DID NOT LAND RED, and that was measured rather than hoped for. Pointed at
+  # this tree, `check-doc-links.mjs` reported 49 findings; 30 were the checker's
+  # own and are fixed in it (a declaration form that read a location statement as
+  # an instruction, a leading-slash site path read as a dead file, and the
+  # assembled changelog fragments read from the wrong base). The remaining 19 were
+  # real and were fixed here first: two runbooks renamed to R3/R6 whose links were
+  # never repointed, two links to `CHANGELOG.md` which became a generated,
+  # gitignored page on 2026-09-03, three links into the private ops folder that
+  # resolve on one laptop and nowhere else, and eleven command blocks that never
+  # said which folder they run from.
+  #
+  # THE TOKEN IS THE COST, AND IT IS THE THIRD TIME IT HAS BEEN PAID. The
+  # checkers are in buses-data, which is private, so this job cannot be in the
+  # secret-free tier `test` above is in -- a CROSS_REPO_PAT2 expiry (22 Nov 2026)
+  # takes the documentation checks down. It is a SEPARATE JOB for exactly that
+  # reason: the property `test` claims, that no token expiry can stop the tests or
+  # the hygiene check, is a property of that job and survives this one. The fix is
+  # to move these two checkers to claude-skills as the hygiene checker moved on
+  # 2026-09-04 (OA-241), after which all three repositories run them with no
+  # secret at all; `claude-skills/tools/README.md` has said that move is owed
+  # since that day, and buses-data OA-246 is the row for it.
+  docs:
+    runs-on: ubuntu-latest
+    # These take about two seconds. Five minutes is a hang, and the gates job in
+    # buses-data explains at length why a job with no timeout is worse than one
+    # that fails.
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the portal (the documents under test)
+        uses: actions/checkout@v7
+        with:
+          path: community-bus-maps
+
+      # Only Documentation/ -- the two checkers, their harnesses and lib/.
+      # buses-data carries the whole map estate and none of it is read here.
+      - name: Checkout the checkers from buses-data
+        uses: actions/checkout@v7
+        with:
+          repository: PeterC66/buses-data
+          token: ${{ secrets.CROSS_REPO_PAT2 }}
+          path: buses-data
+          sparse-checkout: Documentation
+
+      # Both checkers are dependency-free ESM reading only node:fs and node:path,
+      # so there is nothing to install. 24 to match the `test` job and the
+      # Dockerfile's base image.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # FALSIFY BOTH BEFORE TRUSTING EITHER. They are being pointed at a new
+      # corpus, which is exactly when a checker that has quietly stopped objecting
+      # looks identical to a clean tree. The link harness carries eight cases
+      # written for this widening, each of the four changes asserted in BOTH
+      # directions -- because a narrowed declaration form produces visible false
+      # findings while a widened one silences a C1 that should have fired.
+      - name: Prove the table checker can go red
+        working-directory: buses-data
+        run: node Documentation/prove-red-tables.mjs
+
+      - name: Prove the link checker can go red
+        working-directory: buses-data
+        run: node Documentation/prove-red-doc-links.mjs
+
+      # --tree, not --root: --root is flat by contract (prove-red-tables.mjs
+      # drives it and asserts an exact row count), and this repository nests its
+      # documents under docs/, docs/_archive/ and engine/.
+      - name: Tables are still tables
+        working-directory: buses-data
+        run: node Documentation/check-tables.mjs --tree "$GITHUB_WORKSPACE/community-bus-maps"
+
+      # --root here, because THIS checker already walks recursively from it. It
+      # reads `.doc-links.json` from the root it is pointed at, which is where this
+      # repository declares that `CHANGELOG.d/` renders from the repository root.
+      - name: Links, anchors, section citations and documented commands
+        working-directory: buses-data
+        run: node Documentation/check-doc-links.mjs --root "$GITHUB_WORKSPACE/community-bus-maps"
+
+      # `check-doc-coverage.mjs` deliberately does NOT run here, and that was
+      # measured rather than assumed. It asks whether every working document is
+      # still reachable from a live action, and its seeds are buses-data's
+      # `open-actions/OA-*.md` -- a backlog graph this repository does not have.
+      # Asked by hand of all 19 `docs/*.md` on 2026-09-04, every one is named by
+      # another document, and there is no "a document leaves docs/ when..." rule
+      # here for the check to enforce. A check with no rule behind it is one that
+      # cannot go red. Revisit if this repository grows a plans folder.

@@ -1,7 +1,7 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.6 | 2026-09-03 | sha=fc6c3a3e -->
-**v1.6** · updated 3 September 2026
+<!-- docstamp v1.7 | 2026-09-04 | sha=3aa51496 -->
+**v1.7** · updated 4 September 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -30,6 +30,8 @@ The banner is injected by one generated script rather than pasted into seventeen
 The sheet band **reserves space** rather than overlaying. The sheets have no reliable whitespace — the corners are taken by the title, the Services panel and the credits line — so the artwork is shrunk ~4% and slid down, and the band sits in space that belongs to nothing. That works for all four outputs and for any output added later. It is applied *after* the generator runs, which is why the byte-identical reproduce gate is unaffected (see below).
 
 ## Switching it off
+
+**Folder:** doesn't matter — this is an environment variable, set wherever the service is configured, not a command run from anywhere in particular.
 
 ```bash
 PILOT_MODE=0
