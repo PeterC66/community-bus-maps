@@ -1,4 +1,4 @@
-﻿# Using your bus maps — a guide for customers (C1)
+# Using your bus maps — a guide for customers (C1)
 
 <!-- docstamp v1.13 | 2026-09-03 | sha=27e27443 -->
 **v1.13** · updated 3 September 2026

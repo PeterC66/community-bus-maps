@@ -1,4 +1,4 @@
-﻿// Lifecycle-seam checks — the two rough edges closed in 0.8.1.
+// Lifecycle-seam checks — the two rough edges closed in 0.8.1.
 //
 //   node scripts/test-lifecycle.mjs        (or: npm run test:lifecycle)
 //

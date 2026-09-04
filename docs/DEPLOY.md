@@ -1,4 +1,4 @@
-﻿# Deploying and running the portal (P7)
+# Deploying and running the portal (P7)
 
 <!-- docstamp v1.39 | 2026-09-03 | sha=0eee3843 -->
 **v1.39** · updated 3 September 2026

@@ -1,4 +1,4 @@
-﻿// Expert side (P7): the tube-map DIAGRAM pin editor, re-homed into the portal.
+// Expert side (P7): the tube-map DIAGRAM pin editor, re-homed into the portal.
 //
 // The diagram engine solves a junction layout automatically, then lets an expert
 // nudge junctions by hand; each nudge is a **pin** (a strong solver spring) stored

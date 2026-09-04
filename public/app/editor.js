@@ -1,4 +1,4 @@
-﻿// Safe-subset map editor (client).
+// Safe-subset map editor (client).
 //
 // Two content edits (recolour a route, show/hide a POI) staged into an overrides
 // object and previewed through the real generator, plus a map-level control:

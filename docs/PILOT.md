@@ -1,4 +1,4 @@
-﻿# Pilot mode — what it claims, and how to switch it off
+# Pilot mode — what it claims, and how to switch it off
 
 <!-- docstamp v1.6 | 2026-09-03 | sha=fc6c3a3e -->
 **v1.6** · updated 3 September 2026

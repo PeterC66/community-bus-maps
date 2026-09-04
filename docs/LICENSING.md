@@ -1,4 +1,4 @@
-﻿# Licensing & attribution review (launch gate)
+# Licensing & attribution review (launch gate)
 
 <!-- docstamp v1.9 | 2026-08-28 | sha=9eb87d76 -->
 **v1.9** · updated 28 August 2026

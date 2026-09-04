@@ -1,4 +1,4 @@
-﻿// PILOT: whole file. Delete when the pilot ends — see docs/PILOT.md.
+// PILOT: whole file. Delete when the pilot ends — see docs/PILOT.md.
 //
 // Applies (or removes) the pilot band on renders that already exist in the
 // object store.

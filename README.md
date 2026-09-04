@@ -1,4 +1,4 @@
-﻿# BusMaps.uk — portal
+# BusMaps.uk — portal
 
 <!-- docstamp v1.18 | 2026-09-03 | sha=599e39a8 -->
 **v1.18** · updated 3 September 2026

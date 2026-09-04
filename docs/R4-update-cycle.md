@@ -1,4 +1,4 @@
-﻿# Runbook R4 — Monthly update cycle
+# Runbook R4 — Monthly update cycle
 
 <!-- docstamp v1.6 | 2026-08-21 | sha=2fae54f1 -->
 **v1.6** · updated 21 August 2026

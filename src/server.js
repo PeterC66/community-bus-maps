@@ -1,4 +1,4 @@
-﻿// BusMaps.uk — portal server.
+// BusMaps.uk — portal server.
 //   P0: public shopfront (apply / contact / health).
 //   P1: safe-subset editor (object store, versioned save→render→download).
 //   P2: passwordless auth, multi-customer tenant isolation, per-map output toggles.

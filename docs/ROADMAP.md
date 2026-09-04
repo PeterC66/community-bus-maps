@@ -1,4 +1,4 @@
-﻿# Roadmap & architecture
+# Roadmap & architecture
 
 <!-- docstamp v1.15 | 2026-08-28 | sha=40ab6631 -->
 **v1.15** · updated 28 August 2026

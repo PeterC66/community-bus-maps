@@ -1,4 +1,4 @@
-﻿# Runbook R3 — Review & publish (approver review)
+# Runbook R3 — Review & publish (approver review)
 
 <!-- docstamp v1.8 | 2026-08-29 | sha=31979583 -->
 **v1.8** · updated 29 August 2026
