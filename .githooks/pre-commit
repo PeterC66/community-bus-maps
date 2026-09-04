@@ -114,26 +114,28 @@ fi
 # no diff and no review. They were stripped in the change that added this; the test
 # suite was 61/61 before and after.
 #
-# WHY THE HOOK AND NOT CI. The checker lives in buses-data, which is PRIVATE, and
-# this repository is public -- so a CI step would need CROSS_REPO_PAT2, and hanging
-# a hygiene check off that token is exactly what buses-data's `docs` job was
-# separated out to avoid: a token expiry must not take the documentation checks
-# down with the byte gates. Moving the checker to claude-skills, which is public,
-# is the honest fix and is not done yet. It is also the only place the MIXED-EOL
-# half could ever live: the index normalises to LF on staging and actions/checkout
-# builds a uniform tree, so mixed line endings are a property of a WORKING TREE
-# that no commit and no CI run can express.
+# CI RUNS THIS TOO, as of the same day. The checker began life in buses-data,
+# which is PRIVATE, so a CI step here would have needed CROSS_REPO_PAT2 -- and
+# hanging a hygiene check off that token is exactly what buses-data's `docs` job
+# was separated out to avoid. It now lives in claude-skills, which is PUBLIC, so
+# `test.yml` fetches it with no secret at all and runs the committed-bytes half.
 #
-# THE PATH IS CONFIGURABLE and defaults to where buses-data sits on the machine
+# WHAT REMAINS HOOK-ONLY IS THE MIXED-EOL HALF, and no CI run anywhere could ever
+# perform it: the index normalises to LF on staging and actions/checkout builds a
+# uniform tree, so mixed line endings are a property of a WORKING TREE that no
+# commit and no CI run can express. That is why this block stays even though CI
+# now covers the rest of it.
+#
+# THE PATH IS CONFIGURABLE and defaults to where claude-skills sits on the machine
 # this was written on. Point it somewhere else with, from this repository's root:
 #
-#   git config hooks.busesDataPath "/c/some/other/buses-data"
+#   git config hooks.skillsPath "/c/some/other/claude-skills"
 #
 # A MISSING CHECKER MUST NOT BLOCK COMMITTING, the same rule the stamper below
-# follows: buses-data is not part of this repository, and a hook that dies on a
+# follows: claude-skills is not part of this repository, and a hook that dies on a
 # machine without it teaches whoever hits that to bypass the hook for good.
-BUSES_DATA=$(git config --get hooks.busesDataPath || echo "/c/u3a St Ives/Using AI/Buses")
-HYGIENE="$BUSES_DATA/Documentation/check-file-hygiene.mjs"
+SKILLS=$(git config --get hooks.skillsPath || echo "/c/u3a St Ives/.claude/skills")
+HYGIENE="$SKILLS/tools/check-file-hygiene.mjs"
 if [ -f "$HYGIENE" ] && command -v node >/dev/null 2>&1; then
   hygiene_out=$(node "$HYGIENE" --staged --root "$(git rev-parse --show-toplevel)" 2>&1) || {
     echo ""

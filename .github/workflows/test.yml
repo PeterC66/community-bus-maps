@@ -67,3 +67,41 @@ jobs:
 
       - name: npm test
         run: npm test
+
+      # FILE HYGIENE — a byte-order mark, trailing whitespace, a missing final
+      # newline (buses-data OA-241). This repository was carrying 46 BOMs when the
+      # checker was first pointed at it, among them CLAUDE.md, README.md, twelve
+      # docs/*.md, twelve views/app/*.html and src/server.js. A BOM sits invisibly
+      # before the first character, so it breaks any edit matching the start of a
+      # file while appearing in no diff, no review and no test.
+      #
+      # THE CHECKOUT TAKES NO TOKEN, and that is the whole point of where the
+      # checker lives. It was written in buses-data, which is PRIVATE, so a step
+      # here would have needed CROSS_REPO_PAT2 — and hanging a hygiene check off
+      # that token is exactly what buses-data's own `docs` job was split out to
+      # avoid. Moved to claude-skills, which is public, this workflow stays in the
+      # secret-free tier it is already in. sparse-checkout because only `tools/`
+      # is wanted; claude-skills carries every generator and none of it is read.
+      - name: Checkout the hygiene checker from claude-skills
+        uses: actions/checkout@v7
+        with:
+          repository: PeterC66/claude-skills
+          path: claude-skills
+          sparse-checkout: tools
+
+      # Falsify it first — 24 cases, each exemption class broken in BOTH
+      # directions, because widening an exemption produces a false PASS rather
+      # than a false finding.
+      - name: prove the file-hygiene checker can go red
+        run: node claude-skills/tools/prove-red-file-hygiene.mjs
+
+      # NOT the mixed-line-ending half, which cannot fire here and is not meant
+      # to: actions/checkout builds a uniform tree by construction, so mixed EOL
+      # is a property of a WORKING TREE that only .githooks/pre-commit can ask
+      # about. This step is genuinely narrower than the checker it runs — do not
+      # remove the working-tree half on noticing CI never reports it.
+      #
+      # This repository declares no `.file-hygiene.json` and needs none: it has no
+      # generated corpus and no verbatim records, so the bare rules are right.
+      - name: files carry no BOM, no trailing whitespace, no missing newline
+        run: node claude-skills/tools/check-file-hygiene.mjs --root .
