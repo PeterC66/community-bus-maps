@@ -1,11 +1,13 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.6 | 2026-08-21 | sha=2fae54f1 -->
-**v1.6** · updated 21 August 2026
+<!-- docstamp v1.7 | 2026-09-04 | sha=f5cfc5a3 -->
+**v1.7** · updated 4 September 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
 **Serves:** managing updates · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 **Purpose.** Keep published maps current as bus services change — the central refresh → **proposed update** → customer **accept** flow (P5). Run monthly (with the BODS cycle), or when a service you know about changes.
 

@@ -1,11 +1,13 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.12 | 2026-08-30 | sha=9c98f14b -->
-**v1.12** · updated 30 August 2026
+<!-- docstamp v1.13 | 2026-09-04 | sha=a32278f1 -->
+**v1.13** · updated 4 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned by the right customer and ready for editing + review.
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 Two halves, and the split is the point (see the Handbook): **making** the map (stages S1–S6 — live data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic, no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
 

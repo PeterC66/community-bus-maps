@@ -1,0 +1,7 @@
+{
+  "_why": "Paths whose markdown links resolve from the REPOSITORY ROOT rather than from the folder the file sits in, because that is where the document renders. Read by check-doc-links.mjs (buses-data, Documentation/). See buses-data OA-227.",
+  "resolveFromRoot": [
+    "CHANGELOG.d",
+    "docs/_archive/CHANGELOG-to-2026-08-19.md"
+  ]
+}
