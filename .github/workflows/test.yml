@@ -21,8 +21,18 @@ name: tests
 # AFTER the new one and be the last verdict a reader sees. `cancel-in-progress`
 # is safe for every job here because none of them writes anything outside its own
 # runner -- these are checks, not deploys.
+#
+# THE GROUP INCLUDES THE EVENT NAME (2026-09-04, OA-242), and that is
+# load-bearing rather than tidy. On `main` the events `push`, `schedule` and
+# `workflow_dispatch` all resolve `github.ref` to `refs/heads/main`, so without
+# the event name they share one group and a push CANCELS a scheduled run --
+# and `verify.yml` (daily) and `audit.yml` (Mondays) are scheduled precisely
+# because they can break with nobody touching this repository. A push must not
+# be able to cancel the run that carries a guarantee. The full reasoning is in
+# buses-data `.github/workflows/gates.yml`, whose group has had this form since
+# 2026-09-03; these four were written first and were never backported.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 
