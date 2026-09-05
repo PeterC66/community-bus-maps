@@ -71,8 +71,8 @@
       "path": "lane_normals.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/lane_normals.js",
-      "sha256": "186d5f7e9b3c5c72714641f300b8c33aa9c2ac70b6b05d5331ea8dec2119b7d0",
-      "vendoredOn": "2026-09-04",
+      "sha256": "6a91337f05ae10e4bf3059fd69c11ac2f56c8fe72eb9bbbaee9cce1058631a0e",
+      "vendoredOn": "2026-09-05",
       "note": "Required at LOAD by gen_internal.js, before it reads a thing, so a partial vendor throws at require time and not at a byte gate. It arrived with design.laneOrientation on 2026-08-26 and this row had to be written by hand: --update restamps rows that exist, and until a file is named here it is not a row, so nothing could go red about a file the portal did not have yet. That is the hole requireScan() now covers."
     },
     {
@@ -143,8 +143,8 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "d1b03b09550ed6b050a4e078bc1fb59558a175deca4d2ee2389727ce79ce6bf2",
-      "vendoredOn": "2026-09-04",
+      "sha256": "0905f7dadf9f8a8dd7df1ff93e4cb5d6ae246ae47c94b3670a3230c1ab175a77",
+      "vendoredOn": "2026-09-05",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
