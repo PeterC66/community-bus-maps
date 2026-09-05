@@ -168,6 +168,42 @@ jobs:
         working-directory: community-bus-maps
         run: npm ci
 
+      # WHICH TWO COMMITS IS THIS VERDICT ABOUT? (buses-data OA-018, portal half,
+      # added 2026-09-05.) The portal is checked out at the triggering commit;
+      # the fixtures come from buses-data at whatever its `main` holds THE MINUTE
+      # THIS JOB RUNS, because the checkout above names no `ref:`. So a verdict
+      # here is a statement about a pairing that existed for the minutes this job
+      # ran and may never exist again. On 2026-08-27 that produced a truthful red
+      # on PR #107 -- a v1.14 reference of 182,804 B measured against a v1.15
+      # engine writing 184,751 B -- cleared by nothing but a re-run once
+      # buses-data had been pushed. The same mechanism yields a false GREEN
+      # whenever buses-data is AHEAD of what the commit was written against.
+      #
+      # REPORT, DON'T PIN, the same decision buses-data's own gates.yml took on
+      # 2026-08-28. Pinning the fixtures would make the gate reproducible and
+      # blind to exactly the drift it exists to catch -- "does today's portal
+      # still reproduce this sheet" is a question about today. Naming both SHAs
+      # in the log and the step summary is what turns "verify was green on
+      # Tuesday" into "verify was green for THIS pairing", so a later red can be
+      # diffed against a known-good one. The habit that avoids the red is in
+      # buses-data's CLAUDE.md: push buses-data BEFORE opening a portal PR that
+      # depends on it, and read the POST-merge run rather than a PR's own checks.
+      - name: Which two commits is this verdict about
+        run: |
+          {
+            echo "### Checked out for this run"
+            echo
+            echo "| Repository | Ref | SHA |"
+            echo "|---|---|---|"
+            for d in community-bus-maps buses-data; do
+              sha=$(git -C "$GITHUB_WORKSPACE/$d" rev-parse HEAD)
+              ref=$(git -C "$GITHUB_WORKSPACE/$d" rev-parse --abbrev-ref HEAD)
+              pin='floats on its default branch'
+              [ "$d" = community-bus-maps ] && pin='pinned to the triggering commit'
+              echo "| \`$d\` | $ref — $pin | \`${sha:0:10}\` |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # Named out loud so a red run's cause is legible from the step list.
       # If this ever reports "no fixture", the sparse-checkout above is wrong —
       # that is a broken job, not a passing one, and the scripts say so.

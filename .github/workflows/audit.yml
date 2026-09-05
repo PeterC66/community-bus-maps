@@ -53,7 +53,23 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 20, NOT 10, since 2026-09-05 (buses-data OA-243). Ten was chosen because a
+    # job of this shape has no business taking ten minutes, and on a normal day
+    # it takes twelve SECONDS. On 2026-09-04 the registry (or the runners' egress
+    # to it) slowed by two orders of magnitude with no package file touched --
+    # `npm ci` 3-5 minutes, `npm audit --omit=dev` 4-5 minutes -- and this job
+    # was killed THREE times in a day, every time AFTER its check had printed
+    # `OK - nothing new, and no deferral has expired.` (PR #223: the pass at
+    # 10:12:34.435, the kill at 10:12:34.452). The verdict was reached and the
+    # clock threw it away, and a gate that is red for a reason unrelated to what
+    # it measures teaches people to re-run without reading. Its siblings absorb
+    # the same loss (`test` 15, `verify` 30, `render-parity` 20); this one could
+    # not, because both of its steps are the slow ones. The slowness recovered
+    # by itself the same afternoon (attempt 2 of the third kill: eight seconds),
+    # so 20 is a budget for a bad afternoon, not a new normal -- if this job
+    # regularly takes minutes, the question is why it makes two round trips to
+    # the registry when `npm ci` already resolves against the committed lockfile.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
