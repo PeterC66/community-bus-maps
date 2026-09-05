@@ -97,6 +97,7 @@
     "test:env-inventory": "node scripts/test-env-inventory.mjs",
     "test:node-pin": "node scripts/test-node-pin.mjs",
     "test:render-parity-supervisor": "node scripts/test-render-parity-supervisor.mjs",
+    "test:accept-publish-guards": "node scripts/test-accept-publish-guards.mjs",
     "test:db-dates": "node scripts/test-db-dates.mjs",
     "test:db-constraints": "node scripts/test-db-constraints.mjs",
     "test:map-detail-keys": "node scripts/test-map-detail-keys.mjs",
