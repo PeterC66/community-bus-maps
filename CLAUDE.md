@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.30 | 2026-09-04 | sha=47316782 -->
-**v1.30** · updated 4 September 2026
+<!-- docstamp v1.31 | 2026-09-05 | sha=e1c25fd0 -->
+**v1.31** · updated 5 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
@@ -167,6 +167,21 @@ side effect of UI testing.
   `read_network_requests`, don't retry the same click — switch to `javascript_tool` and either
   `fetch()` the endpoint directly or `document.querySelector(...).click()` on the real element; both
   proved reliable when the `computer` tool's ref-based click didn't fire.
+- **When a session row cannot be made, drive the real page with the API stubbed instead** (OA-252,
+  2026-09-05). Inserting the `session` row the note above describes is refused by Claude Code's auto
+  mode as a credential action, and that refusal is right — so an app page still gets driven, without
+  one. Read `views/app/<page>.html`, add a `<base href="http://127.0.0.1:<port>/">` so every asset
+  resolves to a running dev server, drop the `account-guard.js` tag, and inject a `<script>` that
+  replaces `window.fetch` **before** the page's own `<script>` tag. The CSS, the markup and the client
+  JS under test are then the real files, and only the JSON is invented. Two traps, both paid for:
+  serve the probe from a path matching the page's own — `landmarks.js` reads its map id out of
+  `location.pathname` and got `NaN` from anywhere else — and if the stub throws, the page falls
+  through to a REAL cross-origin fetch and the console fills with CORS errors that hide the actual
+  syntax error. Check `/native code/.test(String(window.fetch))` is false before reading anything.
+- **A gesture's default action needs a real double-click, not a synthetic event.** The browser makes a
+  word selection itself, so `dispatchEvent(new MouseEvent('dblclick'))` proves nothing about it: use
+  `computer{action:"double_click"}` and read `String(getSelection())`. Toggle the CSS rule under test
+  off and on again in the same run — a rule that is never seen to fail is a rule you are guessing at.
 
 ## The monthly BODS scan now names places — 2026-08-17
 
