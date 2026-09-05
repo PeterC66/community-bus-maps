@@ -3,17 +3,18 @@
 //
 // The map list, a map request, one map's detail, preview, the landmark chooser's
 // list and basemap, save, the publish-request pair, the output toggles, the
-// diagram request, public listing, the banner note and the version file server:
-// 14 routes, registered under the prefix /api/maps by src/server.js. The
+// diagram request, public listing, the banner note, the version file server and,
+// since 2026-09-05, the landmark answer as an exportable block (OA-233): 15
+// routes, registered under the prefix /api/maps by src/server.js. The
 // handlers are the ones server.js carried until 2026-09-02, moved verbatim --
 // the only edit inside them is that each no longer opens with its own
 // requireUser() call.
 //
-// ONE GUARD, NOT 14, and the fourteenth route cannot forget it (portal-src F8).
-// The single exception is declared as route config rather than as a second call
-// site: GET /api/maps admits the read-only OPERATOR_TOKEN (OA-203), the same
-// shape GET /api/admin/worklist already uses, and the guard is the only reader
-// of that flag.
+// ONE GUARD, NOT 15, and the fifteenth route cannot forget it (portal-src F8).
+// The exceptions are declared as route config rather than as a second call
+// site: GET /api/maps and GET /api/maps/:id/poi-tiers admit the read-only
+// OPERATOR_TOKEN (OA-203, OA-233), the same shape GET /api/admin/worklist
+// already uses, and the guard is the only reader of that flag.
 //
 // THE HOOK IS THE WEAK HALF, ON PURPOSE -- the same shape as src/routes/proposed.js
 // and for the same reason. requireUser establishes only that somebody is signed
@@ -39,7 +40,7 @@
 
 import path from 'node:path';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { getCustomer, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
+import { getCustomer, getMap, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
 import { mapPageUrl } from '../public/index.js';
 import { chooseOutputs, editablePoiKeysFromDir, enumerateCandidatesFromDir, outputsForClient, outputsNeedingRender, packPoiTiers, preview, readOverrides, readRoutesMeta, renderVersion } from '../maps/engine.js';
 import { sanitizeOverrides } from '../maps/safeSubset.js';
@@ -205,6 +206,67 @@ export default async function editorRoutes(app) {
         fromHide: cand.filter((p) => p.fromHide).length,
         answered: cand.filter((p) => p.answered).length,
       },
+    };
+  });
+
+  /**
+   * The landmark answer as a block that can LEAVE the portal (buses-data OA-233).
+   *
+   * What the chooser's admin-only "Copy for our records" button puts on the
+   * clipboard -- every place this town has answered, keyed `<cat>:<name>`, as
+   * `{tier}` or `{tier, as}` -- plus the two layers that block is the union of,
+   * so a caller can see which keys are NEW to the map's own source data. The
+   * button touched no file, set no flag and told no server, so the fact that a
+   * town's answer was waiting to be pasted into its `routes.json` existed only in
+   * the head of whoever pressed it; High Wycombe's 145 keys travelled that way on
+   * 2026-09-03. A GET is a thing a script can call and a worklist can compare.
+   *
+   * BUILT FROM THE TWO LAYERS, NOT FROM THE ENUMERATOR. The page derives its
+   * block from the candidate list, so a key whose POI OpenStreetMap has since
+   * dropped is absent from what the button copies and present here. That is the
+   * right way round for the reader of this route: a `miss` on a place that has
+   * gone costs the source nothing and is honoured the day the place comes back,
+   * and the alternative is running the selector for every map on every worklist
+   * read. `saved` and `pack` are returned separately for the same reason -- the
+   * caller decides what is new, this route says what is true.
+   *
+   * OPERATOR_TOKEN IS ADMITTED, AND THIS IS THE TOKEN'S THIRD ROUTE. It was two
+   * lists (OA-203) and the argument for a third is the one that created it: the
+   * bus-work worklist has to read this for every map to say whether an answer is
+   * still owed to a town's source, and a read-only bearer is the credential that
+   * can do that and nothing else. The token check's method guard keeps it
+   * GET-only; scripts/test-operator-token.mjs holds the call-site count and
+   * pairs this read with a refusal on the neighbouring /landmarks route.
+   */
+  app.get('/:id/poi-tiers', { config: { operatorRead: true } }, async (req, reply) => {
+    const viaToken = operatorRead(req);
+    let map;
+    if (viaToken) {
+      map = getMap(Number(req.params.id));
+      if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    } else {
+      const r = loadOwnedMap(Number(req.params.id), req.user);
+      if (!r.map) return reply.code(r.code).send({ ok: false, error: r.error });
+      map = r.map;
+    }
+    const id = map.id;
+    const saved = savedPoiTiers(id);
+    const pack = packPoiTiers(mapDataDir(id));
+    const ov = readOverrides(id);
+    const hidden = Object.keys((ov.internal && ov.internal.pois) || {})
+      .filter((k) => ov.internal.pois[k] && ov.internal.pois[k].hide);
+    // The same precedence the render applies: the customer's saved tier wins
+    // over the pack's, and an old-style hide is a `miss` only where nothing has
+    // said otherwise (the /landmarks route above reads the tick the same way).
+    const tiers = {};
+    for (const [k, v] of Object.entries(pack)) tiers[k] = typeof v === 'string' ? { tier: v } : { ...v };
+    for (const [k, v] of Object.entries(saved)) tiers[k] = typeof v === 'string' ? { tier: v } : { ...v };
+    for (const k of hidden) if (!tiers[k]) tiers[k] = { tier: 'miss' };
+    return {
+      ok: true,
+      map: { id, slug: map.slug, name: map.name, kind: map.kind, status: map.status },
+      tiers, saved, pack, hidden,
+      counts: { answered: Object.keys(tiers).length, saved: Object.keys(saved).length, pack: Object.keys(pack).length, fromHide: hidden.length },
     };
   });
 

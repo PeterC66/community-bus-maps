@@ -10,7 +10,10 @@
 // routes sit behind step-up, so that stored cookie could also approve an
 // organisation application, create a user, revoke anyone's sessions and mail
 // every customer. OPERATOR_TOKEN replaces it with a credential that can read
-// those two lists and do nothing else at all.
+// those two lists and do nothing else at all. A THIRD read joined them on
+// 2026-09-05 (buses-data OA-233): GET /api/maps/:id/poi-tiers, a map's landmark
+// answer as an exportable block, which the same worklist compares against each
+// town's source data. Still GET, still a read, still nothing else.
 //
 // SO THE SUBJECT OF THIS SUITE IS THE WORD "ONLY", AND THAT IS WHY MOST OF IT IS
 // REFUSALS. Asserting that the two reads work proves the token exists; it says
@@ -112,6 +115,29 @@ const mapsEditor = await get('/api/maps', { session: editorTok });
 eq('an editor session still sees only its own', (mapsEditor.json.maps || []).length, 1);
 eq('…and is told it is not an admin', mapsEditor.json.isAdmin, false);
 
+// The third read (OA-233). `theirs` belongs to the OTHER customer, which is what
+// makes the editor's refusal below a control worth having: the token reaches a
+// map no session of this customer can, because it reads at admin scope.
+const theirsId = db.getMapBySlug('theirs').id;
+const tiersToken = await get(`/api/maps/${theirsId}/poi-tiers`, { bearer: TOKEN });
+eq('the token reads /api/maps/:id/poi-tiers', tiersToken.status, 200);
+check('…and gets the block itself — tiers, saved, pack and counts',
+  !!(tiersToken.json && tiersToken.json.ok && tiersToken.json.tiers && tiersToken.json.saved && tiersToken.json.pack && tiersToken.json.counts && tiersToken.json.map && tiersToken.json.map.slug === 'theirs'),
+  JSON.stringify(tiersToken.json).slice(0, 200));
+const tiersAdmin = await get(`/api/maps/${theirsId}/poi-tiers`, { session: adminTok });
+eq('an admin session still reads it', tiersAdmin.status, 200);
+eq('…and the token sees the same block', JSON.stringify(tiersToken.json.tiers), JSON.stringify(tiersAdmin.json.tiers));
+const tiersEditor = await get(`/api/maps/${theirsId}/poi-tiers`, { session: editorTok });
+eq('another customer’s editor is still refused by the per-map guard', tiersEditor.status, 403);
+const tiersMissing = await get('/api/maps/999999/poi-tiers', { bearer: TOKEN });
+eq('a map that does not exist is a 404 for the token, not a 500', tiersMissing.status, 404);
+// The neighbouring route reads the same layers for the chooser and does NOT admit
+// the token: the exception is per route, not per subtree.
+const landmarksToken = await get(`/api/maps/${theirsId}/landmarks`, { bearer: TOKEN });
+check(`GET /api/maps/:id/landmarks refuses the token (${landmarksToken.status})`, landmarksToken.status === 401 || landmarksToken.status === 403);
+const landmarksAdmin = await get(`/api/maps/${theirsId}/landmarks`, { session: adminTok });
+check('…while an admin session reaches /landmarks', landmarksAdmin.status !== 401 && landmarksAdmin.status !== 403, String(landmarksAdmin.status));
+
 // ===========================================================================
 console.log('\nAnd nothing else — the token is READ-ONLY');
 // ===========================================================================
@@ -170,7 +196,7 @@ console.log('\nWhere the token is consulted at all');
 const srcFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? srcFiles(path.join(dir, e.name)) : e.name.endsWith('.js') ? [path.join(dir, e.name)] : []));
 const SRC = Object.fromEntries(srcFiles(path.join(ROOT, 'src')).map((f) => [path.relative(path.join(ROOT, 'src'), f).replace(/\\/g, '/'), readFileSync(f, 'utf8')]));
 const allSrc = Object.values(SRC).join('\n');
-eq('operatorRead is defined once and called exactly three times, across the whole of src/', allSrc.split('operatorRead(').length - 1, 4);
+eq('operatorRead is defined once and called exactly four times, across the whole of src/', allSrc.split('operatorRead(').length - 1, 5);
 check('…defined in src/http/helpers.js', SRC['http/helpers.js'].includes('function operatorRead(req) {'));
 check('…once by the guard of the admin plugin, for the route that declares the exception',
   SRC['routes/admin.js'].includes('if (req.routeOptions.config.operatorRead && operatorRead(req)) return;')
@@ -185,8 +211,14 @@ check('…once by the guard of the admin plugin, for the route that declares the
 check('…once by the guard of the editor plugin, for the route that declares the exception',
   SRC['routes/editor.js'].includes('if (req.routeOptions.config.operatorRead && operatorRead(req)) return;')
   && SRC['routes/editor.js'].includes("app.get('/', { prefixTrailingSlash: 'no-slash', config: { operatorRead: true } }, async (req, reply) => {"));
-check('…and once by the handler of GET /api/maps, which asks whether THIS call came by token',
-  SRC['routes/editor.js'].includes('const viaToken = operatorRead(req);'));
+// TWO HANDLERS ask that question since OA-233: GET /api/maps, which scopes its
+// answer, and GET /api/maps/:id/poi-tiers, which loads the map without a user
+// when the call came by token. The count went 4 -> 5 for the second, and the
+// route must ALSO declare the flag or the plugin hook refuses it before the
+// handler ever asks.
+check('…and once each by the handlers of GET /api/maps and GET /api/maps/:id/poi-tiers, which ask whether THIS call came by token',
+  SRC['routes/editor.js'].split('const viaToken = operatorRead(req);').length - 1 === 2
+  && SRC['routes/editor.js'].includes("app.get('/:id/poi-tiers', { config: { operatorRead: true } }, async (req, reply) => {"));
 
 // ===========================================================================
 console.log('\nThe credential itself');

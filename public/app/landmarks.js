@@ -1167,7 +1167,7 @@ $('exportBtn').addEventListener('click', async () => {
   const tiers = tiersPayload();
   const n = Object.keys(tiers).length;
   const block = JSON.stringify({ tiers }, null, 2);
-  const where = 'It goes in the map’s routes.json, inside its "poi" block.';
+  const where = 'It goes in the map’s routes.json, inside its "poi" block — or skip the clipboard: poi_tiers_sync.js in the engine pulls the same block over GET /api/maps/<id>/poi-tiers and merges it.';
   if (!n) { note('Nothing to copy yet — no place on this map has been answered.', 'warn'); return; }
   try {
     await navigator.clipboard.writeText(block);
