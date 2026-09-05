@@ -71,7 +71,7 @@
       "path": "lane_normals.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/lane_normals.js",
-      "sha256": "6a91337f05ae10e4bf3059fd69c11ac2f56c8fe72eb9bbbaee9cce1058631a0e",
+      "sha256": "cf3170881235f0ec5651247713abc364f69a548006bc84afe1f8753f12f89117",
       "vendoredOn": "2026-09-05",
       "note": "Required at LOAD by gen_internal.js, before it reads a thing, so a partial vendor throws at require time and not at a byte gate. It arrived with design.laneOrientation on 2026-08-26 and this row had to be written by hand: --update restamps rows that exist, and until a file is named here it is not a row, so nothing could go red about a file the portal did not have yet. That is the hole requireScan() now covers."
     },
@@ -143,7 +143,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "0905f7dadf9f8a8dd7df1ff93e4cb5d6ae246ae47c94b3670a3230c1ab175a77",
+      "sha256": "d22b1e563aa0d482f7fc1541532ce0f86b8d19ee7625c803b74b98223668eb3d",
       "vendoredOn": "2026-09-05",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -231,8 +231,8 @@
       "path": "complexity_ladder.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/complexity_ladder.js",
-      "sha256": "ca1921b63dc82c81bb2551bf815c2d1356ddc0bc504138b8607a7b0c4756855c",
-      "vendoredOn": "2026-08-27",
+      "sha256": "6e2365b279f121f181f37516d00d4328c4f562560f201abb38ad64eb41d1835e",
+      "vendoredOn": "2026-09-05",
       "note": "The four rungs that make a big town readable: internalCorridors, coreBox, stopThinning, corridorPalette. Required at load by gen_internal.js."
     },
     {
