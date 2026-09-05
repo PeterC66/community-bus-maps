@@ -1,0 +1,11 @@
+---
+date: 2026-09-05
+title: "The minted session that is now revoked on every exit"
+---
+
+buses-data OA-248. `scripts/accept-publish-batch.mjs --mint` inserts a live admin session on the host and, until today, revoked it at the end of the happy path only.
+
+- **Three exits walked away from a live admin session.** Declining the `Type "yes"` prompt (`Aborted — nothing was changed.` and `return`), any thrown error (`main().catch()`), and a stdin that was not a terminal — the last one silently, because readline waited on input that could not come and node exited 0 with nothing left to do. The third is how it was found: running the script from a non-interactive shell to *see* the pending list before committing to it. The 20-minute lifetime was the only mitigation, and the header that chose it had already said why: "short enough that leaving it behind by accident is not a standing hole" — which is a description of the hole.
+- **Now: refuse before the mint, and revoke in a `finally` after it.** A non-TTY stdin without `--yes` is refused with exit 2 and a message naming `--yes` and `--dry-run`, checked before anything stateful. Everything after the mint runs inside a `try` whose `finally` revokes and reads the row back, so the prompt exit and the throw exit revoke too; a revoke that cannot confirm the row is gone sets a non-zero exit. The happy-path revoke is gone, because there is now exactly one call site.
+- **And the reason anybody walked into it is removed.** `--dry-run --cookie "<cbm_session>"` fetches the pending list over one read-only GET and prints it, changing nothing — the way to see what a run would do without minting. `--dry-run` alone still makes no calls at all.
+- **Proven, not asserted.** `scripts/test-accept-publish-guards.mjs` spawns the script in an environment with no host variables: a non-TTY stdin is refused *before* the `DEPLOY_HOST` complaint the mint would raise; with `--yes` the run reaches the mint (and fails there on the empty environment), which proves the order and that the guard discriminates; `--dry-run` survives the guard; and the source holds one `revokeSession(COOKIE)`, inside a `finally`. A mutant that disabled the guard turned four assertions red before this landed.

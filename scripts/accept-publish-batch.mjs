@@ -24,6 +24,21 @@
 //   npm run accept-publish -- --dry-run --reviewed-by "Peter Cooper"
 //        (no --cookie needed — lists the plan, makes no HTTP calls)
 //
+//   npm run accept-publish -- --dry-run --cookie "..." --reviewed-by "Peter Cooper"
+//        (READS the pending list over the API and prints it; still changes
+//        nothing. This is how to see what a run would do without minting:
+//        until 2026-09-05 the only way to see the list was to start a real run
+//        and decline its prompt, which is the first of the three leaks below.)
+//
+// THE PROMPT NEEDS A TERMINAL, AND THE SCRIPT REFUSES RATHER THAN HANGS
+// (buses-data OA-248, 2026-09-05). Without --yes this script asks "Type yes"
+// before it changes anything. If stdin is not a TTY that question can never be
+// answered, and until 2026-09-05 the script reached it anyway: the prompt
+// printed, readline waited for input that could not come, node saw nothing
+// left to do and exited 0 -- with no "Aborted" line, and with the session
+// minted by --mint still live on the host. Now a non-TTY stdin without --yes
+// is refused BEFORE the mint, with exit code 2 (used wrongly).
+//
 // --cookie is the value of the cbm_session cookie for an admin account —
 // either pasted after signing in normally, or minted with --mint (below).
 // Nothing here handles a password; the cookie is an opaque server-side
@@ -82,6 +97,13 @@ if (!REVIEWED_BY) {
 if (!COOKIE && !MINT && !DRY_RUN) {
   console.error('✗ Need --cookie "<cbm_session value>" (sign in normally and copy the cookie) or --mint (ssh mint-and-revoke), or --dry-run to just see the plan.');
   process.exit(1);
+}
+// Refuse to reach a prompt nobody can answer. Checked here, before the mint,
+// because the whole point is that the mint must not happen on a run that can
+// only end by exiting silently (OA-248, the third exit).
+if (!YES && !DRY_RUN && !process.stdin.isTTY) {
+  console.error('✗ stdin is not a terminal, so the "Type yes" confirmation could not be answered. Pass --yes to run without the prompt, or --dry-run to see the plan.');
+  process.exit(2);
 }
 
 const HOST = process.env.DEPLOY_HOST;
@@ -234,8 +256,31 @@ async function main() {
     console.log('✓ session minted (20 min lifetime), confirmed present by reading it back.');
   }
 
+  // EVERYTHING AFTER THE MINT RUNS INSIDE THIS try, AND THE REVOKE IS IN ITS
+  // finally (OA-248). Until 2026-09-05 the revoke sat at the end of the happy
+  // path only, so declining the prompt, any thrown error, and a stdin that was
+  // not a terminal each walked away from a live admin session -- the third
+  // silently. The guard at the top closes the third before the mint; this
+  // block closes the other two after it. `return` inside the try still runs
+  // the finally, which is the property being relied on.
+  try {
+    await run();
+  } finally {
+    if (MINT && !DRY_RUN && COOKIE) {
+      console.log('\n-- revoking the minted session...');
+      const rv = revokeSession(COOKIE);
+      console.log(`   ${rv.revoked ? '✓ confirmed gone' : '✗ NOT CONFIRMED — ' + rv.raw + ' (check the host by hand)'}`);
+      if (!rv.revoked) process.exitCode = 1;
+    }
+  }
+}
+
+async function run() {
   let updates = [];
-  if (!DRY_RUN) {
+  // A dry run with a cookie READS the pending list (one GET, nothing mutating)
+  // so the plan can be seen without minting. A dry run without one still makes
+  // no calls at all.
+  if (!DRY_RUN || COOKIE) {
     const r = await api('GET', '/api/admin/proposed-updates');
     updates = r.updates;
   }
@@ -245,15 +290,19 @@ async function main() {
   }
 
   if (DRY_RUN) {
-    console.log('(dry run — would fetch /api/admin/proposed-updates and process whatever is pending'
-      + (ONLY ? ` restricted to ids [${ONLY}]` : '') + ')');
-    console.log('\nNo calls made. Re-run with --cookie or --mint (and drop --dry-run) once you are ready.');
+    if (COOKIE) {
+      console.log(`(dry run — ${updates.length} proposed update(s) pending` + (ONLY ? ` restricted to ids [${ONLY}]` : '') + ')');
+      for (const u of updates) console.log(`   #${u.id}  ${u.map.name}  (map ${u.map.id})`);
+    } else {
+      console.log('(dry run — would fetch /api/admin/proposed-updates and process whatever is pending'
+        + (ONLY ? ` restricted to ids [${ONLY}]` : '') + ')');
+    }
+    console.log('\nNothing changed. Re-run with --cookie or --mint (and drop --dry-run) once you are ready.');
     return;
   }
 
   if (!updates.length) {
     console.log('Nothing pending to accept + publish. Nothing to do.');
-    if (MINT) { const rv = revokeSession(COOKIE); console.log(`session revoked: ${rv.revoked ? 'confirmed gone' : 'NOT CONFIRMED — ' + rv.raw}`); }
     return;
   }
 
@@ -354,12 +403,6 @@ async function main() {
     } catch (e) {
       console.log(`   ✗ digest send failed (the publishes above already happened regardless): ${e.message}`);
     }
-  }
-
-  if (MINT) {
-    console.log('\n-- revoking the minted session...');
-    const rv = revokeSession(COOKIE);
-    console.log(`   ${rv.revoked ? '✓ confirmed gone' : '✗ NOT CONFIRMED — ' + rv.raw + ' (check the host by hand)'}`);
   }
 
   const reportDir = path.join(process.cwd(), 'data', 'accept-publish-reports');
