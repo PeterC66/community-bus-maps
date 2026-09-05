@@ -177,11 +177,13 @@ function opsAuthorised(req) {
 }
 
 // OPERATOR_TOKEN — a READ-ONLY operator credential for the laptop's own tooling
-// (OA-203, 2026-08-31). It admits exactly two GETs, `/api/admin/worklist` and
-// `/api/maps`, at the scope an admin session already sees on them, and it admits
-// nothing else anywhere.
+// (OA-203, 2026-08-31). It admits exactly three GETs, `/api/admin/worklist`,
+// `/api/maps` and, since 2026-09-05 (buses-data OA-233), `/api/maps/:id/poi-tiers`,
+// at the scope an admin session already sees on them, and it admits nothing else
+// anywhere. scripts/test-operator-token.mjs holds that set closed by counting the
+// call sites across src/.
 //
-// WHY IT EXISTS. `bus-work/assets/worklist.mjs` reads those two routes. Both sit
+// WHY IT EXISTS. `bus-work/assets/worklist.mjs` reads those routes. All sit
 // behind a signed-in admin, and the only credential this portal issues for a
 // PERSON is a magic-link session — so until now the laptop borrowed one: a live
 // `cbm_session` value pasted into .env and left there. That is a full admin
