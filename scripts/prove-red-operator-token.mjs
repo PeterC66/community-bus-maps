@@ -124,7 +124,9 @@ const MUTATIONS = [
     what: 'GET /api/maps stops accepting the token',
     why: 'half the worklist would silently print no maps rather than fail — the tool cross-references its local tree against this list',
     // Re-anchored 2026-09-02 (OA-231): the handler moved into the editor plugin.
-    edits: [['src/routes/editor.js', '  const viaToken = operatorRead(req);', '  const viaToken = false;']],
+    // Two handlers carry this line since OA-233; the second line pins the arm to
+    // the list route, so the anchor stays unique and damage() does not go STALE.
+    edits: [['src/routes/editor.js', '    const viaToken = operatorRead(req);\n    const user = viaToken ? null : req.user;', '    const viaToken = false;\n    const user = viaToken ? null : req.user;']],
     expect: 'the token reads /api/maps',
   },
   {
@@ -161,7 +163,19 @@ const MUTATIONS = [
     what: 'a fourth call site appears, on a route no forbidden-list names',
     why: 'the enumeration of forbidden routes can only cover what somebody remembered; this is the arm proving the source assertion covers the rest',
     edits: [['src/http/helpers.js', 'function requireApprover(req, reply) {\n  if (!req.user) {', `function requireApprover(req, reply) {\n${ADMIT_AS_ADMIN}  if (!req.user) {`]],
-    expect: 'operatorRead is defined once and called exactly three times',
+    expect: 'operatorRead is defined once and called exactly four times',
+  },
+  {
+    what: 'GET /api/maps/:id/poi-tiers stops accepting the token',
+    why: 'the third read (OA-233) is the one the landmark-answer worklist source depends on; a flag dropped in a refactor would leave that source silently empty for every map',
+    edits: [['src/routes/editor.js', "app.get('/:id/poi-tiers', { config: { operatorRead: true } }, async (req, reply) => {", "app.get('/:id/poi-tiers', { config: { operatorRead: false } }, async (req, reply) => {"]],
+    expect: 'the token reads /api/maps/:id/poi-tiers',
+  },
+  {
+    what: 'the poi-tiers handler stops asking how the call arrived',
+    why: 'with the flag still set the hook admits the token, and a handler that then reads req.user throws on it — the read assertion is what names that',
+    edits: [['src/routes/editor.js', '    const viaToken = operatorRead(req);\n    let map;', '    const viaToken = false;\n    let map;']],
+    expect: 'the token reads /api/maps/:id/poi-tiers',
   },
   {
     what: 'an unset OPERATOR_TOKEN means everybody instead of nobody',
