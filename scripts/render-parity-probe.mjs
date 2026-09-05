@@ -27,18 +27,143 @@
 // Both are rasterised through the PRODUCTION rasterise() so this tests the real
 // code path, at the real sheet geometry (3508x2480, viewBox 0 0 297 210).
 //
-// Usage:
+// Usage (from the repository root, C:\Claude\community-bus-maps):
 //   node scripts/render-parity-probe.mjs                  # print this platform's result
 //   node scripts/render-parity-probe.mjs --write-baseline # record it as the baseline
 //   node scripts/render-parity-probe.mjs --strict         # exit 1 if it differs from the baseline
+// The exit code is the verdict, and since 2026-09-05 it is delivered by a
+// supervisor process rather than by this one's own teardown -- see below.
 
 import { sha256 } from '../src/hash.js';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
-import { rasterise } from '../src/render/renderMap.js';
+import { spawn } from 'node:child_process';
+
+/*
+ * THIS FILE RUNS TWICE, AND THE PARENT NEVER LOADS SHARP (2026-09-05, OA-052).
+ *
+ * The EIGHTH hang -- run 33750970921, 2026-09-03, the image job -- was the first
+ * one the watchdog below was armed for, and it printed:
+ *
+ *   [probe +1.66s] work complete, exiting 0
+ *   [probe +1.66s] process 'exit' event reached, code 0
+ *   RESULT: DIFFERS -- ...
+ *   ##[error]The action 'Rasterise the probes inside the image' has timed out after 5 minutes.
+ *
+ * and nothing else. No handle dump, no ::warning::. That is a state the table
+ * at the foot of this file could not name, and it is the diagnosis: the JS exit
+ * handlers RAN, and the process then stuck in native teardown -- the part of
+ * `process.exit()` after the 'exit' event, where libvips and glib tear down
+ * their thread pools -- and a JS timer cannot fire there, because the event
+ * loop is already gone. A watchdog inside the process that dies is looking for
+ * the fault from the one place it cannot be seen. The environment line was the
+ * same as every passing run's (node 24.19.0, sharp 0.35.3, libvips 8.18.3,
+ * concurrency 1, 2 cpus, simd on), so it is not a difference between runners.
+ *
+ * So the guard moved OUTSIDE the process. With no RENDER_PARITY_PROBE_ROLE set,
+ * this file is the SUPERVISOR: it spawns itself as a child with the role set,
+ * forwards the child's stdout unchanged (the Report step and `tee` see exactly
+ * what they saw before, plus one line), and watches for the line
+ *
+ *   PROBE VERDICT: exit <n>
+ *
+ * which the child prints as its LAST act before `process.exit(n)`. Once that
+ * line has been seen the verdict is on the record; if the child is still alive
+ * a grace period later it is SIGKILLed and the supervisor exits with <n>. The
+ * supervisor imports nothing native, so its own exit cannot be the thing that
+ * hangs.
+ *
+ * IS THIS MUTING A CHECK? No -- the same answer the in-process watchdog gave,
+ * and now it holds in every state. The rescue arms only AFTER the verdict has
+ * been computed and printed; a hang anywhere in the work still ends in the
+ * step's timeout-minutes and a red job, exactly as before. What is cut short
+ * is a teardown deadlock that has nothing to say about render parity, and
+ * every occurrence still prints an Actions ::warning:: so the frequency stays
+ * countable. Both halves are asserted by
+ * scripts/test-render-parity-supervisor.mjs: a post-verdict hang is rescued
+ * with the verdict's own code, and a pre-verdict stall is NOT.
+ *
+ * RENDER_PARITY_PROBE_SIMULATE is a test seam and nothing else:
+ *   exit:<n>                  the child exits <n> whatever it measured
+ *   hang-after-verdict        the child blocks its thread in the 'exit' handler
+ *                             -- the eighth hang's shape, a JS timer cannot fire
+ *   stall-before-verdict:<ms> the child blocks its thread for <ms> BEFORE
+ *                             printing the verdict, then continues normally
+ */
+const ROLE = process.env.RENDER_PARITY_PROBE_ROLE;
+const SIMULATE = process.env.RENDER_PARITY_PROBE_SIMULATE || '';
+const VERDICT_RE = /^PROBE VERDICT: exit (\d+)$/;
+// The in-process watchdog's grace (below) plus five seconds, so that when Node
+// IS alive with handles open the child's own handle dump lands first.
+const SUPERVISOR_GRACE_MS = Number(process.env.PROBE_SUPERVISOR_GRACE_MS
+  || Number(process.env.PROBE_EXIT_GRACE_MS || 20000) + 5000);
+
+if (ROLE !== 'child') {
+  process.exit(await supervise());
+}
+
+async function supervise() {
+  const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...process.argv.slice(2)], {
+    env: { ...process.env, RENDER_PARITY_PROBE_ROLE: 'child' },
+    stdio: ['inherit', 'pipe', 'inherit'],
+  });
+  let verdict = null;
+  let pending = '';
+  let grace = null;
+  child.stdout.on('data', (chunk) => {
+    process.stdout.write(chunk);
+    pending += chunk.toString('utf8');
+    let nl;
+    while ((nl = pending.indexOf('\n')) >= 0) {
+      const line = pending.slice(0, nl).replace(/\r$/, '');
+      pending = pending.slice(nl + 1);
+      const m = VERDICT_RE.exec(line);
+      if (m && verdict == null) {
+        verdict = Number(m[1]);
+        grace = setTimeout(() => {
+          process.stderr.write(`[supervisor] the probe printed its verdict (exit ${verdict}) and did not exit within `
+            + `${SUPERVISOR_GRACE_MS} ms -- the render-parity teardown hang (buses-data OA-052), caught from outside. Killing it.\n`);
+          console.log(`::warning::render-parity probe: the work finished and the verdict is valid, but the process `
+            + `did not exit within ${SUPERVISOR_GRACE_MS} ms after printing it. This is the intermittent teardown hang `
+            + `(buses-data OA-052); the supervisor killed it and is exiting ${verdict}, the code the probe decided.`);
+          child.kill('SIGKILL');
+        }, SUPERVISOR_GRACE_MS);
+      }
+    }
+  });
+  return new Promise((resolve) => {
+    child.on('error', (e) => { process.stderr.write(`[supervisor] could not run the probe: ${e.message}\n`); resolve(1); });
+    child.on('exit', (code, signal) => {
+      if (grace) clearTimeout(grace);
+      if (verdict != null) {
+        if (signal == null && code !== verdict) {
+          process.stderr.write(`[supervisor] the probe printed exit ${verdict} and then exited ${code}; reporting ${code}.\n`);
+          resolve(code);
+        } else {
+          resolve(verdict);
+        }
+        return;
+      }
+      // No verdict was ever printed: the child died in its work. That is a real
+      // failure and it stays one, whatever the signal.
+      if (signal) process.stderr.write(`[supervisor] the probe died from ${signal} before reaching a verdict.\n`);
+      resolve(code == null ? 1 : code);
+    });
+  });
+}
+
+// --- from here on, this is the CHILD --------------------------------------
+// sharp and the production rasteriser are loaded only here, so the supervisor
+// above never carries the native teardown it exists to outlive.
+const sharp = (await import('sharp')).default;
+const { rasterise } = await import('../src/render/renderMap.js');
+
+/** Block the thread synchronously, as a stuck native destructor would. */
+function blockThread(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BASELINE = path.join(HERE, 'render-parity-baseline.json');
@@ -382,10 +507,27 @@ watchdog.unref?.();
  *                                            almost certainly libvips/sharp.
  *   "exit event" and then the watchdog ..... Node is alive with handles open;
  *                                            the dump names them.
+ *   "exit event" and then NOTHING .......... native teardown after the handlers
+ *                                            (libvips/glib); the loop is gone,
+ *                                            so no timer here can fire. THIS IS
+ *                                            WHAT THE EIGHTH HANG SHOWED, and
+ *                                            it is why the supervisor at the
+ *                                            top of this file exists.
  *   all three lines and STILL silent ....... Node died and `docker run` (or the
  *                                            `tee` pipe) did not return, which
  *                                            puts it outside this script.
  */
-process.on('exit', (c) => step(`process 'exit' event reached, code ${c}`));
-step(`work complete, exiting ${code}`);
-process.exit(code);
+process.on('exit', (c) => {
+  step(`process 'exit' event reached, code ${c}`);
+  // The eighth hang's shape: the handlers ran, and the process never came back
+  // from what follows them. Blocking here blocks the thread, so the watchdog
+  // above cannot fire -- which is the point of simulating it this way.
+  if (SIMULATE === 'hang-after-verdict') blockThread(undefined);
+});
+const finalCode = SIMULATE.startsWith('exit:') ? Number(SIMULATE.slice(5)) : code;
+if (SIMULATE.startsWith('stall-before-verdict:')) blockThread(Number(SIMULATE.split(':')[1]));
+// The supervisor keys on this line and on nothing else; it is the last thing
+// printed before the exit that may not complete.
+console.log(`PROBE VERDICT: exit ${finalCode}`);
+step(`work complete, exiting ${finalCode}`);
+process.exit(finalCode);

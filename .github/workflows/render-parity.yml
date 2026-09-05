@@ -66,9 +66,34 @@
 #
 # The timeout is what makes the flakiness survivable, and it is now at the STEP
 # as well as the job: a hang ends in 5 minutes rather than 20, and 20 rather than
-# GitHub's six-hour default. Note that GitHub reports a timed-out job as
-# `cancelled`, not `failure` -- so these six are invisible in any count of
-# failures.
+# GitHub's six-hour default. A job killed by its own timeout is reported as
+# `cancelled`; a STEP killed by its own timeout is reported as `failure` -- so
+# the six above are invisible in any count of failures and every hang since
+# the step cap landed (2026-08-29) is countable.
+#
+# THE SEVENTH AND EIGHTH HANGS ANSWERED THE QUESTION (2026-08-29 and 2026-09-03,
+# runs 33233095649 and 33750970921, OA-052). Both did ALL their work in under
+# two seconds and printed the complete verdict; the seventh then sat silent,
+# and the eighth -- the first with the probe's in-process watchdog armed --
+# printed `work complete, exiting 0` and `process 'exit' event reached, code 0`
+# and then NOTHING for five minutes. No handle dump: the JS exit handlers ran
+# and the process stuck in native teardown after them, where no JS timer can
+# fire because the event loop is already gone. The rasterisation was never
+# involved, and the probe's own watchdog was placed in the one process that
+# cannot see the fault.
+#
+# SO THE GUARD IS OUTSIDE THE PROCESS (2026-09-05). render-parity-probe.mjs now
+# runs itself as a child under a supervisor that loads nothing native, reads
+# the `PROBE VERDICT: exit <n>` line the child prints as its last act, and if
+# the child is still alive a grace period after that line, kills it and exits
+# <n>. The step's `| tee` and the Report step see the same stdout as before
+# plus that one line. A hang in the WORK is still a hang -- the rescue arms
+# only on the verdict line -- and still ends in this step's timeout-minutes;
+# scripts/test-render-parity-supervisor.mjs proves both directions. Each
+# rescue prints an Actions ::warning:: naming OA-052, so the frequency stays
+# visible: a green run with that warning is a hang that was outlived, and a
+# red run at the step cap with no verdict line is a hang in the work, which
+# would be new.
 #
 # IF YOU COME TO INVESTIGATE: read the `[probe +Ns]` breadcrumbs first. Compare
 # the environment line of a hung run against a passing one on the same job.
@@ -176,9 +201,13 @@ jobs:
       # Liberation Mono for four days and this probe still reported PASS,
       # because nothing here failed the build on it.
       # timeout-minutes at the STEP, not just the job. This step takes ~35s on a
-      # good run and has hung twice; capping it at 5 minutes turns a hang into a
-      # result eight times sooner than the job cap did, and the breadcrumbs the
-      # probe now writes to stderr say which phase it died in (OA-052/OA-103).
+      # good run and has hung four times; capping it at 5 minutes turns a hang
+      # into a result eight times sooner than the job cap did, and the
+      # breadcrumbs the probe writes to stderr say which phase it died in
+      # (OA-052/OA-103). Since 2026-09-05 a hang AFTER the verdict never reaches
+      # this cap: the probe's supervisor ends it in ~25 s with the verdict's own
+      # exit code and a ::warning::. Reaching this cap now means a hang in the
+      # work itself, which no run has yet shown.
       - name: Rasterise the probes inside the image
         timeout-minutes: 5
         run: docker run --rm cbm-parity node scripts/render-parity-probe.mjs --strict-fonts | tee probe-image.txt
@@ -251,7 +280,8 @@ jobs:
         run: npm ci --omit=dev
 
       # Same 5-minute step cap as the image job: this is the step that sat for
-      # FOUR HOURS on 2026-08-20 and has hung on four runs since (OA-052).
+      # FOUR HOURS on 2026-08-20 and has hung on four runs since (OA-052). The
+      # same supervisor applies here: a post-verdict hang ends with the verdict.
       - name: Rasterise the probes on the bare runner
         timeout-minutes: 5
         run: node scripts/render-parity-probe.mjs | tee probe-runner.txt
