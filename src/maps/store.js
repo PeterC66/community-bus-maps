@@ -75,6 +75,64 @@ export function readBuildWarnings(dir) {
   return { total: Number(head[1]), blocking: Number(head[2]), blockingLines };
 }
 
+/**
+ * THE TOWN'S COMPLEXITY BAND, AS SCORED WHEN THIS PACK WAS BUILT (buses-data OA-088).
+ *
+ * The bus skill scores every town at the end of S2 — `complexity_score.js`
+ * writes `complexity.json` with a band of GREEN, AMBER or RED and the metric
+ * that tripped it — and RED is the one verdict in the whole pipeline that says
+ * "do not build the standard single sheet; choose a strategy first". S4 pulls
+ * S2's outputs into its run folder, S5 copies them on, and `import-map.mjs`
+ * keeps every `*.json` in a payload, so the file has ridden with every AREA
+ * delivery since the first one: on 2026-09-05 all eight area maps on the live
+ * host held theirs, one of them RED and published, and the string
+ * "complexity" appeared in this repository only inside the vendored engine.
+ * The verdict was computed, was right, travelled, and was read by nothing.
+ * Exactly the shape readBuildWarnings() above was written for, five days
+ * earlier, for the other file the engine writes about its own work.
+ *
+ * Read from the pack rather than re-derived, for the same reason as the build
+ * report: the band an approver needs is the one the sheet was actually built
+ * under. The P metric did not exist before 2026-08-31, so an older pack's
+ * GREEN is a GREEN on four metrics, and the file says when it was scored.
+ * Place packs never carry one — the gate scores towns — so `null` is the
+ * ordinary answer for a place and the screen must not read it as a gap.
+ */
+export const COMPLEXITY = 'complexity.json';
+
+const BANDS = new Set(['GREEN', 'AMBER', 'RED']);
+
+/**
+ * Parse a `complexity.json` into something a screen can show.
+ *
+ * Tolerant by design, like readBuildWarnings(): an absent, unreadable or
+ * unrecognised file reports `null`, and a band outside the three the gate
+ * writes is unrecognised rather than passed through — a screen colouring on
+ * the band must never be handed a word it has no colour for.
+ *
+ * @returns {{band:'GREEN'|'AMBER'|'RED', failed:string[], scoredAt:string|null,
+ *            metrics:Record<string,number>, applied:string[]}|null}
+ */
+export function readComplexity(dir) {
+  let j;
+  try { j = JSON.parse(readFileSync(path.join(dir, COMPLEXITY), 'utf8')); } catch { return null; }
+  if (!j || typeof j !== 'object' || !BANDS.has(j.band)) return null;
+  const m = j.metrics && typeof j.metrics === 'object' ? j.metrics : {};
+  const metrics = {};
+  for (const k of ['R', 'S', 'K5', 'D5', 'P']) if (Number.isFinite(m[k])) metrics[k] = m[k];
+  // `applied` names the remedy keys the town was built with (internalCorridors,
+  // coreBox, …); the gate writes each as an object or a list under its key, and
+  // what a reader needs is which rungs were taken, not their values.
+  const applied = j.applied && typeof j.applied === 'object' ? Object.keys(j.applied).filter((k) => j.applied[k] != null) : [];
+  return {
+    band: j.band,
+    failed: Array.isArray(j.failedThresholds) ? j.failedThresholds.filter((s) => typeof s === 'string') : [],
+    scoredAt: typeof j.scoredAt === 'string' ? j.scoredAt : null,
+    metrics,
+    applied,
+  };
+}
+
 export const BASE_OVERRIDES = 'base-overrides.json';
 // P7 — the expert's hand-placed junction pins for the tube-map diagram, written by
 // the pin editor into the map's data folder and read by the diagram engine on every

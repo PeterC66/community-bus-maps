@@ -140,6 +140,50 @@ function buildWarningsHtml(bw) {
   return '<p class="hint-line">The engine reported no warnings on this build.</p>';
 }
 
+/**
+ * WHAT THE GATE THOUGHT OF THE TOWN (buses-data OA-088).
+ *
+ * The bus skill scores every town at the end of S2 — GREEN, AMBER or RED, with
+ * the measure that tripped it — and RED is the one verdict in the pipeline that
+ * says "do not build the standard single sheet; choose a strategy first". The
+ * file has ridden with every area delivery since the first one and this is the
+ * first screen to read it: on 2026-09-05 a RED town was published and nothing
+ * on the portal could have said so.
+ *
+ * FOUR STATES, and two of them are "nothing to say". An older server sends no
+ * field at all. A PLACE pack carries no score, because the gate scores towns,
+ * so null on a place is the ordinary answer and not a gap. Null on an AREA is
+ * a gap, and is said in as many words for the same reason the build report's
+ * absence is: "we do not know" must not look like "fine".
+ */
+function complexityHtml(c, kind) {
+  if (c === undefined) return '';   // older server, say nothing at all
+  if (c === null) {
+    if (kind === 'place') return '';
+    return `<p class="rd-note">The town's complexity score did not travel with this version, so there is
+      <strong>no record here of whether the gate rated it drawable on one sheet</strong>. Area packs built
+      since 2026-07-28 carry one.</p>`;
+  }
+  const when = c.scoredAt ? ` Scored ${esc(c.scoredAt)}` : '';
+  const four = Number.isFinite(c.metrics && c.metrics.P) ? '' : ' on the four route measures only — the points-of-interest measure was added on 31 August 2026 and a rebuild would score it';
+  const applied = c.applied.length
+    ? `Built with the remedy ladder applied: <code>${c.applied.map(esc).join('</code>, <code>')}</code>.`
+    : 'Built with no remedy keys.';
+  const failed = c.failed.length ? ` — <code>${c.failed.map(esc).join('</code>, <code>')}</code>` : '';
+  if (c.band === 'RED') {
+    return `<p class="rd-note rd-warn"><strong>The town scored RED for complexity when this version was built</strong>${failed}.
+      RED is the gate's one "stop" verdict: the standard single sheet is past what an A4 page can carry, and the sheet
+      below is that sheet. ${applied} This does not block publishing; it tells you why the map is as busy as it is, and
+      that how this town is best served — a multi-sheet map, or place maps — is a decision still owed to the customer.${when}${four}.</p>`;
+  }
+  if (c.band === 'AMBER') {
+    return `<p class="hint-line">The town scored <strong>AMBER</strong> for complexity${failed} — over the green line on one
+      measure, which the build continues through. ${applied}${when}${four}.</p>`;
+  }
+  return `<p class="hint-line">The town scored <strong>GREEN</strong> for complexity — inside the envelope of the accepted
+    towns. ${applied}${when}${four}.</p>`;
+}
+
 function sheetCount(inspect) {
   return new Set(inspect.filter((d) => /\.(svg|jpg)$/.test(d.file)).map((d) => d.file.replace(/\.(svg|jpg)$/, ''))).size;
 }
@@ -193,6 +237,7 @@ async function openReview(id) {
         ? ` <strong>One decision covers all ${sheets} sheets of this map</strong> — there is no way to publish one and hold another back.`
         : ''}</p>
       ${buildWarningsHtml(body.buildWarnings)}
+      ${complexityHtml(body.complexity, r.map.kind)}
       ${inspectHtml(body.inspect)}
       <div class="dl-row" style="margin-top:8px"><a class="dl" href="/app/review-services.html?id=${r.id}" target="_blank" rel="noopener">↗ Open services and stops list (opens in a new tab)</a></div>
     </div>
@@ -227,6 +272,7 @@ function renderDecided(r) {
     <div class="rd-meta">${esc(r.reviewedBy || '—')} · ${fmtDate(r.reviewedAt)}</div>
     ${r.decisionNote ? `<p class="rd-note">“${esc(r.decisionNote)}”</p>` : ''}
     ${ev ? `<p class="hint-line">Review checklist recorded (${ev} item${ev === 1 ? '' : 's'}).</p>` : ''}
+    ${r.evidence && r.evidence.complexity ? `<p class="hint-line">Complexity band on record at the decision: <strong>${esc(r.evidence.complexity.band)}</strong>${r.evidence.complexity.failed && r.evidence.complexity.failed.length ? ' (' + esc(r.evidence.complexity.failed.join(', ')) + ')' : ''}.</p>` : ''}
   </div>`;
 }
 

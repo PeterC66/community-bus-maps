@@ -27,7 +27,7 @@ import { mapPageUrl } from '../public/index.js';
 import { factsForPublicMap, publicServices } from '../public/services.js';
 import { buildFacts, readFactsSnapshot } from '../maps/facts.js';
 import { readRoutesMeta } from '../maps/engine.js';
-import { mapDataDir, readBuildWarnings, versionDir } from '../maps/store.js';
+import { mapDataDir, readBuildWarnings, readComplexity, versionDir } from '../maps/store.js';
 import { STEP_UP_MINUTES, stepUpFresh } from '../auth/index.js';
 import { CHECKLIST, CHECKLIST_VERSION, changeSummary, chooseRevertTarget, validateChecklist } from '../publish/index.js';
 import { logAudit } from '../audit/index.js';
@@ -113,6 +113,13 @@ export default async function reviewRoutes(app) {
       // the verdict the sheet actually shipped under. A pack that carries no file
       // reports null, never a zero — see readBuildWarnings().
       buildWarnings: readBuildWarnings(mapDataDir(pr.map_id)),
+      // AND WHAT THE GATE THOUGHT OF THE TOWN (buses-data OA-088). The end-of-S2
+      // complexity band has ridden with every area delivery and been read by
+      // nothing here; RED is the pipeline's one "do not build the standard
+      // sheet" verdict, and a published RED town existed before this screen
+      // could say so. A place pack carries none — null is its ordinary answer,
+      // not a gap, and the screen tells the two apart by the map's kind.
+      complexity: readComplexity(mapDataDir(pr.map_id)),
       town: meta.town,
     };
   });
@@ -203,8 +210,13 @@ export default async function reviewRoutes(app) {
       },
     );
     const decisionNote = str((req.body || {}).note, 2000);
+    const complexity = readComplexity(mapDataDir(pr.map_id));
     const evidence = {
       checklistVersion: CHECKLIST_VERSION, checklist, changeSummary: summary, decidedAt: new Date().toISOString(),
+      // The band the town was scored at when this pack was built, so the decision
+      // record says what the approver was told (OA-088). Absent when the pack
+      // carries none, which every place pack and every pre-gate area pack does.
+      ...(complexity ? { complexity: { band: complexity.band, failed: complexity.failed, scoredAt: complexity.scoredAt } } : {}),
       // Present and true only when the approver is the submitter and the operator
       // override allowed it. Absent on a genuine two-person review, so a later
       // reader can tell the two apart without inferring it from user ids.
