@@ -741,9 +741,23 @@ function matches(p) {
   if (FILTER === 'named') return p.printsName;
   // Answered means the reader has said something about this row, INCLUDING
   // leaving it as it is. That is the whole of the middle-answer fix (OA-215).
-  if (FILTER === 'answered') return !!(st && st.set);
-  if (FILTER === 'todo') return !(st && st.set);
+  if (FILTER === 'answered') return isAnswered(p);
+  if (FILTER === 'todo') return !isAnswered(p);
   return true;
+}
+
+/**
+ * Has the reader said anything at all about this row?
+ *
+ * ONE PREDICATE, because two counts and a filter ask this question and a chip
+ * whose number disagrees with the list it opens is worse than no number at all.
+ * It was written out twice here and a third time in onEdit() as `set || as`,
+ * which is the same set only while setName() keeps marking a renamed row
+ * answered — an invariant nothing states and nothing checks.
+ */
+function isAnswered(p) {
+  const st = STATE.get(p.key);
+  return !!(st && st.set);
 }
 
 /**
@@ -806,7 +820,22 @@ function buildList() {
   $('showing').textContent = shown === LANDMARKS.length
     ? `All ${LANDMARKS.length} places, in alphabetical order within each group.`
     : `Showing ${shown} of ${LANDMARKS.length} places, in alphabetical order within each group.`;
-  if (!cats.length) { box.innerHTML = '<div class="empty">Nothing matches that.</div>'; return; }
+  // AN EMPTY "NOT LOOKED AT YET" IS THE NORMAL STATE OF A FINISHED MAP, and
+  // saying "Nothing matches that" about it reads as a broken filter (Peter,
+  // 2026-09-05). Once a town has been worked through and its answer exported
+  // back into its own routes.json, every candidate key sits in one of the two
+  // tier layers this page reads, so the chip is empty for ever after — until a
+  // rebuild picks up a place OpenStreetMap has added, which arrives with no
+  // answer in either layer and lands here. The sentence is what turns a control
+  // that looks finished into the tray it has actually become. Only when the
+  // search box is empty: with a query in it, "nothing matches that" is true.
+  if (!cats.length) {
+    const searching = !!($('search').value || '').trim();
+    box.innerHTML = FILTER === 'todo' && !searching
+      ? '<div class="empty">Every place on this map has an answer. A place appears here when OpenStreetMap adds one your map has not seen and the map is next rebuilt.</div>'
+      : '<div class="empty">Nothing matches that.</div>';
+    return;
+  }
 
   let html = '';
   for (const cat of cats) {
@@ -1071,6 +1100,31 @@ function tallyText(total, musts, misses, answered) {
      <br><b>${answered}</b> of ${total} answered · ${total - answered} not looked at yet`;
 }
 
+/**
+ * The two progress chips carry their own numbers (Peter, 2026-09-05).
+ *
+ * WHY A ZERO IS DRAWN RATHER THAN THE CHIP HIDDEN. "Not looked at yet" is empty
+ * for the whole of a finished map's life: once a town has been worked through
+ * and `poi_tiers_sync.js` has put the answer back into its own `routes.json`,
+ * every candidate key names an entry in one of the two tier layers the server
+ * reads, so nothing is unanswered. Pressing the chip and being told "Nothing
+ * matches that" reads as a broken filter, which is what was reported. But the
+ * chip is not spent — it is where a place OpenStreetMap has added since arrives,
+ * carrying no answer in either layer, and it is the ONLY thing on this page or
+ * in the monthly update that mentions such a place at all. So the number goes on
+ * the button, where it answers the question without being clicked, and the empty
+ * state under it says which of the two silences this is.
+ */
+function paintFilterCounts(answered) {
+  const todo = LANDMARKS.length - answered;
+  for (const [id, n] of [['todoCount', todo], ['doneCount', answered]]) {
+    const el = $(id);
+    if (!el) continue;
+    el.textContent = String(n);
+    el.classList.toggle('zero', n === 0);
+  }
+}
+
 function onEdit() {
   drawPoints();
   const d = dirty();
@@ -1080,8 +1134,16 @@ function onEdit() {
 
   const musts = [...STATE.values()].filter((s) => s.tier === 'must').length;
   const misses = [...STATE.values()].filter((s) => s.tier === 'miss').length;
-  const answered = [...STATE.values()].filter((s) => s.set || s.as).length;
+  // COUNTED OVER THE ROWS, not over STATE, and the denominator is why: `total`
+  // has always been LANDMARKS.length while this numerator came from a Map keyed
+  // on the POI key, and since OA-234 two candidates really can share one key —
+  // two unnamed pharmacies both keyed `pharmacy:`. Answer both and the old sum
+  // said 144 of 145. Counting the rows makes the tally agree with the chips
+  // beside it and with the list they filter, which is the same question asked
+  // three times and previously answered two ways.
+  const answered = LANDMARKS.filter(isAnswered).length;
   $('tally').innerHTML = tallyText(LANDMARKS.length, musts, misses, answered);
+  paintFilterCounts(answered);
 
   // A "Must show" is free to click and expensive on the paper. The covering note
   // could only ASK people to be sparing; a counter can show them.
@@ -1328,6 +1390,24 @@ async function load() {
   $('introLine').textContent = `${LANDMARKS.length} places are on your map because OpenStreetMap has them, not because anyone decided they belonged there. `
     + `${l.counts.symbolOnly} of them draw a symbol whose name is never printed, and they take up exactly as much room as the ones with names. `
     + 'You know the town; the map does not.';
+
+  // A RETURNING READER IS TOLD WHERE THE UNANSWERED ROWS ARE (Peter, 2026-09-05).
+  //
+  // Only when the map is part answered, which is what makes it a second visit:
+  // on a first visit every row is unanswered and the sentence would be noise. It
+  // deliberately does NOT claim the rows are new. A part-answered map has two
+  // possible histories — somebody stopped half way, or somebody finished and
+  // OpenStreetMap has since added a place — and the page cannot tell them apart:
+  // the export only carries rows that were answered, so an unfinished map's
+  // leftovers survive a build looking exactly like an arrival. The reader knows
+  // which it is; the page says the number and where to find them.
+  const todo = LANDMARKS.filter((p) => !isAnswered(p)).length;
+  const nn = $('newNotice');
+  if (todo && todo < LANDMARKS.length) {
+    showEl(nn, true);
+    nn.textContent = `${todo} of these ${LANDMARKS.length} places have no answer yet — either you have not reached them, or OpenStreetMap has added them since you last went through. `
+      + 'They are the ones under “Not looked at yet”, and until somebody answers them the map shows each of them if there is room.';
+  } else showEl(nn, false);
 
   buildList();
   onEdit();
