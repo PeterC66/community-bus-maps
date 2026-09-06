@@ -10,12 +10,12 @@
 # §3 "DNS at 20i") — until then Caddy keeps this site on the ACME retry path
 # and serves it over plain HTTP meanwhile; nothing else to do here once DNS is live.
 
-# THE ACCESS LOG REDACTS TWO QUERY PARAMETERS BY NAME (buses-data OA-006(a)).
+# THE ACCESS LOG REDACTS TWO QUERY PARAMETERS BY NAME (buses-data OA-006(a)),
+# AND MASKS THE VISITOR'S ADDRESS (buses-data OA-086 phase 1, 2026-09-06).
 #
 # Caddy's request line records the FULL URI including its query string. Two
 # things travel in a query string on this site and neither belongs in a file
-# that is in no backup, rotated by nothing here and covered by no retention
-# rule:
+# that is in no backup:
 #
 #   q      — a search term. src/server.js's own log serialiser has stripped this
 #            off /api/public/search and /maps since P9 B8, on the rule that
@@ -39,23 +39,71 @@
 # file output, and writing it down is what stops a later `format` edit silently
 # changing the format of a file something may one day parse.
 #
+# THE THIRD THING ON EVERY LINE IS THE VISITOR'S ADDRESS, and it was written in
+# full until 2026-09-06. That was defensible while everyone who reached this
+# server had chosen to: /legal.html says there is no other organisation involved,
+# and that is true today. It stops being true the day a map is embedded on a
+# council's page — the visitor never chose to contact us, the council is the
+# controller for that visit, and what would accumulate here is its residents'
+# addresses. So the mask lands BEFORE the embed rather than with it. Its twin is
+# in src/server.js's own log serialiser, which masks the same address the same
+# way; the two must agree, and that is now a third thing they have to agree
+# about alongside the two parameter lists.
+#
+# TWO FIELDS, NOT ONE. Since Caddy v2.7 the address is logged twice — as
+# `remote_ip`, the socket's peer, and as `client_ip`, the address parsed out of
+# the forwarding headers. Masking one leaves the other in full, which is the
+# whole failure mode of this block, so both are named below.
+#
+# WHY /24 AND /32 AND NOT THE USUAL /24 AND /48. The common pairing (Google
+# Analytics zeroes an IPv6's last 80 bits, which is a /48) is not symmetric: a
+# residential IPv6 allocation is a /56 or a /48, so a /48 mask leaves the
+# household's whole prefix and anonymises nothing. /32 is the honest analogue of
+# the /24 — roughly an ISP's own allocation, so what survives is "which
+# provider, roughly where", which is all the /24 leaves of an IPv4 address and
+# all this log needs. The reasoning is repeated at IP_MASK_BITS in
+# src/public/logRedaction.js because the two have to move together.
+#
+# ROLLING IS NOW STATED, AND IT WAS ALWAYS HAPPENING. This block used to say the
+# file was "rotated by nothing here and covered by no retention rule", which is
+# true of this file and was easy to misread as no rotation at all: Caddy rolls a
+# log file BY DEFAULT at 100 MiB, keeping 10 rolled files for 90 days. So the
+# real state was a 90-day retention nobody had chosen and nothing wrote down.
+# The numbers below are that decision made explicitly and made shorter, which is
+# what lets /legal.html call these logs short-lived and say how long.
+#
 # VERIFYING THIS ONE IS NOT A curl. Every other line in this file shows up in a
 # response header; a log filter shows up only in the log. Read it back on the
-# host after deploying — the last line must show `q=REDACTED`, not the term:
+# host after deploying — the last line must show `q=REDACTED`, not the term, AND
+# both address fields must end in `.0` or `::`:
 #
 #   npm run ssh
 #   sudo tail -2 /var/log/caddy/busmaps.access.log
 #
-# after visiting https://busmaps.uk/maps?q=ely in a browser.
+# after visiting https://busmaps.uk/maps?q=ely in a browser. `npm run
+# deploy:caddy` prints both of those instructions; neither is a header, so
+# neither can be checked from the laptop.
 (access_log) {
 	log {
-		output file /var/log/caddy/busmaps.access.log
+		output file /var/log/caddy/busmaps.access.log {
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
 		format filter {
 			wrap json
 			fields {
 				request>uri query {
 					replace q REDACTED
 					replace token REDACTED
+				}
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 32
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 32
 				}
 			}
 		}

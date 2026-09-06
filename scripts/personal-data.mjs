@@ -19,6 +19,16 @@
 // done quickly; a command with a dry run that is the DEFAULT invites reading the
 // list first. Nothing here deletes without --yes.
 //
+// LOGS ARE NOT ON THAT LIST, AND THE REASON IS NEW. Since 2026-09-06 the app's
+// request log and Caddy's access log both mask the visitor's address before it
+// is written (buses-data OA-086 phase 1 — src/public/logRedaction.js and
+// ./Caddyfile), and neither holds an email, a name or an account id. So there is
+// nothing in a log line that could be joined back to the person asking, which is
+// what makes it honest to answer this request from the database alone. If that
+// ever stops being true — a new field on a log line, a second log, a debug line
+// left in after an incident — it stops being true HERE first, and this is the
+// paragraph that has to change.
+//
 // WHAT IT DOES NOT REACH, and the runbook says so too: backups. An erasure that
 // stops at the live database is not one, because a restore would bring the
 // person back. The window is the backup retention — 14 days on the VPS, 90 on

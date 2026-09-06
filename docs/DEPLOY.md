@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.46 | 2026-09-06 | sha=f7dffdf8 -->
-**v1.46** · updated 6 September 2026
+<!-- docstamp v1.47 | 2026-09-06 | sha=977be271 -->
+**v1.47** · updated 6 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -164,7 +164,7 @@ curl -fsS localhost:5180/health?deep=1 | head -40
 
 **What it tells whom (S4, done 2026-08-20).** An anonymous caller now gets four fields — `status`, `service`, `version`, `time` — and nothing else. It used to hand anybody the git SHA, the build time, the exact sharp and libvips versions, the object-store path and eleven business counts, which is a CVE-targeting aid plus a public read-out of how small the operation is. Send an `Authorization: Bearer` header carrying `METRICS_TOKEN` (or use an admin session) to get the whole thing back, including `checks{}`.
 
-**The `?token=` query form was removed on 2026-08-25** (technical-audit_2026-08-25 N7). The Caddyfile enables an access log and Caddy records the full request URI, so every use of the query form wrote a live credential in clear into `/var/log/caddy/busmaps.access.log` — a file in no backup and under no retention rule. The server no longer accepts it. Run this from **any folder on any machine**; `$METRICS_TOKEN` is read from your own shell environment and there is nothing else to substitute:
+**The `?token=` query form was removed on 2026-08-25** (technical-audit_2026-08-25 N7). The Caddyfile enables an access log and Caddy records the full request URI, so every use of the query form wrote a live credential in clear into `/var/log/caddy/busmaps.access.log` — a file in no backup and, at that point, under no retention rule anybody had chosen. The server no longer accepts it. **Two things about that file changed on 2026-09-06** (buses-data OA-086 phase 1): it now states its own rolling — 10 MiB, 10 files, 30 days — where before it silently inherited Caddy's 90-day default, and the visitor's address is masked in **both** the fields Caddy writes it to, `remote_ip` and `client_ip`. `/legal.html` promises the public both of those, so neither moves without that page moving with it, and `scripts/test-caddyfile.mjs` holds this file to the retention and to the same prefix `src/public/logRedaction.js` masks the app's own log with. Run this from **any folder on any machine**; `$METRICS_TOKEN` is read from your own shell environment and there is nothing else to substitute:
 
 ```bash
 curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" "https://busmaps.uk/health?deep=1"
