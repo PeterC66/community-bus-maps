@@ -515,7 +515,22 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface); overflow: hidden; min-height: 320px;
 }
-.lm-stage svg { width: 100%; height: 46vh; display: block; touch-action: none; cursor: grab; }
+/* NOTHING IN THE STAGE IS TEXT TO BE SELECTED (Peter, 2026-09-05). Double-click
+   is a zoom here, and a double-click on a road name was selecting the word
+   underneath it — highlighted on the first, unhighlighted on the second, which
+   is a browser's word-select answering a gesture this page had spent two rounds
+   giving another meaning to. The `e.preventDefault()` on the dblclick handler in
+   landmarks.js does NOT stop it and never could: Chrome makes the word selection
+   on the second mousedown, before any dblclick event exists. Measured in a
+   throwaway page holding two identical SVGs, one with this line and one without,
+   double-clicked by the browser itself rather than by a synthetic event: without
+   it `getSelection()` read "Needingworth ", with it "". The same probe found the
+   half nobody had reported — a PAN DRAG selected "amsey Road\nNeedingworth Road",
+   so the primary gesture on this map was painting the streets blue as well. */
+.lm-stage svg {
+  width: 100%; height: 46vh; display: block; touch-action: none; cursor: grab;
+  -webkit-user-select: none; user-select: none;
+}
 .lm-stage svg:active { cursor: grabbing; }
 /* The stage takes focus so + / - / 0 reach it; say so visibly. */
 .lm-stage svg:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
@@ -597,6 +612,23 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-chip:hover { border-color: var(--primary); color: var(--primary); }
 .lm-chip.active { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
 .lm-chip.sm { padding: 2px 8px; font-size: .72rem; }
+/* A COUNT ON THE CHIP, so a filter that is empty says so before it is pressed
+   (Peter, 2026-09-05). "Not looked at yet" is the one chip whose answer becomes
+   permanently zero — once a town has been worked through and the answer exported
+   back into its own routes.json, every candidate key is in one of the two tier
+   layers and the filter is empty for ever after, until OpenStreetMap adds a place
+   the map has not seen. It is not a dead control, it is the map's new-arrivals
+   tray; what it lacked was any way to say which of those two it was without
+   being clicked. The zero is DRAWN rather than hidden, and the chip stays
+   clickable, because the empty state under it is the sentence that explains the
+   filter's second life. */
+.lm-chip .lm-n {
+  display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 999px;
+  background: var(--border); color: var(--muted); font-size: .72em; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lm-chip.active .lm-n { background: var(--primary-ink); color: var(--primary); }
+.lm-chip .lm-n.zero { opacity: .55; font-weight: 400; }
 
 .lm-list { max-height: 68vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
 .lm-cat { margin-bottom: 14px; }
