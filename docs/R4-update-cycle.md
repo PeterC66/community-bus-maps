@@ -1,7 +1,7 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.7 | 2026-09-04 | sha=f5cfc5a3 -->
-**v1.7** · updated 4 September 2026
+<!-- docstamp v1.8 | 2026-09-06 | sha=57245d20 -->
+**v1.8** · updated 6 September 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -46,7 +46,8 @@ node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" --no
 ```
 
 - `--map` = slug or numeric id · `--src` = the fresh render dir · `--note` = a label.
-- It stages the fresh payload **beside** the live map (does **not** touch it), computes a plain-language **service-facts diff** — routes added/removed, descriptions changed, stops changed, operators added/removed, validity dates — and stores it as a **proposed update**. It prints the diff to sanity-check.
+- It stages the fresh payload **beside** the live map (does **not** touch it), computes a plain-language **service-facts diff** — routes added/removed, descriptions changed, stops changed, operators added/removed, validity dates — **plus the landmarks OpenStreetMap has gained and lost** (OA-253, 2026-09-06) — and stores it as a **proposed update**. It prints the diff to sanity-check.
+- **Read the `new places` line before you email anybody.** An arrival is answered by neither tier layer, so it takes the default *show if there is room* and can print on the refreshed sheet without the customer deciding it should; the summary tells them, and this print-out tells you first, while there is still something you can do about a surprising number. A rename shows as one arrival and one departure by design. If the line says `landmarks: NOT compared`, the staged payload lists no POI candidates at all — that is a fault in the delivery (a missing `osm.json`, or a selector that will not load), not a quiet refresh, and it is worth looking at before staging goes further. All 18 live maps yielded candidates when this was measured on 2026-09-06, so `NOT compared` should not happen.
 - The map must already have built data. A newer refresh **supersedes** any still-pending one (one open per map).
 
 ## Step 3 — The customer reviews + accepts
