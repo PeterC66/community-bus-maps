@@ -216,5 +216,12 @@ export function isEmptyDataChange(s) {
   if (typeof s.unchanged === 'boolean') return s.unchanged;
   const some = (k) => Array.isArray(s[k]) && s[k].length > 0;
   return !(some('routesAdded') || some('routesRemoved') || some('stopsChanged') || some('descChanged')
-    || some('operatorsAdded') || some('operatorsRemoved') || (s.validity && s.validity.to) || s.versionLabel);
+    || some('operatorsAdded') || some('operatorsRemoved') || (s.validity && s.validity.to) || s.versionLabel
+    // OA-253, and it is unreachable from dataChangeSummary(), which folds the
+    // landmark diff into `unchanged` above. It is here for the case this list
+    // exists for — a summary from a partial producer that carries the fields and
+    // no verdict — so that the two ways of answering the question cannot disagree.
+    // A summary stored BEFORE the landmark diff existed keeps its own `unchanged`
+    // and is read exactly as it always was; nothing is retro-computed.
+    || some('landmarksAdded') || some('landmarksRemoved'));
 }

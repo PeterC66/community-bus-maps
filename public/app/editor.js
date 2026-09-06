@@ -677,6 +677,14 @@ function renderDataSummary(sum) {
   if (has(sum.operatorsAdded)) li.push(`<li><strong>New operator${sum.operatorsAdded.length > 1 ? 's' : ''}:</strong> ${sum.operatorsAdded.map(esc).join(', ')}</li>`);
   if (has(sum.operatorsRemoved)) li.push(`<li><strong>Operator${sum.operatorsRemoved.length > 1 ? 's' : ''} removed:</strong> ${sum.operatorsRemoved.map(esc).join(', ')}</li>`);
   if (sum.validity) li.push(`<li><strong>Timetable valid from:</strong> ${esc(sum.validity.from || '—')} → ${esc(sum.validity.to || '—')}</li>`);
+  // The two OA-253 lines, and they are LAST because they are the only ones that
+  // ask the reader to go and do something. RENDERED BY changes.js, which this page
+  // already loads: the wording lived here for about an hour and a duplicate is how
+  // two screens come to describe one refresh differently. `chooserHref` is what
+  // makes this the CUSTOMER's version of the bullet — it says what happens if they
+  // do nothing, because a place nobody has answered is drawn if there is room, so
+  // accepting the update silently puts it on the sheet.
+  for (const b of (PC().landmarkBullets ? PC().landmarkBullets(sum, { chooserHref: `/app/maps/${MAP_ID}/landmarks` }) : [])) li.push(b);
   return `<ul class="update-list">${li.join('')}</ul>`;
 }
 

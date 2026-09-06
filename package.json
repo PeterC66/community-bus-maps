@@ -27,6 +27,8 @@
     "test:portal-lib": "node scripts/test-portal-lib.mjs",
     "test:landmark-tiers": "node scripts/test-landmark-tiers.mjs",
     "test:prove-red-landmark-tiers": "node scripts/prove-red-landmark-tiers.mjs",
+    "test:landmark-arrivals": "node scripts/test-landmark-arrivals.mjs",
+    "test:prove-red-landmark-arrivals": "node scripts/prove-red-landmark-arrivals.mjs",
     "test:selfsufficient": "node --env-file-if-exists=.env scripts/test-engine-selfsufficient.mjs",
     "test:prove-red-selfsufficient": "node --env-file-if-exists=.env scripts/prove-red-selfsufficient.mjs",
     "test:prove-red-fixture-drift": "node scripts/prove-red-fixture-drift.mjs",
