@@ -80,12 +80,16 @@ function verify() {
     console.log('confirming the browser console shows no "Refused to ..." lines: headers');
     console.log('arriving and the CSP not breaking the pages are two different questions.');
     console.log('');
-    console.log('ONE THING IN THIS FILE THIS SCRIPT CANNOT SEE: the access log filter');
-    console.log('(OA-006). A header shows up in a response; a log filter shows up only in');
+    console.log('TWO THINGS IN THIS FILE THIS SCRIPT CANNOT SEE, and they are both in the');
+    console.log('access log. A header shows up in a response; a log filter shows up only in');
     console.log('the log. Visit https://' + siteHost + '/maps?q=ely in a browser, then:');
     console.log('    npm run ssh');
     console.log('    sudo tail -2 /var/log/caddy/busmaps.access.log');
-    console.log('The line must read q=REDACTED. If it reads q=ely the filter is not live.');
+    console.log('  1. the query filter (OA-006): the line must read q=REDACTED, not q=ely.');
+    console.log('  2. the address mask (OA-086 phase 1): BOTH remote_ip AND client_ip must');
+    console.log('     end in .0 (IPv4) or :: (IPv6). Caddy logs the address under two names');
+    console.log('     and masking one of them leaves the other in full, so check both — a');
+    console.log('     line with one masked field reads almost exactly like a correct one.');
   }
   return ok;
 }

@@ -90,12 +90,20 @@ check('INDEXING.allowed is false when ALLOW_INDEXING is unset', INDEXING.allowed
 //   stated nowhere a machine could read it, and false by the end of that day.
 //
 //   The application log strips the query string off three route prefixes. Two of
-//   them hide a search term; the third hides a live sign-in credential.
+//   them hide a search term; the third hides a live sign-in credential. And since
+//   2026-09-06 (buses-data OA-086 phase 1) it masks the visitor's address, which
+//   is the one thing on a request line that is personal data on EVERY request
+//   rather than on a few routes. It is asserted TWICE and the second time is the
+//   one that matters: once through maskIp() on its own, and once through
+//   loggableReq(), the function src/server.js hands to Fastify — because "the
+//   masker works" and "the log line comes out masked" are different claims, and
+//   the wire between them was a call inside a config object no test could reach
+//   until the serialiser was moved out of server.js on 2026-09-06.
 // ---------------------------------------------------------------------------
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { STATIC_PAGES, PAGE_FILES, SERVER_FILLED_SHELLS, canonicalFor } from '../src/public/staticPages.js';
-import { loggableUrl } from '../src/public/logRedaction.js';
+import { loggableUrl, maskIp, loggableReq } from '../src/public/logRedaction.js';
 import { FOOTER_HTML } from './lib/site-chrome.mjs';
 
 const BASE = 'https://busmaps.uk';
@@ -157,6 +165,46 @@ check('a non-sensitive query survives', loggableUrl('/m/st-ives?download=1') ===
   'the point is to drop two named things, not to blind the log');
 check('a lookalike path is not matched', loggableUrl('/maps.html?x=1') === '/maps.html?x=1',
   "'/maps?' carries its question mark for this reason");
+
+console.log('and it keeps no address that could identify a household:');
+check('an IPv4 address loses its last octet', maskIp('203.0.113.47') === '203.0.113.0');
+check('an IPv4-mapped IPv6 address is masked as the v4 it is', maskIp('::ffff:203.0.113.47') === '203.0.113.0',
+  'Fastify hands this shape back on a dual-stack socket, and it is a v4 address in v6 spelling');
+check('an IPv6 address keeps two groups', maskIp('2001:db8:1234:5678:9abc:def0:1234:5678') === '2001:db8::');
+check('a compressed IPv6 address is masked from its LEADING groups', maskIp('2001:db8:1234::5') === '2001:db8::',
+  'splitting on `::` first is what makes the leading groups findable without expanding the address');
+check('an address with fewer leading groups than we keep does not mangle', maskIp('fe80::1') === 'fe80::',
+  'joining the groups naively produced `fe80:::` here');
+check('the all-zero prefix survives the same path', maskIp('::1') === '::');
+// The negative half, in both directions. A masker that returned a constant would
+// pass everything above and be useless; one that passed unknown input through
+// would leave the guarantee conditional on the shape of the input.
+check('the network part is genuinely kept', maskIp('198.51.100.7') === '198.51.100.0',
+  'a masker that returned one constant would satisfy every case above');
+check('a value it cannot parse becomes `unknown`, not itself', maskIp('not-an-address') === 'unknown',
+  'passing an unrecognised value through is how a full address gets into a log');
+check('an out-of-range octet is not quietly kept', maskIp('999.0.113.47') === 'unknown');
+check('an absent address does not throw', maskIp(undefined) === 'unknown' && maskIp('') === 'unknown');
+
+console.log('and the LOG LINE itself comes out redacted, not just the helpers:');
+// The wire, driven rather than read. Every assertion above stops at a helper;
+// this one calls the function src/server.js hands to Fastify as its `req`
+// serialiser, so a change that kept both helpers and stopped calling one of them
+// is caught here and nowhere else.
+const line = loggableReq({
+  method: 'GET',
+  url: '/maps?q=ely',
+  host: 'busmaps.uk',
+  ip: '203.0.113.47',
+  socket: { remotePort: 51234 },
+});
+check('the serialiser masks the address', line.remoteAddress === '203.0.113.0',
+  `got ${JSON.stringify(line.remoteAddress)}`);
+check('the serialiser drops the search term in the same line', line.url === '/maps',
+  'both redactions have to survive on one request, not one each in two tests');
+check('it still records what the request WAS', line.method === 'GET' && line.host === 'busmaps.uk' && line.remotePort === 51234,
+  'the point is to redact two fields, not to blind the log');
+check('a request with no socket does not throw', loggableReq({ method: 'GET', url: '/', ip: '::1' }).remotePort === undefined);
 
 if (failures) { console.error(`\n${failures} check(s) failed.`); process.exit(1); }
 console.log('\nAll indexing checks passed.');

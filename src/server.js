@@ -29,7 +29,7 @@ import { readiness, metricsText } from './ops/index.js';
 import { requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie, stepUpFresh, STEP_UP_MINUTES, COOKIE_NAME, CSRF_COOKIE, newCsrfToken, csrfCookie, csrfOk, sameSiteRequest, parseCookies } from './auth/index.js';
 import { logAudit } from './audit/index.js';
 import { PILOT, listenOn, noListen, statusToken } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md. INDEXING and ENVIRONMENT moved with the public front to src/routes/public.js
-import { loggableUrl } from './public/logRedaction.js';
+import { loggableReq } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { errorEnvelope, notFoundEnvelope, wantsJson } from './http/errors.js';
 import { str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited } from './http/helpers.js';
@@ -94,11 +94,25 @@ const app = Fastify({
   // sensitive parameter to a new route means editing both. The route list and
   // the stripping are src/public/logRedaction.js, so a test can drive what a log
   // line actually says rather than read the code back.
+  //
+  // AND THE VISITOR'S ADDRESS IS MASKED BEFORE IT IS WRITTEN (buses-data OA-086
+  // phase 1, 2026-09-06). `remoteAddress` was `req.ip` in full until then. It is
+  // now the /24 (or IPv6 /32), because an embedded map means a council's
+  // visitors reach this server without ever choosing to, and a bus map should
+  // not accumulate their addresses. Caddy's own access log is masked in the same
+  // change and for the same reason — that is a THIRD thing the two lists have to
+  // agree about, and Caddy logs the address under TWO field names, `remote_ip`
+  // and `client_ip`, so masking one of them there leaves the other in full.
+  //
+  // `rateLimited()` still reads req.ip UNMASKED, deliberately: masking is a
+  // property of the log, not of the decision. See src/public/logRedaction.js.
   logger: {
     serializers: {
-      req(req) {
-        return { method: req.method, url: loggableUrl(req.url), host: req.host, remoteAddress: req.ip, remotePort: req.socket ? req.socket.remotePort : undefined };
-      },
+      // The whole serialiser is loggableReq() rather than a body written here,
+      // so a test can call the same function the logger calls. It was inline
+      // until 2026-09-06, which meant every assertion stopped one call short of
+      // the object that actually reaches the log.
+      req: loggableReq,
     },
   },
   bodyLimit: 256 * 1024,

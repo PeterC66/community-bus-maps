@@ -29,9 +29,19 @@
 //   3. Both parameters are named in the filter. `q` is a search term and `token`
 //      is a live 15-minute sign-in credential; losing either from the list is a
 //      silent regression that no response header would show.
+//
+//   4. The visitor's address is masked, in BOTH fields, to the SAME prefix the
+//      app's own log uses (buses-data OA-086 phase 1). Caddy has written the
+//      address twice since v2.7 — `remote_ip` and `client_ip` — so masking one is
+//      the obvious way to get this wrong and it produces a log line that reads
+//      almost right. And the mask lives in two files: this one and
+//      src/public/logRedaction.js. That is a JOIN, and only reading both can
+//      check it, which is why IP_MASK_BITS is imported below rather than the
+//      numbers being typed here twice.
 
 import { readFileSync } from 'node:fs';
 import { siteBlocks, primaryHost } from './lib/caddyfile.mjs';
+import { IP_MASK_BITS } from '../src/public/logRedaction.js';
 
 let failures = 0;
 function check(name, cond, extra) {
@@ -73,6 +83,38 @@ check('no block writes the log file directly', !blocks.some((b) => b.body.some((
 check('the filter redacts q', /\breplace q REDACTED\b/.test(text), 'search terms are never logged (P9 B8)');
 check('the filter redacts token', /\breplace token REDACTED\b/.test(text), '/auth/verify?token= is a live sign-in credential');
 check('the filter names the encoder rather than inheriting it', /\bwrap json\b/.test(text));
+
+console.log('the visitor address is masked, in BOTH of the fields Caddy writes it to:');
+// Since Caddy v2.7 the address is logged twice — `remote_ip`, the socket's peer,
+// and `client_ip`, the address parsed out of the forwarding headers. A line with
+// one masked and the other in full reads almost exactly like a correct one, so
+// both are named here rather than left to whoever edits this next.
+for (const field of ['remote_ip', 'client_ip']) {
+  check(`request>${field} is masked`, new RegExp(`request>${field}\\s+ip_mask\\s*\\{`).test(text),
+    'masking one of the two fields leaves the visitor address in full in the other');
+}
+// THE JOIN, which is what this section is really for. The mask exists in two
+// halves — this file and src/public/logRedaction.js — and the failure that would
+// actually happen is one half being changed and the other not. A claim that they
+// agree can only be checked by reading both.
+const ipv4Masks = (text.match(/^\s*ipv4\s+(\d+)\s*$/gm) || []).map((m) => Number(m.trim().split(/\s+/)[1]));
+const ipv6Masks = (text.match(/^\s*ipv6\s+(\d+)\s*$/gm) || []).map((m) => Number(m.trim().split(/\s+/)[1]));
+check(`the Caddy mask matches IP_MASK_BITS (${IP_MASK_BITS.ipv4}/${IP_MASK_BITS.ipv6})`,
+  ipv4Masks.length === 2 && ipv6Masks.length === 2
+  && ipv4Masks.every((n) => n === IP_MASK_BITS.ipv4) && ipv6Masks.every((n) => n === IP_MASK_BITS.ipv6),
+  `found ipv4 ${JSON.stringify(ipv4Masks)} and ipv6 ${JSON.stringify(ipv6Masks)} — the app log and the access log must mask to the same prefix, or "we mask visitor addresses" is true of one log and not the other`);
+
+console.log('the access log states its own retention rather than inheriting it:');
+// Caddy rolls a log file BY DEFAULT — 100 MiB, 10 files, 90 days — so the state
+// before 2026-09-06 was a 90-day retention nobody had chosen and nothing wrote
+// down. /legal.html now tells the public a number, and a promise made on a page
+// has to be pinned to the thing that keeps it.
+check('roll_size is stated', /\broll_size\s+\S+/.test(text));
+check('roll_keep is stated', /\broll_keep\s+\d+/.test(text));
+check('roll_keep_for is 720h, the 30 days /legal.html promises', /\broll_keep_for\s+720h\b/.test(text),
+  'if this changes, change the sentence on /legal.html in the same commit');
+check('rolling is not disabled', !/\broll_disabled\b/.test(text),
+  'a log that never rolls keeps every line for ever, which is the opposite of the promise');
 
 console.log('the OLD one-line parser is genuinely wrong about THIS file:');
 // Verbatim, as it stood in scripts/deploy-caddy.mjs before 2026-08-31.
