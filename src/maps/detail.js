@@ -129,6 +129,10 @@ function refreshNote(s) {
   if (s.stopsChanged && s.stopsChanged.length) bits.push(`${s.stopsChanged.length} route stop change${s.stopsChanged.length > 1 ? 's' : ''}`);
   if (s.descChanged && s.descChanged.length) bits.push(`${s.descChanged.length} description change${s.descChanged.length > 1 ? 's' : ''}`);
   if (s.validity) bits.push(`validity → ${s.validity.to || '—'}`);
+  // OA-253. A landmark-only refresh used to produce an EMPTY note here while
+  // `unchanged` was false, so the version carried a blank explanation of itself.
+  if (s.landmarksAdded && s.landmarksAdded.length) bits.push(`${s.landmarksAdded.length} new place${s.landmarksAdded.length > 1 ? 's' : ''}`);
+  if (s.landmarksRemoved && s.landmarksRemoved.length) bits.push(`${s.landmarksRemoved.length} place${s.landmarksRemoved.length > 1 ? 's' : ''} gone`);
   return bits.join(' · ');
 }
 

@@ -549,6 +549,10 @@ function refreshSummaryText(s) {
   if (s.stopsChanged && s.stopsChanged.length) bits.push(s.stopsChanged.length + ' stop change' + (s.stopsChanged.length > 1 ? 's' : ''));
   if (s.descChanged && s.descChanged.length) bits.push(s.descChanged.length + ' reworded');
   if (s.validity) bits.push('validity → ' + esc(s.validity.to || '—'));
+  // OA-253: a refresh whose only change is a landmark arriving or leaving would
+  // otherwise reach the "minor" fallback below with nothing said about it.
+  if (s.landmarksAdded && s.landmarksAdded.length) bits.push(s.landmarksAdded.length + ' new place' + (s.landmarksAdded.length > 1 ? 's' : ''));
+  if (s.landmarksRemoved && s.landmarksRemoved.length) bits.push(s.landmarksRemoved.length + ' place' + (s.landmarksRemoved.length > 1 ? 's' : '') + ' gone');
   return bits.length ? esc(bits.join(' · ')) : '<span class="muted">minor</span>';
 }
 // Plain-text (unescaped) version for the audit table, which esc()s the result.
@@ -560,6 +564,8 @@ function refreshSummaryTextPlain(s) {
   if (s.stopsChanged && s.stopsChanged.length) bits.push(s.stopsChanged.length + ' stop change' + (s.stopsChanged.length > 1 ? 's' : ''));
   if (s.descChanged && s.descChanged.length) bits.push(s.descChanged.length + ' reworded');
   if (s.validity) bits.push('validity → ' + (s.validity.to || '—'));
+  if (s.landmarksAdded && s.landmarksAdded.length) bits.push(s.landmarksAdded.length + ' new place' + (s.landmarksAdded.length > 1 ? 's' : ''));
+  if (s.landmarksRemoved && s.landmarksRemoved.length) bits.push(s.landmarksRemoved.length + ' place' + (s.landmarksRemoved.length > 1 ? 's' : '') + ' gone');
   return bits.join(' · ');
 }
 LOADERS.refreshes = async () => {

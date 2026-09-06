@@ -77,7 +77,53 @@
     if (s.validity && (s.validity.to || s.validity.from)) {
       out.push(`<li>Valid from <strong>${esc(s.validity.from) || '—'}</strong> → <strong>${esc(s.validity.to) || '—'}</strong></li>`);
     }
+    for (const b of landmarkBullets(s)) out.push(b);
     return out;
+  }
+
+  /**
+   * Landmarks OpenStreetMap gained or lost (OA-253).
+   *
+   * ONE IMPLEMENTATION, TWO SCREENS. The approver's review and the customer's
+   * accept screen both include this file, and the editor's own renderDataSummary()
+   * carried a second copy of this wording for about an hour before it was folded
+   * back in here. A duplicate is how the two screens come to disagree about what
+   * a refresh did, and it also puts half the sentence outside the only test that
+   * reads it. `chooserHref` is the difference between them: the customer is the
+   * one who can act, so their bullet says what happens if they do not and links
+   * to the chooser; the approver's states the fact.
+   */
+  function landmarkBullets(s, opts) {
+    const href = opts && opts.chooserHref;
+    const n = (k) => (Array.isArray(s[k]) ? s[k].length : 0);
+    const out = [];
+    if (n('landmarksAdded')) {
+      const c = n('landmarksAdded');
+      const act = href
+        ? ` — ${c > 1 ? 'each is' : 'it is'} shown if there is room until you say otherwise.
+            ${c > 1 ? 'They are' : 'It is'} under <em>Not looked at yet</em> in <a href="${esc(href)}">Choose the landmarks</a>.`
+        : '';
+      out.push(`<li><strong>${plural(c, 'new place')}</strong> in OpenStreetMap${lmNames(s.landmarksAdded)}${act}</li>`);
+    }
+    if (n('landmarksRemoved')) {
+      const c = n('landmarksRemoved');
+      const act = href
+        ? ` — any answer you gave ${c > 1 ? 'them is' : 'it is'} kept, in case ${c > 1 ? 'they come' : 'it comes'} back.`
+        : '';
+      out.push(`<li><strong>${plural(c, 'place')} gone</strong> from OpenStreetMap${lmNames(s.landmarksRemoved)}${act}</li>`);
+    }
+    return out;
+  }
+
+  // Up to six names, then a count — a refresh's landmark churn was never
+  // measurable on this laptop, so the line is built to survive a long list.
+  // A candidate with no name of its own is counted and not printed.
+  function lmNames(list) {
+    const named = (list || []).map((p) => String((p && p.name) || '').trim()).filter(Boolean);
+    if (!named.length) return '';
+    const shown = named.slice(0, 6).join(', ');
+    const rest = named.length > 6 ? `, and ${named.length - 6} more` : '';
+    return ` <span class="muted">(${esc(shown + rest)})</span>`;
   }
 
   /**
@@ -111,5 +157,5 @@
     </div>`;
   }
 
-  w.PortalChanges = { dataChangeHtml, esc, fmtDay, daysAgo, ageText };
+  w.PortalChanges = { dataChangeHtml, landmarkBullets, esc, fmtDay, daysAgo, ageText };
 }(window));
