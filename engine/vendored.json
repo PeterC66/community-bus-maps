@@ -207,7 +207,7 @@
       "path": "linear_features.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/linear_features.js",
-      "sha256": "71e1c60f223826fc3144a35438d89f16374d1ca0e024fa9a45ff9c8245266928",
+      "sha256": "76a64efa73fe3d7748ce6d637c66e335e3c1bb831876ff52e3a0cd1459224bb0",
       "vendoredOn": "2026-09-07",
       "note": "River, main road, railway and canal: style layering, geometry, and the stitch/merge passes. Required at load by gen_internal.js."
     },
