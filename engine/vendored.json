@@ -102,8 +102,8 @@
       "path": "expert/diagram_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/diagram_internal.js",
-      "sha256": "872f05586fbf93c5b80f1dfee26c992cedfcf77ebcd9eefa99d87dc61bc5415e",
-      "vendoredOn": "2026-09-03",
+      "sha256": "094234d539d0cbacddac3a64faaf6239e404a184ad9d30b35b2af8b3dede2f78",
+      "vendoredOn": "2026-09-07",
       "note": "The tube-map pre-stage, run by the portal-owned gen_internal_diagram.js wrapper."
     },
     {
@@ -207,8 +207,8 @@
       "path": "linear_features.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/linear_features.js",
-      "sha256": "1bcb381abd2b45c310b50abe29c487dad17142cc9861f63af111a69ccb777a89",
-      "vendoredOn": "2026-08-27",
+      "sha256": "76a64efa73fe3d7748ce6d637c66e335e3c1bb831876ff52e3a0cd1459224bb0",
+      "vendoredOn": "2026-09-07",
       "note": "River, main road, railway and canal: style layering, geometry, and the stitch/merge passes. Required at load by gen_internal.js."
     },
     {
