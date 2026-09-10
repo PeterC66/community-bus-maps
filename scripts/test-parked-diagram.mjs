@@ -206,7 +206,10 @@ const editorTok = openSession(editorId), adminTok = openSession(adminId);
 // listed so the gate is about the option and not the word.
 console.log('\nthe copy');
 const COPY_ROOT = process.env.PARKED_COPY_ROOT || ROOT;
-const BANNED = ['tube-map', 'Tube-map', 'tube map', 'internal_diagram', 'internal-diagram', 'Network diagram', 'faq.html#diagram', 'id="diagram"', 'Internal — diagram', 'diagram-request'];
+// The COUNTS are banned too: 'A fifth sheet' on the examples page and 'one of five
+// outputs' on the homepage survived the first pass (Peter, 2026-09-10 evening),
+// because a number is a mention of the option that names nothing.
+const BANNED = ['tube-map', 'Tube-map', 'tube map', 'internal_diagram', 'internal-diagram', 'Network diagram', 'faq.html#diagram', 'id="diagram"', 'Internal — diagram', 'diagram-request', 'fifth sheet', 'five outputs', 'Five outputs', 'all five'];
 function walk(dir, acc = []) {
   for (const e of readdirSync(dir)) {
     const p = path.join(dir, e);
