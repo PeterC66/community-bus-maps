@@ -8,6 +8,18 @@
 #
 # Grouped and weekly on purpose - this is a one-maintainer project, and a daily
 # drip of single-package PRs is how a bot ends up ignored.
+#
+# EVERY LABEL NAMED BELOW MUST EXIST IN THE REPOSITORY, and neither of them did
+# until 2026-09-10. Dependabot does not create a label it is asked for: it opens
+# the PR anyway and its FIRST comment is a configuration error saying the label
+# could not be found. So every PR this file has ever raised led with an error
+# instead of a diff, and none was labelled. It cost a real one. PR #173, "Bump
+# sharp from 0.35.3 to 0.35.4", was opened on 2026-08-31, sat unlabelled and
+# unread for ten days, and was auto-closed on 2026-09-10 by a manual upgrade of
+# the same package - the advisory that upgrade fixes (GHSA-rgj7-g3m4-5g8c,
+# libheif heap overflows) was published inside that window and turned `main` red.
+# The fix was on offer before the problem existed. `dependencies` and
+# `needs-rebaseline` now exist; if you add another label here, create it first.
 
 version: 2
 updates:
@@ -50,4 +62,13 @@ updates:
     # the text probe moved and every check still went green, because the image
     # job gates on --strict-fonts and not on the pixel comparison. The label is
     # what stops that PR looking like a routine bump in the list.
+    #
+    # AND A BASE-IMAGE BUMP IS A MULTI-FILE CHANGE THAT DEPENDABOT CAN ONLY DO
+    # ONE FILE OF. #64 edits the Dockerfile alone, so `test-node-pin.mjs` fails
+    # it five ways - package.json `engines.node` still says >=24, and audit.yml,
+    # render-parity.yml and test.yml each install Node 24 while the image is
+    # node:26. That test is right and the PR is incomplete; merging it green is
+    # not available, and neither is merging it red. Taking one means bumping the
+    # engines floor and the three workflow pins in the same change, THEN
+    # re-baselining the render. Do not treat the red as flakiness.
     labels: [dependencies, needs-rebaseline]
