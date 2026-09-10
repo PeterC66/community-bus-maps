@@ -1,7 +1,7 @@
 # Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.14 | 2026-09-06 | sha=20c06d0b -->
-**v1.14** · updated 6 September 2026
+<!-- docstamp v1.15 | 2026-09-10 | sha=7d0d132d -->
+**v1.15** · updated 10 September 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
@@ -36,9 +36,9 @@ Open a map to make it yours. You can change:
   The two controls are not the same thing, and the difference is worth a sentence. Unticking a landmark above stops its icon being *drawn* but keeps its space reserved. Answering **Do not show** in the chooser takes it off the map altogether, which is what actually gives the room back to everything else — so a sheet re-arranges a little when you save that.
 
   Three smaller things worth knowing. **Your first draft deliberately has far too many places on it** — every one is there because OpenStreetMap has it and nobody has yet said it does not belong, so taking places off is the most useful thing you can do and the answer we least often get. **A row you answer disappears from *Not looked at yet* straight away**, so that filter always shows what is genuinely left; the list holds its place while it goes, so you are not thrown back to the top. And **a few places have no name in the map's data at all** — chemists and surgeries, whose names the printed sheet never shows, so nobody ever recorded one. Those read *Unnamed pharmacy* in italics: click the row to see where it is on the map, and if you know the place, put its name in the box. That name is then the one the sheet will use.
-- **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. Two are the exception, and both show an **Ask us** button instead of a tick-box. The tube-map-style **diagram** is positioned by hand rather than generated, so it is quoted separately. **Where to board** — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press either button and we will come back to you with what it would involve.
+- **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. One is the exception, and it shows an **Ask us** button instead of a tick-box. **Where to board** — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press the button and we will come back to you with what it would involve.
 
-You see a **live preview** as you change things. When you're happy, **Save new version**. Your first version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the earlier ones. Bigger changes — moving things, the diagram layout, the geography — are done by us; ask if you need one.
+You see a **live preview** as you change things. When you're happy, **Save new version**. Your first version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the earlier ones. Bigger changes — moving things, the geography — are done by us; ask if you need one.
 
 ## Branding your public page
 

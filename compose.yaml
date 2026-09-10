@@ -49,6 +49,10 @@ services:
       # in this file, so an operator who set it in .env would have changed
       # nothing and been told nothing. Found by the same check, 2026-08-31.
       STALE_AFTER_MONTHS: ${STALE_AFTER_MONTHS:-}
+      # Whether the tube-map diagram output is OFFERED at all. PARKED on
+      # 2026-09-10 (buses-data OA-297): off unless set to 1, and it is not set
+      # on the live host. Named here so the check below knows it is deliberate.
+      TUBE_DIAGRAM: ${TUBE_DIAGRAM:-}
       # Defaults ON in src/config.js if truly unset, but be explicit here so a
       # blank .env value doesn't accidentally fall through to that default.
       PILOT_MODE: ${PILOT_MODE:-1}

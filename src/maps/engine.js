@@ -32,6 +32,12 @@ export const EXPERT_DIR = path.join(ENGINE_DIR, 'expert');
  * Returns null if none is present (output not renderable for this map).
  */
 export function resolveGen(meta, dataDir) {
+  // An output the portal does not OFFER resolves nothing, whatever the payload
+  // carries. This is the one choke point the pin editor's diagramAvailable()
+  // and outputsForClient()'s `available` both pass through, which is what makes
+  // a parked output (store.js, OA-297) unreachable rather than merely hidden.
+  if (!meta.portal) return null;
+
   // A candidate is either a filename or `{ file, requiresConfig, requiresFiles }`.
   // The object form exists because a requirement can belong to ONE generator
   // rather than to the output — see the `external` entry in store.js.

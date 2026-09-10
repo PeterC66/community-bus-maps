@@ -105,7 +105,9 @@
     "test:db-dates": "node scripts/test-db-dates.mjs",
     "test:db-constraints": "node scripts/test-db-constraints.mjs",
     "test:map-detail-keys": "node scripts/test-map-detail-keys.mjs",
-    "test:error-envelope": "node scripts/test-error-envelope.mjs"
+    "test:error-envelope": "node scripts/test-error-envelope.mjs",
+    "test:parked-diagram": "node scripts/test-parked-diagram.mjs",
+    "test:prove-red-parked-diagram": "node scripts/prove-red-parked-diagram.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

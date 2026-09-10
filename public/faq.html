@@ -13,7 +13,7 @@
   <script src="/js/site-banner.js" defer></script>
   <script src="/js/nav-current.js" defer></script>
   <script src="/js/auth-status.js" defer></script>
-  <!-- Opens the answer a link points at, e.g. /faq.html#diagram from the pricing page. -->
+  <!-- Opens the answer a link points at, e.g. /faq.html#boarding from the pricing page. -->
   <script src="/js/faq-anchor.js" defer></script>
   <script src="/js/faq-toggle.js" defer></script>
 </head>
@@ -92,20 +92,14 @@
           <p>You can choose which of the standard outputs you want, recolour and relabel routes, turn landmarks on or off, and accept the monthly updates — then download print-ready files. The more delicate layout work (straightening lines, nudging labels) we do for you, so the result reads properly in print.</p>
         </details>
         <details>
-          <summary>What are the five outputs?</summary>
-          <p>An <strong>internal geographic</strong> map (drawn to the streets), an <strong>internal schematic</strong> (straightened and tidied), an <strong>internal diagram</strong> (tube-map style), an <strong>external</strong> map showing where the buses go, and a <strong><a href="#boarding">where-to-board</a></strong> plan for a bus station or town centre. You pick which ones you want for each map — except the diagram and the boarding plan, which are asked for rather than switched on.</p>
+          <summary>What are the four outputs?</summary>
+          <p>An <strong>internal geographic</strong> map (drawn to the streets), an <strong>internal schematic</strong> (straightened and tidied), an <strong>external</strong> map showing where the buses go, and a <strong><a href="#boarding">where-to-board</a></strong> plan for a bus station or town centre. You pick which ones you want for each map — except the boarding plan, which is asked for rather than switched on.</p>
         </details>
         <details id="boarding">
           <summary>What is the &ldquo;where to board&rdquo; sheet?</summary>
-          <p>The other four sheets answer <em>where do the buses go</em>. This one answers the opposite question, the one you actually have while standing in a bus station: <em>I have decided to go to Bedford — which of these five identically-named stops do I wait at?</em></p>
+          <p>The other three sheets answer <em>where do the buses go</em>. This one answers the opposite question, the one you actually have while standing in a bus station: <em>I have decided to go to Bedford — which of these five identically-named stops do I wait at?</em></p>
           <p>It is a large-scale plan of one place — a bus station, an interchange, a town-centre street — with an index of the places you can reach from it, <strong>listed alphabetically by destination</strong> rather than by route number. Each row names the stop to stand at, how far it is, and which services run there. Every stop letter is printed straight from NaPTAN, the Department for Transport's national stop register, so the letter on the sheet is the letter on the flag in the street. We do not invent one.</p>
           <p>That last rule is also its limit. Stop lettering is each transport authority's own policy, not a national standard: some letter their town-centre streets in one series, others letter only their bus stations, and some letter nothing at all. Where the stops around a place cannot each be named unambiguously, the sheet declines to be produced rather than guess — so it is asked for and checked for a given place rather than switched on. It also reads as a <em>companion</em> to the area map at a town-centre stop, not a replacement: buses that stay inside the town have no destination to index, and on a busy High Street that can be a quarter of the traffic.</p>
-        </details>
-        <details id="diagram">
-          <summary>Why does the tube-map diagram cost extra?</summary>
-          <p>Because it is the one output that is not simply generated. The geographic and schematic maps and the external map are produced deterministically from the data: the same data always draws the same sheet, with nobody's hand on it.</p>
-          <p>The diagram is different. The software solves the network's <em>topology</em> — which line meets which, and where — but a readable tube map then needs junctions moved by eye until the whole thing sits well on the page. Those hand placements are stored as <em>pins</em>, and they are ours to maintain: when a route is extended or a service withdrawn, the topology changes and the pins have to be re-judged against it.</p>
-          <p>So the diagram would never be a one-off drawing charge. It is drawing time in the first build <strong>and</strong> drawing time in every update — which is why, when charging starts, it would be quoted separately rather than folded into the price of the map. Everything is free during the <a href="#pilot">pilot</a>; what is true today is that it is offered in the editor with an <em>Ask us</em> button rather than a tick-box, so nobody switches it on and only afterwards finds out what it involves.</p>
         </details>
         <details>
           <summary>How up to date are the maps?</summary>
@@ -124,7 +118,7 @@
         </details>
         <details id="ai">
           <summary>Do you use AI?</summary>
-          <p>Not to make decisions about your map. The maps themselves are <a href="#pilot">deterministic</a>: the geographic, schematic and external outputs are drawn straight from the BODS and OpenStreetMap data by ordinary code, with no AI involved and no network call made at the moment a sheet is generated — the same data always produces the same sheet. The <a href="#diagram">tube-map diagram</a> is hand-placed by a person, not by AI. And every map, whichever outputs it uses, is checked by a person before it can be published.</p>
+          <p>Not to make decisions about your map. The maps themselves are <a href="#pilot">deterministic</a>: the geographic, schematic and external outputs are drawn straight from the BODS and OpenStreetMap data by ordinary code, with no AI involved and no network call made at the moment a sheet is generated — the same data always produces the same sheet. And every map, whichever outputs it uses, is checked by a person before it can be published.</p>
           <p>Where AI has been involved is in building the software itself — it was written with the help of an AI coding assistant, the same as a growing share of software generally is. That is a statement about how the code was written, not about how your map gets drawn.</p>
         </details>
         <details>

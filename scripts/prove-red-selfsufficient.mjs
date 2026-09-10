@@ -27,7 +27,10 @@
 //                                                    the internal arm still green
 //   2  engine/expert/schematize_internal.js gone -> the SCHEMATIC arm red,
 //                                                    the internal arm still green
-//   3  a fixture that declares no internalDiagram-> the gate reports THREE sheets
+//   3  a fixture that declares no internalSchematic -> the gate reports TWO sheets
+//      (it took internalDiagram away until 2026-09-10; the diagram is PARKED
+//      under buses-data OA-297 and the committed fixture no longer declares it,
+//      so the mutation moved to the expert style that is still built)
 //
 // 1 IS THE CASE THE ROW NAMED. `gen_external_radial.js` began requiring
 // `dash_fit.js` at load on 2026-08-30; a delivered pack has no sibling modules,
@@ -92,11 +95,18 @@ console.log('\n0  an intact copy — the control');
   const { out, code } = runGate(tmp);
   if (code !== 0) fail(`the intact copy exits ${code}. Nothing below can be trusted: the copy is broken, not the gate.\n${out}`);
   else ok('exit 0');
-  for (const sheet of ['internal.svg', 'external.svg', 'internal-schematic.svg', 'internal-diagram.svg']) {
-    if (!armSeen(out, sheet)) fail(`no arm for ${sheet} — the fixture this ran against does not declare all four, so cases 1 and 2 prove less than they claim`);
+  // THREE sheets since 2026-09-10: the tube-map diagram is parked (buses-data
+  // OA-297) and the committed St Ives fixture no longer declares it. The gate
+  // must count off the fixture, so this control asserts the arms it declares
+  // are green AND that no diagram arm ran — a fourth arm here would mean the
+  // fixture, not the gate, had moved.
+  for (const sheet of ['internal.svg', 'external.svg', 'internal-schematic.svg']) {
+    if (!armSeen(out, sheet)) fail(`no arm for ${sheet} — the fixture this ran against does not declare all three, so cases 1 and 2 prove less than they claim`);
     else if (armRed(out, sheet)) fail(`${sheet} is red on an intact copy`);
     else ok(`${sheet} green`);
   }
+  if (armSeen(out, 'internal-diagram.svg')) fail('a diagram arm ran on the intact copy — the fixture declares internalDiagram again; the output is parked (OA-297) and the fixture should not carry it');
+  else ok('no diagram arm (the output is parked)');
   rmSync(tmp, { recursive: true, force: true });
 }
 
@@ -139,7 +149,7 @@ console.log('\n2  engine/expert/schematize_internal.js removed — the SCHEMATIC
 }
 
 /* ---- 3: the coverage property ------------------------------------------ */
-console.log('\n3  a fixture declaring no internalDiagram — the gate must certify THREE sheets, not four');
+console.log('\n3  a fixture declaring no internalSchematic — the gate must certify TWO sheets, not three');
 {
   const tmp = scratchPortal();
   // Find the fixture this machine actually uses, by asking the gate.
@@ -151,16 +161,16 @@ console.log('\n3  a fixture declaring no internalDiagram — the gate must certi
     cpSync(m[1].trim(), fixCopy, { recursive: true });
     const rjp = path.join(fixCopy, 'routes.json');
     const rj = JSON.parse(readFileSync(rjp, 'utf8'));
-    if (!rj.internalDiagram) fail('this fixture does not declare internalDiagram, so there is nothing to take away');
+    if (!rj.internalSchematic) fail('this fixture does not declare internalSchematic, so there is nothing to take away');
     else {
-      delete rj.internalDiagram;
+      delete rj.internalSchematic;
       writeFileSync(rjp, JSON.stringify(rj, null, 2));
       const { out, code } = runGate(tmp, { FIXTURE_DIR: fixCopy });
-      if (!/· sheets : 3 —/.test(out)) fail(`the gate did not drop to three sheets:\n${out.split('\n').filter((l) => l.startsWith('· sheets')).join('\n') || '(no sheets line)'}`);
-      else ok('it reports three sheets');
-      if (armSeen(out, 'internal-diagram.svg')) fail('it still ran the diagram arm for a fixture that no longer declares one');
-      else ok('no diagram arm');
-      if (!/on all 3 sheets this fixture declares/.test(out)) fail('the closing line does not say how many sheets it certified — the count is the whole point');
+      if (!/· sheets : 2 —/.test(out)) fail(`the gate did not drop to two sheets:\n${out.split('\n').filter((l) => l.startsWith('· sheets')).join('\n') || '(no sheets line)'}`);
+      else ok('it reports two sheets');
+      if (armSeen(out, 'internal-schematic.svg')) fail('it still ran the schematic arm for a fixture that no longer declares one');
+      else ok('no schematic arm');
+      if (!/on all 2 sheets this fixture declares/.test(out)) fail('the closing line does not say how many sheets it certified — the count is the whole point');
       else ok('the closing line names the count');
       if (code !== 0) fail(`exit ${code} on a fixture that is merely smaller`);
       else ok('exit 0');

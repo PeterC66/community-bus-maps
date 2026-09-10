@@ -382,8 +382,9 @@ console.log('  The sign-in link is printed to the SERVER console.');
 // them on behind the demo user's back.
 const stForHint = getMapBySlug('st-ives');
 if (stForHint) {
-  console.log(`\n  Expert side (admin only): the schematic + diagram outputs are OFF by default.`);
-  console.log(`    · switch them on in the editor's Outputs panel (St Ives carries both configs), and`);
-  console.log(`    · hand-tune the diagram's junctions at /app/maps/${stForHint.id}/diagram`);
+  console.log(`\n  Expert side (admin only): the schematic output is OFF by default.`);
+  console.log(`    · switch it on in the editor's Outputs panel (St Ives carries the config).`);
+  console.log(`    · the tube-map diagram is PARKED (buses-data OA-297): set TUBE_DIAGRAM=1 in .env to bring back`);
+  console.log(`      its Outputs row and the pin editor at /app/maps/${stForHint.id}/diagram`);
 }
 process.exit(0);

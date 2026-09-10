@@ -1,7 +1,7 @@
 # Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.9 | 2026-08-28 | sha=9eb87d76 -->
-**v1.9** · updated 28 August 2026
+<!-- docstamp v1.10 | 2026-09-10 | sha=7374639b -->
+**v1.10** · updated 10 September 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
@@ -32,7 +32,7 @@ A licence obligation is only met if a reader sees it. Today:
 - **`/legal.html`** — the fuller explanation of the sources, plus how the sheets may be reused.
 - **`NOTICE`** — for anyone redistributing the software.
 
-**Check before launch:** print one A4 sheet of each of the four outputs (geographic, schematic, diagram, external) and confirm the attribution is legible on paper, not just on screen. The two expert styles arrived in P7 and re-run the same generator, so they inherit the credit line — but "inherits" is a claim to verify with a printout, once.
+**Check before launch:** print one A4 sheet of each of the offered outputs (geographic, schematic, external; the diagram is parked since 2026-09-10, buses-data OA-297) and confirm the attribution is legible on paper, not just on screen. The two expert styles arrived in P7 and re-run the same generator, so they inherit the credit line — but "inherits" is a claim to verify with a printout, once.
 
 ## 3. bustimes.org — resolved (2026-08-07)
 
@@ -78,6 +78,6 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
 | CSRF tokens on state-changing POSTs | ✅ **Fixed 2026-08-25** (`8787a72`, audit 2026-08-25 P1) — no longer an accepted risk. A `preHandler` hook rejects every mutating method (POST/PUT/PATCH/DELETE) that carries a session cookie without a matching `x-csrf-token`, plus `POST /auth/verify` unconditionally, because that one runs for somebody who has no session yet and is exactly the request that must not be forgeable. An `onRequest` hook hands every visitor the `cbm_csrf` cookie so any page can echo it. **Verified live 2026-08-28**, not merely merged: `curl -sI https://busmaps.uk/` returns `Set-Cookie: cbm_csrf=…; SameSite=Lax; Secure` on `0.10.0-pilot+2eec3ac`. This row said "deferred, not fixed" for three days after it was fixed. | Claude | 2026-08-28 |
 
-**To close the paper checks:** print one A4 of each of the four outputs (geographic, schematic, diagram, external) from a reviewed map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.
+**To close the paper checks:** print one A4 of each of the offered outputs (geographic, schematic, external; the diagram is parked since 2026-09-10) from a reviewed map and confirm the OSM + BODS + "check live times" line is present and legible on paper. Then tick the two sheet rows with your initials + date.
 
 Nothing here is legal advice; it is the operator's checklist. Record the outcome in this file (it is versioned) so the decision and its date survive.

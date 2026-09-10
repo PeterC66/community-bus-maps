@@ -17,6 +17,12 @@ import { existsSync, cpSync } from 'node:fs';
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-test-p7-'));
 process.env.DATA_DIR = scratch;
+// The tube-map diagram is PARKED (buses-data OA-297, 2026-09-10): its catalogue
+// row reads TUBE_DIAGRAM at each use and is not offered unless it is '1'. This
+// file is the MECHANISM's test — the request-only lock, the grant, the wrapper —
+// so it runs with the flag ON, before the first import. The parked state itself
+// is asserted, flag off, in scripts/test-parked-diagram.mjs.
+process.env.TUBE_DIAGRAM = '1';
 
 let failures = 0;
 const check = (name, cond, extra) => {

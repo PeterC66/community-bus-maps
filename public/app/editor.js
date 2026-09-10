@@ -134,10 +134,12 @@ function applyLock() {
 function setPvState(kind, text) { $('pvDot').className = 'dot ' + kind; $('pvText').textContent = text; }
 
 // ---- controls: outputs -------------------------------------------------------
-// One output — the tube-map diagram — is `requestOnly`: hand-finished, quoted
-// separately, and re-pinned by us every time the network moves. The customer sees
-// it locked with an "Ask us" button rather than hidden, so they know it exists.
-// The lock is enforced in the server's PATCH handler; this is only the UX of it.
+// A `requestOnly` output is hand-finished, quoted separately and granted by us.
+// The customer sees it locked with an "Ask us" button rather than hidden, so
+// they know it exists. The lock is enforced in the server's PATCH handler; this
+// is only the UX of it. An output the portal does not OFFER (`portal: false` —
+// the tube-map diagram since 2026-09-10, buses-data OA-297) is not drawn at
+// all: to the customer it does not exist.
 const isAdmin = () => !!(ME && ME.role === 'admin');
 const lockedOutput = (o) => o.requestOnly && !isAdmin();
 
@@ -148,7 +150,7 @@ function outputHint(o) {
 }
 function buildOutputs() {
   const box = $('outputs');
-  box.innerHTML = detail.outputs.map((o) => `
+  box.innerHTML = detail.outputs.filter((o) => o.portal).map((o) => `
     <div class="poi-item ${o.enabled ? '' : 'off'}" data-key="${esc(o.key)}">
       <input type="checkbox" id="out_${esc(o.key)}" ${o.enabled ? 'checked' : ''} ${o.available && !lockedOutput(o) ? '' : 'disabled data-fixed="1"'}>
       <label for="out_${esc(o.key)}">${esc(o.label)}${outputHint(o)}</label>

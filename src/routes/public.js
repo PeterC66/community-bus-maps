@@ -57,7 +57,7 @@ import { gzipSync } from 'node:zlib';
 import {
   insertApplication, insertMessage, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug,
 } from '../db/index.js';
-import { publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES } from '../public/index.js';
+import { publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, publicBases } from '../public/index.js';
 import { factsForPublicMap, publicServices, servicesPageUrl } from '../public/services.js';
 import { setInner, setAttr, setClass, removeBooleanAttr } from '../public/shell.js';
 import { grid } from '../../public/js/shared/map-card.mjs';
@@ -351,6 +351,15 @@ export default async function publicRoutes(app) {
     if (!Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
       return reply.code(400).send({ ok: false, error: 'Bad file.' });
     }
+    // OUTPUT_FILES knows every base the catalogue has ever had, because old
+    // version folders hold their files and admin review still reads them. The
+    // PUBLIC route serves only an OFFERED output's sheet — the third of the three
+    // routes that answered 200 for a parked diagram on 2026-09-10 (OA-297). A
+    // non-output file (disagreements.pdf) passes as before.
+    const sheet = file.match(/^(.*)\.(svg|jpg)$/);
+    if (sheet && !publicBases().includes(sheet[1])) {
+      return reply.code(400).send({ ok: false, error: 'Bad file.' });
+    }
     let p = path.join(versionDir(row.id, row.pub_key), file);
     if (!existsSync(p)) return reply.code(404).send({ ok: false, error: 'Not found.' });
 
@@ -396,7 +405,7 @@ export default async function publicRoutes(app) {
     const row = getPublicMapBySlug(str(req.params.slug, 120));
     if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
     const base = str(req.params.base, 40);
-    if (!PUBLIC_BASES.includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
+    if (!publicBases().includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
     try {
       const p = await webPreviewPath(row.id, row.pub_key, base);
       if (!p) return reply.code(404).send({ ok: false, error: 'Not found.' });
@@ -418,7 +427,7 @@ export default async function publicRoutes(app) {
     const row = getPublicMapBySlug(str(req.params.slug, 120));
     if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
     const base = str(req.params.base, 40);
-    if (!PUBLIC_BASES.includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
+    if (!publicBases().includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
     const file = path.join(versionDir(row.id, row.pub_key), `${base}.svg`);
     if (!existsSync(file)) return reply.code(404).send({ ok: false, error: 'Not found.' });
     if (cached(req, reply, row.pub_key, `inline-${base}`)) return reply;

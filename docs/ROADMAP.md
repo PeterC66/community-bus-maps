@@ -1,7 +1,7 @@
 # Roadmap & architecture
 
-<!-- docstamp v1.17 | 2026-09-06 | sha=ce76ce77 -->
-**v1.17** · updated 6 September 2026
+<!-- docstamp v1.18 | 2026-09-10 | sha=8a0a5817 -->
+**v1.18** · updated 10 September 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
@@ -53,7 +53,7 @@ Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI
 | Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
 | Accept/decline the monthly change — *shipped in P5* | New-map onboarding / bootstrapping a subject |
 | Choose which of the 4 outputs a map produces — *P2 toggles; **all four render as of P7** (the two expert styles are opt-in per map)* | Anything touching upstream (S1/S2) data |
-| — | **Switching the tube-map diagram on.** It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
+| — | **Switching the tube-map diagram on.** *(PARKED 2026-09-10, buses-data OA-297 — the output is not offered at all until `TUBE_DIAGRAM=1`.)* It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
 
 The three online tiers are analysed in full — including the data-protection, licensing, ops and
 commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the companion Buses repo.
