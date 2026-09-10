@@ -59,7 +59,7 @@
 # run from anywhere. Record the new digest in a CHANGELOG.d/ fragment on each bump, and
 # re-run `npm run verify` before deploying -- a base-image change is a
 # rasteriser change until proved otherwise.
-FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
+FROM node:26-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146
 
 # libvips is bundled with sharp's prebuilt binary; CA certs + tini are the only
 # other infrastructure.
