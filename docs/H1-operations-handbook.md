@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.23 | 2026-09-04 | sha=6c4fd386 -->
-**v1.23** · updated 4 September 2026
+<!-- docstamp v1.24 | 2026-09-10 | sha=768039a6 -->
+**v1.24** · updated 10 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -71,6 +71,8 @@ A short list kept deliberately apart from `open-actions.md`. Each of these is so
 3. **Publish** — a rendered version stays a **draft** until an **approver reviews it** (a required checklist + the deterministic change summary as evidence) → the public-current pointer advances.
 
 ### 4b. The tube-map diagram is request-only
+
+> **PARKED 2026-09-10 (buses-data OA-297): the tube-map diagram is not offered — `TUBE_DIAGRAM` is off by default and unset on the live host — and everything below about it describes the mechanism kept for the return (buses-data OA-298).** While parked there is no *Ask us* button, no `diagram-request` message can be raised (the route is 404), the pin editor reports no diagram to tune, and the public file routes refuse the sheet's URLs. Nothing below is deleted; it is what comes back with the flag.
 
 The other three outputs are generated: the same data always draws the same sheet. The diagram is solved and then **pinned by hand**, and those pins are ours to re-judge every time the network moves — so it is a *priced* output, not a tick-box, and it costs drawing time in the updates as well as in the first build.
 

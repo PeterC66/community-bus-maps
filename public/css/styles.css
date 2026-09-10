@@ -211,9 +211,9 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
 }
 .badge.place { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-tint-ink); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
-/* An output that is drawn by hand and therefore priced separately (the tube-map
-   diagram). Wherever it is offered it carries this badge, so nobody discovers the
-   cost after asking for it. */
+/* An output that is set up by arrangement rather than by a tick-box (today the
+   where-to-board plan). Wherever it is offered it carries this badge, so nobody
+   discovers the cost after asking for it. */
 .badge.extra {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent-tint-ink);

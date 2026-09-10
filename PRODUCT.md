@@ -1,7 +1,7 @@
 # Product
 
-<!-- docstamp v1.0 | 2026-08-14 | sha=185da3e1 -->
-**v1.0** · updated 14 August 2026
+<!-- docstamp v1.1 | 2026-09-10 | sha=6ec1941d -->
+**v1.1** · updated 10 September 2026
 
 <!-- impeccable:product-schema 1 -->
 
@@ -27,7 +27,7 @@ One deterministic engine, not a mapping tool: given a map's prepared data + conf
 ## Operating Context
 
 - **Pilot, not live**: `PILOT_MODE` is on by default — every page carries a pilot banner, every rendered sheet a red "PILOT — SAMPLE MAP" band, `robots.txt` disallows all, seeded demo organisations show a Sample badge. There are no real customers yet; every organisation and map in the system today is seeded demo data. Copy must never claim customers, uptime, response times, or a guaranteed refresh cadence.
-- **Two map types, four possible outputs**: area maps (a whole town/parish/part of a larger town) and place maps (centred on one point). Outputs: internal geographic, internal schematic (octolinear, expert opt-in), internal diagram (tube-map style, admin-hand-pinned, request-only/quoted separately), and external (tube-map of reachable places).
+- **Two map types, four possible outputs**: area maps (a whole town/parish/part of a larger town) and place maps (centred on one point). Outputs: internal geographic, internal schematic (octolinear, expert opt-in), internal diagram (tube-map style, admin-hand-pinned, request-only — **parked since 2026-09-10**, buses-data OA-297, so not offered today), and external (tube-map of reachable places).
 - **Version + review lifecycle**: an editor's save creates a private draft version; submitting freezes editing and hands off to an approver; publishing sets the official public version and retires the previous one; every step is audited. The editor who makes a change never publishes it — a deliberate separation of duties.
 - **Monthly data refresh**: a central pipeline stages a proposed update each month; the customer reviews a change summary + old-vs-new preview and accepts (re-applying their edits as a new draft) or declines.
 - **Public page per published map**: sheets to view/download, the publishing organisation's branding, a "something looks wrong" feedback form, and an accessible text-equivalent page at `/m/<slug>/services` — listed in a public gallery.

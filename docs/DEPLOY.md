@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.54 | 2026-09-07 | sha=73b977db -->
-**v1.54** · updated 7 September 2026
+<!-- docstamp v1.55 | 2026-09-10 | sha=3e7e9879 -->
+**v1.55** · updated 10 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -37,6 +37,7 @@ Copy `.env.example`. The ones that matter in production:
 | `OPERATOR_TOKEN` | set to let the laptop's bus-work worklist READ `GET /api/admin/worklist`, `GET /api/maps` and, since 2026-09-05, `GET /api/maps/:id/poi-tiers` (a map's landmark answer, buses-data OA-233) without a person's session (OA-203); unset and no operator is admitted. Bearer header only, GET only, those three routes only — it replaces a live `cbm_session` cookie kept in a file, which could do everything an admin can bar the four step-up routes |
 | `PILOT_MODE` | **defaults ON.** Banner on every page and a band on every rendered sheet. Set to `0` to switch all of it off — see [`PILOT.md`](PILOT.md). Does **not** control indexing; that is `ALLOW_INDEXING` below |
 | `ALLOW_INDEXING` | **defaults OFF.** While off, `robots.txt` serves `Disallow: /` and the site cannot be found in a search engine. Set to `1` to become discoverable. Independent of `PILOT_MODE` since 2026-08-21, so the site can be indexed while still honestly labelled a pilot — see `src/config.js` §INDEXING |
+| `TUBE_DIAGRAM` | **defaults OFF, and stays off on the live host.** The tube-map diagram output was parked on 2026-09-10 (buses-data OA-297): off, it is not rendered, not listed, not offered in the editor and not served by the public file routes. Set to `1` on a dev copy to test the pin editor and the request-only lock; the return path is buses-data OA-298 |
 | `ALLOW_SELF_APPROVAL` | **must be `1` on this host today, or nothing can be published.** Since 2026-08-20 an approver who submitted a version is refused when they approve it (`technical-audit_2026-08-19` S6). With one operator that means every publication, so the override is set — and each publication made under it is stamped `selfApproved: true` in the evidence and the audit row. Unset it the day a second person holds `approver`. |
 | `ADMIN_EMAIL` | the address `npm run smoke:signin` sends its one real magic link to after a deploy. Must be a **registered, active** user, or no send is attempted and the check cannot pass. |
 | `BACKUP_RECIPIENT` | an **age public key** (`age1…`). Set it and `scripts/backup.mjs` writes the database copy encrypted, as `portal.sqlite.age`; leave it unset and the backup still runs but writes the database in the clear and says so on every run (`technical-audit_2026-08-25` N3). The matching **private key never goes on this host** — it lives in the operator's password manager, which is the whole point of an asymmetric key here. §5 below has the restore command. **Putting it in `.env` is not enough**: the `backup` service has no `env_file`, so `compose.yaml` must name it too, and it does — setting one without the other leaves the key looking correct in `.env` while every backup goes on writing plaintext. Prove it reached the container with `docker compose run --rm backup printenv BACKUP_RECIPIENT`, not by reading `.env`. |

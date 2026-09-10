@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.19 | 2026-09-04 | sha=12ee1493 -->
-**v1.19** · updated 4 September 2026
+<!-- docstamp v1.20 | 2026-09-10 | sha=f68f1d62 -->
+**v1.20** · updated 10 September 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -20,7 +20,7 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 |---|---|
 | **internal (geographic)** | a street-anchored map of the buses within the area/around the place |
 | **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
-| **internal (diagram)** | a tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only**: hand-pinned work, so it is quoted separately and granted by us — see [OPERATIONS-HANDBOOK §4b](docs/H1-operations-handbook.md))* |
+| **internal (diagram)** | **PARKED 2026-09-10** (buses-data OA-297) — not offered unless `TUBE_DIAGRAM=1`, which the live host does not set. A tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only** while offered — see [OPERATIONS-HANDBOOK §4b](docs/H1-operations-handbook.md))* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
 > **Status: PILOT — feature-complete against the plan (P0–P7, plus P8a), but not a live service.** There are **no customers**: no organisation has signed up, and every map on the public site is one we made ourselves to build and test the system. Every page carries a pilot banner and every rendered sheet a pilot band; seeded demo organisations are labelled **Sample**. One env var (`PILOT_MODE=0`) switches all of that off — see [`docs/PILOT.md`](docs/PILOT.md).
@@ -128,6 +128,8 @@ npm test
 `scripts/run-tests.mjs` **discovers** every `test-*`/`prove-red-*` file in `scripts/` rather than working from a list, so a new test is in the suite the moment it lands and an excluded one has to name where it does run. Read the file and verdict counts off the run — this paragraph used to enumerate two phases' worth of checks and had been wrong for months. To see the plan without running it: `npm test -- --list`.
 
 ## The expert side (P7)
+
+> **PARKED 2026-09-10 (buses-data OA-297): the tube-map diagram is not offered — `TUBE_DIAGRAM` is off by default and unset on the live host — and everything below about it describes the mechanism kept for the return (buses-data OA-298).**
 
 Two of the four outputs are **expert styles**: the octolinear **schematic** and the tube-map **diagram**. Their engines are portal-owned in [`engine/expert/`](engine/expert/README.md) (a town's render folder never carried them), they are **opt-in per map** — the map's `routes.json` has to carry `internalSchematic` / `internalDiagram` — and they are **off by default**, because a schematic is an editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six** outputs (four area + two place) are proved on every release.
 

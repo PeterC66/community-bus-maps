@@ -12,6 +12,7 @@
 import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR, MAPS_DIR } from '../db/paths.js';   // paths only — importing this cannot open a database (OA-232 Tier 1.6)
+import { tubeDiagramOffered } from '../config.js';    // config.js imports nothing, so this keeps the OA-232 property
 
 // Re-exported, not redeclared: `src/db/paths.js` already owns this join and had
 // its own copy of it. Two spellings of one path is how the DATA_DIR duplication
@@ -242,6 +243,14 @@ export function ensureProposedDirs(id, pid) {
 // with the config key the pre-stage requires (`requiresConfig`) — a map without it
 // shows the output as unavailable instead of failing at render time.
 //
+// PARKED, 2026-09-10 (buses-data OA-297). The tube-map diagram's `portal` flag
+// is now the TUBE_DIAGRAM environment flag (src/config.js), off by default, so
+// the row below describes a sheet that is not offered anywhere until somebody
+// sets it. Nothing about the row, the pin editor or the lock was deleted: the
+// return path is buses-data OA-298, and scripts/test-p7.mjs keeps the mechanism
+// tested with the flag on while scripts/test-parked-diagram.mjs holds the
+// parked state with it off.
+//
 // `requestOnly` marks an output the customer may SEE but not switch on: the
 // tube-map diagram is generated and then pinned by hand in the pin editor, and
 // those pins are ours to maintain on every later refresh, so it is quoted
@@ -367,7 +376,11 @@ export const OUTPUTS = {
   external:            { gens: ['gen_external.js', { file: 'gen_external_places.js', requiresConfig: 'destinations' }],
                          base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Simplified street map', portal: true, buildAlways: true },
-  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
+  // PARKED 2026-09-10 (buses-data OA-297): `portal` is a getter on the
+  // TUBE_DIAGRAM flag, read at each use rather than at load so a test can flip
+  // it. Off, this row is invisible to every reader that checks `portal` — and
+  // resolveGen() refuses it too, so `available` is false for the pin editor.
+  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     get portal() { return tubeDiagramOffered(); }, requestOnly: true },
   boarding_plan:       { gens: ['gen_boarding.js'],           engine: 'expert', expert: true, requiresConfig: 'boardingPlan',
                          requiresFiles: ['stands.json', 'boarding_index.json'],
                          base: 'boarding', label: 'Where to board', placeLabel: 'Where to board', portal: true, requestOnly: true },

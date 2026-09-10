@@ -1,7 +1,9 @@
 # engine/expert/ — the vendored EXPERT-STYLE engines (P7)
 
-<!-- docstamp v1.4 | 2026-08-23 | sha=eb7485e4 -->
-**v1.4** · updated 23 August 2026
+<!-- docstamp v1.5 | 2026-09-10 | sha=d1a15cb9 -->
+**v1.5** · updated 10 September 2026
+
+> **PARKED 2026-09-10 (buses-data OA-297): the tube-map diagram is not offered — `TUBE_DIAGRAM` is off by default and unset on the live host — and everything below about it describes the mechanism kept for the return (buses-data OA-298).** The files below are unchanged and still vendored; `/ops/ready` still checks they are present.
 
 The third and fourth outputs of a map — the **octolinear schematic** and the **tube-map diagram** — are produced here. Unlike the area generators (which travel with each map's data) and the place engine (which is copied *into* each place map's data), these are **portal-owned**: a town's render folder never carried them, they are identical for every map, and they are the expert side of the product. `src/maps/store.js` marks their outputs `engine: 'expert'`, so `resolveGen()` returns an absolute path out of this folder.
 

@@ -39,6 +39,7 @@
 // later reader acts on. It stays in server.js with its own requireUser() call.
 
 import path from 'node:path';
+import { tubeDiagramOffered } from '../config.js';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { getCustomer, getMap, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
 import { mapPageUrl } from '../public/index.js';
@@ -404,9 +405,12 @@ export default async function editorRoutes(app) {
     });
     if (refused.length) {
       req.log.warn({ mapId: map.id, refused, by: user.email }, 'refused a request-only output change');
+      // Named generically since 2026-09-10: with the diagram parked (OA-297) the
+      // only output this can refuse is the boarding plan, and the old sentence
+      // named the diagram whichever one it was.
       return reply.code(403).send({
         ok: false, refused,
-        error: 'The tube-map diagram is hand-finished, so it is not a tick-box — ask us for it and we will quote and set it up.',
+        error: 'That output is set up by arrangement rather than by a tick-box — ask us and we will quote and set it up.',
       });
     }
     if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
@@ -478,6 +482,12 @@ export default async function editorRoutes(app) {
     const user = req.user;                       // the plugin guard above proved it
     const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
     if (!map) return reply.code(code).send({ ok: false, error });
+    // PARKED (buses-data OA-297, 2026-09-10): while the diagram is not offered
+    // there is nothing to ask for, and the editor no longer shows the button.
+    // 404 rather than 403, because to a customer the output does not exist —
+    // but AFTER the ownership guard, so a stranger is still refused the way
+    // every per-map route refuses them (test-editor-plugin.mjs enumerates that).
+    if (!tubeDiagramOffered()) return reply.code(404).send({ ok: false, error: 'Not found.' });
     const note = str((req.body || {}).note, 2000);
     const body = [
       `Asked for the tube-map diagram on "${map.name}" (map #${map.id}, ${map.kind}).`,

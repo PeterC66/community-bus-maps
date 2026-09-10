@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.13 | 2026-09-04 | sha=a32278f1 -->
-**v1.13** · updated 4 September 2026
+<!-- docstamp v1.14 | 2026-09-10 | sha=0e5af459 -->
+**v1.14** · updated 10 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -94,7 +94,7 @@ Two standing rules for demo material:
 1. **Name and label them so they can't be mistaken for the real body.** The seeded three (Broadmeadow Parish Council, Fenmarsh District Council, Oakfield Community Transport Trust — all suffixed "(demo)") are fully invented names, not paired with any real body: the grouping is deliberately by **map-count, not by locality** (see below), so there is no real council or business the name could plausibly be mistaken for anyway. Each still carries `is_demo` *and* an explicit "Sample organisation — invented for testing, not a real customer" blurb — don't drop either just because the name is already unmistakable.
 2. **Sample labelling is not pilot-gated** — it must survive `PILOT_MODE=0`. The red **PILOT — SAMPLE MAP** band on the sheets *is* pilot-gated, and on our own demo maps it is correct and wanted.
 
-Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one map with the **expert styles** switched on (schematic + tube-map diagram are opt-in per map) so all five outputs are demoable — including a **place carrying a boarding plan**, which needs a payload built through the place skill's Phase 3 (`routes.json` with a `boardingPlan` block, plus `stands.json` and `boarding_index.json`; `import-map.mjs` copies them with the rest of the `*.json`, and the output is reported unavailable if any of the three is missing). Note the diagram is *request-only* for customers — you switch it on, they ask ([OPERATIONS-HANDBOOK §4b](H1-operations-handbook.md)).
+Worth covering across the set, so the docs can point at a real example of each: both **kinds** (area and place), a cross-border / multi-locality area, one outside the home GTFS region, and at least one map with the **expert styles** switched on (the schematic is opt-in per map; the tube-map diagram is parked since 2026-09-10, buses-data OA-297) so all four offered outputs are demoable — including a **place carrying a boarding plan**, which needs a payload built through the place skill's Phase 3 (`routes.json` with a `boardingPlan` block, plus `stands.json` and `boarding_index.json`; `import-map.mjs` copies them with the rest of the `*.json`, and the output is reported unavailable if any of the three is missing). Note the diagram is *request-only* for customers — you switch it on, they ask ([OPERATIONS-HANDBOOK §4b](H1-operations-handbook.md)).
 
 ## Taking over a demo-held town (a real customer wants St Ives / St Neots / …)
 

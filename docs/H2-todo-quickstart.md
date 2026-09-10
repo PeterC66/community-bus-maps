@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.6 | 2026-08-30 | sha=747faa00 -->
-**v1.6** · updated 30 August 2026
+<!-- docstamp v1.7 | 2026-09-10 | sha=88f7229c -->
+**v1.7** · updated 10 September 2026
 
 **v1.0** · updated 8 August 2026
 
@@ -148,7 +148,7 @@ $env:PLACE_FIXTURE_DIR = "<the S5-render dir>"; npm run verify:place
 ```
 Must print **PASS** with byte counts. If it doesn't, stop — don't hand over a map that didn't verify.
 
-**Step 3 — hand over, in the browser:** open `https://busmaps.uk/app/maps/<id>` as admin, confirm the outputs (v1.0 defaults to internal-geographic + external; the tube-map diagram is request-only, see H1 §4b). The map is a **draft** until it goes through the `review` step above.
+**Step 3 — hand over, in the browser:** open `https://busmaps.uk/app/maps/<id>` as admin, confirm the outputs (v1.0 defaults to internal-geographic + external; the tube-map diagram is parked since 2026-09-10 and not offered, see H1 §4b). The map is a **draft** until it goes through the `review` step above.
 ▸ **Testing locally instead?** `http://localhost:3000/app/maps/<id>`.
 
 ---

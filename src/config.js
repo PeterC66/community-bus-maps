@@ -126,6 +126,19 @@ export const statusToken = () => process.env.STATUS_TOKEN || '';
  *  unless explicitly '1' — separation of duties fails towards the strict state. */
 export const allowSelfApproval = () => process.env.ALLOW_SELF_APPROVAL === '1';
 
+/** Is the tube-map diagram (`internal_diagram`) OFFERED at all? OFF unless
+ *  explicitly '1'.
+ *
+ *  PARKED 2026-09-10 (buses-data OA-297, Peter's decision): the output is hidden,
+ *  not deleted. With this off the catalogue row reports `portal: false`, which
+ *  every reader already honours — it is never rendered, never listed on a public
+ *  page, never offered in the editor, and its bases are not served by the public
+ *  file routes. The pin editor, the grant and the request-only lock all stay in
+ *  the code and stay tested with the flag ON (scripts/test-p7.mjs), so the return
+ *  (buses-data OA-298) is a one-line .env change on the dev copy. Fails towards
+ *  the parked state for the same reason PILOT fails towards the honest one. */
+export const tubeDiagramOffered = () => process.env.TUBE_DIAGRAM === '1';
+
 /** How old a map's data may be before the public page says so. Six months. */
 export const staleAfterMonths = () => Math.max(1, Number(process.env.STALE_AFTER_MONTHS) || 6);
 

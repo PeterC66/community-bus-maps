@@ -19,8 +19,15 @@ import { versionDir, OUTPUTS, outputHint } from '../maps/store.js';
 import { brandingForPublic } from '../branding/index.js';
 import { factsForPublicMap, provenanceFor, servicesPageUrl } from './services.js';
 
-/** Artefact basenames the public site knows about (internal / external / …). */
-export const PUBLIC_BASES = Object.values(OUTPUTS).map((o) => o.base);
+/** Artefact basenames the public site SERVES — the offered outputs' bases.
+ *
+ * A function, not a constant, and derived from `portal` rather than from the
+ * whole catalogue: on 2026-09-10 the St Ives diagram had been switched off on
+ * the map and the public page no longer listed it, yet the inline, preview and
+ * raw-file routes still answered 200 for `internal-diagram`, because this list
+ * held every base the catalogue had ever known. "Not offered" has to reach the
+ * file routes too, or a hidden sheet is one guessed URL away (buses-data OA-297). */
+export const publicBases = () => Object.values(OUTPUTS).filter((o) => o.portal).map((o) => o.base);
 
 // A print JPG is A4 at 300 dpi (~1 MB) — far too heavy for a gallery page. The
 // screen copy is DERIVED from that reviewed print file on first request and
