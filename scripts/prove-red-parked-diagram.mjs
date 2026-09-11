@@ -20,6 +20,10 @@
 //   2  a scratch copy of public/ + views/ with the pricing line put BACK
 //                                                      -> exit 1, and the copy
 //        gate must name public/pricing.html and the phrase it found
+//   3  the same copy with "A fifth output" put back into the What's New panel
+//        (public/data/whats-new.json)                   -> exit 1, and the gate
+//        must name the JSON file — the corpus was .html/.js/.css until
+//        2026-09-11 and that sentence had been live since 23 August
 //
 // IT MUTATES A COPY AND NEVER THE REPOSITORY (arm 2 copies public/ and views/
 // to a scratch tree and points the test at it with PARKED_COPY_ROOT).
@@ -99,5 +103,28 @@ console.log('\n2  the pricing line put back — the copy gate must name the file
   rmSync(tmp, { recursive: true, force: true });
 }
 
-console.log(failures ? `\n✗ ${failures} prove-red check(s) failed` : '\n✓ the parked-diagram test can go red, both ways');
+console.log('\n3  the What\'s New count put back — the copy gate must read public/data/*.json');
+{
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'prove-parked-json-'));
+  cpSync(path.join(ROOT, 'public'), path.join(tmp, 'public'), { recursive: true });
+  cpSync(path.join(ROOT, 'views'), path.join(tmp, 'views'), { recursive: true });
+  const wn = path.join(tmp, 'public', 'data', 'whats-new.json');
+  const s = readFileSync(wn, 'utf8');
+  const anchor = 'A fourth output';
+  if (!s.includes(anchor)) fail(`whats-new.json no longer contains "${anchor}", the sentence this arm mutates — re-aim the arm`);
+  else {
+    writeFileSync(wn, s.replace(anchor, 'A fifth output'));
+    const { out, code } = run({ PARKED_COPY_ROOT: tmp });
+    if (code === 0) fail('exit 0 with the count re-inserted — the copy gate does not read public/data/*.json');
+    else ok(`exit ${code}`);
+    const r = reds(out);
+    if (r.some((l) => l.includes('no customer-facing page or view names'))) ok('the copy gate went red');
+    else fail('the copy gate stayed green');
+    if (/public[\\/]data[\\/]whats-new\.json:\d+ — fifth output/.test(out)) ok('…and it names public/data/whats-new.json, the line, and the phrase');
+    else fail('…but it does not name the file and phrase, so a reader could not act on it');
+  }
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log(failures ? `\n✗ ${failures} prove-red check(s) failed` : '\n✓ the parked-diagram test can go red, three ways');
 process.exit(failures ? 1 : 0);
