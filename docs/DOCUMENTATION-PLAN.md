@@ -1,7 +1,7 @@
 # Documentation development plan — the operator layer
 
-<!-- docstamp v1.7 | 2026-08-27 | sha=64772326 -->
-**v1.7** · updated 27 August 2026
+<!-- docstamp v1.8 | 2026-09-11 | sha=27e6f9cf -->
+**v1.8** · updated 11 September 2026
 
 **Status:** ✅ all tiers built 2026-07-25 (this doc is now the tracker) · **Against:** `0.8.0-P7` (commit `6bf1b8b`)
 
@@ -52,7 +52,7 @@ Checked on disk at `0.8.0-P7`. This is the correction to the first-pass plan, wh
 
 ## 3. The documentation set to develop
 
-Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm an existing doc · `TEMPLATE` = create an empty structured register to populate in operation. Home: `docs/` = code repo (private, BUSL) · `public/` = served shopfront page · `ops/` = local-only private folder (§5).
+Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm an existing doc · `TEMPLATE` = create an empty structured register to populate in operation. Home: `docs/` = code repo (**public** since 2026-09-03, BUSL) · `public/` = served shopfront page · `ops/` = local-only private folder (§5).
 
 ### Foundation
 
@@ -99,7 +99,7 @@ Only the genuine gaps. `NEW` = write from scratch · `ACTION` = complete/confirm
 
 ## 4. Homes & conventions
 
-- **`docs/` (code repo, private):** H1, R1–R6, C1, Pol1, and the `docs/` source of G3. These are *generic process* docs — they also help anyone self-hosting the source-available portal (BUSL — non-commercial/internal self-hosting is fine; a competing commercial service is not), and carry no PII.
+- **`docs/` (code repo — public since 2026-09-03; this line said *private* until 2026-09-11):** H1, R1–R6, C1, Pol1, and the `docs/` source of G3. These are *generic process* docs — they also help anyone self-hosting the source-available portal (BUSL — non-commercial/internal self-hosting is fine; a competing commercial service is not), and carry no PII. **The no-PII rule was never resting on the repository being closed**, which is just as well, because it no longer is: everything in `docs/` is world-readable, so write each of these for a stranger to read.
 - **`public/` (served, public):** G3 as a Terms page alongside `legal.html`; C1 optionally surfaced as a served page linked from the dashboard.
 - **`ops/` — local-only private folder** (recommended: `C:\Claude\community-bus-maps-ops\`, a **sibling** of the code repo, **not** the code repo, **no git remote** — optionally `git init` with no remote for local history): P1–P4 and the G2 internal note. Nothing here ever syncs to GitHub.
 - **This plan** lives at `docs/DOCUMENTATION-PLAN.md` — it is meta, carries no PII, and doubles as the tracker for the effort (tick items off as they land).
