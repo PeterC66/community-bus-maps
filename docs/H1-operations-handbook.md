@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.24 | 2026-09-10 | sha=768039a6 -->
-**v1.24** · updated 10 September 2026
+<!-- docstamp v1.25 | 2026-09-11 | sha=e4e14a72 -->
+**v1.25** · updated 11 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -162,7 +162,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 
 If someone (or a future session) has to pick this up:
 
-1. Read this handbook, then `docs/ROADMAP.md` (architecture) and `CHANGELOG.md` (why things are as they are). The code is at **github.com/PeterC66/community-bus-maps** (private, Business Source License 1.1 — converts to Apache-2.0 on 2030-08-09).
+1. Read this handbook, then `docs/ROADMAP.md` (architecture) and `CHANGELOG.md` (why things are as they are). The code is at **github.com/PeterC66/community-bus-maps** — **a public repository since 2026-09-03** (source-available, not secret; anything committed there is world-readable), under Business Source License 1.1, converting to Apache-2.0 on 2030-08-09. The PII and business records are what is private, and they are private by living outside git, in the local-only ops folder — never by the repository being closed.
 2. **The code is not the service.** The service also needs, and git does **not** contain: the runtime data under `DATA_DIR` (customers, maps, published bytes) and the **local-only ops folder** (PII + business). Both must be restored from their own backups — confirm they exist before you need them ([DEPLOY.md §5](DEPLOY.md) restore drill; the ops folder you back up yourself).
 3. **The promise is byte-identical output.** After any dependency/host change, `npm run verify` must pass before you serve anything — a different `sharp`/libvips build silently breaks "the file we serve is the file that was approved."
 4. Remember the **one-writer rule** (§5) and the **separation of duties** (§3).

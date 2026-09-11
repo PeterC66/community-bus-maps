@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.11 | 2026-09-10 | sha=11206715 -->
-**v1.11** · updated 10 September 2026
+<!-- docstamp v1.12 | 2026-09-11 | sha=f2b32d36 -->
+**v1.12** · updated 11 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -84,7 +84,7 @@ A section of `src/server.js` that is one audience behind one guard is a Fastify 
 
 **Read a commit back by CONTENT, not by its stat line — and this repository has the hook that caused it.** `git commit -- <paths>` commits the **working-tree** content of those paths, evaluated at COMMIT time, so it guarantees which files land and guarantees nothing about what is in them: anything rewriting one of those files between your review and your commit is what gets committed, and the review cannot see a write that happens after it runs. Measured in `buses-data` on 2026-09-09 — `6c3eb15` reviewed `git diff HEAD -- <the two paths>` as its own command and read **8 insertions, 4 deletions**, then committed those exact paths seventeen seconds later and printed **6 insertions, 4 deletions**; nobody compared the two numbers, and the two table rows the message describes are absent from the tree it made. Nothing went red — the hook passed, every documentation checker was green on the working tree, exit 0 — and it was found five hours later only because a checker was run against a throwaway worktree of `HEAD`. **The rewriter was the docstamp Stop hook, which runs here too**: `stamp-policy.json` carries this repository as its `portal` root, so a document edited during a turn is rewritten wholesale at the end of it, and a second session editing the same file is all it takes. Finish with `git show HEAD:<file>` grepped for the phrase the message promises, and treat a commit whose stat differs from a review taken seconds earlier as a lost update until proven otherwise. Being PR-per-change does not help: a branch commit is a commit, and the PR shows what landed rather than what you meant.
 
-**Read the POST-merge run, not the PR's own green checks.** A PR is tested against the base it was cut from, and branch protection is not available on a private repo without GitHub Pro, so nothing requires a branch to be current before merging.
+**Read the POST-merge run, not the PR's own green checks.** A PR is tested against the base it was cut from, and **nothing requires a branch to be current before merging** — so a PR can be green against a base two commits old and the post-merge run is the first test of what actually shipped. **That is now a CHOICE rather than a constraint, and this paragraph said otherwise until 2026-09-11.** It used to read *branch protection is not available on a private repo without GitHub Pro*; this repository has been **public since 2026-09-03**, where branch protection and rulesets are free, so the feature is available and simply is not switched on — `gh api repos/PeterC66/community-bus-maps/branches/main/protection` answers `Branch not protected` and `.../rulesets` answers `[]`, checked 2026-09-11. Turning *Require branches to be up to date before merging* on would close the gap; until somebody does, read the post-merge run.
 
 **Push `buses-data` before opening a portal PR that depends on it.** `verify.yml` checks out `buses-data` with no `ref:`, so a PR's byte gate runs the PR's engine against whatever is on that repository's `main` at that moment.
 

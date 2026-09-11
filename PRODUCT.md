@@ -1,7 +1,7 @@
 # Product
 
-<!-- docstamp v1.1 | 2026-09-10 | sha=6ec1941d -->
-**v1.1** · updated 10 September 2026
+<!-- docstamp v1.2 | 2026-09-11 | sha=0891afa3 -->
+**v1.2** · updated 11 September 2026
 
 <!-- impeccable:product-schema 1 -->
 
@@ -37,7 +37,7 @@ One deterministic engine, not a mapping tool: given a map's prepared data + conf
 - **Determinism contract**: same inputs → byte-identical output, always. No network calls and no AI at render time. Absent config falls back to previous behaviour. This must never be relaxed to make a gate pass.
 - **Three server-enforced approval gates**: organisation approval, map request + quota, publish review. No path may bypass them; client-side checks are UX only, never security. Note publish ≠ public.
 - **Generators are vendored per map** (`data/maps/<id>/data/`); editing the shared engine changes nothing for maps already generated.
-- **Licensing**: private repo, Business Source License 1.1, converting to Apache-2.0 on 2030-08-09. Free for non-commercial/internal use; competing commercial use needs a separate licence.
+- **Licensing**: **public repo** (since 2026-09-03 — source-available, not secret), Business Source License 1.1, converting to Apache-2.0 on 2030-08-09. Free for non-commercial/internal use; competing commercial use needs a separate licence.
 - **Attribution is not optional**: OpenStreetMap (ODbL) and BODS (OGL) attribution must appear per `NOTICE`.
 - **No secrets, customer data, or map data in git** — `data/` and `backups/` are gitignored; verify what `git add -A` actually staged before committing, in a repo with a public remote.
 - Stack: Node + Fastify + `node:sqlite`, no template engine, no frontend framework. (Existing codebase — not an open stack decision.)

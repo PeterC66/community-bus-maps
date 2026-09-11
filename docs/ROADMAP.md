@@ -1,7 +1,7 @@
 # Roadmap & architecture
 
-<!-- docstamp v1.18 | 2026-09-10 | sha=8a0a5817 -->
-**v1.18** · updated 10 September 2026
+<!-- docstamp v1.19 | 2026-09-11 | sha=c1b629b5 -->
+**v1.19** · updated 11 September 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
@@ -62,8 +62,11 @@ commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the co
 
 - **P8a's open policy decisions.** The staleness threshold is `STALE_AFTER_MONTHS` (default 6) and
   is a policy number, not an engineering one. Still to settle: a licence for the **map content**
-  itself (Apache-2.0 covers the code only — moot in practice while the repo is BUSL-1.1/private, but
-  still unresolved), and whether a self-hosted metric-compatible font (Arimo WOFF2) should ship —
+  itself (Apache-2.0 covers the code only — moot in practice while the repo is BUSL-1.1, but still
+  unresolved; this read `BUSL-1.1/private` until 2026-09-11, and the repo has been **public** since
+  2026-09-03, so it is the licence and not the visibility that holds the question off — the Data
+  hygiene bullet in [Key facts for continuation](#key-facts-for-continuation) already called this a
+  public repo, which is how the contradiction was found), and whether a self-hosted metric-compatible font (Arimo WOFF2) should ship —
   P8a instead widens `font-family` to a stack and falls back to the raster sheet if the browser has
   none of it, which avoids a font binary and a NOTICE change.
 - **Place maps.** ✅ **Done (0.6.0-place, 2026-07-25).** The place engine is vendored in `engine/place/` and copied into each place map's `data/` at import, so **both** kinds render, edit, publish and refresh in the portal. A place's expert framing (river-hide / frozen viewport) rides a `data/base-overrides.json` merged **under** the customer's safe-subset overrides. Proven byte-identical by `npm run verify:place`. See the `[0.6.0-place]` changelog entry and `engine/place/README.md`.
