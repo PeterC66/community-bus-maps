@@ -55,17 +55,104 @@ function addHit(hits, map, role, text, via) {
   hits.push({ map, role, text, via: via || '', norm });
 }
 
+// A STREET THE BUS DRIVES ALONG IS NOT A PLACE A READER IS LOOKING FOR
+// (buses-data OA-311, 2026-09-11). Searching /maps for "York" returned three
+// Buckinghamshire sheets, each explaining itself as "Route 104 passes through
+// York Road (UB8)" — and the same shape returned three maps for "London", five
+// for "Hill", six for "Park". Every common street word collides with a real
+// place name, and each new map adds far more street names than place names, so
+// it gets worse on its own.
+//
+// The index cannot tell the two apart because places.json records a stop as a
+// bare string: place-index.js takes the name straight off the sheet, and
+// nothing in it says whether that name is somewhere you can GO or somewhere the
+// route merely passes. So this is a heuristic over the string, and it is
+// written to be deleted — see the action for the real fix, which is to record
+// NaPTAN's locality at publish time and match on that instead.
+//
+// THE RULE: a stop or landmark name that is shaped like a thoroughfare matches
+// only in FULL. Word, prefix and substring matching stay exactly as they were
+// for map names, subjects and destinations, which are places by construction.
+//
+// TWO THINGS THE LIVE DATA FALSIFIED, both of which a rule written from
+// reasoning alone would have shipped:
+//   1. `York Road (UB8)` does not END in a street type — its last token is a
+//      postcode. Hence the bracket strip; without it this rule misses the very
+//      case it was written for.
+//   2. `Bar Hill` and `Bourne End` are VILLAGES whose names end in street
+//      types. They survive because the index already knows them as
+//      destinations elsewhere in the estate, which is what `knownPlaces` is
+//      for. Delete that exemption and the search stops finding two real
+//      villages.
+// Measured over the 137 live sidecars on 2026-09-11: 76 of 336 distinct stop
+// and landmark names become full-match-only, all of them genuine streets
+// (Chessmount Rise, Maxwell Road, London Road, Candlemas Lane), and every
+// village keeps word matching — Fen Drayton, Hemingford Grey, Old Hurst.
+const STREET_TYPES = new Set([
+  'road', 'street', 'lane', 'avenue', 'close', 'drive', 'crescent', 'terrace',
+  'gardens', 'court', 'square', 'parade', 'rise', 'walk', 'grove', 'way',
+  'hill', 'row', 'mews', 'end', 'green',
+]);
+
+/** The name with any bracketed qualifier — "(UB8)", "(Stand C)" — taken off. */
+function withoutQualifier(text) {
+  return normalize(String(text || '').replace(/\([^)]*\)/g, ' '));
+}
+
+/**
+ * Is this name shaped like a street rather than a place?
+ * @param {string} text       the name as recorded on the sheet
+ * @param {Set<string>} knownPlaces  normalised names this estate knows as destinations
+ */
+function looksLikeThoroughfare(text, knownPlaces) {
+  const words = withoutQualifier(text).split(' ').filter(Boolean);
+  if (words.length < 2) return false; // a one-word name is a place or nothing
+  if (!STREET_TYPES.has(words[words.length - 1])) return false;
+  return !knownPlaces.has(normalize(text));
+}
+
 function buildIndex() {
   const hits = [];
+  const rows = [];
+  // Two passes, because `knownPlaces` is a fact about the WHOLE estate and not
+  // about one map: Bar Hill is a destination on a St Ives sheet and a plain
+  // stop on others, and it must be treated as a village on all of them.
+  const knownPlaces = new Set();
   for (const row of listPublicMaps()) {
     const map = publicMap(row);
     if (!map.outputs.length) continue; // same "has a file to show" rule as publicMaps()
+    const sidecar = readPlacesSidecar(row.id, row.pub_key);
+    rows.push({ map, sidecar });
+    knownPlaces.add(normalize(map.name));
+    if (map.subject) knownPlaces.add(normalize(map.subject));
+    if (!sidecar) continue;
+    for (const p of sidecar.places || []) {
+      if (p.role === 'destination') knownPlaces.add(normalize(p.name));
+    }
+  }
+  for (const { map, sidecar } of rows) {
     addHit(hits, map, 'map', map.name);
     if (map.subject) addHit(hits, map, 'subject', map.subject);
-    const sidecar = readPlacesSidecar(row.id, row.pub_key);
     if (!sidecar) continue; // not yet backfilled — run `npm run places:build`
-    for (const p of sidecar.places || []) addHit(hits, map, p.role === 'destination' ? 'destination' : 'stop', p.name, p.via);
-    for (const name of sidecar.pois || []) addHit(hits, map, 'poi', name);
+    for (const p of sidecar.places || []) {
+      const role = p.role === 'destination' ? 'destination' : 'stop';
+      const hit = { map, role, text: p.name, via: p.via || '', norm: normalize(p.name) };
+      if (!hit.norm) continue;
+      if (role === 'stop' && looksLikeThoroughfare(p.name, knownPlaces)) {
+        hit.fullOnly = true;
+        hit.bare = withoutQualifier(p.name);
+      }
+      hits.push(hit);
+    }
+    for (const name of sidecar.pois || []) {
+      const hit = { map, role: 'poi', text: name, via: '', norm: normalize(name) };
+      if (!hit.norm) continue;
+      if (looksLikeThoroughfare(name, knownPlaces)) {
+        hit.fullOnly = true;
+        hit.bare = withoutQualifier(name);
+      }
+      hits.push(hit);
+    }
   }
   return hits;
 }
@@ -133,6 +220,15 @@ function exactPass(hits, qn) {
   for (const hit of hits) {
     const mr = matchRank(hit.norm, qn);
     if (mr < 0) continue;
+    // OA-311: a thoroughfare answers only to its whole name. mr === 0 is the
+    // exact tier; 1, 2 and 3 are whole-word, prefix and substring.
+    //
+    // "Whole name" includes the name WITHOUT its bracketed qualifier, because
+    // that is the form a person types: the stop is recorded as "York Road
+    // (UB8)" and a reader checking whether their own road is on a map types
+    // "York Road". Requiring the postcode would have made this rule technically
+    // correct and useless, which the test caught on its first run.
+    if (hit.fullOnly && mr !== 0 && qn !== hit.bare) continue;
     const score = ROLE_RANK[hit.role] * 10 + mr;
     const cur = best.get(hit.map.slug);
     if (!cur || score < cur.score || (score === cur.score && hit.text.length < cur.hit.text.length)) {
@@ -150,6 +246,11 @@ function fuzzyPass(hits, qn) {
   const qWords = qn.split(' ').filter(Boolean);
   const best = new Map(); // map slug -> { score, hit, matched }
   for (const hit of hits) {
+    // OA-311: a thoroughfare gets no typo tolerance at all. This pass only runs
+    // when the exact pass found nothing, so anything reached here is a
+    // near-miss — and a near-miss on a street name is how "yorkk" would walk
+    // straight back through the door the exact pass just closed.
+    if (hit.fullOnly) continue;
     const hWords = hit.norm.split(' ').filter(Boolean);
     let totalDist = 0;
     let matched = [];
