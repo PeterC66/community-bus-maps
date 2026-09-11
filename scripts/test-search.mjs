@@ -160,6 +160,66 @@ console.log('\ntypo tolerance — only kicks in when the exact pass finds nothin
   check('short words get no fuzzy leeway (avoids matching unrelated 3-letter words)', shortWord.results.length === 0, JSON.stringify(shortWord));
 }
 
+// ---------------------------------------------------------------------------
+// A STREET IS NOT A PLACE (buses-data OA-311). Every case below is a real name
+// off the live index on 2026-09-11, and the first two are the fault Peter found
+// within the hour of OA-308 tier 2 going out: searching "York" returned three
+// Buckinghamshire sheets because route 104 passes along York Road (UB8), and
+// "London" returned three more because of London Road.
+console.log('\na thoroughfare answers only to its whole name');
+{
+  seedMap({
+    customerId: activeCustomer, slug: 'search-streets', subject: 'Street Town',
+    destination: 'Street Town',
+    stops: ['York Road (UB8)', 'London Road', 'Chessmount Rise', 'Hemingford Grey', 'Bar Hill', 'Bourne End'],
+  });
+  // Bar Hill and Bourne End are VILLAGES whose names end in street types. Each
+  // is a destination on another map in the estate, and that is the only thing
+  // telling this index they are places — the whole point of the knownPlaces
+  // exemption.
+  seedMap({
+    customerId: activeCustomer, slug: 'search-barhill', subject: 'Bar Hill',
+    destination: 'Bar Hill', stops: ['Somewhere Else'],
+  });
+  seedMap({
+    customerId: activeCustomer, slug: 'search-bourne', subject: 'Bourne End',
+    destination: 'Bourne End', stops: ['Another Stop'],
+  });
+
+  check('"York" no longer returns a map whose only link is York Road',
+    !searchPlaces('York').some((r) => r.map.slug === 'search-streets'),
+    JSON.stringify(searchPlaces('York').map((r) => r.reason)));
+  check('"London" no longer returns a map whose only link is London Road',
+    !searchPlaces('London').some((r) => r.map.slug === 'search-streets'),
+    JSON.stringify(searchPlaces('London').map((r) => r.reason)));
+  check('a bracketed qualifier does not save the street from the rule — "York Road" still finds it',
+    searchPlaces('York Road').some((r) => r.map.slug === 'search-streets'),
+    'the whole name must still match: a reader checking whether their own road is on a map');
+  check('the whole name of a plain street matches too',
+    searchPlaces('Chessmount Rise').some((r) => r.map.slug === 'search-streets'));
+  check('one word of a street name does not', searchPlaces('Chessmount').length === 0);
+
+  // The villages. If any of these four go red the rule has eaten real places,
+  // which is a worse fault than the one it fixes.
+  check('"Hemingford" still finds Hemingford Grey — a place, not a street',
+    searchPlaces('Hemingford').some((r) => r.map.slug === 'search-streets'));
+  check('"Bar Hill" still finds the map that passes through it',
+    searchPlaces('Bar Hill').some((r) => r.map.slug === 'search-streets'),
+    'Bar Hill ends in a street type and is exempt because it is a destination elsewhere');
+  check('…and the map it is the subject of', searchPlaces('Bar Hill').some((r) => r.map.slug === 'search-barhill'));
+  // THIS is the check the exemption exists for, and finding that out took a
+  // falsification run: with the exemption deleted, "Bar Hill" and "Bourne End"
+  // still matched IN FULL, so every other case here stayed green and the
+  // exemption looked like decoration. What it actually buys is the PARTIAL
+  // query — somebody typing the first word of the village they live in.
+  check('"Bourne" finds Bourne End, because a village is not a street',
+    searchPlaces('Bourne').some((r) => r.map.slug === 'search-streets'),
+    JSON.stringify(searchPlaces('Bourne').map((r) => r.map.slug)));
+  check('a typo on a street name gets no second chance either',
+    searchPlaces('Yorkk Road').length === 0,
+    'the fuzzy pass must not reopen what the exact pass closed');
+}
+
 console.log('\nsanity — an unrelated query still misses cleanly');
 check('a nonsense query returns no results', searchPlaces('zzznotarealplacezzz').length === 0);
 check('a one-character query is rejected (below MIN_QUERY_LEN)', searchPlaces('a').length === 0);

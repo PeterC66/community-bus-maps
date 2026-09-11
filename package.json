@@ -63,6 +63,7 @@
     "test:worklist": "node scripts/test-worklist.mjs",
     "test:notify": "node scripts/test-notify.mjs",
     "test:search": "node scripts/test-search.mjs",
+    "test:prove-red-search": "node scripts/prove-red-search.mjs",
     "test:directory": "node scripts/test-directory.mjs",
     "test:prove-red-directory": "node scripts/prove-red-directory.mjs",
     "sync:directory": "node scripts/sync-directory.mjs",
