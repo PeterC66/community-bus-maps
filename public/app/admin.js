@@ -86,7 +86,7 @@ function banner(kind, html) {
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'sessions', 'messages', 'refreshes', 'audit', 'ops'];
+const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'advisers', 'sessions', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -364,6 +364,10 @@ LOADERS.users = async () => {
     b.querySelectorAll('button[data-signout]').forEach((b2) => b2.addEventListener('click', () => signOutEverywhere(b2.dataset.signout, b2.dataset.who, b2.dataset.self === '1')));
   });
 };
+// `adviser` is in the role picker below so that an adviser account can be READ
+// and corrected on the tab that lists every account. It is mutually exclusive
+// with an organisation and the server says so in a sentence; advisers are
+// normally made on the Advisers tab, which asks and grants in one action.
 function rowUser(u) {
   const self = me && u.id === me.id;
   const custOptions = '<option value="">— platform admin —</option>'
@@ -372,6 +376,7 @@ function rowUser(u) {
     <div class="gt-cell" role="cell"><strong>${esc(u.email)}</strong>${self ? ' <span class="muted">(you)</span>' : ''}<div><input type="text" value="${esc(u.name || '')}" data-q="name" class="planin" maxlength="120" placeholder="name"></div></div>
     <div class="gt-cell" role="cell"><select data-q="customerId">${custOptions}</select></div>
     <div class="gt-cell" role="cell"><select data-q="role">
+        <option value="adviser"${u.role === 'adviser' ? ' selected' : ''}>adviser</option>
         <option value="editor"${u.role === 'editor' ? ' selected' : ''}>editor</option>
         <option value="approver"${u.role === 'approver' ? ' selected' : ''}>approver</option>
         <option value="admin"${u.role === 'admin' ? ' selected' : ''}>admin</option>
@@ -383,6 +388,82 @@ function rowUser(u) {
     <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${u.id}">Save</button> <button class="btn btn-ghost btn-xs" data-signout="${u.id}" data-who="${esc(u.email)}" data-self="${self ? '1' : '0'}" title="End every session this account is holding, everywhere.">Sign out everywhere</button></div>
   </div>`;
+}
+
+// ---- local advisers (buses-data OA-154 Phase D1) -------------------------
+// Its own tab rather than a column on Users, because everybody on that tab works
+// for a customer or for us and everybody here is a member of the public. Asking
+// somebody is ONE action: the account, the grant and the sign-in link go together,
+// because an admin who had to do three things in the right order would get it
+// wrong the first time — and the wrong order is the one that creates an account
+// with an organisation attached.
+let mapsForAdviser = null;
+async function ensureMapList() {
+  if (!mapsForAdviser) {
+    const { body } = await jget('/api/maps');
+    mapsForAdviser = ((body && body.maps) || []).map((m) => ({ id: m.id, name: m.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return mapsForAdviser;
+}
+LOADERS.advisers = async () => {
+  const [{ body }, maps] = await Promise.all([jget('/api/admin/advisers'), ensureMapList()]);
+  $('adviserMap').innerHTML = maps.length
+    ? maps.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')
+    : '<option value="">(no maps yet)</option>';
+  const box = $('advisers');
+  const advisers = (body && body.advisers) || [];
+  if (!advisers.length) {
+    box.innerHTML = '<div class="empty">Nobody has been asked to advise on a map yet.</div>';
+    return;
+  }
+  const columns = [{ label: 'Adviser', key: 'email' }, { label: 'Maps they can see' }, { label: 'Status', key: 'status' }, { label: 'Asked', key: 'createdAt' }];
+  renderSortable('advisers', box, [30, 40, 14, 16], columns, advisers, rowAdviser, (b) => {
+    b.querySelectorAll('button[data-revoke]').forEach((btn) => btn.addEventListener('click', () => revokeAdviser(btn.dataset.revoke, btn.dataset.map, btn.dataset.who, btn.dataset.mapname)));
+  });
+};
+function rowAdviser(a) {
+  const maps = a.maps.length
+    ? a.maps.map((m) => `<div class="adviser-grant">${esc(m.name)}
+        <button class="btn btn-ghost btn-xs" data-revoke="${a.id}" data-map="${m.id}" data-who="${esc(a.email)}" data-mapname="${esc(m.name)}">Stop asking</button></div>`).join('')
+    // An adviser with no live grant reaches NOTHING — they can sign in and are
+    // shown an empty page. Said out loud, because "an account exists" reads as
+    // access and here it is not.
+    : '<span class="muted">none — they can sign in and see nothing</span>';
+  return `<div class="gt-row" role="row">
+    <div class="gt-cell" role="cell"><strong>${esc(a.email)}</strong>${a.name ? `<div class="muted">${esc(a.name)}</div>` : ''}</div>
+    <div class="gt-cell" role="cell">${maps}</div>
+    <div class="gt-cell" role="cell">${esc(a.status)}</div>
+    <div class="gt-cell" role="cell">${fmtDate(a.createdAt)}</div>
+  </div>`;
+}
+async function askAdviser() {
+  const mapId = $('adviserMap').value;
+  const email = $('adviserEmail').value.trim();
+  const msg = $('adviserMsg');
+  if (!mapId || !email) { msg.className = 'notice err show'; msg.textContent = 'A map and an email address, please.'; return; }
+  const btn = $('askAdviserBtn');
+  btn.disabled = true;
+  const { body } = await jsend(`/api/admin/maps/${mapId}/advisers`, 'POST', {
+    email, name: $('adviserName').value.trim(), note: $('adviserNote').value.trim(),
+  });
+  btn.disabled = false;
+  if (body.ok) {
+    msg.className = 'notice ok show';
+    msg.innerHTML = `${esc(email)} can now see that map's current draft, and a sign-in link is on its way.`
+      + (body.inviteLink ? ` <a href="${esc(body.inviteLink)}">(dev link)</a>` : '');
+    $('adviserEmail').value = ''; $('adviserName').value = ''; $('adviserNote').value = '';
+    LOADERS.advisers();
+  } else {
+    msg.className = 'notice err show';
+    msg.textContent = body.error || 'Could not do that.';
+  }
+}
+async function revokeAdviser(userId, mapId, who, mapName) {
+  if (!confirm(`Stop showing ${mapName} to ${who}?\n\nThey keep their account and the record of having been asked; they simply stop seeing this map.`)) return;
+  const { body } = await jsend(`/api/admin/maps/${mapId}/advisers/${userId}`, 'DELETE');
+  if (body.ok) { banner('ok', `${esc(who)} no longer sees ${esc(mapName)}.`); LOADERS.advisers(); }
+  else banner('err', body.error || 'Could not revoke that.');
 }
 
 // POST /api/admin/users/:id/revoke-sessions has existed since the session work
@@ -711,6 +792,7 @@ LOADERS.ops = async () => {
 
 // ---- init -------------------------------------------------------------------
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
+$('askAdviserBtn').addEventListener('click', askAdviser);
 (async () => {
   const { status, body } = await jget('/api/me');
   if (status === 401) { location.href = '/app/login.html'; return; }

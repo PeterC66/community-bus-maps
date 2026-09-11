@@ -1,7 +1,7 @@
 # Developing the portal — how to change it safely
 
-<!-- docstamp v1.27 | 2026-09-10 | sha=4bc5f00a -->
-**v1.27** · updated 10 September 2026
+<!-- docstamp v1.28 | 2026-09-12 | sha=b4259075 -->
+**v1.28** · updated 12 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -208,6 +208,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | What a customer is allowed to edit | `src/maps/engine.js` + the safe-subset validation — **server-enforced; never trust the client** |
 | Which outputs a customer may switch | `chooseOutputs()` in `src/maps/engine.js` — pure, so `test-p7.mjs` asserts the rules without a server. The tube-map diagram is `requestOnly` (hand-pinned, priced separately): a non-admin PATCH asking for it is **403**, not a silent no-op — and since 2026-09-10 it is **parked** (buses-data OA-297): `portal` reads `TUBE_DIAGRAM`, off by default, so the key is simply absent from `chooseOutputs()`'s answer; `test-p7.mjs` runs with the flag on, `test-parked-diagram.mjs` with it off |
 | The publish gate / review checklist | `src/publish/` (pure functions — unit-testable) |
+| What a **local adviser** can see (buses-data OA-154 D1) | `src/routes/adviser.js` — a Fastify plugin under `/api/adviser` whose door is `requireAdviser`, and `loadAdvisedMap()` in `src/maps/detail.js`, which admits a live row in `map_adviser_grant` and nothing else. Their reach is a per-map **grant**, never a `customer_id`: `loadOwnedMap()` matches on that column without consulting `role`, so `src/db/guards.js` installs a trigger refusing an adviser one at all. `scripts/test-adviser-seat.mjs` pairs every refusal with a control, and `scripts/prove-red-adviser-seat.mjs` breaks eleven rules to prove the suite can see each of them |
 | A review-and-publish route (the queue, approve, reject, published history, revert) | `src/routes/review.js` — a Fastify plugin under `/api/review` with ONE plugin-level approver guard, the same shape as the admin console. `scripts/test-review-plugin.mjs` asserts the door on every route in the live table, and `scripts/prove-red-review-plugin.mjs` breaks that guard three ways so the suite has been seen to go red |
 | An admin-console route | `src/routes/admin.js` — a Fastify plugin under `/api/admin` with ONE plugin-level guard, so a route added there is admin-only without saying so; declare an exception as route config (`GET /worklist` and the operator token are the only one). `scripts/test-admin-plugin.mjs` asserts the door on every route in the live table |
 | A guard or a small request helper (`str`, `parseJson`, `baseUrl`, `requireUser`, `requireStepUp`, `operatorRead`) | `src/http/helpers.js` — the route files import these rather than closing over `server.js`'s scope (OA-231) |
@@ -293,6 +294,7 @@ Settled 12 August 2026 (findings **D**), applied across the app, the public page
 | What only an approver does | **publish** | — |
 | The party that reviews | **BusMaps.uk** (to a customer), **approver** (to an operator) | we, the reviewer, the operator |
 | The two geographic sheets | area: *Within the area* / *To nearby places*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
+| Somebody local who is shown a draft for comment | **local adviser**, and we **ask** them | reviewer *(that is the approver)*, consultant, contributor, tester; *invite* *(that is what an organisation's own users get)* |
 
 Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
 

@@ -116,7 +116,10 @@
     "test:map-detail-keys": "node scripts/test-map-detail-keys.mjs",
     "test:error-envelope": "node scripts/test-error-envelope.mjs",
     "test:parked-diagram": "node scripts/test-parked-diagram.mjs",
-    "test:prove-red-parked-diagram": "node scripts/prove-red-parked-diagram.mjs"
+    "test:prove-red-parked-diagram": "node scripts/prove-red-parked-diagram.mjs",
+    "test:adviser-seat": "node scripts/test-adviser-seat.mjs",
+    "test:prove-red-adviser-seat": "node scripts/prove-red-adviser-seat.mjs",
+    "test:client-scripts": "node scripts/test-client-scripts.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

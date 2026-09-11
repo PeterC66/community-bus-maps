@@ -52,7 +52,15 @@
     return n;
   }
 
-  function create(host) {
+  // `opts.noRaster` — never fall back to the JPG, and call `opts.onFail(label)`
+  // instead when the SVG cannot be had (buses-data OA-154 D1). The local
+  // adviser's view is the one caller with no raster to fall back TO: its sheets
+  // are an unpublished draft served as inline SVG and deliberately offered in no
+  // downloadable form at all, so the fallback below would swap the map for a
+  // broken-image icon and say nothing. The default is unchanged, which is what
+  // the public map page still gets.
+  function create(host, opts) {
+    opts = opts || {};
     var stage = el('div', 'viewer-stage');
     stage.tabIndex = 0;
     stage.setAttribute('role', 'group');
@@ -192,7 +200,7 @@
       canvas.innerHTML = '';
       raster = false;
       stage.setAttribute('aria-label', label + ' — zoomable map. Use the arrow keys to move and plus or minus to zoom.');
-      var useSvg = o.inlineUrl && hasMetricFont();
+      var useSvg = o.inlineUrl && (hasMetricFont() || opts.noRaster);
       if (!useSvg) return showRaster(o, label);
       fetch(o.inlineUrl)
         .then(function (r) { if (!r.ok) throw new Error('svg'); return r.text(); })
@@ -200,7 +208,10 @@
           canvas.innerHTML = svg;
           host.classList.add('is-vector');
         })
-        .catch(function () { showRaster(o, label); });
+        .catch(function () {
+          if (opts.noRaster) { if (opts.onFail) opts.onFail(label); return; }
+          showRaster(o, label);
+        });
     }
     function showRaster(o, label) {
       raster = true;

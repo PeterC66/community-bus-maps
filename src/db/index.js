@@ -3,7 +3,8 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
-import { ENUMS, allEnumGuardSql } from './enums.js';   // the two state enums (OA-224 Tier 4.5)
+import { ENUMS, USER_ROLES, allEnumGuardSql } from './enums.js';   // the three state enums (OA-224 Tier 4.5)
+import { adviserGuardSql } from './guards.js';   // an adviser holds no customer_id (OA-154 D1)
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,8 +83,14 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     them is read by any route. Deleting both by hand loses a count and breaks
  *     nothing — see src/search/demand.js for why they are shaped as a tally and
  *     not as a log.
+ * 4 = 2026-09-12, buses-data OA-154 Phase D1: one new table,
+ *     `map_adviser_grant`, and two new triggers — `user.role` joins the enum
+ *     guards (gaining the value `adviser`), and src/db/guards.js refuses an
+ *     adviser a `customer_id`. Additive in the same strong sense as v3: a v3
+ *     release opens a v4 database, never selects from the new table, and writes
+ *     only the three roles it knows, every one of which the new trigger allows.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
@@ -177,6 +184,11 @@ export function recordedSchemaVersion() {
   // Reinstalled on every boot rather than created once: the trigger body carries
   // the value list, so a list that gains a value has to reach the database.
   for (const stmt of allEnumGuardSql()) db.exec(stmt);
+
+  // OA-154 D1 — and an adviser holds no customer_id. Not an enum (it is a rule
+  // ABOUT two columns rather than a list of values for one), so it lives in
+  // ./guards.js and is installed the same way and for the same reasons.
+  for (const stmt of adviserGuardSql()) db.exec(stmt);
 
   // A trigger only sees a write. It says nothing about the rows already there —
   // which a rebuild's CHECK would have refused outright — so that question is
@@ -1052,7 +1064,9 @@ export function listUsersAdmin(customerId) {
   }
   return listUsers();
 }
-const USER_ROLES = ['editor', 'approver', 'admin'];
+// The list is ./enums.js's, imported rather than repeated: the database now
+// refuses anything outside it, so a second copy here could only ever disagree
+// with the trigger — and would do it by rejecting a legal role, silently.
 const USER_STATUSES = ['active', 'disabled'];
 /** Whitelisted admin update of a user's name / role / status. */
 export function updateUserAdmin(id, f) {
@@ -1065,6 +1079,74 @@ export function updateUserAdmin(id, f) {
   args.push(Number(id));
   db.prepare(`UPDATE user SET ${sets.join(', ')} WHERE id = ?`).run(...args);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// OA-154 Phase D1 — adviser grants. One row per (map, person); see the block
+// comment on `map_adviser_grant` in schema.sql for why the reach is a grant and
+// not a customer_id.
+//
+// EVERY READ HERE FILTERS `revoked_at IS NULL`, and the one that does not says so
+// in its name. That is the whole of the access rule, so it is spelled out once
+// per query rather than left to a caller: a revoked grant is a row we keep in
+// order to answer "who saw this, and when" — it is not a lesser kind of access.
+// ---------------------------------------------------------------------------
+
+/** Grant (or re-grant) one adviser access to one map. Returns the grant row. */
+export function grantAdviser({ mapId, userId, grantedBy = null, note = null }) {
+  db.prepare(`INSERT INTO map_adviser_grant (map_id, user_id, granted_by, note) VALUES (?, ?, ?, ?)
+              ON CONFLICT(map_id, user_id) DO UPDATE SET
+                revoked_at = NULL, granted_by = excluded.granted_by, note = excluded.note`)
+    .run(Number(mapId), Number(userId), grantedBy == null ? null : Number(grantedBy), note);
+  return getAdviserGrant(mapId, userId);
+}
+
+/** End a grant. The row stays; `revoked_at` is stamped. True if one was live. */
+export function revokeAdviserGrant(mapId, userId) {
+  const r = db.prepare(`UPDATE map_adviser_grant SET revoked_at = ${NOW_SQL}
+                        WHERE map_id = ? AND user_id = ? AND revoked_at IS NULL`)
+    .run(Number(mapId), Number(userId));
+  return r.changes > 0;
+}
+
+/** The LIVE grant for this pair, or undefined. The whole of the adviser's reach. */
+export function getAdviserGrant(mapId, userId) {
+  return db.prepare('SELECT * FROM map_adviser_grant WHERE map_id = ? AND user_id = ? AND revoked_at IS NULL')
+    .get(Number(mapId), Number(userId));
+}
+
+/** Every map this person may advise on, newest grant first. */
+export function listAdviserGrantsForUser(userId) {
+  return db.prepare(`SELECT g.*, m.name AS map_name, m.slug AS map_slug, m.kind AS map_kind, m.subject AS map_subject
+                     FROM map_adviser_grant g JOIN map m ON m.id = g.map_id
+                     WHERE g.user_id = ? AND g.revoked_at IS NULL
+                     ORDER BY g.created_at DESC, g.id DESC`).all(Number(userId));
+}
+
+/** Every adviser on one map, for the admin console. Revoked rows INCLUDED — this
+ *  is the "who has seen this map's drafts" question, which the live list cannot
+ *  answer. The caller shows `revoked_at` rather than filtering on it. */
+export function listAdviserGrantsForMapIncludingRevoked(mapId) {
+  return db.prepare(`SELECT g.*, u.email, u.name AS user_name, u.status AS user_status
+                     FROM map_adviser_grant g JOIN user u ON u.id = g.user_id
+                     WHERE g.map_id = ? ORDER BY g.revoked_at IS NOT NULL, u.email`).all(Number(mapId));
+}
+
+/** Every map somebody is currently advising on, with how many advisers each has.
+ *  Shaped like listAdviserGrantsForUser()'s rows (`map_id`, `map_name`, …) so the
+ *  one route that serves both audiences does not need two shapes. */
+export function listMapsWithLiveAdviserGrants() {
+  return db.prepare(`SELECT m.id AS map_id, m.name AS map_name, m.slug AS map_slug, m.kind AS map_kind,
+                            m.subject AS map_subject, COUNT(*) AS advisers, MIN(g.created_at) AS created_at
+                     FROM map_adviser_grant g JOIN map m ON m.id = g.map_id
+                     WHERE g.revoked_at IS NULL GROUP BY m.id ORDER BY m.name`).all();
+}
+
+/** Every adviser account, with how many live grants each holds. */
+export function listAdvisers() {
+  return db.prepare(`SELECT u.*, (SELECT COUNT(*) FROM map_adviser_grant g
+                                  WHERE g.user_id = u.id AND g.revoked_at IS NULL) AS live_grants
+                     FROM user u WHERE u.role = 'adviser' ORDER BY u.email`).all();
 }
 
 /**

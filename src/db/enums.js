@@ -41,10 +41,31 @@ export const MAP_STATUSES = ['requested', 'approved', 'building', 'draft', 'publ
 /** `map_version.review_state` — where one saved version is in the P4 publish gate. */
 export const REVIEW_STATES = ['draft', 'pending', 'published', 'superseded', 'rejected'];
 
+/**
+ * `user.role` — what an account may do. Least privilege first.
+ *
+ * IT JOINED THIS FILE ON 2026-09-12, with `adviser` (buses-data OA-154 Phase D1),
+ * and the reason is the one this file was written for. The list already existed
+ * twice — as a `--` comment in schema.sql and as a literal in db/index.js's
+ * `updateUserAdmin` — and a third copy was about to be added by the role that
+ * needed adding. A value the database does not police is a value any handler can
+ * invent, and `role` is the one column in this schema where inventing a value is
+ * a privilege decision: `loadOwnedMap()` and every `requireX` guard ask what the
+ * role IS, so a row whose role is `Adviser` or `advisor` is a row no guard
+ * recognises and no guard refuses either. It is now one list, enforced by the
+ * same trigger mechanism as the other two.
+ *
+ * `adviser` is DELIBERATELY FIRST. It is the only role here that owns nothing:
+ * it holds no `customer_id` (a second trigger, in ./guards.js, refuses one) and
+ * reaches exactly the maps it has been granted.
+ */
+export const USER_ROLES = ['adviser', 'editor', 'approver', 'admin'];
+
 /** Every enum this module owns, keyed by `table.column`. One place to iterate. */
 export const ENUMS = {
   'map.status': MAP_STATUSES,
   'map_version.review_state': REVIEW_STATES,
+  'user.role': USER_ROLES,
 };
 
 const quote = (v) => `'${String(v).replace(/'/g, "''")}'`;

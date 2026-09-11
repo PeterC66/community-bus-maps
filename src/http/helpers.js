@@ -93,6 +93,24 @@ function requireApprover(req, reply) {
   return req.user;
 }
 
+// The local adviser's door (OA-154 D1). It admits the role and NOTHING ELSE:
+// every route behind it then asks loadAdvisedMap() which map, because the role on
+// its own grants access to no map at all. An admin passes so that the screen an
+// adviser sees can be opened by the person who granted it.
+//
+// A signed-in EDITOR is refused here, which is not the usual shape of a role
+// guard — the wider role normally passes the narrower door. It is deliberate: an
+// adviser's view is a reduced, marked, download-less rendering of a draft, and an
+// editor reaching it would be reading their own map through a worse window while
+// believing it was a real one.
+function requireAdviser(req, reply) {
+  if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
+  if (req.user.role !== 'adviser' && req.user.role !== 'admin') {
+    reply.code(403).send({ ok: false, error: 'That is the local adviser view.' }); return null;
+  }
+  return req.user;
+}
+
 // STEP-UP AUTHENTICATION for the three actions the audit named: publishing a
 // version, changing an organisation's quota, and changing a user's role
 // (technical-audit_2026-08-19 S5).
@@ -256,5 +274,5 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
 }
 
 export {
-  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited,
+  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, requireAdviser, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited,
 };

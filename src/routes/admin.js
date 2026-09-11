@@ -2,13 +2,14 @@
 //
 // Application review, the map-request lifecycle, customers, users, messages,
 // the monthly-refresh queue, live sessions, the published-batch digest, ops and
-// the audit trail: 22 routes, registered under the prefix /api/admin by
+// the audit trail, and the local advisers a map has been shown to: 26 routes,
+// registered under the prefix /api/admin by
 // src/server.js. The handlers are the ones server.js carried until 2026-09-02,
 // moved verbatim -- the only edit inside them is that each no longer opens with
 // its own requireAdmin() call.
 //
-// ONE GUARD, NOT 22. Every route here is admin-only, and until this file
-// existed each said so for itself: 22 calls, and a new route that forgot the
+// ONE GUARD, NOT 26. Every route here is admin-only, and until this file
+// existed each said so for itself: one call each, and a new route that forgot the
 // line was refused by nothing (portal-src F8). The preHandler below runs before
 // every handler registered in this plugin, so a route cannot be added here
 // without it. The single exception is declared as route config rather than as
@@ -19,7 +20,8 @@
 // POST /api/admin/status is NOT here on purpose. It is a STATUS_TOKEN drop-box
 // for the operator's laptop that 404s to a session, the opposite of this guard,
 // and it stays in server.js with the other token-authorised ops routes.
-import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getMap, getMessage, getUser, getUserByEmail, insertCustomer, insertUser, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin } from '../db/index.js';
+import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin } from '../db/index.js';
+import { USER_ROLES } from '../db/enums.js';
 import { buildWorklist } from '../worklist/index.js';
 import { orgPageUrl } from '../public/index.js';
 import { opsSnapshot } from '../ops/index.js';
@@ -303,7 +305,17 @@ export default async function adminRoutes(app) {
       if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
       customerId = cust.id;
     }
-    const role = ['editor', 'approver', 'admin'].includes(b.role) ? b.role : 'editor';
+    const role = USER_ROLES.includes(b.role) ? b.role : 'editor';
+    // An adviser belongs to no organisation (buses-data OA-154 D1), and the whole
+    // access model rests on it: loadOwnedMap() grants EDIT to any non-admin whose
+    // customer_id matches a map's and never consults role, so an adviser carrying
+    // one would be an editor of that organisation's entire estate. REFUSED rather
+    // than silently NULLed — a form that asked for both is a form somebody has
+    // misunderstood, and quietly dropping half of it teaches nobody. The database
+    // refuses it too (src/db/guards.js); this is the message a human reads.
+    if (role === 'adviser' && customerId != null) {
+      return reply.code(400).send({ ok: false, error: 'A local adviser belongs to no organisation — leave the organisation blank.' });
+    }
 
     const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
     const token = requestMagicLink(email);
@@ -341,6 +353,16 @@ export default async function adminRoutes(app) {
         customerId = cust.id;
       }
     }
+    // The same rule as the invite above, and this is the path that would actually
+    // have been travelled: the dangerous edit is not "create an adviser with an
+    // organisation", it is "give this existing adviser one" or "make this editor
+    // an adviser and leave the organisation where it was". Both are refused here,
+    // and both are refused by the database if they ever reach it another way.
+    const nextRole = b.role || u.role;
+    const nextCustomer = customerId === undefined ? u.customer_id : customerId;
+    if (nextRole === 'adviser' && nextCustomer != null) {
+      return reply.code(400).send({ ok: false, error: 'A local adviser belongs to no organisation — clear the organisation first.' });
+    }
     const fromCustomer = u.customer_id ? getCustomer(u.customer_id) : null;
     const ok = updateUserAdmin(u.id, { name: b.name, role: b.role, status: b.status, customerId });
     if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
@@ -372,6 +394,101 @@ export default async function adminRoutes(app) {
       });
     }
     return { ok: true, user: userShape(updated), revokedSessions };
+  });
+
+  // -------------------------------------------------------------------------
+  // LOCAL ADVISERS (buses-data OA-154 Phase D1). Who has been asked for a view on
+  // which map's drafts, and the two acts that change it.
+  //
+  // ASKING SOMEBODY IS ONE ACTION, not two. The four candidates in the backlog
+  // are members of the public who wrote in: there is no account waiting to be
+  // granted anything, and an admin who had to create a user, remember to leave the
+  // organisation blank, remember to set the role, and then find the map again
+  // would get it wrong the first time. So POST /maps/:id/advisers takes an email,
+  // creates the account if it is new, grants the map and sends the sign-in link in
+  // one request — and refuses outright if that email already belongs to somebody
+  // who is not an adviser, because turning a customer's editor into an adviser is
+  // never what was meant.
+  //
+  // REVOKING IS A REVOKE, NOT A DELETE, for the same reason disabling a user is
+  // not one: "who was shown this draft, and when" is asked months later. The row
+  // stays and the list below keeps showing it.
+  // -------------------------------------------------------------------------
+  const grantShape = (g) => ({
+    userId: g.user_id, email: g.email, name: g.user_name || null, userStatus: g.user_status,
+    askedAt: g.created_at, note: g.note || null, revokedAt: g.revoked_at || null,
+  });
+
+  app.get('/advisers', async (req, reply) => {
+    return {
+      ok: true,
+      advisers: listAdvisers().map((u) => ({
+        id: u.id, email: u.email, name: u.name, status: u.status, createdAt: u.created_at,
+        liveGrants: u.live_grants,
+        // The maps each one can currently see, in the same response. An adviser
+        // account holding no grant reaches nothing at all, so a list of accounts
+        // without their grants would be a list of names against nothing.
+        maps: listAdviserGrantsForUser(u.id).map((g) => ({ id: g.map_id, name: g.map_name, askedAt: g.created_at })),
+      })),
+    };
+  });
+
+  app.get('/maps/:id/advisers', async (req, reply) => {
+    const map = getMap(Number(req.params.id));
+    if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    return { ok: true, mapId: map.id, mapName: map.name, advisers: listAdviserGrantsForMapIncludingRevoked(map.id).map(grantShape) };
+  });
+
+  app.post('/maps/:id/advisers', async (req, reply) => {
+    const map = getMap(Number(req.params.id));
+    if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const b = req.body || {};
+    const email = str(b.email, 200).toLowerCase();
+    if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'A valid email is required.' });
+
+    let user = getUserByEmail(email);
+    let created = false;
+    if (user) {
+      if (user.role !== 'adviser') {
+        return reply.code(409).send({ ok: false, error: `${email} already has a ${user.role} account — a local adviser must be a separate person.` });
+      }
+    } else {
+      const userId = insertUser({ customer_id: null, email, name: str(b.name, 120) || null, role: 'adviser' });
+      user = getUser(userId);
+      created = true;
+    }
+
+    grantAdviser({ mapId: map.id, userId: user.id, grantedBy: req.user.id, note: str(b.note, 500) || null });
+
+    // The sign-in link goes with the grant, because the grant is the invitation.
+    // A new adviser has no password and no other way in; an existing one may have
+    // let a seven-day session lapse between one draft and the next, which is the
+    // normal case for somebody we write to every few weeks.
+    const token = requestMagicLink(email);
+    const link = token ? authLink(req, token) : null;
+    if (link) {
+      try {
+        const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        if (!r.sent) console.log(`\n🔗  Adviser sign-in link for ${email}:\n    ${link}\n`);
+      } catch (e) {
+        req.log.error({ email, err: e.message }, 'adviser invite email failed to send');
+      }
+    }
+    req.log.info({ mapId: map.id, userId: user.id, email, created }, 'local adviser granted a map');
+    logAudit(req, 'adviser.grant', { mapId: map.id, detail: { userId: user.id, email, created, note: str(b.note, 500) || null } });
+    return { ok: true, created, adviser: { userId: user.id, email, name: user.name }, inviteLink: DEV_LINKS ? link : undefined };
+  });
+
+  app.delete('/maps/:id/advisers/:userId', async (req, reply) => {
+    const map = getMap(Number(req.params.id));
+    if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const user = getUser(Number(req.params.userId));
+    if (!user) return reply.code(404).send({ ok: false, error: 'No such user.' });
+    const revoked = revokeAdviserGrant(map.id, user.id);
+    if (!revoked) return reply.code(404).send({ ok: false, error: 'They do not hold a live grant on this map.' });
+    req.log.info({ mapId: map.id, userId: user.id }, 'local adviser grant revoked');
+    logAudit(req, 'adviser.revoke', { mapId: map.id, detail: { userId: user.id, email: user.email } });
+    return { ok: true, revoked: true };
   });
 
   app.get('/messages', async (req, reply) => {
