@@ -39,6 +39,7 @@ import {
 } from '../src/db/index.js';
 import { ensureMapDirs, mapDataDir, overridesPath, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
+import { isSampleCustomer } from '../src/render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
 import { requireScan } from './lib/vendored.mjs';
 import { arg, has } from './lib/cli.mjs';
@@ -391,7 +392,10 @@ if (!isPlace) {
 writeFileSync(overridesPath(id), '{}\n');
 const storageKey = 'v1.0';
 console.log('· rendering baseline v1.0 (this runs both generators + rasterises)…');
-const r = await renderVersion(id, {}, storageKey, defaultOutputs());
+// PILOT: a baseline rendered into a REAL organisation's account must not
+// carry a band saying nobody published it. getMap() joins the two customer
+// columns isSampleCustomer() reads (buses-data OA-320).
+const r = await renderVersion(id, {}, storageKey, defaultOutputs(), undefined, { sample: isSampleCustomer(getMap(id)) });
 const versionId = insertVersion({ map_id: id, major: 1, minor: 0, note: 'Imported baseline', overrides: {}, storage_key: storageKey });
 setCurrentVersion(id, versionId);
 

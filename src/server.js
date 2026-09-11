@@ -23,6 +23,7 @@ import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.j
 import { publicMaps, orgPageUrl } from './public/index.js';
 import { escapeHtml } from './html.js';   // the ONE server-side HTML escaper (OA-232 Tier 2.1)
 import { poiGlyphs, readOverrides, preview, renderVersion, outputsForClient } from './maps/engine.js';
+import { isSampleCustomer } from './render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { mapDataDir } from './maps/store.js';
 import { diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes } from './expert/index.js';
 import { readiness, metricsText } from './ops/index.js';
@@ -841,7 +842,7 @@ app.post('/api/expert/maps/:id/diagram/save', async (req, reply) => {
     const r = await withMapLock(id, async () => {
       if (Object.keys(pins).length) writePins(dataDir, pins);
       else clearPins(dataDir);
-      return renderVersion(id, saved, storageKey, outputs);
+      return renderVersion(id, saved, storageKey, outputs, undefined, { sample: isSampleCustomer(map) });
     });
     dropSandbox(id); // the live layout moved on; next preview starts from it
     const n = Object.keys(pins).length;

@@ -148,6 +148,31 @@ export function recordedSchemaVersion() {
   // turns it off per customer, same pattern as hide_operators_enabled above.
   if (!custCols.includes('watermark_enabled')) db.exec('ALTER TABLE customer ADD COLUMN watermark_enabled INTEGER NOT NULL DEFAULT 1');
 
+  // PILOT: this column, and every reader of it. Delete with docs/PILOT.md.
+  //
+  // Opt-out per-customer toggle: are this customer's maps SAMPLE maps — ours,
+  // made to show what the system produces — rather than sheets a real
+  // organisation has published for its community? On for everyone by default,
+  // same pattern and same direction as watermark_enabled above, and an admin
+  // turns it off at the same moment: when an organisation stops being ours and
+  // starts being theirs.
+  //
+  // WHY IT HAS TO EXIST (buses-data OA-320). The band src/render/pilotStamp.js
+  // draws says "Not published by any organisation. Do not rely on it for
+  // travel." That is a claim about the MAP — who published it — and until this
+  // column the only thing gating it was the site-wide PILOT_MODE, so there was
+  // no value anybody could set, on any customer, that stopped that sentence
+  // printing above a real organisation's own badge. It was true of every map on
+  // the site the day it was written and false the moment the first external
+  // registration lands, with no code change in between.
+  //
+  // DEFAULT 1 IS LOAD-BEARING, and it points the way config.js already argues
+  // PILOT itself must point: forgetting to set it fails towards the honest
+  // state, not the confident one. An ALTER with this default also gives every
+  // customer that already exists the sheet it already has, so landing this
+  // moves nothing — see the acceptance test in OA-320.
+  if (!custCols.includes('is_sample')) db.exec('ALTER TABLE customer ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 1');
+
   // P8: "changes coming" banner shown above the public map image. auto-suggested
   // from the GTFS upcoming-changes scan; admin/customer may overwrite the wording.
   if (!mapCols.includes('banner_note')) db.exec('ALTER TABLE map ADD COLUMN banner_note TEXT');
@@ -401,6 +426,7 @@ export function listMaps({ customerId } = {}) {
   return db
     .prepare(
       `SELECT m.*, c.name AS customer_name,
+              c.is_demo, c.is_sample,   -- PILOT: delete with docs/PILOT.md
               v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key,
               pv.storage_key AS pub_key,
               (SELECT COUNT(*) FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending') AS pending_reviews,
@@ -419,6 +445,12 @@ export function getMap(id) {
   return db
     .prepare(
       `SELECT m.*, c.name AS customer_name,
+              -- PILOT: the two sample columns. Delete with docs/PILOT.md.
+              -- Joined here so that every route holding a map row can answer
+              -- isSampleCustomer() without a second query — the render call
+              -- sites are in four files and a lookup apiece is four chances to
+              -- forget one (buses-data OA-320).
+              c.is_demo, c.is_sample,
               v.major AS cur_major, v.minor AS cur_minor,
               v.storage_key AS cur_key, v.overrides_json AS cur_overrides,
               v.review_state AS cur_state,
@@ -1014,6 +1046,9 @@ export function updateCustomerAdmin(id, f) {
   if (f.plan) { sets.push('plan = ?'); args.push(String(f.plan).slice(0, 40)); }
   if (f.hide_operators_enabled != null) { sets.push('hide_operators_enabled = ?'); args.push(f.hide_operators_enabled ? 1 : 0); }
   if (f.watermark_enabled != null) { sets.push('watermark_enabled = ?'); args.push(f.watermark_enabled ? 1 : 0); }
+  // PILOT: delete with docs/PILOT.md. Turning this OFF is what makes an
+  // organisation's sheets real, and it is the same click as the line above.
+  if (f.is_sample != null) { sets.push('is_sample = ?'); args.push(f.is_sample ? 1 : 0); }
   if (!sets.length) return false;
   args.push(Number(id));
   db.prepare(`UPDATE customer SET ${sets.join(', ')} WHERE id = ?`).run(...args);

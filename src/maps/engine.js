@@ -527,7 +527,7 @@ export function readOverrides(id) {
  * them is. The routes that want the warnings ask for them; the rest are
  * untouched.
  */
-export function previewFrom(dataDir, overrides, outputsConfig, collect) {
+export function previewFrom(dataDir, overrides, outputsConfig, collect, { sample = true } = {}) {
   const tmp = path.join(os.tmpdir(), `cbm-preview-${process.pid}-${Date.now()}.json`);
   writeFileSync(tmp, JSON.stringify(mergeOverrides(readBaseOverrides(dataDir), overrides || {})));
   const result = {};
@@ -535,6 +535,9 @@ export function previewFrom(dataDir, overrides, outputsConfig, collect) {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
       const { svgPath, warnings } = generateSvg({
         dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
+        // PILOT: a preview must show the customer the sheet they will get, band
+        // and all — or not, if their maps are not samples. Delete with PILOT.md.
+        sample,
         // A preview is of no version at all — it is the customer's unsaved edits.
         // Without this it would fall back to routes.json, which on a map delivered
         // from the skill carries a `build 6.54 · 19 Aug 2026` development stamp:
@@ -552,8 +555,8 @@ export function previewFrom(dataDir, overrides, outputsConfig, collect) {
 }
 
 /** Preview a map's LIVE data with candidate overrides (the editor's live preview). */
-export function preview(id, overrides, outputsConfig, collect) {
-  return previewFrom(mapDataDir(id), overrides, outputsConfig, collect);
+export function preview(id, overrides, outputsConfig, collect, opts) {
+  return previewFrom(mapDataDir(id), overrides, outputsConfig, collect, opts);
 }
 
 /**
@@ -566,7 +569,7 @@ export function preview(id, overrides, outputsConfig, collect) {
  * live map completely untouched.
  * @returns {{ storageKey:string, files: Record<string,number>, log: string[] }}
  */
-export async function renderVersion(id, overrides, storageKey, outputsConfig, srcDataDir = mapDataDir(id)) {
+export async function renderVersion(id, overrides, storageKey, outputsConfig, srcDataDir = mapDataDir(id), { sample = true } = {}) {
   const dataDir = srcDataDir;
   const outDir = versionDir(id, storageKey);
   mkdirSync(outDir, { recursive: true });
@@ -588,6 +591,14 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
       const { svgPath, log: genLog, warnings } = generateSvg({
         dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
+        // PILOT: whether these bytes carry the sample band. Unlike the version
+        // STATE two comments down, this one is baked in deliberately. A version's
+        // state changes every time somebody publishes, which is why the DRAFT
+        // marking had to move to the way out; a map's publishing organisation
+        // changes only when an admin reassigns it, which is a single audited
+        // event that scripts/restamp-renders.mjs reconciles. Serve-time would
+        // mean the watermark's caching duplicated across four more surfaces.
+        sample,
         // The PLAIN number, and deliberately nothing about the version's state.
         //
         // A version is always a draft at the moment it is rendered, and publishing

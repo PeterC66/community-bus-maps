@@ -37,6 +37,7 @@ import { sanitizeOverrides } from '../maps/safeSubset.js';
 import { mapDataDir, proposedDataDir } from '../maps/store.js';
 import { changeSummary } from '../publish/index.js';
 import { logAudit } from '../audit/index.js';
+import { isSampleCustomer } from '../render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { loadOwnedMap, loadPendingProposed, refreshNote, safeSubsetAllow, savedPoiTiers, visibleDownloadsForVersion, withMapLock } from '../maps/detail.js';
 import { parseJson, parseOutputs, requireUser, str } from '../http/helpers.js';
 
@@ -66,8 +67,8 @@ export default async function proposedRoutes(app) {
         const poiKeys = editablePoiKeysFromDir(stagedDir, savedPoiTiers(id));
         const after = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir)); // re-apply onto proposed data
         return {
-          before: previewFrom(mapDataDir(id), saved, outputs),
-          after: previewFrom(stagedDir, after.overrides, outputs),
+          before: previewFrom(mapDataDir(id), saved, outputs, undefined, { sample: isSampleCustomer(map) }),
+          after: previewFrom(stagedDir, after.overrides, outputs, undefined, { sample: isSampleCustomer(map) }),
           dropped: after.rejected, // overrides the refresh made obsolete
         };
       });
@@ -116,7 +117,7 @@ export default async function proposedRoutes(app) {
         const poiKeys = editablePoiKeysFromDir(stagedDir, savedPoiTiers(id));
         const reapplied = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir));
         // Render from the staged data BEFORE committing the swap.
-        const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
+        const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir, { sample: isSampleCustomer(map) });
         // Render OK → make the staged data the live data (old data archived).
         // What the swap carried forward from the archive is worth a line: the list is
         // how the expert's pins and the pack's engine-source declaration survive a

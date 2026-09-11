@@ -62,6 +62,26 @@ export function generateSvg({
   // against a shipped fixture, so anything laid on top would fail a gate that is
   // about determinism, not about presentation.
   stamp = true,
+  /* PILOT: this option and its one use below. Delete with docs/PILOT.md.
+   *
+   * Is this sheet a SAMPLE — one of ours, made to show what the system produces
+   * — or one a real organisation has published? Only a sample carries the band,
+   * because the band says "Not published by any organisation" and that sentence
+   * is a fact about the map (buses-data OA-320).
+   *
+   * TRUE BY DEFAULT, so every caller that predates this keeps the sheet it had
+   * and a caller added later that forgets it fails towards the honest state.
+   * The callers that must pass it are the ones that render SHIPPABLE bytes —
+   * renderVersion() and the editor preview, both in src/maps/engine.js — and
+   * the THREADING section of scripts/test-sample-band.mjs holds that list to the
+   * code, because a threaded boolean nobody joins up is one a future call site
+   * drops in silence and a default of true makes that silence look correct.
+   *
+   * It does NOT override PILOT_MODE: stampPilot() still returns the document
+   * untouched when the pilot is off, so `sample: true` under PILOT_MODE=0 draws
+   * nothing. The two questions compose, and neither can switch the other on.
+   */
+  sample = true,
   /* The version this sheet is OF, printed in the footer band beside the QR
    * (footer.js design.sheetVersion; the engine adds the words "Map version" to a
    * bare number and prints anything else verbatim).
@@ -125,10 +145,11 @@ export function generateSvg({
   // same artefact.
   //   1. badge contrast — a route number must stay readable on a recoloured
   //      badge; a no-op when the imported palette is used (badgeContrast.js).
-  //   2. PILOT: the sample-map band. Delete this line to remove.
+  //   2. PILOT: the sample-map band, and only on a SAMPLE map. Delete these
+  //      two lines to remove.
   if (stamp) {
     let out = fixBadgeContrast(readFileSync(svgPath, 'utf8'));
-    out = stampPilot(out);
+    if (sample) out = stampPilot(out);
     writeFileSync(svgPath, out);
   }
 
@@ -177,8 +198,9 @@ export async function renderMap({
   iconsDir = ENGINE_DIR,
   overridesFile,
   outJpg,
+  sample = true, // PILOT: forwarded, not decided here. Remove with docs/PILOT.md.
 } = {}) {
-  const { svgPath, svgName, log } = generateSvg({ dataDir, generator, iconsDir, overridesFile });
+  const { svgPath, svgName, log } = generateSvg({ dataDir, generator, iconsDir, overridesFile, sample });
   const out = outJpg || svgPath.replace(/\.svg$/i, '.jpg');
   const ras = await rasterise(svgPath, out);
   return { svgPath, svgName, jpgPath: out, ...ras, log };

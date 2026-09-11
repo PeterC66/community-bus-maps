@@ -50,6 +50,41 @@ function endOfOpenTag(svg) {
 }
 
 /**
+ * Does a map published by this customer carry the sample band?
+ *
+ * THE BAND IS A CLAIM ABOUT THE MAP, NOT ABOUT THE SITE (buses-data OA-320).
+ * Its middle sentence is "Not published by any organisation", which is true of
+ * a sheet we made to show what the system produces and false of one a real
+ * organisation has published for its community. Until this function existed the
+ * only gate was the site-wide PILOT_MODE, so the sentence would have printed
+ * above the badge of the first organisation ever to register.
+ *
+ * TWO COLUMNS, NOT ONE, AND THE SECOND IS NOT REDUNDANT. `is_sample` is the
+ * answer an admin sets, and turning it off is what makes a customer's sheets
+ * real. `is_demo` flags the organisations scripts/seed-demo.mjs invents, and it
+ * is here so that no sequence of admin clicks can produce an invented council
+ * publishing an unbanded sheet — docs/PILOT.md requires that demo data stays
+ * demo data even after the pilot ends, and that is a rule about the data rather
+ * than a setting anybody may change.
+ *
+ * ABSENT OR UNREADABLE MEANS SAMPLE. A map with no customer row, or a caller
+ * that passed nothing, gets the band: the same direction config.js argues for
+ * PILOT itself, where an unset variable must fail towards the honest state.
+ *
+ * @param {{is_sample?:number|boolean, is_demo?:number|boolean}|null|undefined} c
+ *        a customer row, or the customer columns joined onto a map row
+ * @returns {boolean}
+ */
+export function isSampleCustomer(c) {
+  if (!c || typeof c !== 'object') return true;
+  if (c.is_demo) return true;
+  // Only an explicit, recognisable "no" turns it off. An undefined column —
+  // a SELECT that forgot to join it — must not read as a real customer.
+  if (c.is_sample === 0 || c.is_sample === false) return false;
+  return true;
+}
+
+/**
  * Reserve a pilot band at the top of an SVG sheet.
  *
  * The whole document is wrapped in one transform that shrinks it just enough to
@@ -102,4 +137,31 @@ export function stampPilot(svg) {
   return svg.slice(0, open) + '\n' + before + '\n'
     + svg.slice(open, close)
     + after + '\n' + svg.slice(close);
+}
+
+/**
+ * Undo stampPilot: drop the band + background and unwrap the content group.
+ *
+ * It lived in scripts/restamp-renders.mjs until OA-320, when the reconciler
+ * stopped being a one-off migration for a flag nobody expected to move again
+ * and became the thing that answers "does this stored sheet match its owner".
+ * An inverse belongs beside the transform it inverts — `stampPilot(unstampPilot
+ * (s))` is the round trip the test asserts, and a copy in a script is a copy
+ * that goes stale the next time the band's markup changes.
+ *
+ * @param {string} svg
+ * @returns {string} the document without the band, or unchanged if it has none
+ */
+export function unstampPilot(svg) {
+  if (typeof svg !== 'string') return svg;
+  return svg
+    // The leading \n is the one stampPilot() inserts after the <svg> open tag.
+    .replace(/\n<rect id="pilot-bg"[^>]*\/>\n?/, '')
+    .replace(/<g id="pilot-content"[^>]*>\n?/, '')
+    .replace(/<\/g>\n<g id="pilot-band">[\s\S]*?<\/g>\n/, '');
+}
+
+/** Does this SVG already carry the band? The one place that spelling lives. */
+export function hasPilotBand(svg) {
+  return typeof svg === 'string' && svg.includes('id="pilot-band"');
 }

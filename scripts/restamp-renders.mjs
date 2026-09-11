@@ -1,75 +1,62 @@
 // PILOT: whole file. Delete when the pilot ends — see docs/PILOT.md.
 //
-// Applies (or removes) the pilot band on renders that already exist in the
-// object store.
+// Bring the renders already in the object store into line with whether each
+// map is a SAMPLE map. The work is src/render/pilotReconcile.js; this is the
+// operator's way to run it over every map at once.
 //
-// The band is added at render time (src/render/renderMap.js), so anything
-// rendered BEFORE the pilot landed — including versions already reviewed and
-// published — still carries none. Those are exactly the sheets a member of the
-// public can download, so they are the ones that most need it.
+// IT USED TO ASK ONE GLOBAL QUESTION AND NOW ASKS ONE PER MAP (buses-data
+// OA-320). Until then it computed `want = PILOT.on` once and applied that answer
+// to every stored sheet, because the band was gated on the site-wide PILOT_MODE
+// and there was nothing else it could have asked. The band's own words are a
+// claim about the map — "Not published by any organisation" — so the question
+// is now per map, from that map's customer.
 //
-// This never re-runs a generator. It rewrites each stored SVG through the same
-// stampPilot() the renderer uses and re-rasterises the JPG with the same
-// parameters, so a restamped version is what the renderer would have produced.
-// Web previews (*-web.jpg) are derived copies and are simply deleted; the
-// public route regenerates them on the next request.
+// AND THAT COSTS THE PROPERTY THE OLD IMPORT WAS PROTECTING, DELIBERATELY. This
+// script used to import DATA_DIR from src/db/paths.js with a comment saying
+// "paths only: importing src/db opens and migrates the database" — the point of
+// OA-224 Tier 3.3, which stopped three scripts migrating the live database as a
+// side effect of wanting to know where data/maps is. Reading a customer means
+// opening the database, so that is given up here ON PURPOSE and stated rather
+// than quietly reversed. It is acceptable for this one script because it is run
+// by an operator, against the live store, as a deliberate act — the same footing
+// as the deploy step in docs/PILOT.md — and never at import time by a test or a
+// server. pilotReconcile.js itself still imports paths only, and takes the
+// answer as an argument, so nothing that merely renders pulls a database in.
 //
-// Usage:
+// Usage — folder: the repository root (C:\Claude\community-bus-maps on the
+// laptop, /srv/busmaps on the host). No placeholders in either line.
 //   node scripts/restamp-renders.mjs            # report what would change
 //   node scripts/restamp-renders.mjs --apply    # do it
-//   PILOT_MODE=0 node scripts/restamp-renders.mjs --apply   # strip the band
+// PILOT_MODE=0 still strips every band from everything, sample or not.
 
-import { readdirSync, readFileSync, writeFileSync, statSync, rmSync, existsSync } from 'node:fs';
-import path from 'node:path';
-import { DATA_DIR } from '../src/db/paths.js';   // paths only: importing src/db opens and migrates the database
-import { PILOT } from '../src/config.js';
-import { stampPilot } from '../src/render/pilotStamp.js';
-import { rasterise } from '../src/render/renderMap.js';
+import { getMap } from '../src/db/index.js';
+import { isSampleCustomer } from '../src/render/pilotStamp.js';
+import { reconcileMapRenders, storedMapIds } from '../src/render/pilotReconcile.js';
 
 const APPLY = process.argv.includes('--apply');
-const MAPS = path.join(DATA_DIR, 'maps');
 
-const dirs = (p) => (existsSync(p) ? readdirSync(p).filter((d) => statSync(path.join(p, d)).isDirectory()) : []);
+let seen = 0;
+let changed = 0;
+const missing = [];
 
-let seen = 0, changed = 0;
-
-for (const mapId of dirs(MAPS)) {
-  const renders = path.join(MAPS, mapId, 'renders');
-  for (const version of dirs(renders)) {
-    const dir = path.join(renders, version);
-    for (const file of readdirSync(dir).filter((f) => f.endsWith('.svg'))) {
-      const svgPath = path.join(dir, file);
-      const before = readFileSync(svgPath, 'utf8');
-      const has = before.includes('id="pilot-band"');
-      // PILOT_MODE=0 → strip; otherwise → add. Either way, only act when the
-      // file is not already in the state we want.
-      const want = PILOT.on;
-      seen += 1;
-      if (has === want) continue;
-
-      const after = want ? stampPilot(before) : unstamp(before);
-      if (after === before) continue;
-      changed += 1;
-      const label = `map ${mapId} ${version}/${file}`;
-      if (!APPLY) { console.log(`· would ${want ? 'stamp' : 'unstamp'}: ${label}`); continue; }
-
-      writeFileSync(svgPath, after);
-      const jpg = svgPath.replace(/\.svg$/i, '.jpg');
-      await rasterise(svgPath, jpg);
-      const web = svgPath.replace(/\.svg$/i, '-web.jpg');
-      if (existsSync(web)) rmSync(web); // derived; regenerated on demand
-      console.log(`· ${want ? 'stamped' : 'unstamped'}: ${label}`);
-    }
-  }
+for (const mapId of storedMapIds()) {
+  // A directory in the store with no row in the database is an orphan — a map
+  // deleted, or a half-finished import. isSampleCustomer(null) answers "sample",
+  // which is the honest direction: an orphan nobody can attribute keeps the band
+  // that says nobody published it. It is counted and named rather than skipped
+  // silently, because a store full of orphans is worth knowing about.
+  const map = getMap(Number(mapId));
+  if (!map) missing.push(mapId);
+  const r = await reconcileMapRenders(mapId, isSampleCustomer(map), {
+    apply: APPLY,
+    log: (line) => console.log(line),
+  });
+  seen += r.seen;
+  changed += r.changed;
 }
 
-/** Undo stampPilot: drop the band + background and unwrap the content group. */
-function unstamp(svg) {
-  return svg
-    // The leading \n is the one stampPilot() inserts after the <svg> open tag.
-    .replace(/\n<rect id="pilot-bg"[^>]*\/>\n?/, '')
-    .replace(/<g id="pilot-content"[^>]*>\n?/, '')
-    .replace(/<\/g>\n<g id="pilot-band">[\s\S]*?<\/g>\n/, '');
+if (missing.length) {
+  console.log(`\n· ${missing.length} render folder(s) with no map row, treated as samples: ${missing.join(', ')}`);
 }
 
 console.log(

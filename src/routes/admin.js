@@ -32,6 +32,9 @@ import { APP_VERSION } from '../version.js';
 import { sendMagicLink } from '../email/index.js';
 import { notify } from '../email/notify.js';
 import { dbDateMs } from '../db/dates.js';
+// PILOT: both lines. Remove with docs/PILOT.md.
+import { isSampleCustomer } from '../render/pilotStamp.js';
+import { reconcileMapRenders } from '../render/pilotReconcile.js';
 import { DEV_LINKS, MSG_STATUSES, ORG_TYPES, authLink, baseUrl, isEmail, isHttps, operatorRead, parseJson, requireAdmin, requireStepUp, str } from '../http/helpers.js';
 
 export default async function adminRoutes(app) {
@@ -235,7 +238,26 @@ export default async function adminRoutes(app) {
         toCustomerId: toId, toCustomerName: to ? to.name : null,
       },
     });
-    return { ok: true, map: { id: m.id, slug: m.slug, name: m.name }, customer: to ? { id: to.id, name: to.name } : null };
+    // PILOT: reconcile this map's STORED sheets with its new owner. Delete
+    // with docs/PILOT.md.
+    //
+    // This is the one event that can make a stored band untrue, and it is the
+    // exact action a real organisation taking over one of our pilot maps needs
+    // (buses-data OA-320). The reassignment is already committed above, so a
+    // failure here must be REPORTED rather than swallowed: a map that quietly
+    // keeps "Not published by any organisation" over its new owner's badge is
+    // the fault this whole change exists to remove, and it would look identical
+    // to a success.
+    let restamped = null;
+    try {
+      const r = await reconcileMapRenders(m.id, isSampleCustomer(to), { apply: true, log: (l) => req.log.info(l) });
+      restamped = { changed: r.changed, band: r.want };
+      if (r.changed) req.log.info({ mapId: m.id, ...restamped }, 'restamped stored renders after reassignment');
+    } catch (e) {
+      req.log.error(e, 'restamping stored renders after reassignment FAILED — run scripts/restamp-renders.mjs --apply');
+      restamped = { error: true };
+    }
+    return { ok: true, map: { id: m.id, slug: m.slug, name: m.name }, customer: to ? { id: to.id, name: to.name } : null, restamped };
   });
 
   app.get('/customers', async (req, reply) => {
@@ -248,6 +270,7 @@ export default async function adminRoutes(app) {
       branding: parseJson(c.branding_json),
       hideOperatorsEnabled: !!c.hide_operators_enabled,
       watermarkEnabled: !!c.watermark_enabled,
+      isSample: !!c.is_sample, // PILOT: remove with docs/PILOT.md
     }));
     return { ok: true, customers: rows };
   });
@@ -263,13 +286,14 @@ export default async function adminRoutes(app) {
     const ok = updateCustomerAdmin(cust.id, {
       quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
       hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
+      is_sample: b.isSample, // PILOT: remove with docs/PILOT.md
     });
     if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
     if (b.status !== undefined) bumpSearchIndex(); // P9 — a suspended org's maps must stop being searchable
     req.log.info({ customerId: cust.id }, 'customer updated by admin');
     const c = getCustomer(cust.id);
-    logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } });
-    return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } };
+    logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled, isSample: !!c.is_sample } });
+    return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled, isSample: !!c.is_sample } };
   });
 
   // User CRUD (admin-only). Invite adds another person to an existing customer
