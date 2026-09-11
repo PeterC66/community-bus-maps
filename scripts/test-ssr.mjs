@@ -118,7 +118,7 @@ check('removeBooleanAttr is a no-op when it is not there',
 console.log('\nthe shells expose the ids the server fills:');
 const mapsShell = shell('maps.html');
 const servicesShell = shell('services.html');
-for (const id of ['grid', 'q']) {
+for (const id of ['grid', 'q', 'directory']) {
   check(`maps.html has #${id}`, new RegExp(`id="${id}"`).test(mapsShell));
 }
 for (const id of ['headline', 'intro', 'pills', 'services', 'staleNote', 'mapLink', 'backToMap']) {
@@ -140,6 +140,28 @@ check('"Loading published maps…" is GONE', !mapsPage.includes('Loading publish
   'the placeholder must be replaced, not appended to');
 check('a demo organisation is labelled Sample', mapsPage.includes('badge sample'));
 check('a stale map says so', mapsPage.includes('may be out of date'));
+
+// --- 3b. …and so does the directory panel (buses-data OA-308 tier 2) --------
+// The panel makes the same promise the grid does — that the answer is in the
+// HTML as delivered — and it makes it to a reader who has just been told we
+// have nothing. If it were client-only, the one page where somebody most needs
+// a second answer would be the one page a crawler and a JS-off reader saw
+// "Loading" on. Same argument as N1 above, one section later.
+console.log('\n/maps carries the directory panel:');
+{
+  const { searchDirectory, directorySize } = await import('../src/search/directory.js');
+  const { directoryBlock } = await import('../public/js/shared/map-card.mjs');
+  const rows = searchDirectory('Essex');
+  const panel = directoryBlock(rows, { query: 'Essex', size: directorySize() });
+  const page = setInner(mapsShell, 'directory', panel);
+  check('the shell accepts the panel', page.includes('Not ours — what the local transport authority publishes'));
+  check('an authority and its date are in the delivered HTML',
+    /Published by Essex County Council, last checked on \d/.test(page));
+  check('the link to their map is in the delivered HTML', /href="https?:\/\/[^"]*travelessex[^"]*"/.test(page),
+    (page.match(/href="https?:\/\/[^"]*essex[^"]*"/i) || [''])[0]);
+  check('a query with no directory answer leaves the container empty',
+    setInner(mapsShell, 'directory', '').includes('id="directory"'));
+}
 check('the grid container keeps its layout class', /id="grid"[^>]*class="grid cols-2"/.test(mapsPage)
   || /class="grid cols-2"[^>]*id="grid"/.test(mapsPage));
 

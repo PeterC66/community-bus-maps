@@ -60,7 +60,7 @@ import {
 import { publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, publicBases } from '../public/index.js';
 import { factsForPublicMap, publicServices, servicesPageUrl } from '../public/services.js';
 import { setInner, setAttr, setClass, removeBooleanAttr } from '../public/shell.js';
-import { grid } from '../../public/js/shared/map-card.mjs';
+import { grid, directoryBlock } from '../../public/js/shared/map-card.mjs';
 import { servicesView } from '../../public/js/shared/services-view.mjs';
 import { inlineSvg } from '../public/inlineSvg.js';
 import { notFoundPage } from '../public/notFound.js';
@@ -70,6 +70,7 @@ import { escapeHtml } from '../html.js';
 import { versionDir, OUTPUT_FILES } from '../maps/store.js';
 import { ensureWatermarked } from '../render/watermark.js';
 import { searchPlaces } from '../search/index.js';
+import { searchDirectory, directorySize } from '../search/directory.js';
 import { PILOT, INDEXING, ENVIRONMENT } from '../config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { ORG_TYPES, MSG_KINDS, str, isEmail, baseUrl, rateLimited, xmlEscape } from '../http/helpers.js';
@@ -164,14 +165,27 @@ export default async function publicRoutes(app) {
     const q = str((req.query || {}).q, 100);
     let maps = publicMaps(listPublicMaps());
     let reasons = null;
+    // OA-308 tier 2 — the directory panel is rendered HERE as well as in the
+    // browser, for the same reason the grid is (N1 above): a crawler, a reader
+    // with JavaScript off and a ?q= link shared in an email all get the answer
+    // in the HTML. Its markup comes from the same shared module.
+    let directory = [];
     if (q.length >= 2) {
       const { results } = searchPlaces(q);
       reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
       maps = results.map((r) => r.map);
+      directory = searchDirectory(q);
     }
-    const { className, html } = grid(maps, { reasons, query: q.length >= 2 ? q : '' });
+    const { className, html } = grid(maps, {
+      reasons,
+      query: q.length >= 2 ? q : '',
+      hasDirectory: directory.length > 0,
+    });
     let page = setInner(shell('maps.html'), 'grid', html);
     page = setClass(page, 'grid', className);
+    page = setInner(page, 'directory', q.length >= 2
+      ? directoryBlock(directory, { query: q, size: directorySize() })
+      : '');
     // Read the query back into the box, so a /maps?q=… link says what it searched
     // for with or without JavaScript.
     if (q) page = setAttr(page, 'q', 'value', q);
@@ -313,7 +327,11 @@ export default async function publicRoutes(app) {
   app.get('/api/public/search', async (req) => {
     const q = str((req.query || {}).q, 100);
     const { results, corrected } = searchPlaces(q);
-    return { ok: true, results, corrected };
+    // OA-308 tier 2 — `directory` is other people's maps, never ours, and the
+    // client labels them as such. `directorySize` travels with it so the "we
+    // looked and found nothing" line can say how big the thing we searched is
+    // without a second request.
+    return { ok: true, results, corrected, directory: searchDirectory(q), directorySize: directorySize() };
   });
 
   app.get('/api/public/maps/:slug', async (req, reply) => {

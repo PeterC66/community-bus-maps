@@ -228,6 +228,24 @@ jobs:
       # `run-tests.mjs` refuses to skip a discovered file without a reason naming
       # where it DOES run, so nothing can quietly drop out of that suite.
 
+      # THE VENDORED BUS-MAP DIRECTORY, AGAINST ITS SOURCE (buses-data OA-308
+      # tier 2). public/data/bus-map-directory.json is a projection of a file in
+      # buses-data — the fields the /maps search panel renders, with the survey
+      # notes deliberately left behind in the private repository. This is the
+      # ONLY workflow that can compare the two, because it is the only one with a
+      # buses-data checkout; `npm test` asserts the vendored file's shape and
+      # says in its own header that it cannot ask this question. Without this
+      # step, the panel would keep telling readers about maps that were correct
+      # in September and nothing anywhere would notice.
+      #
+      # `--allow-skip` is NOT passed: a missing checkout here is a broken job,
+      # exactly as the fixtures step above says.
+      - name: The vendored bus-map directory is in step with buses-data
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run sync:directory -- --check
+
       - name: verify:area — the portal reproduces a shipped town sheet
         working-directory: community-bus-maps
         env:
