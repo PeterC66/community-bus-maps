@@ -176,6 +176,7 @@ function suggestBlock(d, { query = '', matchKind = '' } = {}) {
   return `<details class="dir-ask">
         <summary>Ask them for one — a letter you can send</summary>
         <p class="dir-ask-note"><strong>You send this, not us.</strong> A council answers a resident of its own area; it files a supplier's round robin. Copy it into your own email, add your name and where you live, and send it to ${esc(d.authority)} — their website has the contact address, and a named councillor or your MP is worth copying in. Your town or parish council can commission a map too, and often decides faster than a county can; there is no national list of their addresses, so you will need to look yours up.</p>
+        <p class="dir-ask-note"><strong>Put it in your own words.</strong> A short letter that sounds like you is worth ten identical ones — say which bus you use, or which journey you cannot work out. What is below is a starting point, not a form.</p>
         <pre class="dir-letter" data-letter>${esc(plain)}</pre>
         <p class="dir-ask-actions"><button type="button" class="btn btn-ghost" data-copy-letter hidden>Copy the letter</button></p>
         <p class="dir-ask-note dir-ask-extra"><strong>If you would like to mention us, add this — and only if you want to.</strong> We have deliberately kept it out of the letter above: a letter that recommends a supplier without saying who wrote it is not a letter from a resident.</p>

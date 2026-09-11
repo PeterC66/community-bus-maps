@@ -22,6 +22,8 @@
 //   6  the town rule dropped, so a mapped town gets a letter    -> rule 4
 //   7  the match kind not carried out of the search            -> the wire between them
 //   8  the authority name interpolated unescaped               -> the escaping check
+//   9  the "put it in your own words" note removed             -> rule 5
+//  10  the authority greeted by name again                     -> the pairing check
 //
 // IT MUTATES A COPY AND NEVER THE REPOSITORY: each arm copies src/, scripts/ and
 // public/js + public/data into a scratch tree, edits the copy and runs the test
@@ -139,6 +141,22 @@ arm('8  the authority name interpolated into the letter unescaped',
   (dir) => patch(dir, CARD, (s) => s.replace('<pre class="dir-letter" data-letter>${esc(plain)}</pre>',
     '<pre class="dir-letter" data-letter>${plain}</pre>')),
   [['the authority name is escaped inside the letter', 'the escaping check']]);
+
+arm('9  the "put it in your own words" note taken out — rule 5, which only this sentence holds',
+  (dir) => patch(dir, CARD, (s) => s.replace(
+    /\n        <p class="dir-ask-note"><strong>Put it in your own words\.<\/strong>[^\n]*<\/p>/, '')),
+  [
+    ['tells the reader to put it in their own words', 'rule 5'],
+    ['says the letter is a starting point rather than a form', "rule 5's second half"],
+  ]);
+
+arm('10  the authority greeted by name again, so the salutation and the sign-off disagree',
+  (dir) => patch(dir, LETTER, (s) => s.replace(
+    "    'Dear Sir or Madam,',", '    `Dear ${authority},`,')),
+  [
+    ['the salutation is the one that pairs with the sign-off', 'the pairing check'],
+    ['the authority is not ALSO greeted by name', 'the named-addressee check'],
+  ]);
 
 for (const d of scratches) { try { rmSync(d, { recursive: true, force: true }); } catch { /* a temp dir */ } }
 

@@ -57,7 +57,16 @@ check('town-level maps with no towns named offers none', !suggestionApplies(
 console.log('\nrule 3 — every claim in the letter comes from the row');
 {
   const l = suggestionLetter(NETWORK, 'Bedford');
-  check('it names the authority in the salutation', l.body.startsWith('Dear Bedford Borough Council,'));
+  check('it names the authority it is addressed to', l.body.startsWith('To: Bedford Borough Council'));
+  // The pairing, because it is the half a reader notices and nothing else here
+  // would. "Dear <Council>" with "Yours faithfully" is the mismatch this letter
+  // carried until 2026-09-11, and the credibility of the whole thing rests on
+  // its reading as a resident's own letter rather than a supplier's template.
+  check('…and the salutation is the one that pairs with the sign-off',
+    l.body.includes('Dear Sir or Madam,') && l.body.includes('Yours faithfully,'));
+  check('…so the authority is not ALSO greeted by name', !l.body.includes(`Dear ${NETWORK.authority}`),
+    (l.body.match(/Dear .*/) || [''])[0]);
+  check('…and the only salutation is that one', l.body.split('\n').filter((x) => x.startsWith('Dear ')).length === 1);
   check('it names the place asked about', l.body.includes('Bedford'));
   check('it credits the network map it can see', /map of the whole network/.test(l.body));
   check('…with the date the directory recorded, in words', l.body.includes('April 2025'));
@@ -96,7 +105,12 @@ console.log('\nrule 2 — the letter does not pitch us, and the pitch says who w
 console.log('\nrule 1 — the reader sends it, and the markup offers no other way');
 {
   const html = directoryCard(NONE, 'The transport authority for this area', { query: 'Skipton', matchKind: 'authority' });
-  check('the card carries the letter', html.includes('dir-ask') && html.includes('Dear North Yorkshire Council,'));
+  check('the card carries the letter', html.includes('dir-ask') && html.includes('To: North Yorkshire Council'));
+  // Rule 5 lives entirely in this sentence. Nothing else in the file can hold
+  // it: the letter is word-identical for every reader, and only the reader can
+  // make it theirs, so the instruction to do so is the whole mitigation.
+  check('it tells the reader to put it in their own words', /Put it in your own words/.test(html));
+  check('…and says the letter is a starting point rather than a form', /starting point, not a form/.test(html));
   check('it says in as many words that the reader sends it', /You send this, not us/.test(html));
   check('there is no mailto: anywhere in it', !/mailto:/i.test(html),
     'a mailto with a recipient would be us addressing a council on a resident\'s behalf');
