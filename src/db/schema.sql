@@ -255,3 +255,34 @@ CREATE TABLE IF NOT EXISTS audit_log (
   version_id  INTEGER,                         -- subject version (nullable)
   detail_json TEXT NOT NULL DEFAULT '{}'       -- structured extras (customer, quota, change summary, …)
 );
+
+-- ---------------------------------------------------------------------------
+-- OA-308 tier 4 — the demand signal. A TALLY OF PLACE NAMES, NOT A SEARCH LOG,
+-- and the difference is the whole reason these two tables have the shape they
+-- have. There is no address column, no session column, no user agent, no id and
+-- no timestamp: `first_seen` and `last_seen` are DATES, so nothing here can say
+-- when in the day a search happened or put two searches in order. A row is one
+-- place name and how often anyone has asked for it.
+--
+-- The promise this must not break is P9 B8 — search queries are never logged —
+-- kept by src/public/logRedaction.js and by the Caddyfile's format filter.
+-- Neither is relaxed for these tables and neither should be. src/search/demand.js
+-- carries the shape filter that decides what may be stored at all, and
+-- public/legal.html says out loud that we keep this, because a thing the privacy
+-- page does not mention is a thing we should not be doing.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS search_demand (
+  q          TEXT PRIMARY KEY,                 -- the place name, lower-cased and whitespace-collapsed
+  n          INTEGER NOT NULL DEFAULT 0,       -- how many submitted searches found no map of ours
+  first_seen TEXT NOT NULL DEFAULT (date('now')),
+  last_seen  TEXT NOT NULL DEFAULT (date('now'))
+);
+
+-- Everything the shape filter refused, counted and never quoted. Without it the
+-- tally would understate the misses by however many people typed something that
+-- was not a bare place name, and we would not know by how much.
+CREATE TABLE IF NOT EXISTS search_demand_skipped (
+  id         INTEGER PRIMARY KEY CHECK (id = 1),
+  n          INTEGER NOT NULL DEFAULT 0,
+  last_seen  TEXT
+);

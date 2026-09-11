@@ -71,6 +71,7 @@ import { versionDir, OUTPUT_FILES } from '../maps/store.js';
 import { ensureWatermarked } from '../render/watermark.js';
 import { searchPlaces } from '../search/index.js';
 import { searchDirectory, directorySize } from '../search/directory.js';
+import { recordMiss } from '../search/demand.js';
 import { PILOT, INDEXING, ENVIRONMENT } from '../config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { ORG_TYPES, MSG_KINDS, str, isEmail, baseUrl, rateLimited, xmlEscape } from '../http/helpers.js';
@@ -175,6 +176,13 @@ export default async function publicRoutes(app) {
       reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
       maps = results.map((r) => r.map);
       directory = searchDirectory(q);
+      // OA-308 tier 4 — the demand signal. Arriving at /maps?q=… is a deliberate
+      // act (a typed URL, a shared link, a form submit with JavaScript off), so
+      // unlike the API below this path needs no `intent` to tell it apart from a
+      // keystroke. A TALLY of place names, never a log: src/search/demand.js
+      // holds the shape filter and the reasoning, and public/legal.html says we
+      // keep it.
+      if (!results.length) recordMiss(q);
     }
     const { className, html } = grid(maps, {
       reasons,
@@ -327,6 +335,14 @@ export default async function publicRoutes(app) {
   app.get('/api/public/search', async (req) => {
     const q = str((req.query || {}).q, 100);
     const { results, corrected } = searchPlaces(q);
+    // OA-308 tier 4 — count a MISS, and only a submitted one. The box fires on a
+    // 300ms debounce, so "Beaconsfield" typed once arrives here a dozen times and
+    // eleven of those are half-finished words; a tally of those would be noise
+    // with no signal in it. public-maps.js sends intent=submit when the reader
+    // presses Enter or the button and never while they type. Still not a log —
+    // the query string of this route is dropped before Fastify logs the line,
+    // and that stays true (src/public/logRedaction.js).
+    if (!results.length && String((req.query || {}).intent || '') === 'submit') recordMiss(q);
     // OA-308 tier 2 — `directory` is other people's maps, never ours, and the
     // client labels them as such. `directorySize` travels with it so the "we
     // looked and found nothing" line can say how big the thing we searched is

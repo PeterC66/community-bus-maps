@@ -54,6 +54,16 @@
  *  not JavaScript, and there is nowhere for them to import a constant from. */
 export const NOW_SQL = "datetime('now')";
 
+/** The database's own clock to the DAY, as a SQL fragment. Its one caller is
+ *  OA-308 tier 4's demand tally, and the reason it is a separate constant rather
+ *  than a `date(NOW_SQL)` at the call site is that the difference between a date
+ *  and a timestamp is the privacy argument of those two tables, not a formatting
+ *  choice: a timestamp would say when in the day somebody searched, and two
+ *  timestamps would put two searches in order. A column that CANNOT hold that is
+ *  worth more than a convention saying we would not look. See
+ *  src/search/demand.js and public/legal.html. */
+export const TODAY_SQL = "date('now')";
+
 /**
  * A stored timestamp as a Date, or null.
  *

@@ -19,7 +19,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
-import { parseDbDate, dbDateToIso, dbDateMs, NOW_SQL } from '../src/db/dates.js';
+import { parseDbDate, dbDateToIso, dbDateMs, NOW_SQL, TODAY_SQL } from '../src/db/dates.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -67,6 +67,7 @@ console.log('\nordering, which is why the stored format was left alone:');
 
 console.log('\nthe writer:');
 eq(NOW_SQL, "datetime('now')", 'there is one spelling of "now" and this is it');
+eq(TODAY_SQL, "date('now')", 'and one spelling of "today", which is a different promise');
 
 // ---- the census -------------------------------------------------------------
 console.log('\nthe census — nobody converts a stored timestamp by hand:');
@@ -76,6 +77,10 @@ const HAND_ROLLED = [
   // The literal clock. See the block below for why this arm did not exist until
   // 2026-09-03 and what had to change before it could.
   { re: /datetime\('now'\)/, why: "a literal datetime('now') — import NOW_SQL" },
+  // The same rule for the day clock, added with TODAY_SQL (OA-308 tier 4) rather
+  // than a release later: the arm above spent a day with zero callers and 31
+  // literals because it was written after the constant instead of with it.
+  { re: /(?<!\w)date\('now'\)/, why: "a literal date('now') — import TODAY_SQL" },
 ];
 const ALLOWED = new Set(['src/db/dates.js']);
 
