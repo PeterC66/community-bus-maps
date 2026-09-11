@@ -209,7 +209,10 @@ const COPY_ROOT = process.env.PARKED_COPY_ROOT || ROOT;
 // The COUNTS are banned too: 'A fifth sheet' on the examples page and 'one of five
 // outputs' on the homepage survived the first pass (Peter, 2026-09-10 evening),
 // because a number is a mention of the option that names nothing.
-const BANNED = ['tube-map', 'Tube-map', 'tube map', 'internal_diagram', 'internal-diagram', 'Network diagram', 'faq.html#diagram', 'id="diagram"', 'Internal — diagram', 'diagram-request', 'fifth sheet', 'five outputs', 'Five outputs', 'all five'];
+// And a count can be spelled another way: 'A fifth output' sat in the What's New
+// panel from 23 August until Peter read it on 2026-09-11, because the corpus was
+// .html/.js/.css and that sentence lives in a .json the browser fetches.
+const BANNED = ['tube-map', 'Tube-map', 'tube map', 'internal_diagram', 'internal-diagram', 'Network diagram', 'faq.html#diagram', 'id="diagram"', 'Internal — diagram', 'diagram-request', 'fifth sheet', 'five outputs', 'Five outputs', 'all five', 'fifth output', 'Fifth output'];
 function walk(dir, acc = []) {
   for (const e of readdirSync(dir)) {
     const p = path.join(dir, e);
@@ -217,6 +220,19 @@ function walk(dir, acc = []) {
     else if (/\.(html|js|css)$/.test(e)) acc.push(p);
   }
   return acc;
+}
+// The data files under public/data are copy too — whats-new.json IS the What's
+// New panel, written by hand and served to every visitor. Every .json there is
+// read, minus one named exclusion with its reason: bus-map-directory.json is a
+// generated projection describing OTHER PEOPLE'S maps, and "tube map" is a
+// truthful name for one of those rather than a mention of our parked option.
+function dataCopy(root) {
+  const dir = path.join(root, 'public', 'data');
+  let names = [];
+  try { names = readdirSync(dir); } catch { return []; }
+  return names
+    .filter((e) => e.endsWith('.json') && e !== 'bus-map-directory.json')
+    .map((e) => path.join(dir, e));
 }
 // public/app/*.js is the signed-in app, where `internal_diagram` is the key the
 // editor filters OUT by — that filter is what keeps the customer's screen clean,
@@ -226,7 +242,9 @@ function walk(dir, acc = []) {
 const files = [
   ...walk(path.join(COPY_ROOT, 'public')).filter((p) => !/[\\/]public[\\/]app[\\/].*\.js$/.test(p)),
   ...walk(path.join(COPY_ROOT, 'views')).filter((p) => !/diagram\.html$/.test(p)),
+  ...dataCopy(COPY_ROOT),
 ];
+check('…including the hand-written copy under public/data', files.some((p) => /whats-new\.json$/.test(p)));
 check('the copy gate read a real corpus', files.length > 10, `${files.length} files`);
 const hits = [];
 for (const f of files) {

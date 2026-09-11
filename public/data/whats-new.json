@@ -1,7 +1,12 @@
 [
   {
+    "date": "2026-09-11",
+    "title": "Search for a place — and who else publishes a map",
+    "body": "The maps page now searches the places inside each map, not just its title, so a village, landmark or stop that a map mentions will find it. When nothing of ours matches, a second panel says what the local transport authority publishes instead — a whole-network map, town maps, or nothing at all — from a directory of all 76 in England, each one checked by hand. Those maps are not ours: every card names the authority that published it and the date we last saw it there, and that date is all we vouch for."
+  },
+  {
     "date": "2026-08-23",
-    "title": "A fifth output: “Where to board”",
+    "title": "A fourth output: “Where to board”",
     "body": "Maps can now include a boarding-plan sheet — a close-up of one bus station or town-centre stop cluster showing exactly which stand to wait at for each destination. Ask us if you'd like it added to your map."
   }
 ]
