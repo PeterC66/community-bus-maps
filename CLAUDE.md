@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.32 | 2026-09-11 | sha=48fb9cad -->
-**v1.32** · updated 11 September 2026
+<!-- docstamp v1.33 | 2026-09-11 | sha=12ce511a -->
+**v1.33** · updated 11 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -52,6 +52,15 @@ Two structural facts that catch people out:
 - **Generators are vendored per map** into `data/maps/<id>/data/`. Editing `engine/` changes nothing
   for existing maps. The pilot band works around this by transforming the finished SVG in
   `src/render/renderMap.js` *after* generation — copy that pattern.
+- **So is the national bus-map directory, and it is a PROJECTION rather than a copy** (buses-data
+  OA-308 tier 2, 2026-09-11). `public/data/bus-map-directory.json` feeds the *Not ours* panel under
+  the `/maps` search: 76 English transport authorities and what each publishes. Its source is in the
+  PRIVATE buses-data repo, and two thirds of that file is our own candid assessment of named
+  councils' websites — so `scripts/sync-directory.mjs` copies a field whitelist and leaves every
+  `note` and `sources` list behind. **Do not hand-edit the vendored file**: edit the source, run
+  `npm run sync:directory` from the repository root, and commit the result. The staleness check is
+  `npm run sync:directory -- --check` and runs only in `verify.yml`, which is the one workflow with a
+  buses-data checkout; `npm test` asserts the file's shape and the projection's privacy rule instead.
 - **`npm run verify` no longer skips** (2026-08-20, technical-audit_2026-08-19 V2). It finds a
   committed fixture in `buses-data` — `Areas/_portal-fixture/` and `Places/_portal-fixture/` — via
   `BUSES_DIR` or a sibling checkout, and it FAILS rather than exiting 0 when there is none.

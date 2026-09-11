@@ -304,6 +304,27 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .search-noresult p { margin: 0 0 12px; }
 .search-noresult p:last-child { margin-bottom: 0; }
 
+/* ---------- the national directory of local bus maps (buses-data OA-308) ----------
+   Somebody ELSE's map, shown below our own results. The panel is deliberately
+   quieter than the grid above it and its cards carry no screenshot: they must
+   never be mistaken for a map published through this portal, and the visual
+   difference does that work before the "Not ours" badge is read. */
+.dir-block { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--border); }
+.dir-block h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.dir-note { color: var(--muted); font-size: .9rem; margin: 0 0 16px; max-width: 62ch; }
+.dir-empty p { color: var(--muted); font-size: .95rem; margin: 0; max-width: 66ch; }
+.dir-card { background: var(--surface-2); }
+.dir-card .body { padding: 16px 18px; }
+.dir-card h3 { margin: 0 0 8px; font-size: 1rem; }
+.dir-card p { margin: 0 0 8px; }
+.dir-card .outputs { margin: 10px 0 0; font-size: .82rem; color: var(--muted); }
+.dir-action { margin: 10px 0 0; font-weight: 600; }
+.badge.notours {
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+}
+
 /* ---------- faq ---------- */
 .faq details { border: 1px solid var(--border); border-radius: 12px; padding: 4px 18px; margin-bottom: 12px; background: var(--bg); }
 .faq summary { cursor: pointer; font-weight: 600; padding: 14px 0; list-style: none; }

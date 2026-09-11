@@ -129,9 +129,17 @@ jobs:
           path: community-bus-maps
 
       # Sparse: the fixtures are a few MB, the rest of that repository is
-      # hundreds. cone mode with two directories keeps the checkout to what the
-      # gates actually read.
-      - name: Checkout buses-data (the fixtures)
+      # hundreds. cone mode with a directory per gate keeps the checkout to what
+      # the gates actually read.
+      #
+      # THE THIRD PATH IS A JOIN, AND IT WENT RED ON ITS FIRST RUN (2026-09-11).
+      # The directory sync check below reads BusMapsUK/bus-map-directory, and a
+      # sparse checkout listing only the two fixture folders does not contain it
+      # — so the step reported "cannot find the source" and exited 2, which is
+      # what it is built to do when there is nothing to compare against. The
+      # lesson generalises past this file: ADDING A STEP THAT READS buses-data
+      # MEANS ADDING ITS PATH HERE, and the only thing that says so is a red run.
+      - name: Checkout buses-data (the fixtures and the bus-map directory)
         uses: actions/checkout@v7
         with:
           repository: PeterC66/buses-data
@@ -140,6 +148,7 @@ jobs:
           sparse-checkout: |
             Areas/_portal-fixture
             Places/_portal-fixture
+            BusMapsUK/bus-map-directory
           sparse-checkout-cone-mode: true
 
       # Read the major out of the Dockerfile rather than hardcoding it. This job
@@ -211,6 +220,7 @@ jobs:
         run: |
           echo "Areas/_portal-fixture:"; ls -la buses-data/Areas/_portal-fixture
           echo "Places/_portal-fixture:"; ls -la buses-data/Places/_portal-fixture
+          echo "BusMapsUK/bus-map-directory:"; ls -la buses-data/BusMapsUK/bus-map-directory
 
       # TWO PROVE-REDS USED TO RUN HERE AND NO LONGER DO (OA-232 Tier 2.3, the
       # 2026-09-03 review's portal-ops W6). `test:prove-red-fixture-drift` and
@@ -227,6 +237,24 @@ jobs:
       # checkout, where a PAT expiry cannot take them down with the byte gates.
       # `run-tests.mjs` refuses to skip a discovered file without a reason naming
       # where it DOES run, so nothing can quietly drop out of that suite.
+
+      # THE VENDORED BUS-MAP DIRECTORY, AGAINST ITS SOURCE (buses-data OA-308
+      # tier 2). public/data/bus-map-directory.json is a projection of a file in
+      # buses-data — the fields the /maps search panel renders, with the survey
+      # notes deliberately left behind in the private repository. This is the
+      # ONLY workflow that can compare the two, because it is the only one with a
+      # buses-data checkout; `npm test` asserts the vendored file's shape and
+      # says in its own header that it cannot ask this question. Without this
+      # step, the panel would keep telling readers about maps that were correct
+      # in September and nothing anywhere would notice.
+      #
+      # `--allow-skip` is NOT passed: a missing checkout here is a broken job,
+      # exactly as the fixtures step above says.
+      - name: The vendored bus-map directory is in step with buses-data
+        working-directory: community-bus-maps
+        env:
+          BUSES_DIR: ${{ github.workspace }}/buses-data
+        run: npm run sync:directory -- --check
 
       - name: verify:area — the portal reproduces a shipped town sheet
         working-directory: community-bus-maps

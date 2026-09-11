@@ -49,7 +49,7 @@ const PORTAL_ROOT = path.resolve(HERE, '..', '..');
  * into one workspace, and a developer cloning both into one folder gets the
  * same shape for free.
  */
-function busesDirCandidates() {
+export function busesDirCandidates() {
   const out = [];
   if (process.env.BUSES_DIR) out.push(process.env.BUSES_DIR);
   out.push(path.resolve(PORTAL_ROOT, '..', 'buses-data'));
