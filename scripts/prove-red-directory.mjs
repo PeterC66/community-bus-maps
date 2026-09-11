@@ -116,10 +116,15 @@ arm('3  substring matching switched on in the matcher',
     .replace('  if (norm.startsWith(qn)) return 2;\n  return -1;', '  if (norm.startsWith(qn)) return 2;\n  if (norm.includes(qn)) return 3;\n  return -1;')),
   [['a bare substring of a name does not match', 'the substring check']]);
 
+// The mutation appends a filter after the .map(...) that builds the results. It
+// is anchored on the CLOSING line of that map rather than on the whole call,
+// because OA-308 tier 3 added a `matched` field inside it and this arm went
+// "changed nothing" the moment it did — which is the harness's own guard working
+// and worth leaving anchored somewhere that will not move again for a field.
 arm('4  rows that publish nothing filtered out of the results',
   (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
-    .replace('.map(({ term }) => ({ offer: offerOf(term.row), reason: reasonFor(term) }));',
-      '.map(({ term }) => ({ offer: offerOf(term.row), reason: reasonFor(term) }))\n    .filter((r) => r.offer.status !== \'none\');')),
+    .replace('      matched: { kind: term.kind, text: term.text },\n    }));',
+      '      matched: { kind: term.kind, text: term.text },\n    }))\n    .filter((r) => r.offer.status !== \'none\');')),
   [['still RETURNED by a search', 'the absence-is-a-result check']]);
 
 arm('4b  a survey note copied into the public vendored file',

@@ -192,7 +192,17 @@ export function searchDirectory(q, { file = DIRECTORY_FILE, cap = RESULT_CAP } =
   return [...best.values()]
     .sort((a, b) => a.score - b.score || a.term.row.lta.localeCompare(b.term.row.lta, 'en'))
     .slice(0, cap)
-    .map(({ term }) => ({ offer: offerOf(term.row), reason: reasonFor(term) }));
+    // `matched` travels with the row because OA-308 tier 3 needs to know HOW a
+    // row was found, not just that it was: a hit on a town name means the
+    // directory records a map OF that town, and offering a "why is there no
+    // map?" letter about a map we have just linked to is the one thing that
+    // would make the panel look unread. See suggestionApplies() in
+    // public/js/shared/suggest-letter.mjs, which is the only reader of it.
+    .map(({ term }) => ({
+      offer: offerOf(term.row),
+      reason: reasonFor(term),
+      matched: { kind: term.kind, text: term.text },
+    }));
 }
 
 /** Why this row came back — the reader's words, not the index's. */

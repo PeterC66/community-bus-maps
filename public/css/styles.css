@@ -325,6 +325,28 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
   border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
 }
 
+/* OA-308 tier 3 — the letter a reader sends when nobody publishes a map.
+   Closed by default: six paragraphs opened inside every card would push the
+   second and third directory rows off the screen, and the row itself is the
+   answer for most readers. `<pre>` wraps rather than scrolling, because this
+   text exists to be READ and retyped as much as to be copied — a reader with no
+   JavaScript has no copy button and must be able to see all of it. */
+.dir-ask { margin: 14px 0 0; border-top: 1px dashed var(--border); padding-top: 10px; }
+.dir-ask summary { cursor: pointer; font-weight: 600; font-size: .92rem; }
+.dir-ask-note { color: var(--muted); font-size: .86rem; margin: 10px 0; max-width: 70ch; }
+.dir-ask-extra { margin-top: 16px; }
+.dir-letter {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: .84rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0 0 10px;
+}
+.dir-ask-actions { margin: 0 0 4px; }
+
 /* ---------- faq ---------- */
 .faq details { border: 1px solid var(--border); border-radius: 12px; padding: 4px 18px; margin-bottom: 12px; background: var(--bg); }
 .faq summary { cursor: pointer; font-weight: 600; padding: 14px 0; list-style: none; }

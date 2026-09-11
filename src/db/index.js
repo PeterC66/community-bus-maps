@@ -74,8 +74,16 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     and two measured indexes exist. Both are ADDITIVE — no column changed type,
  *     no value was rewritten, no table was rebuilt — so the rollback promise above
  *     is unaffected and a v1 release opens a v2 database exactly as before.
+ * 3 = 2026-09-11, OA-308 tier 4: two new tables, `search_demand` and
+ *     `search_demand_skipped`, holding the tally of place names people searched
+ *     for and found no map of. NEW TABLES rather than new columns, which is
+ *     additive in the strongest sense the rollback promise has: a v2 release
+ *     opens a v3 database and simply never selects from them, and nothing in
+ *     them is read by any route. Deleting both by hand loses a count and breaks
+ *     nothing — see src/search/demand.js for why they are shaped as a tally and
+ *     not as a log.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {

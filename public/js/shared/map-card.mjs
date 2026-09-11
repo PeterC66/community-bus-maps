@@ -24,6 +24,8 @@
 //   - `type="module"` in the browser and a normal import in Node, which is why
 //     the extension is .mjs and the paths in importers are explicit.
 
+import { suggestionApplies, suggestionLetter, letterPlainText } from './suggest-letter.mjs';
+
 /** HTML-escape a value for use in text or a quoted attribute. */
 export const esc = (s) => String(s == null ? '' : s)
   .replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -109,10 +111,18 @@ export function noResultBlock(q, hasDirectory = false) {
  *     and suppressing it would leave the reader thinking we simply had not
  *     looked.
  *
+ * OA-308 TIER 3 adds a fourth thing that is not optional: where the directory
+ * says nobody publishes a map of the reader's town, the card carries the LETTER
+ * that asks for one — visible in full, never behind JavaScript, and addressed by
+ * the reader from their own email. public/js/shared/suggest-letter.mjs holds the
+ * four rules that block exists to keep, the first of which is that we never send
+ * it. `query` and `matchKind` are what decide whether it appears at all.
+ *
  * @param {object} d   an offer as shaped by offerOf() in src/search/directory.js
  * @param {string} reason why this row answered the query
+ * @param {{query?: string, matchKind?: string}} [ctx] what the reader asked, and how this row answered
  */
-export function directoryCard(d, reason) {
+export function directoryCard(d, reason, ctx = {}) {
   const what = d.status === 'network'
     ? `Publishes a map of the whole network${d.format ? ` (${esc(d.format)})` : ''}${d.dated ? `, dated ${esc(monthGB(d.dated))}` : ''}.`
     : d.status === 'town'
@@ -137,8 +147,41 @@ export function directoryCard(d, reason) {
         ${reason ? `<p class="search-hit-reason">${esc(reason)}</p>` : ''}
         <div class="outputs">Published by ${esc(d.authority)}, last checked on ${esc(whenGB(d.checked))}</div>
         ${action ? `<p class="dir-action">${action}</p>` : ''}
+        ${suggestBlock(d, ctx)}
       </div>
     </article>`;
+}
+
+/**
+ * OA-308 TIER 3 — "then ask them for one", under the row that just said nobody
+ * publishes it.
+ *
+ * `<details>` rather than an always-open block, because the letter is six
+ * paragraphs and the card above it is four lines: open by default it would bury
+ * the second and third directory rows under the first one's letter. `<details>`
+ * is also the one disclosure widget that works with JavaScript off, which
+ * matters here more than anywhere else on the site — the reader this exists for
+ * is the reader who got no map.
+ *
+ * The copy button is `hidden` in the markup and public-maps.js unhides it. That
+ * way round on purpose: a button that does nothing is worse than no button, and
+ * with no JavaScript there is nothing for it to do. The letter itself is in the
+ * page either way.
+ */
+function suggestBlock(d, { query = '', matchKind = '' } = {}) {
+  const { show } = suggestionApplies(d, query, matchKind);
+  if (!show) return '';
+  const letter = suggestionLetter(d, query);
+  const plain = letterPlainText(letter);
+  return `<details class="dir-ask">
+        <summary>Ask them for one — a letter you can send</summary>
+        <p class="dir-ask-note"><strong>You send this, not us.</strong> A council answers a resident of its own area; it files a supplier's round robin. Copy it into your own email, add your name and where you live, and send it to ${esc(d.authority)} — their website has the contact address, and a named councillor or your MP is worth copying in. Your town or parish council can commission a map too, and often decides faster than a county can; there is no national list of their addresses, so you will need to look yours up.</p>
+        <p class="dir-ask-note"><strong>Put it in your own words.</strong> A short letter that sounds like you is worth ten identical ones — say which bus you use, or which journey you cannot work out. What is below is a starting point, not a form.</p>
+        <pre class="dir-letter" data-letter>${esc(plain)}</pre>
+        <p class="dir-ask-actions"><button type="button" class="btn btn-ghost" data-copy-letter hidden>Copy the letter</button></p>
+        <p class="dir-ask-note dir-ask-extra"><strong>If you would like to mention us, add this — and only if you want to.</strong> We have deliberately kept it out of the letter above: a letter that recommends a supplier without saying who wrote it is not a letter from a resident.</p>
+        <pre class="dir-letter" data-letter-extra>${esc(letter.extra)}</pre>
+      </details>`;
 }
 
 /** "2026-07" as "July 2026". A bare year stays a bare year. */
@@ -172,7 +215,7 @@ export function directoryBlock(rows, { query = '', size = 0 } = {}) {
   return `<div class="dir-block">
       <h3>Not ours — what the local transport authority publishes</h3>
       <p class="dir-note">These are other people's maps, listed so you can find one that already exists. We checked that each was there on the date shown and nothing more: we do not maintain them and cannot vouch for what they say.</p>
-      <div class="grid cols-2">${rows.map((r) => directoryCard(r.offer, r.reason)).join('')}</div>
+      <div class="grid cols-2">${rows.map((r) => directoryCard(r.offer, r.reason, { query, matchKind: (r.matched || {}).kind || '' })).join('')}</div>
     </div>`;
 }
 

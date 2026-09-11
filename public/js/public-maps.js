@@ -46,6 +46,43 @@ import { grid as renderGrid, directoryBlock } from './shared/map-card.mjs';
 
   function paintDirectory(html) {
     if (dirEl) dirEl.innerHTML = html || '';
+    armLetters();
+  }
+
+  // OA-308 TIER 3 — the copy buttons on the "ask them for one" letters.
+  //
+  // The letter is IN the page, in a <pre>, whether this file runs or not: a
+  // reader with no JavaScript can read it and retype it, which is the point of
+  // rendering the panel server-side at all. So the button is written `hidden`
+  // and unhidden here, and only where there is a clipboard to write to. A button
+  // that silently does nothing is worse than no button, and the reader this
+  // whole panel exists for — the one whose town has no map — is exactly the
+  // reader we should not be showing dead controls to.
+  function armLetters() {
+    if (!dirEl) return;
+    const usable = !!(navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext);
+    dirEl.querySelectorAll('[data-copy-letter]').forEach((b) => { b.hidden = !usable; });
+  }
+
+  if (dirEl) {
+    dirEl.addEventListener('click', async (e) => {
+      const btn = e.target.closest && e.target.closest('[data-copy-letter]');
+      if (!btn) return;
+      const block = btn.closest('.dir-ask');
+      const pre = block && block.querySelector('[data-letter]');
+      if (!pre) return;
+      try {
+        await navigator.clipboard.writeText(pre.textContent);
+        const was = btn.textContent;
+        btn.textContent = 'Copied — now paste it into an email';
+        setTimeout(() => { btn.textContent = was; }, 4000);
+      } catch {
+        // Refused (permissions, an insecure context we mis-detected). Say so
+        // rather than looking like it worked: the text is right there to select.
+        btn.textContent = 'Could not copy — select the text above instead';
+      }
+    });
+    armLetters();
   }
 
   async function loadAll() {
@@ -60,13 +97,19 @@ import { grid as renderGrid, directoryBlock } from './shared/map-card.mjs';
     }
   }
 
-  async function runSearch(q) {
+  async function runSearch(q, submitted = false) {
     if (meta) {
       meta.hidden = false;
       meta.textContent = `Searching for “${q}”…`;
     }
     try {
-      const body = await (await fetch(`/api/public/search?q=${encodeURIComponent(q)}`)).json();
+      // OA-308 tier 4 — `intent=submit` says the reader MEANT this query, as
+      // opposed to being half way through typing it. The server counts a miss
+      // only when it sees it, so the demand tally holds "Harrogate" and not
+      // "har", "harr", "harro". It is the only thing this parameter does; the
+      // results are identical either way.
+      const intent = submitted ? '&intent=submit' : '';
+      const body = await (await fetch(`/api/public/search?q=${encodeURIComponent(q)}${intent}`)).json();
       const results = (body && body.results) || [];
       const corrected = body && body.corrected;
       const directory = (body && body.directory) || [];
@@ -96,18 +139,18 @@ import { grid as renderGrid, directoryBlock } from './shared/map-card.mjs';
     }
   }
 
-  function apply(q) {
+  function apply(q, submitted = false) {
     const trimmed = (q || '').trim();
     const url = trimmed ? `/maps?q=${encodeURIComponent(trimmed)}` : '/maps';
     if (location.pathname + location.search !== url) history.replaceState(null, '', url);
-    if (trimmed.length >= 2) runSearch(trimmed);
+    if (trimmed.length >= 2) runSearch(trimmed, submitted);
     else loadAll();
   }
 
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      apply(input ? input.value : '');
+      apply(input ? input.value : '', true);
     });
   }
   if (input) {
