@@ -79,7 +79,19 @@ function adviserContent({ link, mapName, to }) {
     ? `That link lasts about fifteen minutes and can only be used once. If it has already gone stale, open ${signIn} and enter ${to} — the address this email came to — and a fresh one will be sent.`
     : 'That link lasts about fifteen minutes and can only be used once. If it has already gone stale, ask whoever invited you for another.';
   const paras = [
-    `You have been asked to look at the ${map} before it goes out, and this is how to see it.`,
+    // "AND TO SEE NEW VERSIONS BEFORE THEY GO OUT", not "before it goes out"
+    // (Peter, 2026-09-12, reading the real thing). The first wording asserts that
+    // there is something waiting that has not been published — true for a map
+    // with a draft on the bench, and false for Ramsey, which went public before
+    // anybody showed it to him, and false for every map whose working head is its
+    // published version, which is all of them until somebody edits one.
+    //
+    // The obvious repair is to branch on the version's state, and it is the wrong
+    // one: this is the third thing in this feature to assert a state it had not
+    // checked, and a sentence with no state in it cannot go stale. It also says
+    // the truer thing — what is being offered is a standing arrangement, not one
+    // document. The PAGE says what is on the bench today, because the page asks.
+    `You have been asked to look at the ${map}, and to see new versions of it before they go out. This is how.`,
     `Sign in here:`,
     link,
     stale,
@@ -88,7 +100,12 @@ function adviserContent({ link, mapName, to }) {
     'If you were not expecting this and do not know what it is about, you can ignore it. Nothing happens until the link is used.',
   ];
   return {
-    subject: `You can now see the ${map} before it is published`,
+    // Same correction as the first paragraph, and the subject is the half that
+    // matters most because it is what decides whether the email is opened at all:
+    // "before it is published" asserts something unpublished is waiting, which is
+    // false for every map whose working head is its published version. This is
+    // true whatever is on the bench, and 69 characters, so it survives Gmail.
+    subject: `You can now see new versions of the ${map} before they go out`,
     text: `${paras.join('\n\n')}\n`,
     html: paras
       .map((p, i) => (i === 2

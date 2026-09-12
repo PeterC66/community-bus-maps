@@ -452,6 +452,23 @@ export default async function adminRoutes(app) {
       if (user.role !== 'adviser') {
         return reply.code(409).send({ ok: false, error: `${email} already has a ${user.role} account — a local adviser must be a separate person.` });
       }
+      // A DISABLED ACCOUNT IS REFUSED RATHER THAN GRANTED (2026-09-12). Peter hit
+      // this cleaning up a test: he disabled the account, asked them again, and
+      // the console said it had worked. It had not — requestMagicLink() returns
+      // null for any account that is not `active`, so no link was issued and no
+      // email was sent, while the grant row was written and the response said
+      // `ok`. The admin believed they had invited somebody who could not sign in.
+      //
+      // REFUSED, NOT SILENTLY RE-ENABLED. Disabling is a deliberate act and may
+      // have been for cause; turning it back on through a side door is a
+      // privilege change nobody asked for. So this names the remedy instead and
+      // leaves the decision where it was made.
+      if (user.status !== 'active') {
+        return reply.code(409).send({
+          ok: false,
+          error: `${email} has an account that is switched off, so no sign-in link can be sent. Set it back to active on the Users tab, then ask them again.`,
+        });
+      }
     } else {
       const userId = insertUser({ customer_id: null, email, name: str(b.name, 120) || null, role: 'adviser' });
       user = getUser(userId);
@@ -471,19 +488,29 @@ export default async function adminRoutes(app) {
     // unsolicited bare link that names neither the map nor a reason. The map's
     // name travels with it because it is the only thing that makes the email
     // recognisable as part of a conversation they are already having.
+    // AND THE ANSWER IS REPORTED RATHER THAN SWALLOWED. Every outcome below used
+    // to end in the same `ok: true`: a provider that threw was logged and
+    // forgotten, and an instance with no provider configured printed the link to
+    // a console the admin is not watching. `emailed` is what the console now says
+    // out loud — the same lesson as the Sign-out button that navigated away
+    // without reading its own response.
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
     if (link) {
       try {
         const r = await sendMagicLink({ to: email, link, kind: 'adviser', mapName: map.name });
+        emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Adviser sign-in link for ${email}:\n    ${link}\n`);
       } catch (e) {
+        emailError = e.message;
         req.log.error({ email, err: e.message }, 'adviser invite email failed to send');
       }
     }
-    req.log.info({ mapId: map.id, userId: user.id, email, created }, 'local adviser granted a map');
-    logAudit(req, 'adviser.grant', { mapId: map.id, detail: { userId: user.id, email, created, note: str(b.note, 500) || null } });
-    return { ok: true, created, adviser: { userId: user.id, email, name: user.name }, inviteLink: DEV_LINKS ? link : undefined };
+    req.log.info({ mapId: map.id, userId: user.id, email, created, emailed }, 'local adviser granted a map');
+    logAudit(req, 'adviser.grant', { mapId: map.id, detail: { userId: user.id, email, created, emailed, note: str(b.note, 500) || null } });
+    return { ok: true, created, emailed, emailError, adviser: { userId: user.id, email, name: user.name }, inviteLink: DEV_LINKS ? link : undefined };
   });
 
   app.delete('/maps/:id/advisers/:userId', async (req, reply) => {

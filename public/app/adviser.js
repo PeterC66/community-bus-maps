@@ -151,8 +151,19 @@
 
       const wanted = Number(new URLSearchParams(location.search).get('map')) || null;
       if (!list.maps.length && !wanted) {
+        // NOT "nobody has asked you yet" (Peter, 2026-09-12, after revoking his
+        // own test grant and signing in to see what it said). This page cannot
+        // tell the two empty states apart — never granted, and granted then
+        // stopped — and the "yet" asserts the first, which is false for anybody
+        // whose grant has ended. Same fault as calling a published sheet a draft:
+        // the page stating a history it has not checked.
+        //
+        // It deliberately does not say "your access was withdrawn" either. If a
+        // grant ends, that is for a person to explain in a letter, not for a page
+        // to announce to a volunteer who did us a favour. Peter's wording, which
+        // is true in both states and implies nothing about which one this is.
         $('intro').textContent = list.mine
-          ? 'Nobody has asked you to look at a map yet. When we do, it will appear here.'
+          ? 'There is no map for you to look at just now. When there is, it will appear here.'
           : 'No map currently has a local adviser.';
         return;
       }
