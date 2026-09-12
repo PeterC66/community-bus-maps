@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.69 | 2026-09-12 | sha=a49f04ea -->
-**v1.69** · updated 12 September 2026
+<!-- docstamp v1.70 | 2026-09-12 | sha=01af9be9 -->
+**v1.70** · updated 12 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -427,7 +427,7 @@ Then check `/health?deep=1` for the expected `version` + `gitSha` and four green
 
 **What a rollback does to sessions, deliberately.** The `session.token` column holds a SHA-256 since N3 and keeps its old NAME so that older code compares a raw cookie against a hash, matches nothing, and everybody signs in again — a rename would leave a MISSING column and throw on every request at the worst possible moment. The test asserts exactly that: the old release opens the database, reads every table, and simply does not match the session.
 
-**And the database says which generation it is.** `schema_version` (one row) records the `SCHEMA_VERSION` of the code that last migrated it. Reading a database written by a NEWER release — precisely what a rollback leaves behind — logs a warning naming both numbers and carries on. It is never a refusal: an app that will not boot after a rollback turns a bad ten minutes into an outage. **Bump `SCHEMA_VERSION` in `src/db/index.js` when you add a migration.**
+**And the database says which generation it is.** `schema_version` (one row) records the `SCHEMA_VERSION` of the code that last migrated it. Reading a database written by a NEWER release — precisely what a rollback leaves behind — logs a warning naming both numbers and carries on. It is never a refusal: an app that will not boot after a rollback turns a bad ten minutes into an outage. **Bump `SCHEMA_VERSION` in `src/db/index.js` when you add a migration.** That sentence was advice and nothing else until 2026-09-12, when PR #282 added an `ALTER TABLE` and left the constant at 4 with the whole suite green; `scripts/test-schema-version.mjs` now holds the numbered version blocks above the constant to the migrations below it, so a migration no block describes is a red test rather than something a reader has to remember (buses-data OA-325).
 
 **Two traps for an AI assistant driving this:**
 
