@@ -47,8 +47,27 @@ import { draftLabel, ensureDraftMarked } from '../render/draftStamp.js';
 import { watermarkSvgDocument } from '../render/watermark.js';
 import { parseOutputs, requireAdviser, str } from '../http/helpers.js';
 
-/** The words tiled across every sheet an adviser is shown. */
-export const ADVISER_WATERMARK = 'DRAFT — not published';
+/**
+ * The words tiled across a sheet an adviser is shown, WHICH DEPEND ON WHAT THEY
+ * ARE LOOKING AT.
+ *
+ * This was the flat string `DRAFT — not published` until 2026-09-12, applied to
+ * whatever the map's working head happened to be — so a map whose head IS its
+ * published version had the sheet that is on the public site stamped, to a member
+ * of the public, as an unpublished draft. That is every map nobody has edited
+ * since publishing it, which is the ordinary case and was the case for the very
+ * map this seat was built for. A marking that can be wrong is worse than none: the
+ * whole reason the watermark exists is that a screenshot carries nothing but its
+ * own pixels, so whatever it says travels further than any of our corrections.
+ *
+ * A published version gets the same `BusMaps.uk` mark the public JPG downloads
+ * carry, for the reason watermark.js gives: a forwarded copy should still say who
+ * to ask for an unmarked one.
+ */
+export const ADVISER_DRAFT_WATERMARK = 'DRAFT — not published';
+export const ADVISER_PUBLISHED_WATERMARK = 'BusMaps.uk';
+export const adviserWatermark = (state) =>
+  (state === 'published' ? ADVISER_PUBLISHED_WATERMARK : ADVISER_DRAFT_WATERMARK);
 
 /** One version, as little of it as the screen needs. */
 const versionShape = (v) => (v ? {
@@ -195,6 +214,6 @@ export default async function adviserRoutes(app) {
     // An unpublished draft must not sit in a shared cache, and must not be re-read
     // from a private one either: the version behind this URL changes on every save.
     reply.header('Cache-Control', 'no-store');
-    return reply.send(watermarkSvgDocument(svg, ADVISER_WATERMARK));
+    return reply.send(watermarkSvgDocument(svg, adviserWatermark(ver && ver.review_state)));
   });
 }

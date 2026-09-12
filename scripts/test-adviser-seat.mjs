@@ -371,7 +371,48 @@ console.log('\nasking somebody, and stopping asking them');
   eq('  …and the adviser is back in', r.status, 200);
 }
 
+// ===========================================================================
+console.log('\nand when the working head IS the published version, it says so — the ORDINARY case');
+// ===========================================================================
+// THE FAULT THIS SECTION EXISTS FOR, found on 2026-09-12 by asking what the first
+// real grantee would actually see. A map's working head is its published version
+// for as long as nobody edits it after publishing, which is true of every map in
+// the live estate — so the first thing the seat was ever going to show anybody was
+// a published sheet, and the first cut called it "Draft 8.0" in bold, watermarked
+// it DRAFT — not published, and told a member of the public not to pass it on.
+// Every assertion above passed throughout, because every one of them was about a
+// draft. The state nobody tested was the only state that existed.
+db.setVersionState(versionId, 'published');
+db.setPublishedVersion(advisedMap, versionId);
+{
+  const r = await get(`/api/adviser/maps/${advisedMap}`, adviserTok);
+  eq('the map still opens', r.status, 200);
+  eq('  …and the version reports itself published', r.json.map.version.published, true);
+  check('  …and its label says Published, not Draft', /^Published 1\.0/.test(r.json.map.version.label),
+    r.json.map.version.label);
+
+  const sheet = await get(`/api/adviser/maps/${advisedMap}/sheets/internal`, adviserTok);
+  eq('the sheet is still served', sheet.status, 200);
+  check('  …watermarked BusMaps.uk rather than DRAFT', sheet.body.includes('BusMaps.uk'), 'no BusMaps.uk mark');
+  check('  …and NOT claiming to be unpublished', !sheet.body.includes('DRAFT'),
+    'a published sheet is still stamped DRAFT — the fault this section exists for');
+  check('  …with the footer left alone, because a published render carries the plain number',
+    />Map version 1\.0</.test(sheet.body), 'the footer of a published version was rewritten');
+}
+// THE CONTROL, and it is what makes the four rows above mean anything: put the
+// version back to a draft and every one of them must flip. Without it, a change
+// that simply removed the DRAFT marking altogether would pass this section.
+db.setVersionState(versionId, 'draft');
+{
+  const r = await get(`/api/adviser/maps/${advisedMap}`, adviserTok);
+  check('CONTROL: back in draft, the label says Draft again', /^Draft 1\.0/.test(r.json.map.version.label),
+    r.json.map.version.label);
+  eq('CONTROL: …and it no longer reports itself published', r.json.map.version.published, false);
+  const sheet = await get(`/api/adviser/maps/${advisedMap}/sheets/internal`, adviserTok);
+  check('CONTROL: …and the sheet is watermarked DRAFT again', sheet.body.includes('DRAFT'), 'no DRAFT mark');
+}
+
 console.log('');
 if (failures) { console.error(`${failures} check(s) failed.`); process.exit(1); }
-console.log('The local adviser can see the draft they were asked about, and nothing else.');
+console.log('The local adviser can see the version they were asked about, told truthfully what it is, and nothing else.');
 process.exit(0);

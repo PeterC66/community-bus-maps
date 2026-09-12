@@ -46,18 +46,31 @@ function when(created) {
 }
 
 /**
- * The words for a version that is not published. `pending` means an editor has
- * asked for it to be reviewed and an approver has not decided yet, so it says so —
- * that is the copy Peter is most likely to be marking up.
+ * The words for one version, whatever state it is in. `pending` means an editor
+ * has asked for it to be reviewed and an approver has not decided yet, so it says
+ * so — that is the copy Peter is most likely to be marking up.
  *
  * Kept SHORT on purpose. The line is end-anchored at the right of the footer band
  * and grows leftward towards the attribution notes; "Draft 5.0 · 19 Aug 2026 14:02"
  * is about 38mm at 2.8mm type against roughly 48mm of clear band on a town sheet.
+ *
+ * **IT NOW ANSWERS FOR `published` TOO, AND UNTIL 2026-09-12 IT DID NOT** — it fell
+ * through to "Draft" for every state it did not name. That was harmless while its
+ * only caller was the per-version download route, which asks it nothing about a
+ * published version (see the `review_state !== 'published'` guard there): a
+ * function used behind a guard is only ever as total as the guard. Then the local
+ * adviser's seat (OA-154 D1) called it for whatever a map's WORKING HEAD happens
+ * to be, and a map whose head is its published version — which is every map that
+ * has not been edited since it was published, including the one the seat was built
+ * for — was described to a member of the public as a draft. The repair is to make
+ * the function total rather than to add a second guard at the new call site,
+ * because the next caller would need the same guard and would not know it.
  */
 export function draftLabel(state, versionNumber, createdAt) {
   const word = state === 'pending' ? 'In review'
     : state === 'superseded' ? 'Superseded'
     : state === 'rejected' ? 'Not published'
+    : state === 'published' ? 'Published'
     : 'Draft';
   const stamp = when(createdAt);
   return `${word} ${versionNumber}${stamp ? ` · ${stamp}` : ''}`;
