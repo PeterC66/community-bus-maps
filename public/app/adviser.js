@@ -67,12 +67,29 @@
     // The words the artwork itself carries, so the page and the sheet cannot
     // disagree about which copy this is (src/render/draftStamp.js writes the same
     // label into the footer).
-    $('intro').innerHTML = 'This is <b>' + esc(map.version.label) + '</b> of the bus map for '
-      + esc(map.name) + '. Have a look at it and tell us anything that is wrong, missing, or would '
-      + 'confuse somebody trying to catch a bus. There is no need to be gentle — the whole reason '
-      + 'you are looking at it is that you know the ground and the map does not.';
+    //
+    // TWO STATES, NOT ONE, and the second is the ORDINARY case rather than an edge
+    // (fixed 2026-09-12). A map's working head is its published version for as long
+    // as nobody edits it after publishing — which was true of the first map this
+    // page was ever granted on — and the first cut of this page called that a
+    // draft, in bold, to a member of the public. What matters here is that the
+    // page never asserts a state the version is not in; the invitation to be blunt
+    // is true either way.
+    const invite = ' Have a look and tell us anything that is wrong, missing, or would confuse '
+      + 'somebody trying to catch a bus. There is no need to be gentle — the whole reason you are '
+      + 'looking at it is that you know the ground and the map does not.';
 
-    if (!map.version.published) {
+    if (map.version.published) {
+      $('intro').innerHTML = 'This is <b>' + esc(map.version.label) + '</b> of the bus map for '
+        + esc(map.name) + ' — the version that is on the public site now. '
+        + '<b>There is no newer draft waiting for you.</b> When we rebuild this map, the new '
+        + 'version will appear on this page as soon as it exists, before it goes out.' + invite;
+      note($('draftNotice'), 'ok',
+        'Nothing here is unpublished, so there is nothing to keep to yourself — this is the same '
+        + 'map anybody can see.');
+    } else {
+      $('intro').innerHTML = 'This is <b>' + esc(map.version.label) + '</b> of the bus map for '
+        + esc(map.name) + '.' + invite;
       note($('draftNotice'), 'warn',
         'This is a draft. It is not on the public site, and please do not pass it on or post it — '
         + 'an unchecked bus map doing the rounds is worse than no bus map at all.');
