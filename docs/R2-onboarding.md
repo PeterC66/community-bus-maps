@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.6 | 2026-09-04 | sha=68e82569 -->
-**v1.6** · updated 4 September 2026
+<!-- docstamp v1.7 | 2026-09-12 | sha=dd46bf5a -->
+**v1.7** · updated 12 September 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -33,6 +33,27 @@ Approving, in one action:
 - writes it all to the **audit log**.
 
 > **Guard:** if that email **already has an account**, approve returns a 409 — the person is already a user. Approve the organisation another way, or ask them to sign in.
+
+### Step 2a — Turn OFF *Sample maps* for a real organisation (PILOT)
+
+**Approving does not do this and cannot safely guess it.** A new customer is created with both per-customer opt-outs **ON** — `customer.is_sample` and `customer.watermark_enabled` both default to 1, and approve sets neither — because each defaults towards the honest state rather than the confident one. For an organisation that is genuinely ours — a test account, a demo — that is correct and you leave it alone. For a real external organisation it is **wrong the moment they publish**, and it is wrong in a way that lands on their own badge.
+
+**Why it matters more than it sounds.** While *Sample maps* is on, every sheet they publish carries the red band reading *PILOT — SAMPLE MAP · Made to test the system. **Not published by any organisation.** Do not rely on it for travel.* That middle sentence is a claim about the map, and the first organisation ever to register would have found it printed directly above their own name. Until 2026-09-12 there was no way to turn it off at all (buses-data OA-320); now there is, and the only thing between a real customer and that sentence is this step.
+
+In **Admin → Customers**, on that organisation's row:
+
+- **Sample maps** — turn **off**. This is a correctness question, not a preference, and it is not theirs to choose.
+- **Watermark downloads** — decide separately, **with them**. This one genuinely is a preference: it puts a diagonal *BusMaps.uk* across the JPG for anyone who is not the owning customer or an admin, and some organisations will want it kept. The two sit side by side in the table because they are flipped at the same moment, not because they are the same question.
+
+**What happens to sheets that already exist.** If you are handing an organisation a map we published ourselves, **reassign the map's owner** rather than rebuilding it: the reassignment reconciles that map's stored renders as part of the same action, so the band comes off the sheets already in the object store, and any version they render afterwards is drawn without the band from the start. **There is no button for this in the admin console** — it is the API call in [R1, *What-if / rollback*](R1-create-map.md#what-if--rollback): `POST /api/admin/maps/<id>/owner`, admin, needing a sign-in from the last 30 minutes. **Read the `restamped` object in its reply rather than assuming**, because the owner change is committed before the reconciliation is attempted: `{"error": true}` means the map moved and its stored sheets did not, which leaves the old band over its new owner's badge and looks exactly like success.
+
+**If that reports an error — or you have flipped `is_sample` directly in the database —** reconcile the whole store by hand. One line, run from the repository root on the laptop (`C:\Claude\community-bus-maps`), with no placeholders:
+
+```bash
+npm run ssh -- "cd /opt/community-bus-maps && docker compose run --rm portal node scripts/restamp-renders.mjs"
+```
+
+It writes nothing without `--apply`; add it to the quoted command once the dry run says what it would change. The full reasoning, and what stays site-wide once a real organisation is publishing, is in [PILOT.md, *What it does*](PILOT.md#what-it-does).
 
 ## Step 3 — Get the invite to them
 

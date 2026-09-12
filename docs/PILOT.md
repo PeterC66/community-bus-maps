@@ -1,7 +1,7 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.8 | 2026-09-11 | sha=aade9baf -->
-**v1.8** · updated 11 September 2026
+<!-- docstamp v1.9 | 2026-09-12 | sha=dec9a546 -->
+**v1.9** · updated 12 September 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -46,7 +46,7 @@ PILOT_MODE=0
 That is the whole switch — restart and every item in the table above is gone. It does **not** enable indexing; that is `ALLOW_INDEXING=1`, and the two are deliberately independent. Then, in this order:
 
 1. **Set `PILOT_MODE=0`** in the deployment environment (and `.env`).
-2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already reviewed and published. Run it from the repository root — `C:\Claude\community-bus-maps` on the laptop, `/srv/busmaps` on the host — with no placeholders:
+2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already reviewed and published. Run it from the repository root — `C:\Claude\community-bus-maps` on the laptop, `/opt/community-bus-maps` (`DEPLOY_APP_DIR`) on the host — with no placeholders:
    ```bash
    node scripts/restamp-renders.mjs --apply
    ```
