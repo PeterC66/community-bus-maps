@@ -48,6 +48,7 @@ import { sanitizeOverrides } from '../maps/safeSubset.js';
 import { mergeGenWarnings } from '../render/genWarnings.js';
 import { OUTPUTS, OUTPUT_FILES, mapDataDir, versionDir } from '../maps/store.js';
 import { draftLabel, ensureDraftMarked } from '../render/draftStamp.js';
+import { isSampleCustomer } from '../render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { logAudit } from '../audit/index.js';
 import { bumpSearchIndex } from '../search/index.js';
 import { MAP_KINDS, operatorRead, parseOutputs, requireUser, slugify, str } from '../http/helpers.js';
@@ -149,7 +150,7 @@ export default async function editorRoutes(app) {
       // always computed it and written it to stderr on a zero exit; this is the
       // first caller to read it.
       const runs = [];
-      const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs), runs));
+      const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs), runs, { sample: isSampleCustomer(map) }));
       return { ok: true, overrides: s.overrides, rejected: s.rejected, svg, warnings: mergeGenWarnings(runs) };
     } catch (e) {
       req.log.error(e);
@@ -333,7 +334,7 @@ export default async function editorRoutes(app) {
     const { major, minor } = nextVersion(id);
     const storageKey = `v${major}.${minor}`;
     try {
-      const r = await withMapLock(id, () => renderVersion(id, s.overrides, storageKey, parseOutputs(map.outputs)));
+      const r = await withMapLock(id, () => renderVersion(id, s.overrides, storageKey, parseOutputs(map.outputs), undefined, { sample: isSampleCustomer(map) }));
       const versionId = insertVersion({ map_id: id, major, minor, note: str(b.note, 500), overrides: s.overrides, storage_key: storageKey });
       setCurrentVersion(id, versionId);
       req.log.info({ mapId: id, version: storageKey, by: user.email, genLog: r.log }, 'saved new map version');
@@ -448,7 +449,7 @@ export default async function editorRoutes(app) {
       const storageKey = `v${major}.${minor}`;
       const labels = grantsNeedingRender.map((k) => (map.kind === 'place' && OUTPUTS[k].placeLabel) || OUTPUTS[k].label);
       try {
-        const r = await withMapLock(map.id, () => renderVersion(map.id, overrides, storageKey, clean));
+        const r = await withMapLock(map.id, () => renderVersion(map.id, overrides, storageKey, clean, undefined, { sample: isSampleCustomer(map) }));
         const versionId = insertVersion({
           map_id: map.id, major, minor,
           note: `Added ${labels.join(' and ')}`,

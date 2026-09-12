@@ -28,6 +28,8 @@
     "test:landmark-tiers": "node scripts/test-landmark-tiers.mjs",
     "test:prove-red-landmark-tiers": "node scripts/prove-red-landmark-tiers.mjs",
     "test:landmark-arrivals": "node scripts/test-landmark-arrivals.mjs",
+    "test:sample-band": "node scripts/test-sample-band.mjs",
+    "test:prove-red-sample-band": "node scripts/prove-red-sample-band.mjs",
     "test:prove-red-landmark-arrivals": "node scripts/prove-red-landmark-arrivals.mjs",
     "test:selfsufficient": "node --env-file-if-exists=.env scripts/test-engine-selfsufficient.mjs",
     "test:prove-red-selfsufficient": "node --env-file-if-exists=.env scripts/prove-red-selfsufficient.mjs",

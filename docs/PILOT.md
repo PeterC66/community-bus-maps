@@ -1,7 +1,7 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.7 | 2026-09-04 | sha=3aa51496 -->
-**v1.7** · updated 4 September 2026
+<!-- docstamp v1.8 | 2026-09-11 | sha=aade9baf -->
+**v1.8** · updated 11 September 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -20,8 +20,14 @@ Considered and rejected: *experimental* (reads as "may break your data" — wron
 | Surface | What appears | Where |
 |---|---|---|
 | Every web page (17 static files + the 404) | Amber banner above the header; `[Pilot]` prefix on the tab title | `/js/site-banner.js`, generated in `src/routes/public.js` |
-| Every rendered sheet | Red band across the top: *PILOT — SAMPLE MAP · Made to test the system…* | `src/render/pilotStamp.js` |
+| Every rendered sheet **of a SAMPLE map** | Red band across the top: *PILOT — SAMPLE MAP · Made to test the system…* | `src/render/pilotStamp.js` |
 | FAQ | The `#pilot` entry — the banner's link target, and the honest long version | `public/faq.html` |
+
+**The sheet band is no longer on that list either — it is per CUSTOMER, and the other two rows are not** (2026-09-11, buses-data OA-320). The band's own words are *"Not published by any organisation"*, which is a claim about the **map**, not about the site; gated on `PILOT_MODE` alone it would have printed above the badge of the first organisation ever to register. It is now gated on `PILOT_MODE` **and** on `customer.is_sample` — are this organisation's maps ours, made to show what the system produces? — with `customer.is_demo` forcing it on regardless, because the invented councils in `scripts/seed-demo.mjs` must stay labelled after the pilot ends. `isSampleCustomer()` in `src/render/pilotStamp.js` is the whole rule, and every way of not knowing (no customer row, an unjoined column, a caller that passed nothing) answers **sample**, for the same reason `PILOT.on` defaults to on: forgetting must fail towards the honest state.
+
+**The banner and the `[Pilot]` title prefix stay site-wide, deliberately.** They say *the service around these maps is a pilot*, and that remains true on the day one organisation publishes — it is exactly the claim this file was written to make. Only the sheet band was ever a claim about an individual map. An admin turns `is_sample` off in the admin console's **Sample maps** column, at the same moment as **Watermark downloads** beside it: both are per-customer opt-outs flipped when an organisation stops being ours and starts being theirs.
+
+**The answer is baked into the stored bytes, and one event can stale it.** Reassigning a map to another organisation is that event, and `src/routes/admin.js` reconciles that map's stored renders as part of the reassignment — see [Switching it off](#switching-it-off) for the same reconciler run by hand. Baking it in is the right call *here* and the wrong one for its two neighbours: `src/render/draftStamp.js` had to move to serve time because a version's state changes every time somebody publishes, and `src/render/watermark.js` because the answer differs between two viewers at the same instant. A map's publishing organisation changes on one audited admin action, so the bytes can hold it.
 
 **Search engines are no longer on that list.** Until 2026-08-21 `PILOT_MODE` also served `Disallow: /`, and that conflated two different claims: the banner and the sheet band say *"this is a pilot"*, which is honest and worth keeping for as long as it is true, while `Disallow: /` says *"nobody may find this at all"*. Tying them to one switch meant the only way to become discoverable was to stop admitting it was a pilot. Indexing is now its own flag, `ALLOW_INDEXING` (default off, see `src/config.js` §INDEXING and `scripts/test-indexing.mjs`), so the two can be set independently — including the useful middle state of an indexed site that still says plainly that it is a pilot.
 
@@ -40,12 +46,12 @@ PILOT_MODE=0
 That is the whole switch — restart and every item in the table above is gone. It does **not** enable indexing; that is `ALLOW_INDEXING=1`, and the two are deliberately independent. Then, in this order:
 
 1. **Set `PILOT_MODE=0`** in the deployment environment (and `.env`).
-2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already reviewed and published:
+2. **Restamp the stored sheets.** Renders in the object store keep whatever band they were rendered with, including versions already reviewed and published. Run it from the repository root — `C:\Claude\community-bus-maps` on the laptop, `/srv/busmaps` on the host — with no placeholders:
    ```bash
    node scripts/restamp-renders.mjs --apply
    ```
-With `PILOT_MODE=0` this *strips* the band and re-rasterises each JPG. The transform is lossless — a stamped sheet stripped again is byte-identical to the original. Run it without `--apply` first for a dry run.
-3. **Delete the code.** `grep -rn "PILOT:" --include=* . | grep -v node_modules` finds every gated block. Whole files: `src/render/pilotStamp.js`, `scripts/restamp-renders.mjs`. Everything else is a marked block or a one-line `<script>` tag. Three things sit close to the pilot code and **must survive it**: `src/render/badgeContrast.js` and `scripts/fix-badge-contrast.mjs` (they sit next to the band in `renderMap.js` but are a correctness fix), and — since 2026-08-21 — **`src/config.js` is no longer a whole-file delete**: it also exports `INDEXING`, which has nothing to do with the pilot. Delete the `PILOT` export from it and keep the rest, or the site silently stops being indexable at the moment it stops being a pilot.
+With `PILOT_MODE=0` this *strips* the band and re-rasterises each JPG. The transform is lossless — a stamped sheet stripped again is byte-identical to the original. Run it without `--apply` first for a dry run. **Since OA-320 it asks the question once per MAP rather than once for the whole site**, so it is also the tool for reconciling a store after a customer's `is_sample` has been turned off by hand, and the reconciliation the reassignment route performs automatically. It opens the database — deliberately, and unlike the two scripts beside it — because reading a customer is the whole point; the reasoning is at the head of the file.
+3. **Delete the code.** `grep -rn "PILOT:" --include=* . | grep -v node_modules` finds every gated block. Whole files: `src/render/pilotStamp.js`, `src/render/pilotReconcile.js`, `scripts/restamp-renders.mjs`, `scripts/test-sample-band.mjs`, `scripts/prove-red-sample-band.mjs` (and the two `package.json` scripts that own the last two). The `customer.is_sample` column goes too — the migration in `src/db/index.js`, the `is_sample` line in `updateCustomerAdmin()`, the two joins in `getMap()`/`listMaps()`, the admin console's *Sample maps* column, and `isSampleCustomer()`'s callers in `src/routes/`, `src/server.js` and `scripts/import-map.mjs`; leave the column itself in the database rather than writing a migration to drop it, the way `is_demo` is kept. Everything else is a marked block or a one-line `<script>` tag. Three things sit close to the pilot code and **must survive it**: `src/render/badgeContrast.js` and `scripts/fix-badge-contrast.mjs` (they sit next to the band in `renderMap.js` but are a correctness fix), and — since 2026-08-21 — **`src/config.js` is no longer a whole-file delete**: it also exports `INDEXING`, which has nothing to do with the pilot. Delete the `PILOT` export from it and keep the rest, or the site silently stops being indexable at the moment it stops being a pilot.
 4. **Revisit the copy.** See below — most of it should *stay*.
 
 Leaving the `<script>` tags in place after `PILOT_MODE=0` is harmless: the route serves an empty file.
