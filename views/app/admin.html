@@ -38,6 +38,7 @@
       <button class="tab" data-tab="requests" role="tab">Map requests <span class="count-badge" id="badge-requests"></span></button>
       <button class="tab" data-tab="customers" role="tab">Customers <span class="count-badge" id="badge-customers"></span></button>
       <button class="tab" data-tab="users" role="tab">Users</button>
+      <button class="tab" data-tab="advisers" role="tab">Advisers</button>
       <button class="tab" data-tab="sessions" role="tab">Sessions</button>
       <button class="tab" data-tab="messages" role="tab">Messages <span class="count-badge" id="badge-messages"></span></button>
       <button class="tab" data-tab="refreshes" role="tab">Refreshes <span class="count-badge" id="badge-refreshes"></span></button>
@@ -77,6 +78,26 @@
       </div>
       <p class="hint-line">Role controls what a user may do: <strong>editor</strong> submits map edits, <strong>approver</strong> reviews + publishes, <strong>admin</strong> has full platform access. Disabling an account (rather than deleting it) keeps its history meaningful — sessions and audit rows still refer to it.</p>
       <div class="table-wrap"><div id="users">Loading…</div></div>
+    </section>
+
+    <!-- LOCAL ADVISERS (buses-data OA-154 Phase D1). Separate from Users on
+         purpose: everybody on that tab works for a customer or for us, and
+         everybody here is a member of the public who agreed to look at a draft. -->
+    <section class="admin-section" id="sec-advisers" hidden>
+      <p class="hint-line">A <strong>local adviser</strong> is somebody who knows a town we draw and has agreed to look at a draft before it goes out. They sign in with a link, see one map's current draft watermarked on screen, and can do nothing else — no downloads, no edits, no other map, and nothing about the organisation paying for it. They belong to <em>no</em> organisation; that is what keeps them out of a customer's estate.</p>
+      <p class="hint-line">They have nowhere in the portal to write an answer yet — replies still come by email and go into <code>Correspondence/</code>. Asking somebody sends them a sign-in link straight away.</p>
+      <div class="panel" style="margin-bottom:12px"><div class="body">
+        <h2 class="h4">Ask somebody to look at a map</h2>
+        <div class="ask-adviser">
+          <label>Map <select id="adviserMap"><option value="">Loading…</option></select></label>
+          <label>Email <input type="email" id="adviserEmail" maxlength="200" placeholder="them@example.com"></label>
+          <label>Name <input type="text" id="adviserName" maxlength="120" placeholder="optional"></label>
+          <label>Why them <input type="text" id="adviserNote" maxlength="500" placeholder="optional — for our own record"></label>
+          <button class="btn btn-primary btn-sm" id="askAdviserBtn" type="button">Ask them</button>
+        </div>
+        <p class="notice" id="adviserMsg"></p>
+      </div></div>
+      <div class="table-wrap"><div id="advisers">Loading…</div></div>
     </section>
 
     <section class="admin-section" id="sec-sessions" hidden>

@@ -1,0 +1,147 @@
+// The local adviser's one page — buses-data OA-154 Phase D1.
+//
+// It shows the current draft of a map somebody has been asked to look at, and it
+// is written for a member of the public doing us a favour rather than for a
+// customer using a product. Three consequences worth stating, because each one
+// looks like an omission:
+//
+//   * NO DOWNLOAD BUTTON, and no link that could become one. The sheets arrive
+//     as inline SVG from /api/adviser/maps/:id/sheets/:base, which is not a file
+//     route — there is no .svg URL to right-click and no JPG offered at all.
+//     src/routes/adviser.js is the half that enforces it; this is the half that
+//     does not tempt anybody.
+//   * NO FORM. Phase D2 — answering a map's open questions in the portal — waits
+//     on the local-decisions panel (OA-083). Until that exists, the page says how
+//     to reply instead of offering a box that feeds nothing, because the one
+//     favour a volunteer is doing must not be spent on a form nobody reads.
+//   * NOTHING ABOUT THE ORGANISATION. An adviser was asked about a TOWN. The API
+//     does not send a customer name, and there is nowhere here to put one.
+//
+// `?map=<id>` selects one when somebody has been asked about more than one, and
+// it is also how an admin opens a particular map's adviser view to check what is
+// being shown, without signing in as the adviser.
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  let viewer = null;
+  let current = null;   // the map detail we are showing
+
+  function fail(text) {
+    const e = $('err');
+    e.className = 'notice err show';
+    e.textContent = text;
+    e.hidden = false;
+  }
+
+  function note(el, kind, text) {
+    el.className = 'notice ' + kind + ' show';
+    el.textContent = text;
+    el.hidden = false;
+  }
+
+  /** Which sheet is on screen; also the tab row's state. */
+  function showSheet(base, label) {
+    if (!viewer) {
+      viewer = window.CBMViewer.create($('viewer'), {
+        noRaster: true,
+        onFail: (what) => fail('That sheet could not be loaded (' + what + '). Please tell us and we will look.'),
+      });
+    }
+    $('err').hidden = true;
+    Array.from($('sheetTabs').children).forEach((b) => b.classList.toggle('active', b.dataset.base === base));
+    viewer.show({ inlineUrl: '/api/adviser/maps/' + current.id + '/sheets/' + encodeURIComponent(base) },
+      current.name + ' — ' + label);
+  }
+
+  function paintMap(map) {
+    current = map;
+    $('pageTitle').textContent = map.name;
+    $('pageCrumb').textContent = map.subject && map.subject !== map.name ? map.subject : '';
+
+    if (!map.version || !map.sheets.length) {
+      $('intro').textContent = 'There is nothing drawn for ' + map.name + ' yet. We will write to you when there is.';
+      return;
+    }
+
+    // The words the artwork itself carries, so the page and the sheet cannot
+    // disagree about which copy this is (src/render/draftStamp.js writes the same
+    // label into the footer).
+    $('intro').innerHTML = 'This is <b>' + esc(map.version.label) + '</b> of the bus map for '
+      + esc(map.name) + '. Have a look at it and tell us anything that is wrong, missing, or would '
+      + 'confuse somebody trying to catch a bus. There is no need to be gentle — the whole reason '
+      + 'you are looking at it is that you know the ground and the map does not.';
+
+    if (!map.version.published) {
+      note($('draftNotice'), 'warn',
+        'This is a draft. It is not on the public site, and please do not pass it on or post it — '
+        + 'an unchecked bus map doing the rounds is worse than no bus map at all.');
+    }
+
+    $('sheetTabs').innerHTML = map.sheets.map((s, i) => (
+      '<button class="tab' + (i === 0 ? ' active' : '') + '" type="button" role="tab" data-base="'
+      + esc(s.base) + '">' + esc(s.label) + '</button>'
+    )).join('');
+    Array.from($('sheetTabs').children).forEach((b) => b.addEventListener('click', () => {
+      showSheet(b.dataset.base, b.textContent);
+    }));
+    $('sheetArea').hidden = false;
+    $('tellUs').innerHTML = 'Reply to the email that brought you here, or use the '
+      + '<a href="/contact.html">contact form</a>. One day you will be able to write it down here '
+      + 'against each question; for now a person reads every word of it either way.';
+    $('tellUsPanel').hidden = false;
+    showSheet(map.sheets[0].base, map.sheets[0].label);
+  }
+
+  async function openMap(id) {
+    const r = await fetch('/api/adviser/maps/' + id);
+    const body = await r.json().catch(() => null);
+    if (!r.ok || !body || !body.ok) {
+      fail((body && body.error) || 'That map could not be opened.');
+      return;
+    }
+    paintMap(body.map);
+  }
+
+  (async () => {
+    try {
+      const me = await fetch('/api/me').then((r) => (r.status === 401 ? null : r.json()));
+      if (!me) { location.href = '/app/login.html'; return; }
+      $('whoami').textContent = me.user.email;
+      $('logoutBtn').style.display = '';
+      $('logoutBtn').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        location.href = '/';
+      });
+
+      const list = await fetch('/api/adviser/maps').then((r) => r.json());
+      if (!list.ok) { fail(list.error || 'Could not load your maps.'); return; }
+
+      const wanted = Number(new URLSearchParams(location.search).get('map')) || null;
+      if (!list.maps.length && !wanted) {
+        $('intro').textContent = list.mine
+          ? 'Nobody has asked you to look at a map yet. When we do, it will appear here.'
+          : 'No map currently has a local adviser.';
+        return;
+      }
+
+      // ONE MAP IS THE ORDINARY CASE and gets no chooser at all: the person was
+      // written to about one town, and a list of one is a decision they did not
+      // need to be asked to make.
+      const only = wanted || (list.maps.length === 1 ? list.maps[0].id : null);
+      if (!only) {
+        $('mapList').innerHTML = list.maps.map((m) => (
+          '<li><a href="/app/adviser?map=' + m.id + '">' + esc(m.name) + '</a>'
+          + (m.subject && m.subject !== m.name ? ' <span class="muted">' + esc(m.subject) + '</span>' : '')
+          + '</li>'
+        )).join('');
+        $('mapListPanel').hidden = false;
+        $('intro').textContent = 'You have been asked about more than one map. Pick one.';
+        return;
+      }
+      await openMap(only);
+    } catch (e) {
+      fail('Could not reach the server. Please try again in a moment.');
+    }
+  })();
+})();

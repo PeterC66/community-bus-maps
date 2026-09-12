@@ -6,7 +6,7 @@
 // rather than close over a scope it no longer lives in. Moved verbatim.
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import { dataChangesSince, getCustomer, getMap, getOpenProposedForMap, getOpenRequestForMap, getProposedUpdate, getPublicMapBySlug, getVersionById, listProposedForMap, listPublishRequestsForMap, listPublishedHistory, listVersions } from '../db/index.js';
+import { dataChangesSince, getAdviserGrant, getCustomer, getMap, getOpenProposedForMap, getOpenRequestForMap, getProposedUpdate, getPublicMapBySlug, getVersionById, listProposedForMap, listPublishRequestsForMap, listPublishedHistory, listVersions } from '../db/index.js';
 import { brandingForPublic } from '../branding/index.js';
 import { mapPageUrl } from '../public/index.js';
 import { effectiveOutputs, enumeratePois, outputsForClient, readOverrides, readRoutesMeta } from './engine.js';
@@ -26,9 +26,20 @@ function withMapLock(id, fn) {
 
 // Load a map only if the user may EDIT it. Admins edit all; everyone else is
 // scoped to their own customer. Returns { map } or { code, error }.
+//
+// THE ADVISER LINE IS FIRST AND IS NOT REDUNDANT (OA-154 D1). An adviser's
+// customer_id is NULL — refused by a database trigger, see src/db/guards.js — so
+// the customer test below already refuses them, and this function would be
+// correct without the line. It is here because the safety of the whole adviser
+// seat otherwise rests on a fact stated in another file: this test never consults
+// `role`, so anything that ever put a customer_id on an adviser would silently
+// convert a member of the public into an editor of that organisation's entire
+// estate. Two independent refusals, one of which is about the role by name, is
+// the difference between fail-closed and fail-closed-for-now.
 function loadOwnedMap(id, user) {
   const m = getMap(id);
   if (!m) return { code: 404, error: 'No such map.' };
+  if (user.role === 'adviser') return { code: 403, error: 'You do not have access to this map.' };
   if (user.role !== 'admin' && (user.customer_id == null || m.customer_id !== user.customer_id)) {
     return { code: 403, error: 'You do not have access to this map.' };
   }
@@ -38,12 +49,45 @@ function loadOwnedMap(id, user) {
 // Load a map the user may READ (view detail / download rendered files). Same as
 // edit scope PLUS platform approvers, who must inspect any submitted map's
 // print-ready files to review it — but cannot edit it.
+//
+// An adviser is NOT admitted here, grant or no grant, and that is the point of
+// having a third loader below rather than widening this one. This is the route
+// that serves a version's finished FILES for download; what an adviser gets is a
+// sheet on screen, marked, from loadAdvisedMap().
 function loadReadableMap(id, user) {
   const m = getMap(id);
   if (!m) return { code: 404, error: 'No such map.' };
+  if (user.role === 'adviser') return { code: 403, error: 'You do not have access to this map.' };
   const owner = user.customer_id != null && m.customer_id === user.customer_id;
   if (user.role === 'admin' || user.role === 'approver' || owner) return { map: m };
   return { code: 403, error: 'You do not have access to this map.' };
+}
+
+/**
+ * Load a map a local ADVISER may LOOK AT (OA-154 D1). Returns { map, grant } or
+ * { code, error }.
+ *
+ * The reach is the grant and nothing else — not the role, which admits nobody to
+ * anything on its own, and not an organisation, which an adviser does not have.
+ * An admin passes too, so that the one screen an adviser sees can be opened by
+ * the person who granted it without impersonating anybody; every other role is
+ * refused, including an editor of the map's own customer, who has a better view
+ * of it three routes away.
+ *
+ * 403 AND NOT 404 for a map that exists but is not granted. The opposite reading
+ * — hide it entirely — is the usual advice and is wrong here: every map this
+ * could be asked about is one we publish or intend to, the adviser was invited by
+ * name, and a 404 would tell an invited person that the map they were written to
+ * about does not exist.
+ */
+function loadAdvisedMap(id, user) {
+  const m = getMap(id);
+  if (!m) return { code: 404, error: 'No such map.' };
+  if (user.role === 'admin') return { map: m, grant: null };
+  if (user.role !== 'adviser') return { code: 403, error: 'You do not have access to this map.' };
+  const grant = getAdviserGrant(m.id, user.id);
+  if (!grant) return { code: 403, error: 'You have not been asked to look at this map.' };
+  return { map: m, grant };
 }
 
 // Whether this map's owning customer has opted into the hiddenOperators
@@ -259,5 +303,5 @@ function publishedHistoryFor(map) {
 }
 
 export {
-  withMapLock, loadOwnedMap, loadReadableMap, operatorFilterAllow, boardingPlanActive, savedPoiTiers, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor,
+  withMapLock, loadOwnedMap, loadReadableMap, loadAdvisedMap, operatorFilterAllow, boardingPlanActive, savedPoiTiers, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor,
 };

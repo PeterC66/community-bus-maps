@@ -73,13 +73,13 @@ const get = (url, token) => app.inject({
   headers: token ? { cookie: `cbm_session=${token}` } : {},
 });
 
-// Enumerated from the LIVE table so an eleventh page is checked like the first.
+// Enumerated from the LIVE table so a twelfth page is checked like the first.
 const pages = table
   .filter((r) => r.startsWith('GET /app'))
   .map((r) => r.slice('GET '.length));
 
 console.log('\nthe pages the plugin owns');
-check('the table holds ten /app pages', pages.length === 10, `${pages.length}: ${pages.join(', ')}`);
+check('the table holds eleven /app pages', pages.length === 11, `${pages.length}: ${pages.join(', ')}`);
 check('the prefix did not add a trailing-slash twin of /app',
   !table.some((r) => r.endsWith(' /app/')), table.filter((r) => r.endsWith(' /app/')).join(' | '));
 
@@ -108,6 +108,12 @@ const ROLES = [
   { url: '/app/review', admits: ['approver', 'admin'], to: '/app' },
   { url: '/app/review-services.html', admits: ['approver', 'admin'], to: '/app' },
   { url: '/app/maps/:id/diagram', admits: ['admin'], to: `/app/maps/${mapId}` },
+  // The local adviser's page (buses-data OA-154 D1). Listed here for the three
+  // roles below — an editor and an approver are sent back to their own dashboard —
+  // and the role it is actually FOR is asserted in its own section further down,
+  // because an adviser's answer to every OTHER page in this list is different from
+  // everybody else's and would make this loop lie.
+  { url: '/app/adviser', admits: ['admin'], to: '/app' },
 ];
 const TOKENS = { editor: editorTok, approver: approverTok, admin: adminTok };
 const an = (role) => (role === 'admin' || role === 'approver' ? 'an ' : 'a ') + role;
@@ -129,6 +135,27 @@ for (const url of pages.filter((u) => u !== LOGIN && !ROLES.some((r) => r.url ==
   const r = await get(fill(url), editorTok);
   check(`${url}: a plain editor is served the shell`, r.statusCode === 200, `${r.statusCode} → ${r.headers.location || ''}`);
 }
+
+console.log('\nthe local adviser has exactly one page, and is sent to it from every other');
+// THE ADMISSION IS ASSERTED FIRST, deliberately: the rule below refuses an adviser
+// ten pages, and a rule that refuses everything passes a refusal-only test
+// perfectly while leaving the one person it was built for staring at a redirect
+// loop. buses-data OA-154 D1.
+const adviserId = db.insertUser({ email: 'adviser@example.com', name: 'Adviser', role: 'adviser', customer_id: null });
+const adviserTok = openSession(adviserId);
+const seat = await get('/app/adviser', adviserTok);
+check('/app/adviser: the adviser is served the shell', seat.statusCode === 200, `${seat.statusCode} → ${seat.headers.location || ''}`);
+for (const url of pages.filter((u) => u !== '/app/adviser' && u !== LOGIN)) {
+  const r = await get(fill(url), adviserTok);
+  check(`${url}: an adviser is redirected to /app/adviser`,
+    r.statusCode === 302 && r.headers.location === '/app/adviser', `${r.statusCode} → ${r.headers.location}`);
+}
+// The sign-in page declares itself anonymous, and that config is read BEFORE the
+// role rule — so an adviser holding a lapsed cookie still reaches it rather than
+// being bounced at a page they cannot be signed in to see.
+const advLogin = await get(LOGIN, adviserTok);
+check(`${LOGIN}: still served to an adviser, because the anonymous flag is read first`,
+  advLogin.statusCode === 200, `${advLogin.statusCode} → ${advLogin.headers.location || ''}`);
 
 console.log('\nthe static assets under /app are NOT behind the hook');
 // A Fastify hook is scoped to its plugin's routes, not to the URL prefix. Guarding

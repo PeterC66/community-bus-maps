@@ -1,5 +1,5 @@
 // The signed-in app's HTML SHELLS, as a Fastify plugin (OA-231, codebase review
-// Tier 4.4). Ten routes under the prefix /app, registered by src/server.js.
+// Tier 4.4). Eleven routes under the prefix /app, registered by src/server.js.
 //
 // These are pages, not API: every one of them answers a browser navigation with
 // a file or a REDIRECT, where the /api plugins answer with 401 and 403. That
@@ -12,7 +12,7 @@
 // ANYBODY until 2026-08-20 because it was a static file with no route of its own
 // (technical-audit_2026-08-19 S7) — the clearest single case in that audit. A
 // shell that forgets its guard does not fail loudly; it just serves. The hook
-// below runs before every handler in this file, so an eleventh page cannot be
+// below runs before every handler in this file, so a twelfth page cannot be
 // added without it.
 //
 // THE ONE EXCEPTION IS THE SIGN-IN PAGE, and it is declared as route config the
@@ -49,6 +49,16 @@ export default async function pageRoutes(app) {
   app.addHook('preHandler', async (req, reply) => {
     if (req.routeOptions.config.anonymous) return;
     if (!req.user) return reply.redirect('/app/login.html');
+    // A LOCAL ADVISER HAS EXACTLY ONE PAGE (buses-data OA-154 D1), and the rule is
+    // stated here rather than in ten handlers for the same reason the door above
+    // is: a twelfth page must not be able to acquire an adviser audience by
+    // being forgotten about. It is the inverse of the four role checks below —
+    // those name the pages one role MAY see; this names the one page an adviser
+    // may see and sends them to it from everywhere else. They reach none of the
+    // API those other pages call either, because loadOwnedMap() and
+    // loadReadableMap() refuse an adviser by name, so this is the courteous half
+    // of a refusal that has already happened.
+    if (req.user.role === 'adviser' && !req.routeOptions.config.adviser) return reply.redirect('/app/adviser');
   });
 
 
@@ -68,6 +78,18 @@ export default async function pageRoutes(app) {
   app.get('/review', async (req, reply) => {
     if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
     return reply.sendFile('app/review.html', VIEWS_DIR);
+  });
+
+  // The local adviser's one page (buses-data OA-154 D1). It declares itself in
+  // route config so the hook above lets an adviser reach it; the role check here
+  // is the other half — an editor or approver who types the URL is sent back to
+  // their own dashboard, because this view is a reduced rendering of a draft and
+  // reading a map through it while believing it complete would be worse than not
+  // reaching it. An admin passes, to be able to see what an adviser is shown
+  // without signing in as them.
+  app.get('/adviser', { config: { adviser: true } }, async (req, reply) => {
+    if (req.user.role !== 'adviser' && req.user.role !== 'admin') return reply.redirect('/app');
+    return reply.sendFile('app/adviser.html', VIEWS_DIR);
   });
 
   // The services-and-stops list a reviewer opens in a second tab from

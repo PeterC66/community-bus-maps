@@ -35,6 +35,7 @@ import { errorEnvelope, notFoundEnvelope, wantsJson } from './http/errors.js';
 import { str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited } from './http/helpers.js';
 import { withMapLock, downloadsForVersion } from './maps/detail.js';
 import adminRoutes from './routes/admin.js';
+import adviserRoutes from './routes/adviser.js';
 import reviewRoutes from './routes/review.js';
 import proposedRoutes from './routes/proposed.js';
 import editorRoutes from './routes/editor.js';
@@ -689,7 +690,8 @@ app.patch('/api/customer/settings', async (req, reply) => {
 
 // ===========================================================================
 // The signed-in app's HTML SHELLS -- src/routes/pages.js, one plugin under /app
-// (OA-231). Ten pages, including the P7 diagram editor's shell, which is here
+// (OA-231). Eleven pages, including the P7 diagram editor's shell and the local
+// adviser's one page (OA-154 D1), which is here
 // because this plugin owns the /app subtree. The hook redirects an anonymous
 // caller to the sign-in page (which declares itself the exception); the four
 // ROLE checks stay in the handlers and redirect rather than refuse.
@@ -735,6 +737,21 @@ await app.register(editorRoutes, { prefix: '/api/maps' });
 // that matters and it stays in the handlers, because it needs the map.
 // ===========================================================================
 await app.register(proposedRoutes, { prefix: '/api/maps/:id/proposed/:pid' });
+
+// ===========================================================================
+// The local adviser's seat -- src/routes/adviser.js, one plugin under
+// /api/adviser (buses-data OA-154 Phase D1). Three routes: the maps I have been
+// asked about, one of them, and one sheet of its current draft as marked inline
+// SVG. The plugin guard is requireAdviser; loadAdvisedMap() is the decision that
+// matters, and it admits nothing but a live grant.
+//
+// It is NOT under /api/maps, and that is the point rather than an accident of
+// naming: everything in that subtree is written for somebody who owns the map,
+// and an adviser owns nothing. The two subtrees refuse each other by name --
+// loadOwnedMap() and loadReadableMap() both turn an adviser away before they look
+// at a customer id at all.
+// ===========================================================================
+await app.register(adviserRoutes, { prefix: '/api/adviser' });
 
 // ===========================================================================
 // Expert side (P7) — the tube-map DIAGRAM pin editor.

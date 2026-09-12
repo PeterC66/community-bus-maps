@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A draft to look at — BusMaps.uk</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/app/app.css">
+  <script src="/js/account-guard.js"></script>
+  <script src="/js/site-banner.js" defer></script>
+</head>
+<body>
+  <!-- THE LOCAL ADVISER'S ONE PAGE — buses-data OA-154 Phase D1.
+       Read the plugin comment in src/routes/adviser.js for what this may and may
+       not show. The short version: an unpublished draft, marked as one, and no
+       download of any kind. There is no nav to anywhere else on purpose. -->
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <span class="spacer"></span>
+    <span class="navlink" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button" style="display:none">Sign out</button>
+  </nav></div></header>
+
+  <main class="app-main">
+    <div class="app-sub">
+      <h1 id="pageTitle">A draft to look at</h1>
+      <span class="crumb" id="pageCrumb"></span>
+    </div>
+
+    <!-- Said in words as well as in the watermark. A watermark is a warning; it
+         is not an explanation, and the person reading this was asked a favour
+         rather than handed a product. -->
+    <div class="panel">
+      <div class="body">
+        <p class="hint-line" id="intro">Loading…</p>
+        <p class="notice warn" id="draftNotice" hidden></p>
+      </div>
+    </div>
+
+    <!-- More than one map only happens if somebody has been asked about more than
+         one town. Hidden entirely for the ordinary case of one. -->
+    <div class="panel" id="mapListPanel" hidden>
+      <div class="body">
+        <h2 class="h4">Which map?</h2>
+        <ul class="plain-list" id="mapList"></ul>
+      </div>
+    </div>
+
+    <div id="sheetArea" hidden>
+      <div class="tabs" role="tablist" id="sheetTabs"></div>
+      <div class="viewer" id="viewer"></div>
+    </div>
+
+    <div class="panel" id="tellUsPanel" hidden>
+      <div class="body">
+        <h2 class="h4">Telling us what you find</h2>
+        <!-- PHASE D2 IS NOT BUILT, and this paragraph is the honest consequence
+             rather than a placeholder: there is nowhere in the portal to write an
+             answer yet, so the page says how to answer instead of showing a form
+             that feeds nothing. The address is filled in by the script from the
+             site's own contact route. -->
+        <p class="hint-line" id="tellUs"></p>
+      </div>
+    </div>
+
+    <p class="notice err" id="err" hidden></p>
+  </main>
+
+  <script src="/js/map-viewer.js"></script>
+  <script src="/app/adviser.js"></script>
+</body>
+</html>

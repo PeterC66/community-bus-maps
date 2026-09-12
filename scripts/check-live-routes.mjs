@@ -87,6 +87,7 @@ const RULES = [
   { prefix: '/app/login.html', kind: 'public', why: 'the sign-in page, anonymous by design' },
   { prefix: '/app', kind: 'page' },
   { prefix: '/api/admin', kind: 'guarded' },
+  { prefix: '/api/adviser', kind: 'guarded' },
   { prefix: '/api/review', kind: 'guarded' },
   { prefix: '/api/expert', kind: 'guarded' },
   { prefix: '/api/customer', kind: 'guarded' },
@@ -164,7 +165,7 @@ const fill = (u) => {
     .replace('/*', '/')
     .replace(':slug', slug).replace(':base', ids.base).replace(':file', ids.file)
     .replace(':handle', 'no-such-handle')
-    .replace(':pid', '999999').replace(':key', 'v9.9').replace(':id', '999999');
+    .replace(':pid', '999999').replace(':key', 'v9.9').replace(':userId', '999999').replace(':id', '999999');
 };
 
 let table;

@@ -85,7 +85,12 @@ CREATE TABLE IF NOT EXISTS user (
   customer_id   INTEGER REFERENCES customer(id), -- NULL = platform admin (not tied to one customer)
   email         TEXT NOT NULL UNIQUE,
   name          TEXT,
-  role          TEXT NOT NULL DEFAULT 'editor',  -- editor|approver|admin
+  role          TEXT NOT NULL DEFAULT 'editor',  -- adviser|editor|approver|admin
+                                                 -- ENFORCED, since 2026-09-12: src/db/enums.js USER_ROLES installs a
+                                                 -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
+                                                 -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
+                                                 -- An `adviser` may hold no customer_id at all; src/db/guards.js is
+                                                 -- the second trigger that refuses one.
   status        TEXT NOT NULL DEFAULT 'active'   -- active|disabled
 );
 
@@ -285,4 +290,37 @@ CREATE TABLE IF NOT EXISTS search_demand_skipped (
   id         INTEGER PRIMARY KEY CHECK (id = 1),
   n          INTEGER NOT NULL DEFAULT 0,
   last_seen  TEXT
+);
+
+-- ---------------------------------------------------------------------------
+-- OA-154 Phase D1 — THE LOCAL ADVISER'S SEAT.
+--
+-- A local adviser is somebody who knows the ground in a town we draw and is
+-- ASKED for a view on a draft before it is published. They are not a customer,
+-- they do not work for one, and the whole reason this table exists is that the
+-- obvious alternative is unsafe: `loadOwnedMap()` grants EDIT on a map to any
+-- non-admin whose `customer_id` matches it and never consults `role`, so
+-- attaching an adviser to an organisation BY THAT COLUMN would hand a member of
+-- the public that organisation's whole estate, its branding and its map quota.
+--
+-- So an adviser's reach is a GRANT, one row per (map, person), and their
+-- `customer_id` is NULL — refused by a trigger, not merely by a convention (see
+-- src/db/guards.js). Both halves are fail-closed by construction: a grant is the
+-- only thing that admits anybody, and there is no column left for the ownership
+-- rule to match on.
+--
+-- REVOKED, NOT DELETED, for the same reason a user is disabled rather than
+-- removed: who was shown which draft, and when, is the sort of question that is
+-- asked months later. `UNIQUE (map_id, user_id)` means re-granting is an UPDATE
+-- clearing `revoked_at`, so one person's history with one map stays one row.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS map_adviser_grant (
+  id          INTEGER PRIMARY KEY,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  map_id      INTEGER NOT NULL REFERENCES map(id),
+  user_id     INTEGER NOT NULL REFERENCES user(id),
+  granted_by  INTEGER REFERENCES user(id),   -- the admin who asked them; NULL = a script
+  note        TEXT,                           -- why them, in the admin's own words
+  revoked_at  TEXT,                           -- set when the grant ends; the row stays
+  UNIQUE (map_id, user_id)
 );
