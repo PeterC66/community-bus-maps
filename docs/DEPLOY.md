@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.69 | 2026-09-12 | sha=a49f04ea -->
-**v1.69** · updated 12 September 2026
+<!-- docstamp v1.70 | 2026-09-12 | sha=b1dfb3be -->
+**v1.70** · updated 12 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -200,6 +200,14 @@ npm run check:live-routes
 It asks the RUNNING site, anonymously, about every route in `scripts/route-table.json` — the snapshot recorded from the unsplit server and owned by `test-admin-plugin.mjs`, so the list comes from something other than the app under test. It is safe against production: guarded routes refuse before doing anything, and the six a stranger may legitimately POST to are sent an empty body that each refuses without creating a row. Two different things return 404 and it tells them apart **by the body**, which was measured rather than assumed: `{"message":"Route GET:/x not found"...}` is the router saying the route is GONE, while `{"ok":false,"error":"No published map with that name."}` is the app answering correctly about a slug nobody published. It also catches the opposite fault — a route that is still there and answers **2xx** to a stranger — and it **exits 2 on a route it has no rule for** rather than skipping it, so the check cannot quietly shrink as routes are added. `npm run test:prove-red-live-routes` breaks a route, a guard, a page redirect and a rule in turn against a scratch server on a free port, and requires each to redden the message that names it.
 
 **It was written after doing it by hand twice** — four routes after `94773e3` and twenty-eight after `fd438a6`, both times because OA-231 had moved routes between files and no gate in any of the three repositories could see a lost one.
+
+**And ask the same question of the URLs the site OFFERS a crawler, which is a different population from the route table.** The check above asks whether every route we registered still answers; this one asks whether every URL `sitemap.xml` advertises answers, on this host, saying which URL it is. Run it from the repository root (`C:\Claude\community-bus-maps`); it defaults to the live site and takes no placeholders:
+
+```bash
+npm run check:sitemap
+```
+
+Add `-- --base http://127.0.0.1:5180` to ask a local instance, and `-- --verbose` to list the sound URLs as well as the faults. It exits 1 on a URL that answers wrongly and **2 on a sitemap it could not fetch, could not parse, or that advertises nothing** — a check with no population must never report clear. **It found a real one on the day it was written** (buses-data OA-284): `/o/busmaps-uk-pilot` answered 200 and carried no `<link rel="canonical">` at all, because the route ended in a bare `sendFile` of a shell whose title and description are the same for every organisation that will ever have a page. 47 of 48 URLs were perfect, which is exactly the shape that survives a spot check. **The duplicate-identity half of the rule is reported here and ASSERTED offline**, by `npm run test:sitemap`, which seeds two organisations — with one organisation there is nothing to be a duplicate of, so a green here would as often mean *there was only one page of this kind* as *they differ*, and the run says so rather than letting a weak reading pass for a strong one. `npm run test:prove-red-sitemap` breaks the page six ways against a copy of the repository, including the arm where the sitemap stops advertising organisations at all.
 
 Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, per-map disk usage, what a prune could reclaim, and the activity counts. Same numbers as `/metrics` (Prometheus text, gated by `METRICS_TOKEN` or an admin session).
 
