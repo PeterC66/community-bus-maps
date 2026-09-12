@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.25 | 2026-09-11 | sha=e4e14a72 -->
-**v1.25** · updated 11 September 2026
+<!-- docstamp v1.26 | 2026-09-12 | sha=db7dec1e -->
+**v1.26** · updated 12 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -45,6 +45,10 @@ At launch **you wear three hats** — Admin, Approver, and central map-maker. Th
 | Recolour/toggle, choose outputs, save, submit, download | **Editor** (the customer) | `/app`, `/app/maps/:id` |
 | Per-customer branding of public pages | Customer (or you) | `/app/branding` |
 | Expert diagram pin editing | **Admin** | `/app/maps/:id/diagram` |
+| Ask somebody local to look at a map, or stop asking them | **Admin** | `/app/admin` → Advisers |
+| Look at one map's current version and say what is wrong with it | **Local adviser** (a member of the public) | `/app/adviser` |
+
+**The fourth role is not a fourth hat — it is somebody outside this operation entirely.** A **local adviser** knows a town on the ground and has agreed to look at a map before it is published. They are not a customer and do not work for one, and they reach exactly one map's current version, on screen, watermarked, with no download of any kind and nowhere to write anything down — replies still come by email into `Correspondence/`, because the answering half is not built. Asking somebody is one action on the **Advisers** tab: an email address and a map create the account, grant the map and send the sign-in link together. *Stop asking* revokes and keeps the record, since who was shown which draft, and when, is asked months later. Two operational gotchas, both learned the hard way on 2026-09-12: **a switched-off account cannot be asked**, because no sign-in link can be issued for one — the console refuses and tells you to set it active on the Users tab first; and **the console now says whether the email actually went**, so read *"no sign-in link was emailed"* as the outcome rather than a footnote. Who qualifies and why it is sign-in rather than a share link: [`Pol1-vetting-and-quota-policy.md`](Pol1-vetting-and-quota-policy.md).
 
 **Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it. **This is now enforced, not just asked for.** `POST /api/review/:id/approve` refuses when the approver is the submitter, unless `ALLOW_SELF_APPROVAL=1` is set on the host — which it currently is, because with one operator the alternative is that nothing can be published at all. Every publication made under that override is stamped `selfApproved: true` in the decision evidence and the audit row, so the trail says which publications had a second pair of eyes and which did not. Unset it the day a second person holds `approver` — item 1 of §3b below, and the only entry there that no amount of work closes.
 
