@@ -445,6 +445,36 @@ console.log('\nand the adviser can get back OUT again');
     (await get('/api/me', keepTok)).status, 200);
 }
 
+// ===========================================================================
+console.log('\nasking a SWITCHED-OFF adviser is refused, rather than quietly reaching nobody');
+// ===========================================================================
+// Peter hit this cleaning up a test on 2026-09-12: he disabled the account, asked
+// them again, and the console said it had worked. It had not. requestMagicLink()
+// returns null for any account that is not `active`, so no link was issued and no
+// email sent — while the grant row was written and the response said `ok`. The
+// admin believed they had invited somebody who could not sign in.
+{
+  const offId = db.insertUser({ email: 'switched-off@example.com', name: 'Off', role: 'adviser', customer_id: null });
+  db.updateUserAdmin(offId, { status: 'disabled' });
+  const r = await post(`/api/admin/maps/${advisedMap}/advisers`, adminTok, { email: 'switched-off@example.com' });
+  eq('a disabled adviser cannot be asked', r.status, 409);
+  check('  …and the refusal names the remedy rather than the mechanism',
+    /Users tab/.test((r.json || {}).error || ''), JSON.stringify(r.json));
+  check('  …and no grant was written, so the list does not gain somebody who cannot get in',
+    !db.getAdviserGrant(advisedMap, offId), 'a grant was made for a disabled account');
+
+  // THE CONTROL: the identical request against the same account, once active.
+  db.updateUserAdmin(offId, { status: 'active' });
+  const ok = await post(`/api/admin/maps/${advisedMap}/advisers`, adminTok, { email: 'switched-off@example.com' });
+  eq('CONTROL: re-enabled, the identical request is accepted', ok.status, 200);
+  check('  …and the grant exists', !!db.getAdviserGrant(advisedMap, offId));
+  // `emailed` is false here because no EMAIL_PROVIDER is set in a test run —
+  // which is the point: the console can now SAY so, instead of promising a link
+  // that went to a server console nobody is watching.
+  eq('  …and the answer says whether a link was actually emailed', ok.json.emailed, false);
+  db.revokeAdviserGrant(advisedMap, offId);
+}
+
 console.log('');
 if (failures) { console.error(`${failures} check(s) failed.`); process.exit(1); }
 console.log('The local adviser can see the version they were asked about, told truthfully what it is, and nothing else.');

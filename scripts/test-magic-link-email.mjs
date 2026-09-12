@@ -42,7 +42,8 @@ const signin = magicLinkContent({ link: LINK, kind: 'signin' });
 
 console.log('\nthe adviser email stands on its own');
 check('the subject names the map', has(adviser.subject, 'Ramsey bus map'), adviser.subject);
-check('  …and says what the link is for', /before it is published/.test(adviser.subject), adviser.subject);
+check('  …and says what the link is for, without asserting something unpublished is waiting',
+  /new versions/.test(adviser.subject) && !/before it is published/.test(adviser.subject), adviser.subject);
 check('the body names the map too', has(adviser.text, 'Ramsey bus map'), adviser.text.slice(0, 120));
 check('it carries the link', has(adviser.text, LINK) && has(adviser.html, LINK));
 check('it says what to do when the link has gone stale',

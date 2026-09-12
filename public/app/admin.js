@@ -449,9 +449,17 @@ async function askAdviser() {
   });
   btn.disabled = false;
   if (body.ok) {
-    msg.className = 'notice ok show';
-    msg.innerHTML = `${esc(email)} can now see that map's current draft, and a sign-in link is on its way.`
-      + (body.inviteLink ? ` <a href="${esc(body.inviteLink)}">(dev link)</a>` : '');
+    // SAY WHETHER THE EMAIL ACTUALLY WENT. This used to promise "a sign-in link
+    // is on its way" whatever happened — including a provider that threw and an
+    // instance with no provider at all, where the link goes to a server console
+    // nobody is watching. A grant without a link reaches nobody.
+    const granted = `${esc(email)} can now see that map.`;
+    msg.className = 'notice ' + (body.emailed ? 'ok' : 'warn') + ' show';
+    msg.innerHTML = body.emailed
+      ? `${granted} A sign-in link has been emailed to them.`
+      : `${granted} <b>No sign-in link was emailed</b>${body.emailError ? ` — ${esc(body.emailError)}` : ''}. `
+        + 'The grant is made, so they will get in once they have a link; check the server log, or ask them to request one from the sign-in page.'
+        + (body.inviteLink ? ` <a href="${esc(body.inviteLink)}">(dev link)</a>` : '');
     $('adviserEmail').value = ''; $('adviserName').value = ''; $('adviserNote').value = '';
     LOADERS.advisers();
   } else {
