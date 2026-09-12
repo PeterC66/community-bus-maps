@@ -464,11 +464,18 @@ export default async function adminRoutes(app) {
     // A new adviser has no password and no other way in; an existing one may have
     // let a seven-day session lapse between one draft and the next, which is the
     // normal case for somebody we write to every few weeks.
+    //
+    // `kind: 'adviser'` AND NOT `'invite'`, since 2026-09-12. The invite wording
+    // is written for a customer's first editor, who is expecting it because their
+    // organisation applied yesterday; sent to a member of the public it is an
+    // unsolicited bare link that names neither the map nor a reason. The map's
+    // name travels with it because it is the only thing that makes the email
+    // recognisable as part of a conversation they are already having.
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;
     if (link) {
       try {
-        const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        const r = await sendMagicLink({ to: email, link, kind: 'adviser', mapName: map.name });
         if (!r.sent) console.log(`\n🔗  Adviser sign-in link for ${email}:\n    ${link}\n`);
       } catch (e) {
         req.log.error({ email, err: e.message }, 'adviser invite email failed to send');

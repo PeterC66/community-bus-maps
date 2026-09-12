@@ -119,7 +119,8 @@
     "test:prove-red-parked-diagram": "node scripts/prove-red-parked-diagram.mjs",
     "test:adviser-seat": "node scripts/test-adviser-seat.mjs",
     "test:prove-red-adviser-seat": "node scripts/prove-red-adviser-seat.mjs",
-    "test:client-scripts": "node scripts/test-client-scripts.mjs"
+    "test:client-scripts": "node scripts/test-client-scripts.mjs",
+    "test:magic-link-email": "node scripts/test-magic-link-email.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",
