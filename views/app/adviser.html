@@ -8,6 +8,12 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/app/app.css">
+  <!-- BOTH of these, in the order every other shell uses. csrf.js patches
+       window.fetch to echo the CSRF cookie back as a header; without it every
+       mutating request from this page is refused 403, which on 2026-09-12 meant
+       Sign out did nothing at all. scripts/test-access-model.mjs asserts both
+       across every shell now, which is what would have caught it. -->
+  <script src="/js/csrf.js"></script>
   <script src="/js/account-guard.js"></script>
   <script src="/js/site-banner.js" defer></script>
 </head>
