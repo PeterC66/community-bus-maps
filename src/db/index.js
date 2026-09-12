@@ -89,8 +89,16 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     adviser a `customer_id`. Additive in the same strong sense as v3: a v3
  *     release opens a v4 database, never selects from the new table, and writes
  *     only the three roles it knows, every one of which the new trigger allows.
+ * 5 = 2026-09-12, buses-data OA-320: one new column, `customer.is_sample`,
+ *     defaulting to 1. PILOT — it goes with docs/PILOT.md. Additive, and the
+ *     rollback direction is the honest one rather than merely survivable: a v4
+ *     release opens a v5 database, `SELECT *` hands it a column it has never
+ *     heard of and it ignores it, and its generateSvg() has no `sample` option
+ *     at all — so it bands every sheet, which is exactly the behaviour this
+ *     version replaced. A rollback therefore over-labels rather than publishing
+ *     a real organisation's sheet as nobody's.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
