@@ -412,6 +412,39 @@ db.setVersionState(versionId, 'draft');
   check('CONTROL: …and the sheet is watermarked DRAFT again', sheet.body.includes('DRAFT'), 'no DRAFT mark');
 }
 
+// ===========================================================================
+console.log('\nand the adviser can get back OUT again');
+// ===========================================================================
+// Found by Peter on 2026-09-12, using it: Sign out did nothing. The page was the
+// only one of ten shells not loading /js/csrf.js, so its logout POST was refused
+// 403 by the CSRF hook — and the handler navigated away without reading the
+// answer, so it looked like it had worked. Somebody on a shared computer would
+// have believed they had signed out.
+//
+// The shell's script tags are asserted in test-access-model.mjs, across every
+// shell, which is where that class of fault belongs. What is asserted HERE is the
+// thing an adviser actually does: the round trip, with the header the page now
+// sends, ending in a session that is gone.
+{
+  const outTok = openSession(adviserId);
+  eq('CONTROL: the session works before signing out', (await get('/api/me', outTok)).status, 200);
+  const bye = await post('/api/auth/logout', outTok, {});
+  eq('signing out is accepted', bye.status, 200);
+  eq('  …and the session is REALLY gone, which is the half the button could not see', (await get('/api/me', outTok)).status, 401);
+  const sheet = await get(`/api/adviser/maps/${advisedMap}/sheets/internal`, outTok);
+  eq('  …so the sheet is refused too', sheet.status, 401);
+}
+{
+  // The refusal that WAS happening, asserted from the other side: without the
+  // header the hook refuses and the session survives. This is what the page was
+  // doing, and it is why the fix is a script tag rather than a wording change.
+  const keepTok = openSession(adviserId);
+  const r = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { cookie: `cbm_session=${keepTok}; cbm_csrf=${CSRF}` } });
+  eq('a logout with no CSRF header is refused', r.statusCode, 403);
+  eq('  …and leaves the session open — a logout that fails silently is worse than no button',
+    (await get('/api/me', keepTok)).status, 200);
+}
+
 console.log('');
 if (failures) { console.error(`${failures} check(s) failed.`); process.exit(1); }
 console.log('The local adviser can see the version they were asked about, told truthfully what it is, and nothing else.');

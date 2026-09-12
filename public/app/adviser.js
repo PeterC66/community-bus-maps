@@ -126,9 +126,24 @@
       if (!me) { location.href = '/app/login.html'; return; }
       $('whoami').textContent = me.user.email;
       $('logoutBtn').style.display = '';
+      // READ THE ANSWER BEFORE NAVIGATING AWAY (2026-09-12). This used to fire
+      // and forget, and the page went to the home page whatever came back — so
+      // when the request was being refused 403 for want of the CSRF header, the
+      // button LOOKED like it worked: you landed somewhere else, signed in.
+      // Somebody on a shared computer would have believed they had signed out.
+      // A logout that cannot report its own failure is worse than no button.
       $('logoutBtn').addEventListener('click', async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        location.href = '/';
+        try {
+          const r = await fetch('/api/auth/logout', { method: 'POST' });
+          if (!r.ok) throw new Error(String(r.status));
+          location.href = '/';
+        } catch (e) {
+          // NOT "close the browser" — the sign-in cookie is a persistent one with
+          // a seven-day life, so closing the browser leaves the session open. The
+          // advice has to be something that is actually true.
+          fail('We could not sign you out just then. Please reload the page and try '
+            + 'again — and do tell us if it keeps happening, because it matters.');
+        }
       });
 
       const list = await fetch('/api/adviser/maps').then((r) => r.json());
