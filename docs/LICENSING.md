@@ -1,7 +1,7 @@
 # Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.10 | 2026-09-10 | sha=7374639b -->
-**v1.10** · updated 10 September 2026
+<!-- docstamp v1.11 | 2026-09-13 | sha=7183014f -->
+**v1.11** · updated 13 September 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
@@ -15,12 +15,37 @@ This is the launch go/no-go the planning documents named: the maps are built fro
 
 | Source | Used for | Licence | What it obliges us to do |
 |---|---|---|---|
-| **OpenStreetMap** | streets, rivers, points of interest, the road skeleton behind every internal map | **ODbL 1.0** (© OpenStreetMap contributors) | Credit OSM contributors visibly on anything we publish; the produced maps are a *Produced Work*, so the credit is the main obligation. If we ever publish a **derived database** (e.g. exported geometry), it must be offered under the ODbL too. |
+| **OpenStreetMap** | streets, rivers, points of interest, the road skeleton behind every internal map | **ODbL 1.0** (© OpenStreetMap contributors) | Credit OSM contributors visibly on anything we publish; the produced maps are a *Produced Work*, so the credit is the main obligation. If we ever publish a **derived database** (e.g. exported geometry), it must be offered under the ODbL too. **All of this was put to the OSMF Licensing Working Group and confirmed in writing on 2026-09-12** — see the note directly below this table. |
 | **UK Bus Open Data Service (BODS)** | routes, stops, operators, days of operation, validity dates | **Open Government Licence v3.0** | Attribute the source. No share-alike. |
 | **NaPTAN (DfT)** | stop names, stand/bay letters and bearings — printed directly on boarding-plan sheets | **Open Government Licence v3.0** | Attribute the source. No share-alike. A separate Crown dataset from BODS, pulled directly from `naptan.api.dft.gov.uk`; only in use since the boarding plan shipped (August 2026), after this table was last reviewed. |
 | **bustimes.org** | cross-checking a route against an operator's own timetable during central map-making | **confirmed acceptable, no attribution required** (resolved 2026-08-07) | See §3. Central, low-volume, human-in-the-loop use only. |
 | **sharp / libvips, Fastify, Node.js** | the software stack | Apache-2.0 / MIT-family | Preserve their notices (bundled in `node_modules`, not redistributed by us). |
 | **This portal's code** | — | **Business Source License 1.1** (`LICENSE`) | Non-commercial/internal use is free; competing commercial use needs a separate licence from the Licensor until the Change Date (2030-08-09), after which it converts to Apache-2.0. Keep `LICENSE` + `NOTICE` with any redistribution. |
+### OpenStreetMap ODbL — asked, and resolved (2026-09-12)
+
+**The row above is not our reading of the licence; it is the licensor's.** On 25 August 2026 the operator put four questions to the OpenStreetMap Foundation's **Licensing Working Group** at `legal-questions@osmfoundation.org`, and they answered on 12 September. This is the same kind of record as the bustimes.org resolution at §3: an outside party confirming, in writing, what we may do — and it is the only row in this document that did not come from us.
+
+**What was asked.** Whether map-matching bus route geometry onto the OSM road network creates a **Derivative Database**; whether the bounded OSM extract behind a boarding plan's locator map sits differently, being buildings and named places kept substantially as they stand with their element IDs; whether **ODbL §4.6** obliges us to offer recipients the derived data or an alterations file on the strength of publishing a Produced Work made from it; and whether supplying the geometry itself to a customer's own designer changes the position, including if we charged for it.
+
+**What they answered**, in short, quoting only the operative phrases:
+
+- **Map-matching is a *Trivial Transformation*, not a Derivative Database.** Their test was that we are *"not altering the OSM road network"* and that what we do is *"rote simplification that anyone else could repeat using the same sources"*.
+- **The locator extract does sound *"large enough to be considered Substantial"***, with the bounding-box example under the Trivial Transformations guideline noted against it — **but the grade turns out to be the less useful half**: *"since you are only Publicly distributing the Produced Works … the only obligation is attribution."*
+- **§4.6 is *"moot if you're not making alterations"***, and were we ever to make them, *"a stable URL with an alterations file is sufficient to meet ODbL obligations."*
+- **Charging changes nothing**: *"whether money changes hands does not matter."*
+
+**What follows for this repository, in three practical statements.**
+
+1. **Nothing is owed beyond the attribution we already print.** The credits in §2 are the whole of the obligation for everything we publish today, and the §4.6 question that was open when this file was last reviewed is closed.
+2. **`OUTPUT_FILES` is a licence control, not only a tidiness one.** It is an allowlist and `src/server.js` gates both file routes on it, so `locator_geo.json`, `routes_paths.json` and the rest sit in every delivered payload and are never served. That is what keeps us on the *Produced Works only* side of the answer above. **Widening it to serve a geometry file is a licensing decision and not a feature**, because those files would then have to carry the ODbL — which the Working Group also said in as many words.
+3. **The answer to the first question rests on a fact about the generator rather than about its output, so no check here can see it.** We *select* OSM geometry and simplify it; we never edit it. If the engine ever began hand-editing road geometry rather than routing over it, the *Trivial Transformation* answer would no longer describe what we do, and nothing in this repository would go red.
+
+**One sentence of theirs is not to be repeated to a customer.** Answering the fourth question they wrote that a customer's designer's own map *"would need to be ODbL licenced"* if it copies anything from the OSM map. That reaches further than **ODbL §4.5**, which exempts a Produced Work from share-alike, and further than their own answer to the second question, which says it is the extract *files* that would need the licence. A map drawn from OSM data is a Produced Work and owes **attribution, not share-alike**. The difference is *use this data and credit OpenStreetMap* against *publish your design under an open licence*, and only the first is both correct and sellable. That single point has been put back to the Working Group and is not yet answered; until it is, do not write the wider version into this file, into `/legal.html`, or into anything a customer reads.
+
+**`/legal.html` was checked against all of this on 2026-09-13 and deliberately not changed.** It describes the sheets we publish — Produced Works — says the geography is OpenStreetMap under the ODbL, and asks readers not to crop the credits. Every claim on it survives the answer unaltered. That is recorded here because "we looked and nothing needed changing" is otherwise indistinguishable from not having looked.
+
+**The full thread — both letters, their reply verbatim, and a row-by-row triage of where each answer went — is `Correspondence/CORR-006/` in the private `buses-data` repository.** It is not reproduced here: this is the summary a reader of *this* repository needs. **It is an informal view, it is expressly not legal advice, and it does not bind the Foundation** — the same caveat this document carries everywhere else.
+
 
 ## 2. Where the credits actually appear
 
@@ -75,6 +100,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
 | Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
 | bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
+| **OpenStreetMap ODbL terms** — map-matching, the locator extract and §4.6 | ✅ **resolved** — the Licensing Working Group answered in writing: map-matching is a *Trivial Transformation*, the only obligation is attribution while we publish Produced Works alone, and §4.6 is moot (§1, *asked and resolved*). One narrow point about a customer designer’s own sheet is asked and not yet answered | OSMF Licensing Working Group | 2026-09-12 |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
 | CSRF tokens on state-changing POSTs | ✅ **Fixed 2026-08-25** (`8787a72`, audit 2026-08-25 P1) — no longer an accepted risk. A `preHandler` hook rejects every mutating method (POST/PUT/PATCH/DELETE) that carries a session cookie without a matching `x-csrf-token`, plus `POST /auth/verify` unconditionally, because that one runs for somebody who has no session yet and is exactly the request that must not be forgeable. An `onRequest` hook hands every visitor the `cbm_csrf` cookie so any page can echo it. **Verified live 2026-08-28**, not merely merged: `curl -sI https://busmaps.uk/` returns `Set-Cookie: cbm_csrf=…; SameSite=Lax; Secure` on `0.10.0-pilot+2eec3ac`. This row said "deferred, not fixed" for three days after it was fixed. | Claude | 2026-08-28 |
 
