@@ -1,7 +1,7 @@
 # Accessibility — what we commit to, and how to check it
 
-<!-- docstamp v1.1 | 2026-09-04 | sha=b419fa51 -->
-**v1.1** · updated 4 September 2026
+<!-- docstamp v1.2 | 2026-09-13 | sha=41e58f5d -->
+**v1.2** · updated 13 September 2026
 
 *Operator-facing. The public statement is [`/accessibility.html`](../public/accessibility.html);
 this is the reasoning behind it and the checks that keep it true.*
@@ -44,6 +44,18 @@ alternative.
 - **JavaScript is required** to draw a map page, and currently to render the service list. The
   facts come from `/api/public/maps/:slug/services`, so a server-rendered fallback is a small
   change if it is ever asked for.
+
+## The printed sheet is the primary product, and until 2026-09-13 this statement said nothing about it
+
+**Everything above concerns the web page. The thing most of these maps become is paper on a wall, and where that paper is fixed decides who can read it** — which the public statement had no sentence for until buses-data OA-327. The gap was found in the field rather than by any check: two readers said publicly that they could not read our St Neots sheet in a bus shelter at Love's Farm because it was mounted above wheelchair and above eye height, and a third pointed out it sat above the head of the person who put it up.
+
+**It is an accessibility failure of the primary product, and it was invisible here for a structural reason worth stating.** This document, the public statement and every check behind them ask about a *page*. A page's height above the ground is not a property anything in this repository can observe, so no amount of WCAG work could ever have surfaced it. The only instrument that found it was somebody standing at the stop.
+
+**What the public statement now commits to**, in *If you put a printed sheet up*: the whole sheet between 900mm and 1800mm above the ground, centred about 1400mm, and a second copy centred 1000–1100mm where there is room. The source is the Department for Transport's [Inclusive Mobility](https://www.gov.uk/government/publications/inclusive-mobility-making-transport-accessible-for-passengers-and-pedestrians) (2022, §9.6, §13.4 and §13.7) — **and the edition a search returns first is the 2005 one, withdrawn on 10 January 2022, which is the only version that exists as readable HTML.** Both editions give the same numbers, so a wrong citation would carry a right figure and nobody checking the number would catch it. Quote the 2022 PDF.
+
+**One consequence joins the paper back to this statement's own argument.** The QR code on every sheet sits 2–22mm above its bottom edge and leads to the map's service list — the text alternative that every claim above leans on. A sheet mounted out of reach does not merely become hard to read; it severs the only route the paper has to its accessible version. So height is not an afterthought about print, it is load-bearing for the alternative we offer.
+
+**It is advice, deliberately, and not a condition of the licence.** We cannot observe how anybody mounts a sheet, so a condition could never fire — and a condition would imply we are responsible for the display, which contradicts what the same FAQ entry says about permission being the organisation's to obtain. The licence conditions are properties of the artefact (do not alter it, do not crop the credits) and are visible in any copy anyone shows us; a height is a property of a wall.
 
 ## Before publishing a map (part of the sign-off)
 
