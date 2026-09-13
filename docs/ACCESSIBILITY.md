@@ -1,26 +1,19 @@
 # Accessibility — what we commit to, and how to check it
 
-<!-- docstamp v1.2 | 2026-09-13 | sha=41e58f5d -->
-**v1.2** · updated 13 September 2026
+<!-- docstamp v1.4 | 2026-09-13 | sha=c2a447e5 -->
+**v1.4** · updated 13 September 2026
 
-*Operator-facing. The public statement is [`/accessibility.html`](../public/accessibility.html);
-this is the reasoning behind it and the checks that keep it true.*
+*Operator-facing. The public statement is [`/accessibility.html`](../public/accessibility.html); this is the reasoning behind it and the checks that keep it true.*
 
-Last reviewed 2026-07-26 (P8a).
+Last reviewed 2026-09-13 (buses-data OA-327, the printed sheet). The review before that was 2026-07-26 (P8a), which is when everything above the printed-sheet section was written.
 
 ## Why this is not optional
 
-A bus map is a picture. Put a picture of one on a web page and it excludes everyone who cannot see
-it, and everyone who can see it but not at 4 CSS pixels.
+A bus map is a picture. Put a picture of one on a web page and it excludes everyone who cannot see it, and everyone who can see it but not at 4 CSS pixels.
 
-It also transfers a legal duty. Our likely customers — town and parish councils, schools — are
-public sector bodies caught by the **Public Sector Bodies (Websites and Mobile Applications)
-Accessibility Regulations 2018**, which require **WCAG 2.2 level AA**. The moment one of them links
-to or embeds our map, our page is part of what they have to be able to defend. A map we cannot
-stand behind is a map they cannot use.
+It also transfers a legal duty. Our likely customers — town and parish councils, schools — are public sector bodies caught by the **Public Sector Bodies (Websites and Mobile Applications) Accessibility Regulations 2018**, which require **WCAG 2.2 level AA**. The moment one of them links to or embeds our map, our page is part of what they have to be able to defend. A map we cannot stand behind is a map they cannot use.
 
-So the target is WCAG 2.2 AA across the public pages, and the load-bearing piece is the text
-alternative.
+So the target is WCAG 2.2 AA across the public pages, and the load-bearing piece is the text alternative.
 
 ## What P8a actually delivers
 
@@ -36,14 +29,9 @@ alternative.
 
 ## What is *not* solved, and why we say so
 
-- **The map image cannot be made readable by a screen reader.** No description conveys what a
-  network diagram conveys. The service list carries the same facts; it is a list, not a map. We say
-  this on the public page rather than implying a parity that does not exist.
-- **Downloaded files** (print JPG, SVG) are not accessible documents. The service list is the route
-  to the same information; on request we will supply it another way.
-- **JavaScript is required** to draw a map page, and currently to render the service list. The
-  facts come from `/api/public/maps/:slug/services`, so a server-rendered fallback is a small
-  change if it is ever asked for.
+- **The map image cannot be made readable by a screen reader.** No description conveys what a network diagram conveys. The service list carries the same facts; it is a list, not a map. We say this on the public page rather than implying a parity that does not exist.
+- **Downloaded files** (print JPG, SVG) are not accessible documents. The service list is the route to the same information; on request we will supply it another way.
+- **JavaScript is required** to draw a map page, and currently to render the service list. The facts come from `/api/public/maps/:slug/services`, so a server-rendered fallback is a small change if it is ever asked for.
 
 ## The printed sheet is the primary product, and until 2026-09-13 this statement said nothing about it
 
@@ -61,28 +49,19 @@ alternative.
 
 The publish checklist has a required `alternative` item. To tick it honestly:
 
-1. Open `/m/<slug>/services`. Does every service on the sheet appear, with the right number,
-   operator and days? Does anything appear that is *not* on the sheet?
-2. Back on `/m/<slug>`, press <kbd>Tab</kbd> to the map. Can you zoom with `+`/`−`, pan with the
-   arrows, and reset with `0`? Is the focus ring visible?
+1. Open `/m/<slug>/services`. Does every service on the sheet appear, with the right number, operator and days? Does anything appear that is *not* on the sheet?
+2. Back on `/m/<slug>`, press <kbd>Tab</kbd> to the map. Can you zoom with `+`/`−`, pan with the arrows, and reset with `0`? Is the focus ring visible?
 3. Switch sheets with the tabs using only the keyboard.
 4. Check the "correct as at" date is the one you expect.
 
-Once a release cycle, go further: run a screen reader (NVDA on Windows is free) over one map page
-and its service list, and view a page at 400% browser zoom. Record what you found in the ops folder.
+Once a release cycle, go further: run a screen reader (NVDA on Windows is free) over one map page and its service list, and view a page at 400% browser zoom. Record what you found in the ops folder.
 
 ## If someone reports a barrier
 
-Treat it as an incident, not a feature request — see
-[`R6-incident-response.md`](R6-incident-response.md). Reply, say what you will do, and if
-the fix is not quick, offer the information in another format in the meantime. The public statement
-promises a reply, not a timescale, and that is deliberate: we are a volunteer-run pilot and should
-not claim a service level we cannot keep.
+Treat it as an incident, not a feature request — see [`R6-incident-response.md`](R6-incident-response.md). Reply, say what you will do, and if the fix is not quick, offer the information in another format in the meantime. The public statement promises a reply, not a timescale, and that is deliberate: we are a volunteer-run pilot and should not claim a service level we cannot keep.
 
 ## Related
 
-- [`/accessibility.html`](../public/accessibility.html) — the public statement, including the
-  paragraph a customer can paste into their own.
+- [`/accessibility.html`](../public/accessibility.html) — the public statement, including the paragraph a customer can paste into their own.
 - [`R3-review-and-publish.md`](R3-review-and-publish.md) — where the check sits.
-- `portal-online-maps-plan_2026-07-26.md` (Buses repo) — the three-tier plan; accessibility is the
-  cross-cutting obligation that made the embed tier worth doing properly.
+- `portal-online-maps-plan_2026-07-26.md` (Buses repo) — the three-tier plan; accessibility is the cross-cutting obligation that made the embed tier worth doing properly.
