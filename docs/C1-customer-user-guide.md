@@ -1,7 +1,7 @@
 # Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.15 | 2026-09-10 | sha=7d0d132d -->
-**v1.15** · updated 10 September 2026
+<!-- docstamp v1.16 | 2026-09-13 | sha=86ab02be -->
+**v1.16** · updated 13 September 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
@@ -68,6 +68,8 @@ Putting the map *inside* a page on your own website — rather than linking to o
 ## Downloading print-ready sheets
 
 For any version you can download the **print-ready files** — an SVG and a 300 dpi A4 JPG for each output. Print them, put them on a noticeboard, add them to a newsletter. **Keep the credits** that appear on the sheet, and always point people to the operator or bustimes.org for live times — a printed map is a guide, not today's departures.
+
+**Where you put it up matters as much as what you print.** Fix the sheet between 900 mm and 1800 mm above the ground — centred about chest height, and lower rather than higher, so that somebody seated can read it — ask whoever owns the shelter, post or board before you fix anything to it, and print on matt paper rather than glossy. [The FAQ gives the detail and the source](../public/faq.html).
 
 ## Monthly updates
 
