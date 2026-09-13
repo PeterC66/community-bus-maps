@@ -315,15 +315,61 @@ export default async function publicRoutes(app) {
       return p;
     });
   });
+  /** The <head> completion for one organisation page (buses-data OA-284).
+   *
+   * THE HALF-CHECKED RULE THIS CLOSES. `org.html` has been in
+   * SERVER_FILLED_SHELLS since 2026-08-31 — "the three shells whose <head> is
+   * completed SERVER-side" — and test-indexing.mjs asserts that each of them
+   * carries no canonical of its own, on the stated grounds that the server
+   * injects one. For this one the server did not: the route below ended in a
+   * bare `reply.sendFile('org.html')`, so the page went out with the shell's
+   * generic title, the shell's generic description and NO canonical at all.
+   * One half of the rule was enforced and the other half remembered, and the
+   * enforced half is the one that makes the page WORSE on its own.
+   *
+   * It is silent with one organisation, because there is nothing to be a
+   * duplicate OF. It is real on the second: /o/a and /o/b would arrive at a
+   * crawler as two documents with the same title, the same description and no
+   * statement of which URL is authoritative — and the page's own content is
+   * filled in by JavaScript after load, so there is nothing else to tell them
+   * apart. sitemap.xml advertises every one of them. */
+  function orgHead(req, org) {
+    const base = baseUrl(req);
+    const canonical = base + orgPageUrl(org.slug);
+    const title = `Bus maps published by ${org.name}`;
+    // The count comes from listPublicOrgs()'s own COUNT(*), which is the same
+    // number the page prints, so the description cannot claim more maps than
+    // the page shows. Null-guarded rather than assumed: a caller passing a row
+    // without it should get a sentence that is merely vaguer, not "undefined".
+    const n = Number.isInteger(org.publicMaps) ? org.publicMaps : null;
+    const maps = n === null ? 'Bus maps' : n === 1 ? 'One bus map' : `${n} bus maps`;
+    const desc = org.isDemo
+      ? `${maps} published by ${org.name} to demonstrate BusMaps.uk. Free to view, print and share.`
+      : `${maps} published by ${org.name} on BusMaps.uk. Free to view, print and share.`;
+    return [
+      `<title>${escapeHtml(title)} — BusMaps.uk</title>`,
+      `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+      `<meta name="description" content="${escapeHtml(desc)}">`,
+      `<meta property="og:title" content="${escapeHtml(title)}">`,
+      `<meta property="og:description" content="${escapeHtml(desc)}">`,
+      `<meta property="og:url" content="${escapeHtml(canonical)}">`,
+      '<meta name="twitter:card" content="summary">',
+    ].map((l) => '  ' + l).join('\n');
+  }
+
   // An organisation only has a public page while it has a publicly-visible map —
   // the same condition the API applies, so the page and its data never disagree.
   app.get('/o/:slug', async (req, reply) => {
     const slug = str(req.params.slug, 120);
     const c = getCustomerBySlug(slug);
-    if (!c || c.status !== 'active' || !listPublicOrgs().some((o) => o.slug === slug)) {
+    // The public row, not just a membership test: it carries the public name,
+    // the demo flag and the map count the head above needs, and it is the same
+    // row /api/public/orgs answers with.
+    const pub = listPublicOrgs().find((o) => o.slug === slug);
+    if (!c || c.status !== 'active' || !pub) {
       return reply.code(404).type('text/html').send(notFoundPage('organisation'));
     }
-    return reply.sendFile('org.html');
+    return sendShell(reply, 'org.html', orgHead(req, publicOrg(pub)));
   });
 
   app.get('/api/public/maps', async () => ({ ok: true, maps: publicMaps(listPublicMaps()) }));
