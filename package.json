@@ -36,6 +36,8 @@
     "test:prove-red-fixture-drift": "node scripts/prove-red-fixture-drift.mjs",
     "test:svg": "node --env-file-if-exists=.env scripts/test-inline-svg.mjs",
     "test:schema": "node scripts/test-schema-compat.mjs",
+    "test:schema-version": "node scripts/test-schema-version.mjs",
+    "test:prove-red-schema-version": "node scripts/prove-red-schema-version.mjs",
     "test:contrast": "node scripts/test-contrast.mjs",
     "test:p6": "node scripts/test-p6.mjs",
     "test:indexing": "node scripts/test-indexing.mjs",
