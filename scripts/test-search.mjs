@@ -220,6 +220,64 @@ console.log('\na thoroughfare answers only to its whole name');
     'the fuzzy pass must not reopen what the exact pass closed');
 }
 
+// ---------------------------------------------------------------------------
+// A NAME THAT NAMES NO PLACE ANSWERS ONLY TO ITSELF (buses-data OA-311, the
+// residual). "Bus Station" is on eight of the estate's twenty sheets, which is
+// why searching "station" returned ten maps; the name says nothing about which
+// town, so it cannot be what anybody meant.
+//
+// THE LAST FIVE CHECKS ARE CONTROLS ON A RULE WE DELIBERATELY DID NOT BUILD.
+// The action specified a generic-WORD rule — hill, park, station, green,
+// common, cross, end match only a whole name — and measuring it over the
+// estate's own 363 names falsified it: twenty of the twenty-three names those
+// words reach are genuine places, Gerrards Cross and Bar Hill among them. So
+// these five assert that a one-word query still finds a real place, and they go
+// red the moment somebody implements the rule the action asked for.
+console.log('\na name that names no place answers only to its whole self');
+{
+  seedMap({
+    customerId: activeCustomer, slug: 'search-placeless', subject: 'Placeless Town',
+    destination: 'Placeless Town', stops: ['Bus Station', 'Business Park'],
+  });
+  seedMap({
+    customerId: activeCustomer, slug: 'search-realplaces', subject: 'Real Place Town',
+    destination: 'Gerrards Cross', stops: ['Heathrow Central Bus Station', 'Science Park', 'Bar Hill'],
+  });
+
+  check('"station" no longer returns a map whose only link is a stop called Bus Station',
+    !searchPlaces('station').some((r) => r.map.slug === 'search-placeless'),
+    JSON.stringify(searchPlaces('station').map((r) => r.reason)));
+  check('…and the whole name still finds it — "Bus Station"',
+    searchPlaces('Bus Station').some((r) => r.map.slug === 'search-placeless'));
+  check('"park" no longer returns a map whose only park is called Business Park',
+    !searchPlaces('park').some((r) => r.map.slug === 'search-placeless'),
+    JSON.stringify(searchPlaces('park').map((r) => r.reason)));
+  check('…and "Business Park" in full still finds it',
+    searchPlaces('Business Park').some((r) => r.map.slug === 'search-placeless'));
+  check('a typo on a placeless name gets no second chance either',
+    !searchPlaces('Bus Statoin').some((r) => r.map.slug === 'search-placeless'),
+    'the fuzzy pass must not reopen what the exact pass closed');
+
+  // The action says in terms: do NOT demote Science Park or Heathrow Central
+  // Bus Station, which are places. These two are that warning, as tests.
+  check('"station" still finds Heathrow Central Bus Station — a place, not an anywhere',
+    searchPlaces('station').some((r) => r.map.slug === 'search-realplaces'));
+  check('"Science" still finds Science Park',
+    searchPlaces('Science').some((r) => r.map.slug === 'search-realplaces'));
+  // CONTROLS on the generic-word rule, measured and not built.
+  check('"Cross" still finds Gerrards Cross — the generic-word rule was falsified, not built',
+    searchPlaces('Cross').some((r) => r.map.slug === 'search-realplaces'),
+    'twenty of the twenty-three names those seven words reach are genuine places');
+  // These two name `search-realplaces` and `search-bourne` deliberately: their
+  // slugs and subjects carry none of the seven words, so the only thing that
+  // can answer the query is the place itself. Pointed at `search-barhill` the
+  // Hill control was green through the slug — a control that cannot fail.
+  check('"Hill" still finds a map that passes through Bar Hill',
+    searchPlaces('Hill').some((r) => r.map.slug === 'search-realplaces'));
+  check('"End" still finds a map that goes to Bourne End',
+    searchPlaces('End').some((r) => r.map.slug === 'search-bourne'));
+}
+
 console.log('\nsanity — an unrelated query still misses cleanly');
 check('a nonsense query returns no results', searchPlaces('zzznotarealplacezzz').length === 0);
 check('a one-character query is rejected (below MIN_QUERY_LEN)', searchPlaces('a').length === 0);
