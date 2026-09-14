@@ -26,11 +26,11 @@ import { sanitizeBranding } from '../src/branding/index.js';
 import { renderVersion, defaultOutputs, readRoutesMeta } from '../src/maps/engine.js';
 import { mapDataDir } from '../src/maps/store.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
+import { BUSES_DIR } from './lib/buses-dir.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT = path.join(HERE, 'import-map.mjs');
 const PROPOSE = path.join(HERE, 'propose-update.mjs');
-const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 
 // Both map kinds now render in the portal: AREA maps carry their generators
