@@ -222,6 +222,36 @@ jobs:
           echo "Places/_portal-fixture:"; ls -la buses-data/Places/_portal-fixture
           echo "BusMapsUK/bus-map-directory:"; ls -la buses-data/BusMapsUK/bus-map-directory
 
+      # ---------------------------------------------------------------------
+      # EVERYTHING BELOW THIS LINE CARRIES `if: ${{ !cancelled() }}`, AND THIS
+      # STEP IS THE LINE (buses-data's 2026-09-14 review, W8, its Tier 1.5).
+      #
+      # A job's steps run in order and a failure skips the rest, so until now this
+      # workflow's verdict named only its FIRST fault: 0 conditions across 310
+      # lines. Six independent gates, one answer. That is the estate's named shape
+      # *the blocker behind the blocker* — landing OA-338 met four reds one at a
+      # time over seven hours, every one of them answerable locally in two minutes,
+      # because each rerun could only reveal the next one. A cross-repository byte
+      # gate is the worst place to pay that: each round trip is a push to the other
+      # repository and a fresh checkout here.
+      #
+      # WHY THE LINE IS HERE AND NOT HIGHER. Everything above is a PRECONDITION —
+      # the PAT preflight, the two checkouts, the Node version read off the
+      # deployment image, `npm ci`, and this step. If any of them fails the gates
+      # below cannot run at all, and six identical "fixtures missing" failures
+      # would be noise rather than information. Everything below is an independent
+      # VERDICT about the code, and each is worth having even when a sibling is
+      # red. `!cancelled()` rather than `always()` deliberately: a job somebody
+      # cancelled, or one that hit the runner's timeout, must still stop.
+      #
+      # It does NOT weaken the job. A step that fails still fails the job; this
+      # only decides whether its siblings are asked their question first. Read it
+      # as load-bearing rather than boilerplate — buses-data bought exactly this
+      # fix in `gates.yml` when it merged its docs job into `status`, and recorded
+      # there that without the condition the merge trades money for a check that
+      # reports only when everything else already passed.
+      # ---------------------------------------------------------------------
+
       # TWO PROVE-REDS USED TO RUN HERE AND NO LONGER DO (OA-232 Tier 2.3, the
       # 2026-09-03 review's portal-ops W6). `test:prove-red-fixture-drift` and
       # `test:prove-red-engine-source` were added here, before the byte gates
@@ -251,24 +281,28 @@ jobs:
       # `--allow-skip` is NOT passed: a missing checkout here is a broken job,
       # exactly as the fixtures step above says.
       - name: The vendored bus-map directory is in step with buses-data
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run sync:directory -- --check
 
       - name: verify:area — the portal reproduces a shipped town sheet
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run verify:area
 
       - name: verify:place — the vendored place engine reproduces a shipped place sheet
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run verify:place
 
       - name: verify:defaults — every design/labels escape hatch is still live code
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
@@ -298,12 +332,14 @@ jobs:
       # Plus an intact control, because every arm going red at once would mean
       # the scratch copy was broken and not the gate. ~30 s.
       - name: prove the self-sufficiency gate can go red
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run test:prove-red-selfsufficient
 
       - name: self-sufficient — the engine renders with nothing but this repo
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
         env:
           BUSES_DIR: ${{ github.workspace }}/buses-data
