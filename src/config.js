@@ -110,8 +110,15 @@ export const publicBaseUrl = () => String(process.env.PUBLIC_BASE_URL || '').rep
 /** Which email provider is configured, '' when none. '' means the dev fallback
  *  that prints the sign-in link to the console — see DEV_LINKS. */
 export const emailProvider = () => process.env.EMAIL_PROVIDER || '';
-/** The From: on everything we send. */
-export const emailFrom = () => process.env.EMAIL_FROM || 'BusMaps.uk <noreply@busmaps.uk>';
+/** The From: on everything we send.
+ *
+ *  IT TAKES AN `env` SO ONE PLACE OWNS THE FALLBACK. `configStatus()` in
+ *  src/email/health.js reports this value and is driven by an injected env in
+ *  its tests, so it needs to ask the same question of a different object. The
+ *  alternative — health.js reading `env.EMAIL_FROM || '<the same literal>'` —
+ *  is two spellings of one default that are a bug the day they disagree, which
+ *  is the shape `publicBaseUrl` was given this comment for. */
+export const emailFrom = (env = process.env) => env.EMAIL_FROM || 'BusMaps.uk <noreply@busmaps.uk>';
 /** Resend's API key, '' when unset. Deliberately NOT rotatable by rotate-secret.mjs. */
 export const resendApiKey = () => process.env.RESEND_API_KEY || '';
 
