@@ -43,6 +43,8 @@
     "test:indexing": "node scripts/test-indexing.mjs",
     "test:caddyfile": "node scripts/test-caddyfile.mjs",
     "test:safe-subset": "node scripts/test-safe-subset.mjs",
+    "test:owner-picker": "node scripts/test-owner-picker.mjs",
+    "test:prove-red-owner-picker": "node scripts/prove-red-owner-picker.mjs",
     "audit": "node scripts/audit-check.mjs",
     "ssh": "node --env-file-if-exists=.env scripts/ssh-vps.mjs",
     "deploy:caddy": "node --env-file-if-exists=.env scripts/deploy-caddy.mjs",

@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.14 | 2026-09-10 | sha=0e5af459 -->
-**v1.14** · updated 10 September 2026
+<!-- docstamp v1.15 | 2026-09-14 | sha=3c46c09b -->
+**v1.15** · updated 14 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -168,5 +168,6 @@ Fulfilment is written to the audit log as `maprequest.fulfil` (who/when/which ve
 ## What-if / rollback
 
 - **Slug already exists** → pick another `--slug`, or retire the existing map first: `node scripts/delete-map.mjs --slug <slug> --yes` (dry run without `--yes`). If the slug belongs to an approved request, build *that* row instead: `--request <id>`. If it belongs to a demo map a real customer is taking over, see *Taking over a demo-held town* above.
-- **Wrong customer** → set the right owner in place: `POST /api/admin/maps/<id>/owner` with `{"customerId": <id>}` (admin, needs a sign-in from the last 30 minutes, refuses a move that would overspend the receiving organisation's quota, and writes a `map.reassign` audit row). Added 2026-08-30; before that the only repair was a re-import plus an archive, or a hand-written `UPDATE` against the live database. Pass `null` to un-own it deliberately.
+- **Wrong customer, or the right one at last** → set the owner on the map's own admin page: sign in as an admin, open `/app/maps/<id>`, and use the **Who owns this map** picker. It confirms first, naming what that particular move costs — the badge on the public sheet, a quota slot, who can sign in and edit it, and where notifications and *Spotted a problem?* reports go. The route under it is `POST /api/admin/maps/<id>/owner` with `{"customerId": <id>}` (admin, needs a sign-in from the last 30 minutes, refuses a move that would overspend the receiving organisation's quota, writes a `map.reassign` audit row, and re-stamps the stored sheets for the new owner's sample band). Pass `null`, or pick “nobody”, to un-own it deliberately — which takes it off the public site at once, because both public queries JOIN the owning organisation.
+  The route was added 2026-08-30, before which the only repair was a re-import plus an archive or a hand-written `UPDATE` against the live database; **the picker was added 2026-09-14, before which the route had no caller anywhere in the client** (buses-data OA-364). This heading is why: it was written as a repair for a bad import, and giving a real customer their first map — the act that makes a registration visible to a reader — was never a repair and so was never given a button.
 - **Bad build** → pre-publish, the object store + v1.0 are disposable: `node scripts/delete-map.mjs --map <id> --yes` (removes the row, its versions, and `maps/<id>/`), then re-import. **Never** hand-edit a rendered file — always go through a version. A **fulfilled request** is a normal map by then, so re-doing it means deleting that row too: the request itself is gone (it *is* the map), so re-import as a fresh map with `--customer`.

@@ -251,7 +251,10 @@ export default async function adminRoutes(app) {
     let restamped = null;
     try {
       const r = await reconcileMapRenders(m.id, isSampleCustomer(to), { apply: true, log: (l) => req.log.info(l) });
-      restamped = { changed: r.changed, band: r.want };
+      // `seen` as well as `changed`: without it a caller cannot tell "no sheet
+      // needed changing" from "this map has no stored sheets at all", and the
+      // screen that reports this must not guess between the two (OA-364).
+      restamped = { seen: r.seen, changed: r.changed, band: r.want };
       if (r.changed) req.log.info({ mapId: m.id, ...restamped }, 'restamped stored renders after reassignment');
     } catch (e) {
       req.log.error(e, 'restamping stored renders after reassignment FAILED — run scripts/restamp-renders.mjs --apply');
