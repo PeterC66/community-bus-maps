@@ -57,7 +57,9 @@
           <label for="ownerSelect">Owning organisation</label>
           <select id="ownerSelect"></select>
         </div>
-        <button class="btn btn-primary btn-sm" id="ownerChangeBtn" type="button">Change owner…</button>
+        <!-- Off until the organisations have loaded: a button that silently does
+             nothing is the small version of the fault this panel exists to remove. -->
+        <button class="btn btn-primary btn-sm" id="ownerChangeBtn" type="button" disabled>Change owner…</button>
         <p class="notice" id="ownerMsg"></p>
       </div>
     </div>

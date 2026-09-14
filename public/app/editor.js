@@ -1287,6 +1287,7 @@ async function buildOwnerPanel() {
     return;
   }
   populateOwnerSelect();
+  $('ownerChangeBtn').disabled = false;   // it ships disabled; the loaded list is what turns it on
   $('ownerChangeBtn').addEventListener('click', openOwnerDialog);
   $('ownerCancel').addEventListener('click', () => $('ownerDialog').close());
   $('ownerForm').addEventListener('submit', (e) => { e.preventDefault(); submitOwnerChange(); });
