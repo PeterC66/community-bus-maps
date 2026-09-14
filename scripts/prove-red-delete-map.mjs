@@ -10,7 +10,8 @@
 // about the bug it was written for.
 //
 //   0  control — the tree as shipped                        -> exit 0
-//   1  delete-map.mjs AS IT WAS BEFORE THE FIX (from git)    -> exit 1, and the
+//   1  delete-map.mjs AS IT WAS BEFORE THE FIX (from git, at a
+//      PINNED commit -- see BEFORE_FIX below)                -> exit 1, and the
 //      failures must include both halves: section 1 saying the grant table is
 //      unhandled, and section 3 saying the delete did not succeed
 //   2  only the DELETE FROM map_adviser_grant line removed   -> exit 1, "clears map_adviser_grant"
@@ -99,19 +100,38 @@ console.log('\n0  the control — the tree as shipped');
   else ok('exit 0');
 }
 
-// THE ARM WORTH HAVING. Not an invented fault — the file as it actually stood,
-// fetched from git, on the day a handover of a town with a local adviser would
-// have failed. `main` is the merge base this branch was cut from; if the fix has
-// landed there, this arm has to be pinned to a commit instead, and the harness
-// says so rather than going quietly green.
-console.log('\n1  delete-map.mjs exactly as it was before the fix');
+// THE ARM WORTH HAVING, AND THE MISTAKE IT WAS BORN WITH.
+//
+// Not an invented fault: the file as it actually stood on the day a handover of
+// a town with a local adviser would have failed, fetched from git.
+//
+// The first cut read `origin/main`, AND SO COULD NOT SURVIVE ITS OWN SUCCESS.
+// It passed on the pull request — where `main` was still the pre-fix file — and
+// turned `main` red eleven minutes later, when the merge made `origin/main` the
+// FIXED file and the arm's own guard fired: *this arm is no longer about the
+// bug*. The guard was right and the design was wrong. A falsification arm that
+// reads a MOVING REF is asserting something about the present, when the whole
+// point of it is to assert something about the past.
+//
+// So it is PINNED. `0e08bf0` is the commit immediately before the fix landed —
+// the portal's owner-picker merge, buses-data OA-364 — and the file at that
+// commit is the one that used to throw. It is a fact about a moment and it
+// cannot move. `fetch-depth: 0` in .github/workflows/test.yml (there for
+// test-schema-compat.mjs, which reads history for the previous schema) is what
+// makes an old SHA readable in CI at all.
+//
+// The guard stays, inverted: if the pinned file DOES handle the grant then the
+// pin is wrong, and this says so rather than proving nothing quietly.
+const BEFORE_FIX = '0e08bf0';   // the commit before scripts/delete-map.mjs learned about grants
+console.log(`\n1  delete-map.mjs exactly as it was before the fix (${BEFORE_FIX})`);
 {
-  const before = spawnSync('git', ['show', 'origin/main:scripts/delete-map.mjs'], { cwd: ROOT, encoding: 'utf8' });
+  const before = spawnSync('git', ['show', `${BEFORE_FIX}:scripts/delete-map.mjs`], { cwd: ROOT, encoding: 'utf8' });
   if (before.status !== 0) {
-    fail(`could not read the pre-fix file from git: ${(before.stderr || '').trim()}`);
+    fail(`could not read scripts/delete-map.mjs at ${BEFORE_FIX}: ${(before.stderr || '').trim()}. `
+      + 'A shallow clone cannot see it — test.yml checks out with fetch-depth: 0 for this kind of reason.');
   } else if (before.stdout.includes('map_adviser_grant')) {
-    fail('origin/main already handles map_adviser_grant — this arm is no longer about the bug. '
-      + 'Pin it to the commit before the fix and say which one in this comment.');
+    fail(`scripts/delete-map.mjs at ${BEFORE_FIX} already handles map_adviser_grant, so it is not the pre-fix file. `
+      + 'The pin is wrong — move BEFORE_FIX to the commit before the fix landed.');
   } else {
     let dir;
     try {
