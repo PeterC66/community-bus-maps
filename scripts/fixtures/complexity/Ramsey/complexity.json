@@ -1,0 +1,110 @@
+{
+  "scoredAt": "2026-08-28 17:17",
+  "dir": "C:\\u3a St Ives\\Using AI\\Buses\\Areas\\Ramsey\\S2-geometry\\2026-08-28_1812",
+  "geometrySource": "routes_paths.json (road-matched)",
+  "geometryApproximate": false,
+  "metrics": {
+    "R": 7,
+    "S": 35,
+    "K5": 0.04,
+    "D5": 0.16,
+    "maxRoutesPerCell": 7,
+    "congestedClusters": 1,
+    "largestClusterCells": 3,
+    "routeKm": 52.5,
+    "extentKm": [
+      5.53,
+      7.05
+    ],
+    "inkDensity": 1.35,
+    "medianBuriedFraction": 0.38,
+    "routesOverHalfBuried": 1
+  },
+  "bands": {
+    "amber": {
+      "R": 12,
+      "S": 120,
+      "K5": 0.5,
+      "D5": 1.6
+    },
+    "red": {
+      "R": 18,
+      "S": 200,
+      "K5": 0.8,
+      "D5": 3.5
+    }
+  },
+  "applied": {
+    "internalCorridors": null,
+    "corridorPalette": null,
+    "coreBox": null,
+    "stopThinning": null
+  },
+  "band": "GREEN",
+  "failedThresholds": [],
+  "colours": {
+    "routes": 5,
+    "distinct": 5,
+    "ambiguity": 1
+  },
+  "congestionShape": "compact knot (a fisheye lens is the right tool)",
+  "ladder": [
+    {
+      "rung": 1,
+      "action": "bundle 2 co-running route families into single lines (CANDIDATES - confirm each really co-runs)",
+      "detail": "32/X31  |  305/301",
+      "data": {
+        "families": [
+          [
+            "32",
+            "X31"
+          ],
+          [
+            "305",
+            "301"
+          ]
+        ],
+        "overlapMin": 0.6,
+        "internalCorridors": {
+          "32": [
+            "X31"
+          ],
+          "305": [
+            "301"
+          ]
+        }
+      },
+      "after": {
+        "R": 5,
+        "S": 35,
+        "K5": 0.01,
+        "D5": 0
+      },
+      "band": "GREEN",
+      "stillFailing": []
+    },
+    {
+      "rung": 2,
+      "action": "suppress the core: draw a \"town centre\" box of radius 600 m",
+      "detail": "routes terminate at the box edge instead of crossing the knot",
+      "data": null,
+      "after": {
+        "R": 5,
+        "S": 28,
+        "K5": 0,
+        "D5": 0
+      },
+      "band": "GREEN",
+      "stillFailing": []
+    }
+  ],
+  "perRouteBuried": {
+    "32": 0.23267326732673269,
+    "301": 0.5232558139534884,
+    "303": 0.4368421052631579,
+    "305": 0.4939759036144578,
+    "X31": 0.23267326732673269,
+    "RH2": 0.37962962962962965,
+    "RH5": 0.12171837708830549
+  }
+}

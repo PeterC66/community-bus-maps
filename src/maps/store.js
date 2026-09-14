@@ -59,13 +59,35 @@ export const BUILD_WARNINGS = 'build-warnings.txt';
  * be worse than no answer at all — it would tell an approver the engine was
  * happy with a sheet it had refused to draw.
  *
+ * THREE SUMMARY LINES, BECAUSE THE ENGINE WRITES THREE. This function was
+ * written on 2026-08-30 against `N warnings, M blocking.` and the engine's
+ * `build_log.js` gained `, and K measurement(s).` the same day (buses-data
+ * OA-118) — measurements are counted apart from warnings so that a count does
+ * not inflate the moment one is added, and the lane measurement is
+ * UNCONDITIONAL, so every build since has written the longer line. The old
+ * regex required the full stop straight after "blocking" and therefore matched
+ * none of them: measured on 2026-09-14 over the 900 `build-warnings.txt` files
+ * on the map tree, 595 parsed as `null`, INCLUDING BOTH of the only two files
+ * in the estate's whole history that report a BLOCKING warning, and all eight
+ * towns' current renders. Not a false zero — the screen showed nothing at all —
+ * but nothing is what it showed for two thirds of the corpus for fifteen days.
+ *
+ * The zero-warning line carries no digits to read (`No warnings — every
+ * generator ran clean.`), and a file that SAYS zero is a zero: distinct from
+ * the absent file above, which is still the one case that must report `null`.
+ *
+ * A file with no summary line at all stays `null`, and that is not an
+ * oversight — five real files on the tree are raw entries with no header, and
+ * "we cannot report on this honestly" is the right answer for them.
+ *
  * @returns {{total:number, blocking:number, blockingLines:string[]}|null}
  */
 export function readBuildWarnings(dir) {
   let raw;
   try { raw = readFileSync(path.join(dir, BUILD_WARNINGS), 'utf8'); } catch { return null; }
-  const head = /^\s*(\d+)\s+warnings?,\s*(\d+)\s+blocking\./m.exec(raw);
-  if (!head) return null;
+  const head = /^\s*(\d+)\s+warnings?,\s*(\d+)\s+blocking(?:,\s*and\s+\d+\s+measurements?)?\./m.exec(raw);
+  const clean = !head && /^\s*No warnings\b/m.test(raw);
+  if (!head && !clean) return null;
   const blockingLines = [];
   let inBlocking = false;
   for (const line of raw.split(/\r?\n/)) {
@@ -73,7 +95,11 @@ export function readBuildWarnings(dir) {
     if (/^---/.test(line)) { inBlocking = false; continue; }
     if (inBlocking && line.trim()) blockingLines.push(line.trim());
   }
-  return { total: Number(head[1]), blocking: Number(head[2]), blockingLines };
+  return {
+    total: head ? Number(head[1]) : 0,
+    blocking: head ? Number(head[2]) : 0,
+    blockingLines,
+  };
 }
 
 /**

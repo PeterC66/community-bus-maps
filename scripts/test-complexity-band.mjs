@@ -89,9 +89,55 @@ const odd = readComplexity(write(path.join(scratch, 'odd'), { band: 'AMBER', fai
 eq('non-string thresholds are dropped rather than rendered', odd && odd.failed, ['K5=0.54 > 0.5']);
 eq('a missing scoredAt is null, not undefined', odd && odd.scoredAt, null);
 
-// Against the REAL corpus when it is present — the newest S2 run of each town.
-// CI checks out only this repository, so this is skipped there rather than
-// failed: a check that cannot run must not report a pass it did not make.
+// ===========================================================================
+// AGAINST CAPTURED REAL SCORES, WHICH RUN EVERYWHERE. Everything above is a
+// file this test wrote, and a synthetic fixture can only confirm what whoever
+// wrote the parser believed the gate emits. The arm below reads the live tree
+// and is the one that would notice otherwise — and it had never once run in
+// CI, because `test.yml` checks out this repository alone. The sibling
+// readBuildWarnings() was carrying a real defect behind exactly that gap for
+// fifteen days (see scripts/fixtures/README.md and store.js).
+//
+// These eight are verbatim `complexity.json` files, one per town, captured on
+// 2026-09-14 from each town's newest S2 run — the same eight the live arm
+// reads, so CI now has the breadth the laptop had.
+console.log('\nagainst captured real scores — the half CI can run');
+{
+  const FIXTURES = path.join(ROOT, 'scripts', 'fixtures', 'complexity');
+  let towns = [];
+  try { towns = readdirSync(FIXTURES, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort(); } catch { towns = []; }
+
+  // THE FIXTURE ITSELF IS A SUBJECT. A capture that quietly emptied would make
+  // every assertion below vacuous, and this is the `check-…` shape that stops
+  // a for-loop over nothing reading as a pass.
+  check(`the committed capture supplied ${towns.length} real score(s)`, towns.length >= 8, `${towns.length} — the capture has shrunk`);
+
+  const bands = new Set();
+  for (const town of towns) {
+    const r = readComplexity(path.join(FIXTURES, town));
+    check(`parses a real one: ${town} → ${r && r.band}${r && r.failed.length ? ' (' + r.failed.join(', ') + ')' : ''}`,
+      r !== null && ['GREEN', 'AMBER', 'RED'].includes(r.band), JSON.stringify(r));
+    if (r) bands.add(r.band);
+  }
+  // Four GREEN, two AMBER, two RED as captured. Without this the whole block
+  // could be satisfied by eight copies of one band, which is what the LIVE arm
+  // it replaces in CI would have been reduced to on a quieter estate.
+  eq('and between them they cover all three bands', [...bands].sort(), ['AMBER', 'GREEN', 'RED']);
+
+  // The two shapes a hand-written fixture would not have thought to carry: the
+  // P metric did not exist before 2026-08-31, so an older pack's score has four
+  // metrics and a newer one five, and `applied` arrives with every value null.
+  const withP = towns.filter((t) => { const r = readComplexity(path.join(FIXTURES, t)); return r && r.metrics.P !== undefined; });
+  check(`${withP.length} of ${towns.length} captured scores carry the P metric, and the rest are still read`,
+    withP.length > 0 && withP.length < towns.length, withP.join(', ') || 'none');
+}
+
+// ===========================================================================
+// Against the LIVE corpus when it is present — the newest S2 run of each town.
+// Only this arm can notice the gate changing its format; the capture above is
+// frozen by construction. CI checks out only this repository, so this is
+// skipped there rather than failed: a check that cannot run must not report a
+// pass it did not make.
 const TREE = path.join(BUSES_DIR, 'Areas');
 if (existsSync(TREE)) {
   const found = [];
@@ -109,7 +155,8 @@ if (existsSync(TREE)) {
       r !== null && ['GREEN', 'AMBER', 'RED'].includes(r.band), JSON.stringify(r));
   }
 } else {
-  console.log('  · the Buses map tree is not on this machine — the real-corpus arm is SKIPPED, not passed');
+  console.log('  · the Buses map tree is not on this machine — the live-corpus arm is SKIPPED, not passed');
+  console.log('    (the CAPTURED corpus above still ran; it is frozen, so only this arm sees a format change.)');
 }
 
 // ===========================================================================

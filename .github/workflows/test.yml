@@ -111,8 +111,21 @@ jobs:
       # about. This step is genuinely narrower than the checker it runs — do not
       # remove the working-tree half on noticing CI never reports it.
       #
-      # This repository declares no `.file-hygiene.json` and needs none: it has no
-      # generated corpus and no verbatim records, so the bare rules are right.
+      # THIS REPOSITORY NOW DECLARES A `.file-hygiene.json`, and until 2026-09-14
+      # this comment said it never would — "it has no generated corpus and no
+      # verbatim records, so the bare rules are right". True when written, false
+      # the day `scripts/fixtures/` landed: five `build-warnings.txt` and eight
+      # `complexity.json` copied verbatim off the map tree so that the halves of
+      # test-build-warnings.mjs and test-complexity-band.mjs which need real
+      # engine output can run here rather than on one laptop. Eight of them end
+      # without a final newline because that is how the engine writes them, and
+      # adding one would make them our files rather than its.
+      #
+      # The declaration relaxes TIER 2 ONLY (final newline, trailing whitespace)
+      # and over those two directories only. A BOM and mixed line endings stay
+      # findings in a captured file, which is the right way round: those are the
+      # two faults that would make a fixture differ from what the engine wrote
+      # in a way no diff shows.
       - name: files carry no BOM, no trailing whitespace, no missing newline
         run: node claude-skills/tools/check-file-hygiene.mjs --root .
 

@@ -1,0 +1,37 @@
+23 warnings, 1 blocking, and 3 measurements.
+
+BLOCKING means the engine refused to draw something, or drew a label that names
+nothing — the sheet is wrong and the reader cannot tell. Fix the config it names.
+MEASURED is a number this build recorded. It is never a fault.
+
+--- BLOCKING (1) ---
+[diagram] feature: label "Chiltern Main Line" is set to labelPos:"auto", but no spot along its drawn ink is both clear of other ink and big enough for the name — it was not drawn. Shorten the label, or place it by hand with labelPos:{x,y}.
+
+--- WARN (22) ---
+[internal] poi.tiers: "pharmacy:" has no name and is drawn anyway, because this town classified it. A nameless POI defaults to "miss" since 2026-09-04 — it costs a full symbol box for a glyph with nothing beside it. Give it an "as" to name it, or "miss" to take the default.
+[internal] mapNotes: "Limited (few journeys/wk): 27, 29, 38, 1…" is drawn at 200.0,177.8 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[internal] mapNotes: "School services: term-time only — full l…" is drawn at 200.0,181.4 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[internal] panelCorridors: 2 columns of 49mm from x=200 reach 298.0mm, past the 5mm print margin at 292mm — narrowed to 46mm each. Move the panel left (overrides.panel.x) to keep the configured width.
+[internal] placeIndex: 1 name too long for the index column and shortened with an ellipsis ("Chepping View Primary / Shelbourne County First Schools"). The full text is in indexed.json.
+[internal] placeIndex: the index block is FULL at 12 rows (2 columns of 6) and 39 more names are still unnamed. This sheet is carrying more than an A4 panel can index.
+[internal] labels: 51 could not be placed; 12 of them numbered in the place index, 39 still unnamed -> unplaced.json ("Snap Fitness", "M&S Food", "Thara Supermarket", "Titans Gym", "Youthspace", "John Hampden Grammar", ...)
+[external] howToUse: the configured spot covers 41.2% symbols / 18% route ink — moved 89,-78 mm to 99,80 (0.0% / 34%). STILL over 34% route ink there — a move that does not reach zero leaves a line the reader has to trace under an opaque panel. quality_metrics.js names which line.
+[schematic] poi.tiers: 5 keys matched no POI on this sheet and did nothing — "leisure:Magnolia Park Sports & Social Club", "leisure:TeamSport High Wycombe", "school:Carrington Infants", "school:Chepping View Primary / Shelbourne County First Schools", "school:The Downley". The key is "<category>:<name>" AFTER poi.tidy and poi.canon have run and after de-duplication; poi_worksheet.js prints the keys this town actually has. poi.tiers: "pharmacy:" has no name and is drawn anyway, because this town classified it. A nameless POI defaults to "miss" since 2026-09-04 — it costs a full symbol box for a glyph with nothing beside it. Give it an "as" to name it, or "miss" to take the default.
+[schematic] mapNotes: "Limited (few journeys/wk): 27, 29, 38, 1…" is drawn at 200.0,177.8 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[schematic] mapNotes: "School services: term-time only — full l…" is drawn at 200.0,181.4 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[schematic] panelCorridors: 2 columns of 49mm from x=200 reach 298.0mm, past the 5mm print margin at 292mm — narrowed to 46mm each. Move the panel left (overrides.panel.x) to keep the configured width.
+[schematic] placeIndex: 2 names too long for the index column and shortened with an ellipsis ("Cressex Synthetic Sports Pitch Centre", "Hamilton Academy - Hampden Road site"). The full text is in indexed.json.
+[schematic] placeIndex: the index block is FULL at 12 rows (2 columns of 6) and 37 more names are still unnamed. This sheet is carrying more than an A4 panel can index.
+[schematic] labels: 49 could not be placed; 12 of them numbered in the place index, 37 still unnamed -> unplaced.json ("Co-op Food", "Snap Fitness", "Titans Gym", "Youthspace", "Castlefield", "Wycombe High", ...) schematic labels: 37 could not be placed -> unplaced-schematic.json
+[diagram] poi.tiers: 6 keys matched no POI on this sheet and did nothing — "leisure:Clip 'n Climb", "leisure:Magnolia Park Sports & Social Club", "leisure:TeamSport High Wycombe", "park:Widmer Fields - Ash Field", "school:The Downley", "shop:Shop Jollof". The key is "<category>:<name>" AFTER poi.tidy and poi.canon have run and after de-duplication; poi_worksheet.js prints the keys this town actually has. poi.tiers: "pharmacy:" has no name and is drawn anyway, because this town classified it. A nameless POI defaults to "miss" since 2026-09-04 — it costs a full symbol box for a glyph with nothing beside it. Give it an "as" to name it, or "miss" to take the default.
+[diagram] mapNotes: "Limited (few journeys/wk): 27, 29, 38, 1…" is drawn at 200.0,177.8 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[diagram] mapNotes: "School services: term-time only — full l…" is drawn at 200.0,181.4 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[diagram] panelCorridors: 2 columns of 49mm from x=200 reach 298.0mm, past the 5mm print margin at 292mm — narrowed to 46mm each. Move the panel left (overrides.panel.x) to keep the configured width.
+[diagram] placeIndex: 6 names too long for the index column and shortened with an ellipsis ("Chepping View Primary / Shelbourne County First Schools", "Hamilton Academy - Hampden Road site", "Hazlemere Community Centre and Social Club", ...). The full text is in indexed.json.
+[diagram] placeIndex: the index block is FULL at 12 rows (2 columns of 6) and 44 more names are still unnamed. This sheet is carrying more than an A4 panel can index.
+[diagram] labels: 56 could not be placed; 12 of them numbered in the place index, 44 still unnamed -> unplaced.json ("Co-op Food", "Hilltop Community Centre", "Snap Fitness", "M&S Food", "Broad Walk", "John Hampden Grammar", ...) diagram labels: 44 could not be placed -> unplaced-diagram.json
+
+--- MEASURED (3) ---
+[internal] measure: lanes on=true segs=6734 lateral=209335 components=1 bridges=109 conflicts=0 flipped=3953 ribbon=false folded=0
+[schematic] measure: lanes on=true segs=6027 lateral=74922 components=2 bridges=435 conflicts=0 flipped=1971 ribbon=false folded=0
+[diagram] measure: lanes on=true segs=5561 lateral=71910 components=2 bridges=423 conflicts=0 flipped=2371 ribbon=false folded=0

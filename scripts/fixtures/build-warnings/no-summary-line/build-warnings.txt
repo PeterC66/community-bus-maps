@@ -1,0 +1,26 @@
+[internal] measure: lanes on=true segs=6988 lateral=214380 components=1 bridges=109 conflicts=0 flipped=4216
+[internal] mapNotes: "Limited (few journeys/wk): 27, 29, 38, 1…" is drawn at 200.0,177.8 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[internal] mapNotes: "School services: term-time only — full l…" is drawn at 200.0,181.4 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[internal] panelCorridors: 2 columns of 49mm from x=200 reach 298.0mm, past the 5mm print margin at 292mm — narrowed to 46mm each. Move the panel left (overrides.panel.x) to keep the configured width.
+[internal] placeIndex: 1 name too long for the index column and shortened with an ellipsis ("Highworth Combined School and Nursery"). The full text is in indexed.json.
+[internal] placeIndex: the index block is FULL at 10 rows (2 columns of 5) and 39 more names are still unnamed. This sheet is carrying more than an A4 panel can index.
+[internal] labels: 49 could not be placed; 10 of them numbered in the place index, 39 still unnamed -> unplaced.json ("Snap Fitness", "M&S Food", "Youthspace", "John Hampden Grammar", "Wycombe High", "Bucks Indoor Tennis Centre", ...)
+[external] legend: no position on this sheet leaves a 92x88 mm legend clear of every symbol, and where it sits covers 2.2% of them. Left where it is — shrink it with legendWrap or legendAt.box, or make room.
+[external] howToUse: the configured spot covers 41.2% symbols / 18% route ink — moved 89,-78 mm to 99,80 (0.0% / 34%). STILL over 34% route ink there — a move that does not reach zero leaves a line the reader has to trace under an opaque panel. quality_metrics.js names which line.
+[external] external labels: 1 unplaced ("Slough")
+[schematic] measure: lanes on=true segs=6245 lateral=76110 components=2 bridges=438 conflicts=0 flipped=1967
+[schematic] mapNotes: "Limited (few journeys/wk): 27, 29, 38, 1…" is drawn at 200.0,177.8 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[schematic] mapNotes: "School services: term-time only — full l…" is drawn at 200.0,181.4 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[schematic] panelCorridors: 2 columns of 49mm from x=200 reach 298.0mm, past the 5mm print margin at 292mm — narrowed to 46mm each. Move the panel left (overrides.panel.x) to keep the configured width.
+[schematic] placeIndex: 1 name too long for the index column and shortened with an ellipsis ("Hamilton Academy - Hampden Road site"). The full text is in indexed.json.
+[schematic] placeIndex: the index block is FULL at 10 rows (2 columns of 5) and 40 more names are still unnamed. This sheet is carrying more than an A4 panel can index.
+[schematic] labels: 50 could not be placed; 10 of them numbered in the place index, 40 still unnamed -> unplaced.json ("Co-op Food", "Snap Fitness", "Titans Gym", "Youthspace", "Castlefield", "John Hampden Grammar", ...)
+[schematic] schematic labels: 40 could not be placed -> unplaced-schematic.json
+[diagram] measure: lanes on=true segs=5756 lateral=70014 components=2 bridges=443 conflicts=0 flipped=2443
+[diagram] mapNotes: "Limited (few journeys/wk): 27, 29, 38, 1…" is drawn at 200.0,177.8 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[diagram] mapNotes: "School services: term-time only — full l…" is drawn at 200.0,181.4 across the "River Wye" feature label — a note is placed by hand and the engine will not move it. Adjust its x/y (or dx/dy) in routes.json.
+[diagram] panelCorridors: 2 columns of 49mm from x=200 reach 298.0mm, past the 5mm print margin at 292mm — narrowed to 46mm each. Move the panel left (overrides.panel.x) to keep the configured width.
+[diagram] placeIndex: 4 names too long for the index column and shortened with an ellipsis ("Chepping View Primary / Shelbourne County First Schools", "Hamilton Academy - Hampden Road site", "Hazlemere Community Centre and Social Club", ...). The full text is in indexed.json.
+[diagram] placeIndex: the index block is FULL at 10 rows (2 columns of 5) and 40 more names are still unnamed. This sheet is carrying more than an A4 panel can index.
+[diagram] labels: 50 could not be placed; 10 of them numbered in the place index, 40 still unnamed -> unplaced.json ("Co-op Food", "Snap Fitness", "M&S Food", "North Lawn", "Aldi", "Wycombe High", ...)
+[diagram] diagram labels: 40 could not be placed -> unplaced-diagram.json
