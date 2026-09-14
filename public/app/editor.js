@@ -1123,7 +1123,12 @@ function ownerCostsFor(toId) {
       costs.push(`${to.name} is “${to.status}”, and the public queries admit an active organisation only — so this map LEAVES the public site until that changes.`);
     }
   } else {
-    costs.push('The map becomes unowned, and an unowned map is dropped by both public queries however published it says it is. Its public page starts returning “not found” at once, and its sheets lose the owner’s badge.');
+    // isSampleCustomer(null) is TRUE — "absent or unreadable means sample" — so
+    // un-owning does not merely remove a badge, it puts the band back on. Hedged
+    // on the pilot because this screen cannot see PILOT_MODE; `restamped` in the
+    // response is what reports the outcome that actually happened.
+    costs.push('The map becomes unowned, and an unowned map is dropped by both public queries however published it says it is — its public page starts returning “not found” at once, under nobody’s badge.');
+    costs.push('A map with no owner counts as a sample, so while the pilot is on its stored sheets are re-stamped WITH the “PILOT — SAMPLE MAP” band and its middle line, “Not published by any organisation”.');
     costs.push(`${from || 'The present owner'} gets ${noun === 'area' ? 'an' : 'a'} ${noun}-map slot back, and ${from ? 'their' : 'its'} people lose the sign-in that edits it. Administrators keep access.`);
     costs.push('Nobody is emailed when a new version of it is published, and a “Spotted a problem?” report about it has no organisation for us to pass it to.');
   }
