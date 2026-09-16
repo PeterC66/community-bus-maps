@@ -70,7 +70,7 @@ import { escapeHtml } from '../html.js';
 import { versionDir, OUTPUT_FILES } from '../maps/store.js';
 import { ensureWatermarked } from '../render/watermark.js';
 import { searchPlaces } from '../search/index.js';
-import { searchDirectory, directorySize } from '../search/directory.js';
+import { searchDirectoryWithPlace, directorySize } from '../search/directory.js';
 import { recordMiss } from '../search/demand.js';
 import { PILOT, INDEXING, ENVIRONMENT } from '../config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { APP_VERSION, GIT_SHA } from '../version.js';
@@ -171,11 +171,15 @@ export default async function publicRoutes(app) {
     // with JavaScript off and a ?q= link shared in an email all get the answer
     // in the HTML. Its markup comes from the same shared module.
     let directory = [];
+    let place = null;
     if (q.length >= 2) {
       const { results } = searchPlaces(q);
       reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
       maps = results.map((r) => r.map);
-      directory = searchDirectory(q);
+      // OA-312 — `place` is where the reader's place IS (district, county,
+      // country), from the Index of Place Names, when the directory's own names
+      // did not answer. The panel renders it; the tally below does not read it.
+      ({ rows: directory, place } = searchDirectoryWithPlace(q));
       // OA-308 tier 4 — the demand signal. Arriving at /maps?q=… is a deliberate
       // act (a typed URL, a shared link, a form submit with JavaScript off), so
       // unlike the API below this path needs no `intent` to tell it apart from a
@@ -192,7 +196,7 @@ export default async function publicRoutes(app) {
     let page = setInner(shell('maps.html'), 'grid', html);
     page = setClass(page, 'grid', className);
     page = setInner(page, 'directory', q.length >= 2
-      ? directoryBlock(directory, { query: q, size: directorySize() })
+      ? directoryBlock(directory, { query: q, size: directorySize(), place })
       : '');
     // Read the query back into the box, so a /maps?q=… link says what it searched
     // for with or without JavaScript.
@@ -393,7 +397,11 @@ export default async function publicRoutes(app) {
     // client labels them as such. `directorySize` travels with it so the "we
     // looked and found nothing" line can say how big the thing we searched is
     // without a second request.
-    return { ok: true, results, corrected, directory: searchDirectory(q), directorySize: directorySize() };
+    // OA-312 — `place` says where the query IS when the directory's own names
+    // did not answer; the client hands it to the same directoryBlock() the server
+    // renders with, so the two paintings of the panel cannot differ.
+    const { rows: directory, place } = searchDirectoryWithPlace(q);
+    return { ok: true, results, corrected, directory, place, directorySize: directorySize() };
   });
 
   app.get('/api/public/maps/:slug', async (req, reply) => {

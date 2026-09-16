@@ -40,7 +40,7 @@
 // Exit codes follow docs/CONVENTIONS.md: 0 in step (or copied), 1 the vendored
 // copy is stale, 2 used wrongly / nothing to compare against.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { busesDirCandidates } from './lib/fixtures.mjs';
@@ -121,26 +121,64 @@ function project(doc) {
   };
 }
 
-const src = Buffer.from(JSON.stringify(project(JSON.parse(readFileSync(source, 'utf8'))), null, 2) + '\n');
-const cur = existsSync(VENDORED) ? readFileSync(VENDORED) : null;
-const same = cur !== null && src.equals(cur);
+// THE PLACE LOOKUP TRAVELS THE SAME WAY (buses-data OA-312, 2026-09-16), and as a
+// byte COPY rather than a projection: places.json, lad-to-lta.json and
+// places-source.json hold place names, district codes and a rule table, none of
+// it our assessment of anybody. They land in src/search/data/ and NOT in public/,
+// because the browser never needs 1.2 MB of place names to draw a panel the
+// server has already answered. Same check, same exit codes, one more line of
+// output per file.
+const PLACES_SRC_REL = path.join('BusMapsUK', 'bus-map-directory', 'places');
+const PLACES_DEST = path.join(PORTAL_ROOT, 'src', 'search', 'data');
+const PLACE_FILES = ['places.json', 'lad-to-lta.json', 'places-source.json'];
+
+const busesRoot = source.slice(0, source.length - SOURCE_REL.length);
+const targets = [
+  {
+    what: 'the directory, PROJECTED',
+    source,
+    dest: VENDORED,
+    bytes: Buffer.from(JSON.stringify(project(JSON.parse(readFileSync(source, 'utf8'))), null, 2) + '\n'),
+  },
+  ...PLACE_FILES.map((f) => {
+    const p = path.join(busesRoot, PLACES_SRC_REL, f);
+    if (!existsSync(p)) {
+      console.error(`sync-directory: the source checkout has no ${p} — buses-data is older than the place lookup, or the checkout is partial.`);
+      process.exit(2);
+    }
+    return { what: `${f}, copied byte for byte`, source: p, dest: path.join(PLACES_DEST, f), bytes: readFileSync(p) };
+  }),
+];
+for (const t of targets) {
+  const cur = existsSync(t.dest) ? readFileSync(t.dest) : null;
+  t.cur = cur;
+  t.same = cur !== null && t.bytes.equals(cur);
+}
+const stale = targets.filter((t) => !t.same);
 
 if (CHECK) {
-  if (same) {
-    console.log(`sync-directory: the vendored copy matches ${source} (${src.length.toLocaleString('en-GB')} bytes).`);
+  if (!stale.length) {
+    for (const t of targets) console.log(`sync-directory: in step — ${t.what} (${t.bytes.length.toLocaleString('en-GB')} bytes)`);
     process.exit(0);
   }
-  console.error('sync-directory: public/data/bus-map-directory.json is OUT OF STEP with buses-data.');
-  console.error(`  source   ${source} (${src.length.toLocaleString('en-GB')} bytes)`);
-  console.error(`  vendored ${VENDORED} (${cur === null ? 'missing' : cur.length.toLocaleString('en-GB') + ' bytes'})`);
+  console.error(`sync-directory: ${stale.length} vendored file(s) OUT OF STEP with buses-data.`);
+  for (const t of stale) {
+    console.error(`  ${t.what}`);
+    console.error(`    source   ${t.source} (${t.bytes.length.toLocaleString('en-GB')} bytes)`);
+    console.error(`    vendored ${t.dest} (${t.cur === null ? 'missing' : t.cur.length.toLocaleString('en-GB') + ' bytes'})`);
+  }
   console.error('  Run `npm run sync:directory` from the repository root and commit the result.');
   process.exit(1);
 }
 
-if (same) {
+if (!stale.length) {
   console.log('sync-directory: already in step, nothing written.');
   process.exit(0);
 }
-writeFileSync(VENDORED, src);
-console.log(`sync-directory: projected ${source}`);
-console.log(`                       -> ${VENDORED} (${src.length.toLocaleString('en-GB')} bytes, notes and sources left behind)`);
+mkdirSync(PLACES_DEST, { recursive: true });
+for (const t of stale) {
+  writeFileSync(t.dest, t.bytes);
+  console.log(`sync-directory: ${t.what}`);
+  console.log(`    ${t.source}`);
+  console.log(`    -> ${t.dest} (${t.bytes.length.toLocaleString('en-GB')} bytes${t.dest === VENDORED ? ', notes and sources left behind' : ''})`);
+}

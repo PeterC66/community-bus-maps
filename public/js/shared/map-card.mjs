@@ -201,21 +201,64 @@ export function monthGB(ym) {
  * "Harrogate" and got nothing needs to know that the question was asked and
  * came back empty — otherwise the only reading left is that we never looked.
  *
+ * Since buses-data OA-312 (2026-09-16) the panel also says WHERE the place is,
+ * when the directory's own names did not answer and the Index of Place Names
+ * did: "Burford is in West Oxfordshire, Oxfordshire, whose local transport
+ * authority is Oxfordshire County Council", then the row's card as before, then
+ * one sentence pointing at the map-request route (decision 3 of the plan), then
+ * the other Burfords with their district and county (decision 5). A Scottish or
+ * Welsh place gets a plain England-only sentence (decision 4). A name the Index
+ * does not hold gets the honest sentence above, WORD FOR WORD — that is the
+ * property OA-312 said must survive — with one line saying the Index was asked
+ * too. Every rendering that consulted the Index carries its edition and licence
+ * in a footer line, which is the half of "when was this last checked" that is
+ * ours to state.
+ *
  * @param {{offer:object, reason:string}[]} rows
- * @param {{query?: string, size?: number}} opts  `size` = how many authorities the directory holds
+ * @param {{query?: string, size?: number, place?: object|null}} opts  `size` = how many authorities the directory holds; `place` as shaped by searchDirectoryWithPlace()
  */
-export function directoryBlock(rows, { query = '', size = 0 } = {}) {
+export function directoryBlock(rows, { query = '', size = 0, place = null } = {}) {
   if (!query) return '';
+  const p = place || {};
+  const source = p.source && p.source.edition
+    ? `<p class="dir-source muted">Place names and districts from the ${esc(p.source.publisher ? 'ONS ' : '')}${esc(p.source.dataset || 'Index of Place Names')}, ${esc(p.source.edition)} edition, ${esc(p.source.licence || 'Open Government Licence')}.</p>`
+    : '';
+  const others = (p.others || []).length
+    ? `<p class="dir-others">Other places called ${esc(p.name)}: ${p.others.map((o) => `<a href="/maps?q=${encodeURIComponent(o.query)}">${esc(o.name)}, ${esc(o.where)}${o.country && o.country !== 'England' ? ` (${esc(o.country)})` : ''}</a>`).join(' · ')}</p>`
+    : '';
   if (!rows.length) {
+    let said;
+    if (p.kind === 'outside') {
+      said = `<p><strong>${esc(p.name)}</strong> is in ${esc(p.country)}${p.where && p.where !== p.name ? ` (${esc(p.where)})` : ''}. This directory covers the ${size || ''} English local transport authorities only, so we cannot say what is published for it.</p>${others}`;
+    } else if (p.kind === 'unlisted') {
+      said = `<p><strong>${esc(p.name)}</strong> is in ${esc(p.where)}, whose council is its own transport authority and is not one of the ${size || ''} in our directory, so we cannot say what is published for it.</p>${others}`;
+    } else if (p.kind === 'short') {
+      said = `<p><strong>${esc(query)}</strong> is the start of ${p.count ? `${p.count} place names` : 'too many place names to list'}. Type more of the name and we will say which authority covers it.</p>`;
+    } else {
+      // The honest miss, word for word as it has read since the panel shipped.
+      said = `<p>We keep a directory of what all ${size || ''} English local transport authorities publish, and nothing in it matches <strong>${esc(query)}</strong> by name. That does not prove there is no map — it means we cannot tell you which authority covers ${esc(query)}. Searching for the county or the authority instead, e.g. <em>Cambridgeshire</em>, will say what that authority publishes.</p>`
+        + (p.kind === 'none' && source ? `<p class="muted">Nor is it a place name in the Index of Place Names, which lists every named place in Great Britain.</p>` : '');
+    }
     return `<div class="dir-block dir-empty">
       <h3>Does anybody else publish one?</h3>
-      <p>We keep a directory of what all ${size || ''} English local transport authorities publish, and nothing in it matches <strong>${esc(query)}</strong> by name. That does not prove there is no map — it means we cannot tell you which authority covers ${esc(query)}. Searching for the county or the authority instead, e.g. <em>Cambridgeshire</em>, will say what that authority publishes.</p>
+      ${said}
+      ${source}
     </div>`;
   }
+  const placed = p.kind === 'england'
+    ? `<p class="dir-place"><strong>${esc(p.name)}</strong> is in ${esc(p.where)}, whose local transport authority is ${esc(p.authority)}.</p>`
+    : '';
+  const ask = p.kind === 'england'
+    ? `<p class="dir-ask">If you would like a map of ${esc(p.name)} itself, you can <a href="/apply.html">ask for one</a>.</p>`
+    : '';
   return `<div class="dir-block">
       <h3>Not ours — what the local transport authority publishes</h3>
+      ${placed}
       <p class="dir-note">These are other people's maps, listed so you can find one that already exists. We checked that each was there on the date shown and nothing more: we do not maintain them and cannot vouch for what they say.</p>
       <div class="grid cols-2">${rows.map((r) => directoryCard(r.offer, r.reason, { query, matchKind: (r.matched || {}).kind || '' })).join('')}</div>
+      ${ask}
+      ${others}
+      ${source}
     </div>`;
 }
 

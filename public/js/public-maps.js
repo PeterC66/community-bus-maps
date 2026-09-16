@@ -130,7 +130,9 @@ import { grid as renderGrid, directoryBlock } from './shared/map-card.mjs';
         query: q,
         hasDirectory: directory.length > 0,
       }));
-      paintDirectory(directoryBlock(directory, { query: q, size: (body && body.directorySize) || 0 }));
+      // OA-312 — `place` is where the query IS, from the server's place lookup;
+      // the same shared renderer draws it here and in the server-rendered page.
+      paintDirectory(directoryBlock(directory, { query: q, size: (body && body.directorySize) || 0, place: (body && body.place) || null }));
     } catch {
       if (meta) meta.textContent = '';
       paintDirectory('');
