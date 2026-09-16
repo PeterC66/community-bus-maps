@@ -21,10 +21,14 @@ const ORG_TYPES = [
   'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
   'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
 ];
-// What the PUBLIC contact form may set. 'diagram-request' is a fourth kind in the
-// message table, but only the server writes it (see /api/maps/:id/diagram-request),
-// so it is deliberately not in this list.
-const MSG_KINDS = ['enquiry', 'question', 'feedback', 'issue'];
+// What the PUBLIC contact form may set. 'diagram-request' is a further kind in
+// the message table, but only the server writes it (see
+// /api/maps/:id/diagram-request), so it is deliberately not in this list.
+// 'map-request' joined on 2026-09-16 (buses-data OA-380 (c)): the /maps search
+// used to send a resident whose village has no map to /apply.html, which opens by
+// asking for an organisation name. This is the door that fits them, and giving it
+// its own kind is what makes those asks countable instead of filed as enquiries.
+const MSG_KINDS = ['enquiry', 'question', 'feedback', 'map-request', 'issue'];
 // The admin-settable states for a message (schema default is 'new' on insert).
 const MSG_STATUSES = ['new', 'read', 'answered'];
 const MAP_KINDS = ['area', 'place'];

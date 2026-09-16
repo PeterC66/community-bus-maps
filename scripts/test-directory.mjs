@@ -250,8 +250,15 @@ console.log('\nthe place lookup — a village is not an authority (buses-data OA
   const html = directoryBlock(burford.rows, { query: 'Burford', size: 76, place: burford.place });
   check('the panel says where the place is and whose authority that is',
     /<strong>Burford<\/strong> is in West Oxfordshire, Oxfordshire, whose local transport authority is Oxfordshire County Council/.test(html));
+  // OA-380 (c), 2026-09-16: the sentence used to send everybody to /apply.html,
+  // which opens by asking for an organisation name. On a village search the
+  // reader is usually a resident, so the first door is now the contact form with
+  // the place carried in the link, and the organisation door is named second
+  // rather than dropped. Still one sentence, and still no pitch.
   check('…points at the map-request route in one sentence, with no pitch',
-    /map of Burford itself, you can <a href="\/apply.html">ask for one<\/a>/.test(html) && !/£|price|quote/i.test(html));
+    /map of Burford itself, you can <a href="\/contact\.html\?kind=map-request&amp;place=Burford">ask for one<\/a>/.test(html)
+    && /register an organisation's interest/.test(html)
+    && !/£|price|quote/i.test(html), html.slice(Math.max(0, html.indexOf('dir-ask')), html.indexOf('dir-ask') + 320));
   check('…lists the other Burfords as links', (html.match(/href="\/maps\?q=Burford%20/g) || []).length === 3);
   check('…and states the Index edition and licence it read',
     /Index of Place Names in Great Britain, July 2024 edition, Open Government Licence v3\.0/.test(html));
@@ -303,6 +310,24 @@ console.log('\nthe card keeps its three promises');
     /last checked on 3 February 2001/.test(directoryCard(backdated, '')),
     (directoryCard(backdated, '').match(/last checked on [^<]*/) || [''])[0]);
   check('the link is nofollow — we are not vouching for it', /rel="nofollow noopener"/.test(html));
+
+  // OA-380 (a) and (d), 2026-09-16. Two things Peter found reading the live page.
+  //
+  // The link left busmaps.uk in the SAME tab, and where it goes the reader has
+  // several more clicks before they reach a map — so they came back, if at all,
+  // by pressing Back through a site they had been navigating.
+  //
+  // And it was labelled "Open their map", which the link usually cannot deliver.
+  // That was MEASURED rather than argued: across the 76 rows in the directory,
+  // NOT ONE network-map URL ends in `.pdf` — 46 have no extension at all, one is
+  // .aspx, one .html, 28 have no URL. So there is no shape a checker could use to
+  // tell "the map" from "the page the map is on", and the honest label is the one
+  // that is true in every case. Telling them apart needs a field in the register
+  // that does not exist yet: buses-data OA-381.
+  check('an external link opens in a new tab', /target="_blank"/.test(html), (html.match(/<a [^>]*href="http[^>]*>/) || [''])[0]);
+  check('…and is marked ↗ so the reader knows before clicking', /↗/.test(html));
+  check('…and is labelled as the PAGE, which is what it usually is',
+    /Open their map page ↗/.test(html), (html.match(/>Open their[^<]*/) || [''])[0]);
 }
 
 console.log('\nthe panel around the cards');
@@ -326,6 +351,57 @@ console.log('\nthe no-result wording changes when the directory answers');
   check('with a directory hit, it does not say "no map covers X"', !/No published map covers/.test(withDir));
   check('…it says no map of OURS covers it', /through this portal/.test(withDir));
   check('grid() passes the flag through', /through this portal/.test(grid([], { query: 'Essex', hasDirectory: true }).html));
+
+  // OA-380 (b), 2026-09-16. The other branch has said "covers X yet" since the
+  // block shipped; this one said "covers X". One word, and it is the difference
+  // between a statement about the world and a statement about how far we got.
+  check('both branches say "yet"', / yet/.test(alone) && / yet/.test(withDir),
+    withDir.replace(/\s+/g, ' '));
+
+  // OA-380 (c). Both branches used to send the reader to /apply.html, which opens
+  // "Tell us a little about your organisation" and requires an organisation name
+  // and type — and the directory branch offered that door and NOTHING else, so
+  // the reader with the weakest answer got the narrowest set of options. The
+  // reader who has just been told nobody maps their village is usually a resident.
+  for (const [what, html, place] of [['alone', alone, 'Harrogate'], ['with a directory hit', withDir, 'Essex']]) {
+    check(`${what} — the first door is one a resident can walk through`,
+      html.includes(`href="/contact.html?kind=map-request&amp;place=${place}"`), html.replace(/\s+/g, ' '));
+    check(`${what} — …and names the place they searched for`, html.includes(`Ask for a map of ${place}`));
+    check(`${what} — …with the organisation door still there, second`, /href="\/apply\.html"/.test(html));
+  }
+}
+
+// OA-380 (c) — THE JOIN, not either end of it.
+//
+// askForOneHref() writes a URL naming a `kind`, and that kind has to be three
+// things at once: an option in the shell so the reader sees the right reason
+// selected, a value the server accepts, and a value contact-kind.js knows to act
+// on. Nothing connected them. A link asserting a form field it has never been
+// joined to is the shape this estate has paid for more than once — a written
+// claim about a join, unverified by construction — so the claim is checked here
+// rather than stated in a comment.
+console.log('\nthe "ask for one" link is joined to the form it points at');
+{
+  const { askForOneHref } = await import('../public/js/shared/map-card.mjs');
+  const href = askForOneHref('Swavesey');
+  const kind = new URL(href, 'https://busmaps.uk').searchParams.get('kind');
+  check('the link carries a kind and the place', kind === 'map-request'
+    && new URL(href, 'https://busmaps.uk').searchParams.get('place') === 'Swavesey', href);
+  check('…and it goes to the contact form, not the organisation form', href.startsWith('/contact.html?'), href);
+
+  const contactHtml = readFileSync(new URL('../public/contact.html', import.meta.url), 'utf8');
+  check('…the form offers that kind as an option a reader can pick',
+    new RegExp(`<option value="${kind}"`).test(contactHtml),
+    (contactHtml.match(/<option value="[^"]*"/g) || []).join(' '));
+
+  const helpers = readFileSync(new URL('../src/http/helpers.js', import.meta.url), 'utf8');
+  const kinds = (helpers.match(/const MSG_KINDS = \[([^\]]*)\]/) || [, ''])[1];
+  check('…the server accepts it rather than filing it as a general enquiry',
+    kinds.includes(`'${kind}'`), kinds.trim());
+
+  const kindJs = readFileSync(new URL('../public/js/contact-kind.js', import.meta.url), 'utf8');
+  check('…and the page knows to prefill the place, which is the only fact we need',
+    kindJs.includes(`kind === '${kind}'`) && /get\('place'\)/.test(kindJs));
 }
 
 console.log('\ndates read as a British reader writes them');

@@ -60,7 +60,7 @@ import {
 import { publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, publicBases } from '../public/index.js';
 import { factsForPublicMap, publicServices, servicesPageUrl } from '../public/services.js';
 import { setInner, setAttr, setClass, removeBooleanAttr } from '../public/shell.js';
-import { grid, directoryBlock } from '../../public/js/shared/map-card.mjs';
+import { grid, directoryBlock, searchMeta } from '../../public/js/shared/map-card.mjs';
 import { servicesView } from '../../public/js/shared/services-view.mjs';
 import { inlineSvg } from '../public/inlineSvg.js';
 import { notFoundPage } from '../public/notFound.js';
@@ -172,14 +172,23 @@ export default async function publicRoutes(app) {
     // in the HTML. Its markup comes from the same shared module.
     let directory = [];
     let place = null;
+    let meta = '';
     if (q.length >= 2) {
-      const { results } = searchPlaces(q);
+      const { results, corrected } = searchPlaces(q);
       reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
       maps = results.map((r) => r.map);
       // OA-312 — `place` is where the reader's place IS (district, county,
       // country), from the Index of Place Names, when the directory's own names
       // did not answer. The panel renders it; the tally below does not read it.
       ({ rows: directory, place } = searchDirectoryWithPlace(q));
+      // OA-380 (e) — the sentence above the grid, from the SAME function the
+      // browser uses. `corrected` was computed and thrown away here until
+      // 2026-09-16, and #searchMeta was left `hidden` in the shell, so
+      // /maps?q=Eynesbury served a Buckinghamshire map for a Cambridgeshire
+      // village with nothing on the page to say that the spelling had been
+      // corrected. A typed URL, a link shared in an email, a reader with
+      // JavaScript off and a crawler all got that page.
+      meta = searchMeta(q, { results, corrected, directory });
       // OA-308 tier 4 — the demand signal. Arriving at /maps?q=… is a deliberate
       // act (a typed URL, a shared link, a form submit with JavaScript off), so
       // unlike the API below this path needs no `intent` to tell it apart from a
@@ -201,6 +210,12 @@ export default async function publicRoutes(app) {
     // Read the query back into the box, so a /maps?q=… link says what it searched
     // for with or without JavaScript.
     if (q) page = setAttr(page, 'q', 'value', q);
+    // The shell ships #searchMeta `hidden`, which is right when there is nothing
+    // to say. Unhide it only when there is.
+    if (meta) {
+      page = setInner(page, 'searchMeta', escapeHtml(meta));
+      page = removeBooleanAttr(page, 'searchMeta', 'hidden');
+    }
     reply.type('text/html; charset=utf-8');
     return reply.send(page);
   });
