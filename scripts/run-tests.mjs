@@ -47,6 +47,13 @@ const PREFLIGHT = [
   // cannot tell whether the SKILL has moved on. `status.js` on the laptop is
   // what asks that half.
   'check-vendored.mjs --no-skills',
+  // Every path that moves the published pointer writes the place-name sidecar
+  // (buses-data OA-379). A preflight rather than a test because its subject is
+  // the SOURCE — which call sites exist — and a test can only ever exercise the
+  // ones somebody remembered to write a test for, which is how the bug it is
+  // named after survived: scripts/publish-baseline.mjs published the first real
+  // customer's four maps with no sidecar and the suite was green throughout.
+  'check-publish-paths.mjs',
 ];
 
 // A discovered file may be skipped ONLY with a reason that names where it DOES
