@@ -87,8 +87,8 @@
       "path": "render.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/render.js",
-      "sha256": "4b875dd168853528661cb3f7ef6b9e4a68e24b966c3db701d336991800d6f435",
-      "vendoredOn": "2026-08-25"
+      "sha256": "f8a08fcf3239983a977780116a04a57abc2260735185574e68ea1b9225d9ad97",
+      "vendoredOn": "2026-09-16"
     },
     {
       "path": "area/gen_external_radial.js",
