@@ -13,8 +13,9 @@
 // version isn't already the published one; anything else is skipped, not
 // forced.
 
-import { listMaps, getMapBySlug, getUserByEmail, insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion, setMapStatus, recordAudit } from '../src/db/index.js';
+import { listMaps, getMapBySlug, getUserByEmail, getVersionById, insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion, setMapStatus, recordAudit } from '../src/db/index.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
+import { writePlacesSidecar } from '../src/search/place-index.js';
 import { arg, has } from './lib/cli.mjs';
 
 
@@ -71,6 +72,20 @@ function publishBaseline(m) {
   setVersionState(m.current_version_id, 'published');
   setPublishedVersion(m.id, m.current_version_id);
   setMapStatus(m.id, 'published');
+  // THE PLACE-NAME SIDECAR IS PART OF PUBLISHING, NOT PART OF THE REVIEW SCREEN
+  // (buses-data OA-379, 2026-09-16). Until today this call existed only in the
+  // approve handler, so every map published by this script answered the /maps
+  // search by its own title and by nothing else: searching Tilbrook or Abbotsley
+  // returned no map of ours although the published St Neots sheet's routes 150,
+  // 18 and C2 all call there. Four of the first real customer's maps shipped in
+  // that state on 15 September 2026 and nobody could see it, because a map with
+  // no sidecar is not an error — buildIndex() skips it in one line.
+  //
+  // The sidecar is keyed by the version's STORAGE key, not its row id — that is
+  // the folder the published sheets live in, and what readPlacesSidecar() looks
+  // in. The approve handler has `pr.version_key` to hand; here it is a lookup.
+  const version = getVersionById(m.current_version_id);
+  writePlacesSidecar(m.id, version.storage_key, { kind: m.kind, subject: m.subject });
   recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'version.publish', mapId: m.id, versionId: m.current_version_id, detail: { version: 'v1.0', changeSummary: summary } });
 
   console.log(`· published ${m.slug} v1.0`);
@@ -80,3 +95,10 @@ function publishBaseline(m) {
 let n = 0;
 for (const m of targets) { if (publishBaseline(m)) n++; }
 console.log(`\n${n} map(s) published.`);
+// A RUNNING PORTAL WILL NOT SEE THE NEW PLACE NAMES UNTIL IT IS RESTARTED, and
+// saying so is the honest half of the fix above. The sidecars this script writes
+// are on disk and permanent, but src/search/index.js caches the built index in
+// process against a counter only that process can bump — so a bumpSearchIndex()
+// call here would move a counter in a process that is about to exit and would
+// prove nothing at all. The same is true of `npm run places:build`.
+if (n > 0) console.log('Restart the portal for the new place names to reach the /maps search — the index is cached in process.');
