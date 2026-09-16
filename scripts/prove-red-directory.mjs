@@ -45,6 +45,10 @@ function makeCopy() {
   for (const sub of ['src', 'scripts', path.join('public', 'js'), path.join('public', 'data')]) {
     cpSync(path.join(ROOT, sub), path.join(dir, sub), { recursive: true });
   }
+  // public/contact.html joined the copy on 2026-09-16 (OA-380 (c)): the test now
+  // checks that the "ask for one" link names a `kind` the form really offers, so
+  // the form is part of its subject and arm 18 mutates it.
+  cpSync(path.join(ROOT, 'public', 'contact.html'), path.join(dir, 'public', 'contact.html'));
   return dir;
 }
 
@@ -193,6 +197,41 @@ arm('13 the "other places called X" links dropped',
   (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
     .replace('      ${ask}\n      ${others}\n', '      ${ask}\n')),
   [['lists the other Burfords as links', 'the decision-5 check']]);
+
+// buses-data OA-380 — the five things Peter found reading the live page. Each
+// arm puts the page back the way it was on the morning of 2026-09-16.
+arm('14 the new tab taken off the links that leave this site',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace(' target="_blank" rel="nofollow noopener"', ' rel="nofollow noopener"')),
+  [['an external link opens in a new tab', 'the new-tab check']]);
+
+arm('15 the link labelled "Open their map" again, which it usually cannot deliver',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace("ext(d.url, 'Open their map page')", "ext(d.url, 'Open their map')")),
+  [['labelled as the PAGE', 'the honest-label check']]);
+
+arm('16 the word "yet" taken out of the directory branch',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('covers <strong>${esc(q)}</strong> yet — but somebody else', 'covers <strong>${esc(q)}</strong> — but somebody else')),
+  [['both branches say "yet"', 'the "yet" check']]);
+
+arm('17 the "ask for one" door pointed back at the organisation form',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace(/export function askForOneHref\(place\) \{[\s\S]*?\n\}/, 'export function askForOneHref() {\n  return \'/apply.html\';\n}')),
+  [
+    ['the first door is one a resident can walk through', 'the resident-door check'],
+    ['it goes to the contact form, not the organisation form', 'the join check'],
+  ]);
+
+arm('18 the form stops offering the kind the link names',
+  (dir) => patch(dir, path.join('public', 'contact.html'), (s) => s
+    .replace('<option value="map-request">Ask for a map of my area</option>\n            ', '')),
+  [['the form offers that kind as an option', 'the option check']]);
+
+arm('19 the server stops accepting that kind, so the ask is filed as an enquiry',
+  (dir) => patch(dir, path.join('src', 'http', 'helpers.js'), (s) => s
+    .replace("'feedback', 'map-request', 'issue'", "'feedback', 'issue'")),
+  [['the server accepts it rather than filing it', 'the whitelist check']]);
 
 for (const dir of scratches) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* windows file locks */ } }
 

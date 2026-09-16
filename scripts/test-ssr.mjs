@@ -176,6 +176,52 @@ check('nothing published at all is its own message',
 check('the search box reads back the query',
   setAttr(mapsShell, 'q', 'value', 'Swavesey').includes('value="Swavesey"'));
 
+// --- 3c. …and the one sentence that says what the search DID ----------------
+// buses-data OA-380 (e). The sentence was written in public/js/public-maps.js
+// and nowhere else, and that file does no first render — so /maps?q=Eynesbury
+// arrived with #searchMeta still `hidden` and empty. A reader who followed that
+// link got a Buckinghamshire map for a Cambridgeshire village with nothing on
+// the page to say the spelling had been corrected to "Aylesbury". Exactly the
+// N1 argument above, left undone for the line above the grid.
+console.log('\n/maps says what the search did:');
+{
+  const { searchMeta } = await import('../public/js/shared/map-card.mjs');
+  const { escapeHtml } = await import('../src/html.js');
+
+  check('maps.html has #searchMeta', /id="searchMeta"/.test(mapsShell));
+
+  // The four things it can say. Written out rather than looped, because the
+  // wording IS the behaviour here.
+  check('a corrected spelling is NAMED, both the query and what was found',
+    searchMeta('Eynesbury', { results: [{}], corrected: 'Aylesbury' })
+      === 'No exact match for “Eynesbury” — showing results for “Aylesbury”.');
+  check('one hit reads as singular, verb and all',
+    searchMeta('Hilton', { results: [{}] }) === '1 map matches “Hilton”.',
+    searchMeta('Hilton', { results: [{}] }));
+  check('two hits read as plural', /^2 maps match/.test(searchMeta('St Neots', { results: [{}, {}] })));
+  check('a miss WITH a directory answer does not say "no matches"',
+    /but see what the local transport authority publishes/.test(searchMeta('Tilbrook', { directory: [{}] })));
+  check('a miss with nothing at all says so plainly',
+    searchMeta('Nowhereton', {}) === 'No matches for “Nowhereton”.');
+  check('no query, no sentence', searchMeta('', { results: [{}] }) === '');
+
+  // The whole point: it must be in the HTML as delivered, and visible.
+  const sentence = searchMeta('Eynesbury', { results: [{}], corrected: 'Aylesbury' });
+  let page = setInner(mapsShell, 'searchMeta', escapeHtml(sentence));
+  page = removeBooleanAttr(page, 'searchMeta', 'hidden');
+  check('the sentence is in the delivered HTML', page.includes('showing results for'));
+  check('…and the element is no longer hidden', !/id="searchMeta"[^>]*\shidden/.test(page));
+  check('…and the curly quotes survive rather than arriving as entities',
+    page.includes('“Eynesbury”'), (page.match(/id="searchMeta"[^>]*>[^<]*/) || [''])[0]);
+
+  // THE CONTROL, which is the state main was in: fill nothing, and the reader
+  // gets a page that explains nothing. Without this the checks above would pass
+  // on a shell that had never been hidden in the first place.
+  check('CONTROL — unfilled, the element is present, empty and hidden',
+    /<p[^>]*id="searchMeta"[^>]*\shidden[^>]*><\/p>/.test(mapsShell),
+    (mapsShell.match(/<p[^>]*id="searchMeta"[^>]*>[^<]*<\/p>/) || [''])[0]);
+}
+
 // --- 4. /m/<slug>/services carries the services -----------------------------
 console.log('\n/m/<slug>/services carries the text alternative:');
 const v = servicesView(demoMap, demoServices);
