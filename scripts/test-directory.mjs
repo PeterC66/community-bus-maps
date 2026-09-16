@@ -15,7 +15,7 @@
 // file's shape, the matching rules, and the three promises the rendered card
 // makes to a reader about whose map it is.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,8 +28,10 @@ function check(name, cond, extra) {
   else { failures++; console.error(`  ✗ ${name}${extra ? ' — ' + extra : ''}`); }
 }
 
-const { searchDirectory, loadDirectory, offerOf, directorySize, DIRECTORY_FILE } =
+const { searchDirectory, searchDirectoryWithPlace, loadDirectory, offerOf, directorySize, DIRECTORY_FILE } =
   await import('../src/search/directory.js');
+const { resolvePlace, placesSize, placesSource, PLACE_FILES, PREFIX_MAX_HITS } =
+  await import('../src/search/places.js');
 const { directoryBlock, directoryCard, noResultBlock, grid, monthGB } =
   await import('../public/js/shared/map-card.mjs');
 
@@ -148,16 +150,114 @@ console.log('\nmatching — what must NOT match');
 {
   check('a query below two characters matches nothing', searchDirectory('y').length === 0);
   check('a nonsense query matches nothing', searchDirectory('zzznotarealplacezzz').length === 0);
-  // The honest-miss rule: no place-to-authority dataset here, so a town the
-  // directory does not itself name must come back empty rather than be guessed
-  // into the nearest county. If this ever goes green by accident, the tier that
-  // fixes it properly has landed and this case should be rewritten, not deleted.
-  check('a town the directory does not record is a MISS, not a guess', searchDirectory('Harrogate').length === 0,
-    searchDirectory('Harrogate').map((h) => h.offer.authority).join('; '));
-  check('…and so is a village', searchDirectory('Swavesey').length === 0);
+  // The honest-miss rule survives the place lookup: a name that is in NEITHER
+  // the directory NOR the Index of Place Names must come back empty rather than
+  // be guessed into the nearest county. (This case used to hold "Harrogate" and
+  // "Swavesey" and said that when it went green by accident the tier fixing it
+  // properly had landed and it should be rewritten — that was buses-data OA-312,
+  // 2026-09-16, and the two names now live in the place-lookup section below.)
+  check('a name in neither the directory nor the Index is a MISS, not a guess', searchDirectory('Zzznotarealplacezzz').length === 0,
+    searchDirectory('Zzznotarealplacezzz').map((h) => h.offer.authority).join('; '));
+  check('…and the panel says so in the words it always used',
+    /nothing in it matches/.test(directoryBlock([], { query: 'Zzznotarealplacezzz', size: 76, place: searchDirectoryWithPlace('Zzznotarealplacezzz').place })));
   // Substring matching would make "ton" hit a dozen authorities. It is off.
   check('a bare substring of a name does not match', searchDirectory('ton').length === 0,
     searchDirectory('ton').map((h) => h.offer.authority).join('; '));
+}
+
+console.log('\nthe place lookup — a village is not an authority (buses-data OA-312, round 1)');
+{
+  // The vendored files: shape, not staleness (the staleness check is
+  // `npm run sync:directory -- --check`, in verify.yml, for the same reason as
+  // the directory's).
+  check('the three place files are vendored server-side, under src/search/data/',
+    Object.values(PLACE_FILES).every((p) => /[\\/]src[\\/]search[\\/]data[\\/]/.test(p) && existsSync(p)), JSON.stringify(PLACE_FILES));
+  check('…and NOT under public/ — the browser never needs 1.2 MB of place names',
+    !existsSync(path.join(ROOT, 'public', 'data', 'places.json')));
+  check('the index holds tens of thousands of places', placesSize() > 50000, String(placesSize()));
+  check('the provenance names an edition and a licence', /\d{4}/.test(placesSource().edition) && /Open Government Licence/.test(placesSource().licence), JSON.stringify(placesSource()));
+
+  // The plan's test names, each resolving where the Index puts it.
+  const lanc = searchDirectoryWithPlace('Lancaster');
+  check('"Lancaster" — a shire district — reaches Lancashire County Council',
+    lanc.rows.length === 1 && lanc.rows[0].offer.authority === 'Lancashire County Council', lanc.rows.map((r) => r.offer.authority).join('; '));
+  check('…matched as a PLACE, with its district and county',
+    lanc.rows[0] && lanc.rows[0].matched.kind === 'place' && lanc.rows[0].matched.district === 'Lancaster' && lanc.rows[0].matched.county === 'Lancashire', JSON.stringify(lanc.rows[0] && lanc.rows[0].matched));
+  // Short on purpose: the panel's lead sentence has already said where the place
+  // is, and the first rendered page read the two together as a stammer.
+  check('…and the card\'s reason names the district without repeating the lead sentence',
+    lanc.rows[0] && lanc.rows[0].reason === 'The transport authority for Lancaster', lanc.rows[0] && lanc.rows[0].reason);
+  check('"Walthamstow" — a London borough — reaches Transport for London',
+    searchDirectory('Walthamstow').some((r) => r.offer.authority === 'Transport for London'));
+  // The case OA-312 said hurts most: a resident of a town whose authority
+  // publishes nothing, who is exactly the reader the letter was written for.
+  const harrogate = searchDirectoryWithPlace('Harrogate');
+  check('"Harrogate" resolves — the honest miss this used to be is closed',
+    harrogate.rows.some((r) => r.offer.authority === 'York and North Yorkshire Combined Authority'), harrogate.rows.map((r) => r.offer.authority).join('; '));
+  check('…and so does a village', searchDirectory('Swavesey').some((r) => /Cambridgeshire and Peterborough/.test(r.offer.authority)));
+  check('…and the letter is still offered, because a place hit is not a town-map hit',
+    harrogate.rows[0] && /suggest|letter/i.test(directoryCard(harrogate.rows[0].offer, harrogate.rows[0].reason, { query: 'Harrogate', matchKind: 'place' })));
+
+  // Decision 5 — several places of one name, each with district and county.
+  const burford = searchDirectoryWithPlace('Burford');
+  check('"Burford" leads with the built-up one, in West Oxfordshire',
+    burford.place && burford.place.kind === 'england' && burford.place.district === 'West Oxfordshire' && burford.place.authority === 'Oxfordshire County Council', JSON.stringify(burford.place && { d: burford.place.district, a: burford.place.authority }));
+  check('…and lists the three other Burfords with their district and county',
+    burford.place && burford.place.others.length === 3 && burford.place.others.every((o) => o.district && o.query), JSON.stringify(burford.place && burford.place.others.map((o) => o.where)));
+  check('…each linking to a search that lands on exactly that one',
+    burford.place && burford.place.others.every((o) => { const r = searchDirectoryWithPlace(o.query); return r.place && r.place.kind === 'england' && r.place.district === o.district && r.place.others.length === 0; }));
+  const whit = searchDirectoryWithPlace('Whitchurch');
+  check('"Whitchurch" lists at least six places of that name', whit.place && whit.place.others.length + 1 >= 6, String(whit.place && whit.place.others.length + 1));
+  check('…with the Welsh ones placed in Wales', whit.place && whit.place.others.some((o) => o.country === 'Wales'));
+  // The case the plan got WRONG and the data corrected: two authorities, and the
+  // town's own district first because of the wards named for it.
+  const stneots = searchDirectoryWithPlace('St Neots');
+  check('"St Neots" leads with Huntingdonshire, not Bedford',
+    stneots.place && stneots.place.district === 'Huntingdonshire' && stneots.place.authority === 'Cambridgeshire and Peterborough Combined Authority', JSON.stringify(stneots.place && stneots.place.district));
+  check('…and names the Bedford half as the other', stneots.place && stneots.place.others.length === 1 && stneots.place.others[0].district === 'Bedford');
+  check('"St. Ives" with a stop and "St Ives" without are one query', searchDirectoryWithPlace('St. Ives').place.district === searchDirectoryWithPlace('St Ives').place.district);
+  check('half of a compound built-up area answers — "Great Shelford"', searchDirectoryWithPlace('Great Shelford').place && searchDirectoryWithPlace('Great Shelford').place.kind === 'england');
+
+  // Decision 4 — Scotland and Wales get a plain England-only sentence.
+  const kirkwall = searchDirectoryWithPlace('Kirkwall');
+  check('"Kirkwall" is placed in Scotland and resolved to NO authority',
+    kirkwall.rows.length === 0 && kirkwall.place && kirkwall.place.kind === 'outside' && kirkwall.place.country === 'Scotland', JSON.stringify(kirkwall.place));
+  const kirkwallHtml = directoryBlock(kirkwall.rows, { query: 'Kirkwall', size: 76, place: kirkwall.place });
+  check('…and the panel says England only', /Kirkwall<\/strong> is in Scotland/.test(kirkwallHtml) && /English local transport authorities only/.test(kirkwallHtml));
+
+  // The one English district with no directory row.
+  const scilly = searchDirectoryWithPlace('Hugh Town');
+  check('a place in the Isles of Scilly is placed, and told its authority is not in the directory',
+    scilly.rows.length === 0 && scilly.place && scilly.place.kind === 'unlisted' && /Scilly/.test(scilly.place.where), JSON.stringify(scilly.place && scilly.place.kind));
+
+  // Rule 2 — prefix matching over 60,000 terms is capped.
+  const short = searchDirectoryWithPlace('Whit');
+  check('"Whit" is too short to place, and says how many places begin with it',
+    short.rows.length === 0 && short.place && short.place.kind === 'short' && short.place.count > PREFIX_MAX_HITS, JSON.stringify(short.place));
+  check('…and the panel asks for more of the name', /Type more of the name/.test(directoryBlock([], { query: 'Whit', size: 76, place: short.place })));
+  check('a prefix of a rare name still resolves — "Swavese"', searchDirectoryWithPlace('Swavese').place.kind === 'england');
+  check('an exact hit always answers, however short — "Ash"', resolvePlace('Ash').kind === 'found');
+
+  // The control: the authority stage still wins, so covers[] answers keep their
+  // reasons. If the place stage ever ran first, Cambridge would read "is in
+  // Cambridge" and the York card would lose the authority-name match.
+  const cambridge = searchDirectoryWithPlace('Cambridge');
+  check('CONTROL — "Cambridge" is still answered by covers[], not by the place stage',
+    cambridge.place === null && cambridge.rows[0] && cambridge.rows[0].matched.kind === 'area', JSON.stringify(cambridge.rows[0] && cambridge.rows[0].matched));
+  check('CONTROL — "Wigan" and "Essex" too', searchDirectoryWithPlace('Wigan').place === null && searchDirectoryWithPlace('Essex').place === null);
+
+  // The panel around a resolved place.
+  const html = directoryBlock(burford.rows, { query: 'Burford', size: 76, place: burford.place });
+  check('the panel says where the place is and whose authority that is',
+    /<strong>Burford<\/strong> is in West Oxfordshire, Oxfordshire, whose local transport authority is Oxfordshire County Council/.test(html));
+  check('…points at the map-request route in one sentence, with no pitch',
+    /map of Burford itself, you can <a href="\/apply.html">ask for one<\/a>/.test(html) && !/£|price|quote/i.test(html));
+  check('…lists the other Burfords as links', (html.match(/href="\/maps\?q=Burford%20/g) || []).length === 3);
+  check('…and states the Index edition and licence it read',
+    /Index of Place Names in Great Britain, July 2024 edition, Open Government Licence v3\.0/.test(html));
+  check('a miss ALSO says the Index was asked', /Nor is it a place name in the Index/.test(directoryBlock([], { query: 'Zzznotarealplacezzz', size: 76, place: searchDirectoryWithPlace('Zzznotarealplacezzz').place })));
+  check('HTML escaping — a place name is other people\'s text',
+    !/<script>/.test(directoryBlock([], { query: 'x', size: 76, place: { kind: 'outside', name: 'A <script>', where: 'B', country: 'Wales', others: [], source: { edition: '2024', licence: 'OGL' } } })));
 }
 
 console.log('\nranking and capping');

@@ -33,6 +33,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { normalize, resolvePlace, describeHit, placesSource } from './places.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const DIRECTORY_FILE = path.join(HERE, '..', '..', 'public', 'data', 'bus-map-directory.json');
@@ -42,23 +43,13 @@ export const DIRECTORY_FILE = path.join(HERE, '..', '..', 'public', 'data', 'bus
 // are stripped to make a second match term — the full name stays a term too.
 const GOVERNANCE_WORDS = /\b(county|borough|city|district|metropolitan|mayoral|combined|authority|council|of|the|royal)\b/g;
 
-// Deliberately the SAME normalisation as src/search/index.js. Two search
-// boxes on one page that disagreed about what "St." means would be a bug a
-// reader could see, and the rule lives in one shape rather than two copies
-// that drift: if that file's normalize() changes, change this with it. The
-// duplication is here rather than shared because src/search/index.js imports
-// the database and this module must stay loadable without one.
-function normalize(s) {
-  return String(s || '')
-    .toLowerCase()
-    .replace(/\bsaint\b/g, 'st')
-    .replace(/\bst\.(?=\s|$)/g, 'st')
-    .replace(/&/g, ' ')
-    .replace(/\band\b/g, ' ')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+// normalize() is imported from ./places.js and is deliberately the SAME
+// normalisation as src/search/index.js. Two search boxes on one page that
+// disagreed about what "St." means would be a bug a reader could see; the copy
+// that used to live here moved next door when the place stage arrived, so the
+// directory stage and the place stage cannot disagree either. It is still not
+// shared with index.js because that module imports the database and these two
+// must stay loadable without one — if its normalize() changes, change places.js.
 
 function wholeWordMatch(norm, qn) {
   const escaped = qn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -173,10 +164,37 @@ const RESULT_CAP = 3;
  * @param {{file?: string, cap?: number}} [opts]
  * @returns {{ offer: object, reason: string }[]}
  */
-export function searchDirectory(q, { file = DIRECTORY_FILE, cap = RESULT_CAP } = {}) {
+export function searchDirectory(q, opts = {}) {
+  return searchDirectoryWithPlace(q, opts).rows;
+}
+
+/**
+ * The same, plus WHERE the reader's place is (buses-data OA-312, round 1).
+ *
+ * Two stages, in a fixed order. The authority stage — the matcher this file has
+ * always had — runs first and, when it finds anything, answers alone: "York",
+ * "Derbyshire" and "Wigan" keep the rows and the reasons they had, and `place`
+ * is null. Only when it finds NOTHING does the place stage run, resolving the
+ * query through the vendored Index of Place Names to a district and, for an
+ * English district, to the directory row for its authority. That order is a
+ * control in the tests: the covers[] answer for Cambridge must still read
+ * "Cambridge is part of this authority", not "Cambridge is in Cambridge".
+ *
+ * `place` is what the panel needs to say a sentence about the place itself:
+ *   { kind: 'england',  name, where, district, county, authority, others, source }
+ *   { kind: 'outside',  name, where, country, others, source }          Scotland / Wales
+ *   { kind: 'unlisted', name, where, why, others, source }              an English district with no directory row
+ *   { kind: 'short',    count, source }                                 too many places begin with it
+ *   { kind: 'none',     source }                                        the Index does not hold it — the honest miss, unchanged
+ * `others` lists the remaining places of that name, each with its district and
+ * county and the query that lands on exactly that one, for decision 5 of the plan.
+ *
+ * @returns {{ rows: { offer: object, reason: string, matched: object }[], place: object|null }}
+ */
+export function searchDirectoryWithPlace(q, { file = DIRECTORY_FILE, cap = RESULT_CAP, places } = {}) {
   const qn = normalize(q);
-  if (qn.length < 2) return [];
-  const { terms } = loadDirectory(file);
+  if (qn.length < 2) return { rows: [], place: null };
+  const { terms, rows: allRows } = loadDirectory(file);
 
   const best = new Map(); // lta -> { score, term }
   for (const term of terms) {
@@ -189,20 +207,51 @@ export function searchDirectory(q, { file = DIRECTORY_FILE, cap = RESULT_CAP } =
     }
   }
 
-  return [...best.values()]
-    .sort((a, b) => a.score - b.score || a.term.row.lta.localeCompare(b.term.row.lta, 'en'))
-    .slice(0, cap)
-    // `matched` travels with the row because OA-308 tier 3 needs to know HOW a
-    // row was found, not just that it was: a hit on a town name means the
-    // directory records a map OF that town, and offering a "why is there no
-    // map?" letter about a map we have just linked to is the one thing that
-    // would make the panel look unread. See suggestionApplies() in
-    // public/js/shared/suggest-letter.mjs, which is the only reader of it.
-    .map(({ term }) => ({
-      offer: offerOf(term.row),
-      reason: reasonFor(term),
-      matched: { kind: term.kind, text: term.text },
-    }));
+  if (best.size) {
+    const rows = [...best.values()]
+      .sort((a, b) => a.score - b.score || a.term.row.lta.localeCompare(b.term.row.lta, 'en'))
+      .slice(0, cap)
+      // `matched` travels with the row because OA-308 tier 3 needs to know HOW a
+      // row was found, not just that it was: a hit on a town name means the
+      // directory records a map OF that town, and offering a "why is there no
+      // map?" letter about a map we have just linked to is the one thing that
+      // would make the panel look unread. See suggestionApplies() in
+      // public/js/shared/suggest-letter.mjs, which is the only reader of it.
+      .map(({ term }) => ({
+        offer: offerOf(term.row),
+        reason: reasonFor(term),
+        matched: { kind: term.kind, text: term.text },
+      }));
+    return { rows, place: null };
+  }
+
+  // The place stage.
+  const source = placesSource(places);
+  const found = places ? resolvePlace(q, places) : resolvePlace(q);
+  if (found.kind === 'none') return { rows: [], place: { kind: 'none', source } };
+  if (found.kind === 'short') return { rows: [], place: { kind: 'short', count: found.count, source } };
+
+  const [first, ...rest] = found.hits;
+  const others = rest.map(describeHit);
+  const d = describeHit(first);
+  if (first.country !== 'England') {
+    return { rows: [], place: { kind: 'outside', name: d.name, where: d.where, country: first.country, others, source } };
+  }
+  if (first.lta === null || first.lta === undefined) {
+    // `why` is the rule table's own wording, written for us ("exception to …"),
+    // so the API carries it stripped of that prefix and the panel does not print it.
+    return { rows: [], place: { kind: 'unlisted', name: d.name, where: d.where, why: (first.ltaWhy || '').replace(/^exception to "[^"]*":\s*/, ''), others, source } };
+  }
+  const row = allRows.find((r) => r.lta === first.lta);
+  if (!row) return { rows: [], place: { kind: 'unlisted', name: d.name, where: d.where, why: `the directory has no row for ${first.lta}`, others, source } };
+  const rows = [{
+    offer: offerOf(row),
+    // Short, because the panel's lead sentence has just said where the place is;
+    // repeating it on the card read as a stammer on the rendered page.
+    reason: `The transport authority for ${d.district}`,
+    matched: { kind: 'place', text: d.name, district: d.district, county: d.county },
+  }];
+  return { rows, place: { kind: 'england', name: d.name, where: d.where, district: d.district, county: d.county, authority: row.lta, others, source } };
 }
 
 /** Why this row came back — the reader's words, not the index's. */

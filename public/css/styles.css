@@ -313,6 +313,14 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .dir-block h3 { margin: 0 0 6px; font-size: 1.05rem; }
 .dir-note { color: var(--muted); font-size: .9rem; margin: 0 0 16px; max-width: 62ch; }
 .dir-empty p { color: var(--muted); font-size: .95rem; margin: 0; max-width: 66ch; }
+/* OA-312 — the sentence saying WHERE the place is leads the panel in full colour;
+   the request sentence, the other places of that name and the Index's edition
+   line sit under the cards in the muted voice the note uses. */
+.dir-place { margin: 0 0 10px; max-width: 66ch; }
+.dir-ask { margin: 16px 0 0; max-width: 66ch; }
+.dir-others { color: var(--muted); font-size: .9rem; margin: 10px 0 0; max-width: 66ch; }
+.dir-source { font-size: .82rem; margin: 12px 0 0; }
+.dir-empty .dir-empty-note, .dir-empty .dir-source { margin-top: 10px; }
 .dir-card { background: var(--surface-2); }
 .dir-card .body { padding: 16px 18px; }
 .dir-card h3 { margin: 0 0 8px; font-size: 1rem; }

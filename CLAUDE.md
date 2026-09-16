@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.33 | 2026-09-11 | sha=12ce511a -->
-**v1.33** · updated 11 September 2026
+<!-- docstamp v1.34 | 2026-09-16 | sha=ad6e7a9f -->
+**v1.34** · updated 16 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -61,6 +61,13 @@ Two structural facts that catch people out:
   `npm run sync:directory` from the repository root, and commit the result. The staleness check is
   `npm run sync:directory -- --check` and runs only in `verify.yml`, which is the one workflow with a
   buses-data checkout; `npm test` asserts the file's shape and the projection's privacy rule instead.
+  **The place lookup travels the same way** (buses-data OA-312, 2026-09-16): `src/search/data/` holds
+  `places.json`, `lad-to-lta.json` and `places-source.json` — every named place in Great Britain from
+  the ONS Index of Place Names and the directory row each English district belongs to — copied byte
+  for byte by the same script and checked by the same `--check`. They are server-side only and NOT
+  in `public/`: 1.2 MB the browser never needs. `src/search/places.js` reads them; the place stage in
+  `src/search/directory.js` runs only when the directory's own names have not answered, and a name
+  in neither is the same honest miss it always was — see that file's header for the four rules.
 - **`npm run verify` no longer skips** (2026-08-20, technical-audit_2026-08-19 V2). It finds a
   committed fixture in `buses-data` — `Areas/_portal-fixture/` and `Places/_portal-fixture/` — via
   `BUSES_DIR` or a sibling checkout, and it FAILS rather than exiting 0 when there is none.
