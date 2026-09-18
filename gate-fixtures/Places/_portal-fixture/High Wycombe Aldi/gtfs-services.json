@@ -1,0 +1,373 @@
+{
+ "town": "High Wycombe Aldi",
+ "atcoPrefixes": null,
+ "near": [
+  51.6180732,
+  -0.7135776,
+  0.8
+ ],
+ "source": "BODS GTFS (east_anglia)",
+ "services": [
+  {
+   "route": "27",
+   "operator": "Carousel Buses",
+   "days": "Mon-Fri",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe, High Wycombe BusStn",
+    "High Wycombe, Orchard Road"
+   ],
+   "termini": [
+    "High Wycombe BusStn",
+    "Orchard Road"
+   ],
+   "tripsAtTownPerWeekSample": 7,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "32",
+   "operator": "Carousel Buses",
+   "days": "Mon-Sat",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "Micklefield Estate, Woodside Road",
+    "Cressex, Empire Cinema",
+    "Booker, Asda"
+   ],
+   "termini": [
+    "Asda",
+    "Empire Cinema",
+    "Woodside Road"
+   ],
+   "tripsAtTownPerWeekSample": 187,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "34",
+   "operator": "Carousel Buses",
+   "days": "Mon-Sat",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe, Olympic Way",
+    "Lane End, Simmons Way"
+   ],
+   "termini": [
+    "Olympic Way",
+    "Simmons Way"
+   ],
+   "tripsAtTownPerWeekSample": 60,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "37",
+   "operator": "Carousel Buses",
+   "days": "Daily",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe, Bus Station",
+    "Windsor Town Centre, Parish Church",
+    "Maidenhead Town Centre, Frascati Way"
+   ],
+   "termini": [
+    "Frascati Way",
+    "High Wycombe BusStn",
+    "Parish Church",
+    "Railway Station",
+    "Windsor Castle"
+   ],
+   "tripsAtTownPerWeekSample": 108,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "102",
+   "operator": "Carousel Buses",
+   "days": "Daily",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe, High Wycombe BusStn",
+    "Heathrow Airport, Heathrow Central Bus Station"
+   ],
+   "termini": [
+    "Heathrow Central Bus Station",
+    "High Wycombe BusStn"
+   ],
+   "tripsAtTownPerWeekSample": 204,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "103",
+   "operator": "Carousel Buses",
+   "days": "Daily",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe, High Wycombe BusStn",
+    "Windsor Town Centre, Parish Church",
+    "Slough Town Centre, Wellington Street Stop B",
+    "Langley, Axis Park"
+   ],
+   "termini": [
+    "Axis Park",
+    "High Wycombe BusStn",
+    "Parish Church",
+    "Wellington Street Stop B",
+    "Wellington Street Stop G"
+   ],
+   "tripsAtTownPerWeekSample": 189,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "104",
+   "operator": "Carousel Buses",
+   "days": "Mon-Sat",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "Uxbridge, York Road (UB8)",
+    "High Wycombe, High Wycombe BusStn"
+   ],
+   "termini": [
+    "High Wycombe BusStn",
+    "Market Place",
+    "York Road (UB8)"
+   ],
+   "tripsAtTownPerWeekSample": 53,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "105",
+   "operator": "Carousel Buses",
+   "days": "Mon-Sat",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe, High Wycombe BusStn",
+    "Chartridge, Village Hall",
+    "Amersham, Amersham Station",
+    "Chesham, Broadway"
+   ],
+   "termini": [
+    "Amersham Station",
+    "Broadway",
+    "High Wycombe BusStn",
+    "Village Hall"
+   ],
+   "tripsAtTownPerWeekSample": 46,
+   "hasGtfsShape": false,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "32A",
+   "operator": "Carousel Buses",
+   "days": "Daily",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "Micklefield Estate, Woodside Road",
+    "Cressex, Empire Cinema",
+    "Booker, Asda"
+   ],
+   "termini": [
+    "Asda",
+    "Empire Cinema",
+    "Woodside Road"
+   ],
+   "tripsAtTownPerWeekSample": 73,
+   "hasGtfsShape": false,
+   "possibleVariantOf": "32"
+  },
+  {
+   "route": "37M",
+   "operator": "Carousel Buses",
+   "days": "?",
+   "daysFlags": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "validFrom": null,
+   "validTo": null,
+   "longName": "",
+   "headsigns": [
+    "Windsor Town Centre, Parish Church",
+    "High Wycombe, Bus Station"
+   ],
+   "termini": [
+    "High Wycombe BusStn",
+    "Parish Church",
+    "Windsor Castle"
+   ],
+   "tripsAtTownPerWeekSample": 2,
+   "hasGtfsShape": false,
+   "possibleVariantOf": "37"
+  },
+  {
+   "route": "M40",
+   "operator": "First Berkshire & The Thames Valley",
+   "days": "Mon-Sat",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "York Road (Stop V) Uxbridge Station",
+    "High Wycombe Bus Station"
+   ],
+   "termini": [
+    "High Wycombe BusStn",
+    "York Road (UB8)"
+   ],
+   "tripsAtTownPerWeekSample": 156,
+   "hasGtfsShape": true,
+   "possibleVariantOf": null
+  },
+  {
+   "route": "X74",
+   "operator": "First Berkshire & The Thames Valley",
+   "days": "Daily",
+   "daysFlags": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "validFrom": "20260721",
+   "validTo": "20270421",
+   "longName": "",
+   "headsigns": [
+    "High Wycombe Bus Station",
+    "Belmont Road",
+    "Queensmere Car Park",
+    "Slough, Wellington Street"
+   ],
+   "termini": [
+    "Belmont Road",
+    "High Wycombe BusStn",
+    "Uxbridge Station",
+    "Wellington Street Stop B",
+    "Wellington Street Stop G",
+    "Wellington Street Stop H"
+   ],
+   "tripsAtTownPerWeekSample": 225,
+   "hasGtfsShape": true,
+   "possibleVariantOf": null
+  }
+ ]
+}

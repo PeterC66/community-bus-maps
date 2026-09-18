@@ -42,15 +42,37 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = path.resolve(HERE, '..', '..');
 
 /**
- * Candidate locations for the buses-data checkout, in order.
+ * The folder in THIS repository that carries the vendored fixtures, relative to
+ * the repository root. Named once, because three scripts and a workflow have to
+ * agree about it. `fixtures/` was not available: `.gitignore` has reserved that
+ * name since long before this, for fixtures pulled down locally.
+ */
+export const VENDORED_FIXTURE_ROOT = 'gate-fixtures';
+
+/**
+ * Candidate locations for a tree holding `Areas/_portal-fixture` and
+ * `Places/_portal-fixture`, in order.
  *
- * BUSES_DIR is the explicit answer and comes first. The two relative guesses
- * cover the layouts that actually exist: CI checks the repos out side by side
- * into one workspace, and a developer cloning both into one folder gets the
- * same shape for free.
+ * THIS REPOSITORY COMES FIRST, SINCE 2026-09-18 (buses-data OA-398, R5). The
+ * fixtures are vendored under `gate-fixtures/` and are what these gates are
+ * about: a public repository gates fixtures it holds, so `verify` needs no
+ * credential, no second checkout, and no opinion about what somebody else pushed
+ * a minute ago. Putting it first — rather than last, as a fallback — is what
+ * makes the laptop and CI gate the SAME bytes; a fallback would have left the
+ * laptop gating buses-data and CI gating the copy, which is one command giving
+ * two answers, and this file already carries one scar of exactly that shape
+ * (OA-180, the `warnIfBehindCommitted` paragraph below).
+ *
+ * Whether the copy is still in step with buses-data is a different question, and
+ * it is asked by `npm run fixtures:vendor -- --check` from the laptop and from
+ * buses-data's own `gates.yml`, which can read this public repository for free.
+ *
+ * BUSES_DIR and the two relative guesses are kept: they are what
+ * `vendor-fixtures.mjs` resolves its SOURCE with, and they still answer for a
+ * checkout laid out the way CI used to lay one out.
  */
 export function busesDirCandidates() {
-  const out = [];
+  const out = [path.resolve(PORTAL_ROOT, VENDORED_FIXTURE_ROOT)];
   if (process.env.BUSES_DIR) out.push(process.env.BUSES_DIR);
   out.push(path.resolve(PORTAL_ROOT, '..', 'buses-data'));
   out.push(path.resolve(PORTAL_ROOT, '..', 'Buses'));

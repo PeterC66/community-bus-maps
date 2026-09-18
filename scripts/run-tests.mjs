@@ -59,11 +59,20 @@ const PREFLIGHT = [
 // A discovered file may be skipped ONLY with a reason that names where it DOES
 // run. An exclusion with no reason is a hole; the runner refuses to start with
 // one rather than printing a green summary that covers less than its name.
+// THE REASONS CHANGED ON 2026-09-18 AND THE EXCLUSIONS DID NOT (buses-data
+// OA-398). Both of these said "needs BUSES_DIR (the buses-data checkout)", which
+// stopped being true when the fixtures were vendored into `gate-fixtures/`: they
+// now run in a clone of this repository alone. They stay out of `npm test`
+// because they rasterise and spawn child processes two deep — about a minute
+// between them, on every push — and they belong beside the other fixture-driven
+// byte gates. A stale reason is worse than a stale exclusion: it tells the next
+// reader the test CANNOT run here, which would have made moving it back look
+// impossible.
 const EXCLUDED = {
   'test-engine-selfsufficient.mjs':
-    'needs BUSES_DIR (the buses-data checkout) — runs in verify.yml, "self-sufficient" step',
+    'slow (rasterises every sheet the fixture declares) — runs in verify.yml, "self-sufficient" step',
   'prove-red-selfsufficient.mjs':
-    'needs BUSES_DIR (the buses-data checkout) — runs in verify.yml, "prove the self-sufficiency gate can go red"',
+    'slow (four scratch portals, each rasterising) — runs in verify.yml, "prove the self-sufficiency gate can go red"',
 };
 
 const args = process.argv.slice(2);
