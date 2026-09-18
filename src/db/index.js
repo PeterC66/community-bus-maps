@@ -36,6 +36,49 @@ db.exec('PRAGMA foreign_keys = ON;');
 db.exec('PRAGMA busy_timeout = 5000;');
 db.exec(readFileSync(path.join(HERE, 'schema.sql'), 'utf8'));
 
+/**
+ * Run `fn` inside one SQLite transaction, rolling back if it throws.
+ *
+ * node:sqlite's DatabaseSync has no `.transaction()` helper (that is a
+ * better-sqlite3-ism), so the shape is the explicit BEGIN/COMMIT/ROLLBACK that
+ * scripts/delete-map.mjs already uses. THIS EXISTS SO THE HABIT IS IMPORTABLE.
+ * It was in that one script and had not reached the route in the file next
+ * door: POST /api/admin/applications/:id/approve ran insertCustomer →
+ * insertUser → setApplicationReviewed in sequence, and a failure between the
+ * first and the third left an orphan customer with no users and the
+ * application still pending — recoverable only by hand, and invisible until
+ * somebody counted customers (OA-367 face 3).
+ *
+ * NESTING JOINS THE OUTER TRANSACTION rather than throwing. SQLite has no
+ * nested BEGIN, and a helper that refused one would make a caller's safety
+ * depend on who called it. `db.isTransaction` is the runtime's own answer to
+ * "am I in one already", so an inner call runs fn and leaves COMMIT or
+ * ROLLBACK to the outermost frame.
+ *
+ * SYNCHRONOUS ONLY, AND IT SAYS SO OUT LOUD. Every write in this module is
+ * synchronous; handing this an async fn would COMMIT at the first await with
+ * the work still outstanding, which is a rollback that silently protects
+ * nothing. A thenable is refused rather than mis-wrapped.
+ */
+export function withTransaction(fn) {
+  if (db.isTransaction) return refuseThenable(fn());
+  db.exec('BEGIN');
+  try {
+    const out = refuseThenable(fn());
+    db.exec('COMMIT');
+    return out;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+function refuseThenable(out) {
+  if (out && typeof out.then === 'function') {
+    throw new TypeError('withTransaction() takes a synchronous function — an async one commits at the first await.');
+  }
+  return out;
+}
+
 // Lightweight migrations for DBs created before a column existed. (schema.sql is
 // CREATE TABLE IF NOT EXISTS, so an existing table won't pick up new columns.)
 function tableColumns(table) {

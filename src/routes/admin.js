@@ -20,7 +20,7 @@
 // POST /api/admin/status is NOT here on purpose. It is a STATUS_TOKEN drop-box
 // for the operator's laptop that 404s to a session, the opposite of this guard,
 // and it stays in server.js with the other token-authorised ops routes.
-import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin } from '../db/index.js';
+import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getCustomerByName, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin, withTransaction } from '../db/index.js';
 import { USER_ROLES } from '../db/enums.js';
 import { buildWorklist } from '../worklist/index.js';
 import { orgPageUrl } from '../public/index.js';
@@ -81,8 +81,39 @@ export default async function adminRoutes(app) {
 
     const email = str(appn.email, 200).toLowerCase();
     if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'The application has no valid contact email.' });
+
+    // THE ORGANISATION IS ASKED BEFORE THE PERSON, and the order is the fix
+    // (OA-367 faces 1 and 2). Until 2026-09-18 this route asked only whether the
+    // email had an account and answered "Approve this organisation manually or
+    // ask them to sign in." The refusal was correct and everything it said was
+    // not: there is no POST /api/admin/customers and no create-customer control
+    // anywhere, so "manually" named a screen that has never existed. Worse, it
+    // reported the person when the fault was the ORGANISATION — Peter met it on
+    // the first real registration, on a SECOND application row for a customer
+    // registered the night before, and was sent looking at a user.
+    //
+    // A duplicate is a REJECT, not an approve. Approving would have written a
+    // second customer row for one organisation, each with its own quota, and
+    // left the map handover ambiguous about which of them owns the sheet.
+    const already = getCustomerByName(appn.org_name);
+    if (already) {
+      return reply.code(409).send({
+        ok: false,
+        error: `“${appn.org_name}” is already registered — customer #${already.id} — so this application is a duplicate. Reject it. If their contact cannot get in, they can request a sign-in link themselves at /login.html.`,
+      });
+    }
+    // The genuine collision, and it is NOT approvable here by any wording.
+    // `user.email` is UNIQUE and a user row carries ONE customer_id, so a person
+    // who already holds an account cannot also be the first editor of a second
+    // organisation — the data model has no way to say it. That is why this names
+    // no script and no screen: OA-367 asked for either a route or an honest
+    // sentence, and there is no route to name that does not need a schema change
+    // first. It names the two things an operator can actually do instead.
     if (getUserByEmail(email)) {
-      return reply.code(409).send({ ok: false, error: `${email} already has an account. Approve this organisation manually or ask them to sign in.` });
+      return reply.code(409).send({
+        ok: false,
+        error: `${email} already has an account with another organisation, and one account can hold only one. “${appn.org_name}” is not registered, so this is a new organisation applying with a person the system already knows — there is no screen that approves it. Ask them to apply again with a contact address that has no account, or reject this application.`,
+      });
     }
 
     const b = req.body || {};
@@ -90,9 +121,22 @@ export default async function adminRoutes(app) {
     const quota_areas = b.quotaAreas != null ? Math.max(0, Number(b.quotaAreas) | 0) : 1;
     const quota_places = b.quotaPlaces != null ? Math.max(0, Number(b.quotaPlaces) | 0) : 3;
 
-    const customerId = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
-    insertUser({ customer_id: customerId, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
-    setApplicationReviewed(appn.id, 'approved', customerId);
+    // ONE TRANSACTION OVER THE THREE WRITES (OA-367 face 3). They ran in bare
+    // sequence, so a throw between the first and the third — a UNIQUE collision
+    // from a second admin approving the same row, a disk error — left a customer
+    // with no users and the application still pending. scripts/delete-map.mjs in
+    // the next folder has had BEGIN/COMMIT/ROLLBACK since it was written; the
+    // habit existed in this codebase and had not reached here.
+    //
+    // The email is deliberately OUTSIDE it: sending is not rollback-able, and a
+    // link issued for a customer row that never committed is worse than a link
+    // that arrives a moment late.
+    const customerId = withTransaction(() => {
+      const id = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
+      insertUser({ customer_id: id, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
+      setApplicationReviewed(appn.id, 'approved', id);
+      return id;
+    });
 
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;

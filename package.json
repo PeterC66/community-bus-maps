@@ -44,6 +44,7 @@
     "test:caddyfile": "node scripts/test-caddyfile.mjs",
     "test:safe-subset": "node scripts/test-safe-subset.mjs",
     "test:owner-picker": "node scripts/test-owner-picker.mjs",
+    "test:approve-application": "node scripts/test-approve-application.mjs",
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:prove-red-delete-map": "node scripts/prove-red-delete-map.mjs",
     "test:prove-red-owner-picker": "node scripts/prove-red-owner-picker.mjs",
