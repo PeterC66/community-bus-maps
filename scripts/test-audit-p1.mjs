@@ -390,8 +390,15 @@ check('REFUSING_VERDICTS is frozen, so a caller cannot widen it at runtime', Obj
 // The shipped file has to parse, and every entry has to carry the four fields
 // the refusal message reads out. A waiver that cannot explain itself is an
 // exemption pretending to be a decision.
+//
+// THE ARRAY MAY BE EMPTY, and on 2026-09-18 it became so. This line used to
+// assert `shipped.waive.length > 0` -- a check that could only pass while the
+// debt existed, and which would have gone red on the commit that cleared it.
+// An empty array is the state the file exists to reach, so what is asserted
+// here is its SHAPE; the loop below carries the whole of the meaning, per row,
+// and says nothing at all when there are no rows.
 const shipped = JSON.parse(readFileSync(path.join(ROOT, 'scripts', 's6-waivers.json'), 'utf8'));
-check('s6-waivers.json parses and has entries', Array.isArray(shipped.waive) && shipped.waive.length > 0);
+check('s6-waivers.json parses and carries a waive array', Array.isArray(shipped.waive));
 for (const w of shipped.waive) {
   check(`waiver for ${w.map} is complete and dated`, Boolean(w.map && w.until && w.why && w.removeBy) && /^\d{4}-\d{2}-\d{2}$/.test(w.until));
 }

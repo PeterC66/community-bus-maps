@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.26 | 2026-09-12 | sha=db7dec1e -->
-**v1.26** · updated 12 September 2026
+<!-- docstamp v1.27 | 2026-09-19 | sha=c21c84b0 -->
+**v1.27** · updated 19 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -62,7 +62,7 @@ A short list kept deliberately apart from `open-actions.md`. Each of these is so
 | 2 | **The privacy statement is out of draft** and names a data controller | It read "Working draft — to be confirmed before the service opens publicly" while the apply form was already asking organisations for names, emails and phone numbers. | ☑ 2026-08-25 (audit N8) |
 | 3 | **Retention and erasure actually run** for `application` and `message` | A UK erasure request needs a code path and a runbook that reaches the backups too, not a sentence promising one. | ☑ 2026-08-25 (audit N8) |
 | 4 | **Backups are encrypted before they leave the VPS** | Until 2026-08-25 an unencrypted copy of every name, email and phone number in the database was pulled to a laptop and kept indefinitely. | ☑ 2026-08-25 (audit N3) |
-| 5 | **The S6 correctness waivers are cleared**, by running S6 rather than by moving the dates | Seven of the eight live towns are published under one (`scripts/s6-waivers.json`, `until` 15 Sept – 6 Oct), so every live map has passed a reproducibility check and not a correctness check since its data last moved. | ☐ open — six S6 runs (audit N16) |
+| 5 | **The S6 correctness waivers are cleared**, by running S6 rather than by moving the dates | Seven of the eight live towns were published under one (`scripts/s6-waivers.json`, `until` 15 Sept – 6 Oct), so every live map had passed a reproducibility check and not a correctness check since its data last moved. | ☑ 2026-09-18 — cleared by running S6, not by moving a date. Measured 2026-09-15 over all 20 maps through `scripts/lib/s6-freshness.mjs`: 20 of 20 `fresh`, every one `verdict: "pass"` at 0 hard findings, so all ten rows were dead letters and the `waive` array is now empty. Read its closing note for what the measurement does **not** cover — `verification.json` is gitignored in `buses-data`, so no CI run can stand behind this |
 
 **Sessions and step-up.** Sign-in sessions last **7 days** and slide forward on use, so an unused account loses its credential within a week (they were fixed 30-day sessions until 2026-08-20). Three actions need a sign-in from the **last 30 minutes** whatever the session's own age: publishing a version, changing an organisation's settings or quota, and changing a user's role or organisation. If one is refused with `step-up-required`, sign out and follow a fresh sign-in link. **Admin → Sessions** lists everyone signed in and revokes any of them on the spot; that is the tool for a lost laptop or a token that has been somewhere it should not, and it replaces keeping a live admin cookie in a file. **Admin → Users** now carries *Sign out everywhere* on each row for the same job across all of one person's devices at once.
 
