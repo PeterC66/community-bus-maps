@@ -85,7 +85,7 @@ export function card(m, reason) {
           <span class="org-badge" style="--org-accent:${esc(m.org.accentHex)}">${esc(m.org.badge)}</span>
           <span>Published by ${m.org.url ? `<a href="${esc(m.org.url)}">${esc(m.org.name)}</a>` : esc(m.org.name)}${m.org.isDemo ? ' <span class="muted">— a sample organisation, not a real customer</span>' : ''}</span>
         </div>
-        <div class="outputs">${esc(m.version)} · updated ${esc(whenGB(m.publishedAt))} · ${m.outputs.length} sheet${m.outputs.length === 1 ? '' : 's'}${
+        <div class="outputs">${esc(m.version)} · updated ${esc(whenGB(m.publishedAt))} · ${m.outputs.length} map${m.outputs.length === 1 ? '' : 's'}${
   m.provenance && m.provenance.stale ? ' · <span class="tag">may be out of date</span>' : ''}</div>
       </div>
     </article>`;

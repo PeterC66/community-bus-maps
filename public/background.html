@@ -64,7 +64,7 @@
           <p>St Ives, summer 2026. Drawn by hand in a design package by a professional designer,
             from route information the volunteers assembled themselves. It is a good piece of work,
             and it is the standard everything since has been measured against.</p>
-          <div class="outputs">Click either sheet to see it full size</div>
+          <div class="outputs">Click either map to see it full size</div>
         </div>
       </article>
     </div></section>
@@ -90,7 +90,7 @@
       </div>
 
       <div class="card" style="max-width:760px;margin-top:22px">
-        <p class="mt-0">Printing was on top of that. And the sheet carries its own expiry date in
+        <p class="mt-0">Printing was on top of that. And the map carries its own expiry date in
           the title &mdash; <em>from 1st June 2026</em> &mdash; because bus routes are not fixed.
           Operators change them, withdraw them and re-number them several times a year. Every
           change makes the leaflet a little more wrong, and there is no cheap way to put it right:
@@ -116,7 +116,7 @@
           exactly the sort of work that has always needed a person &mdash; and exactly the sort of
           work that large language models have recently got surprisingly good at.</p>
         <p style="margin-bottom:0">So the question was narrow and testable. <strong>Could AI be used
-          to build something that turns the open data into a sheet as good as the one the
+          to build something that turns the open data into a map as good as the one the
           volunteers made &mdash; and if it worked once, would it work for anywhere?</strong></p>
       </div>
 
@@ -124,15 +124,15 @@
         <strong>How the AI is actually used.</strong> Not to draw the pictures. It was used to write
         the software that draws them &mdash; and to do the judgement work that software is bad at:
         reading operator timetables against the open data feed and flagging where they disagree,
-        deciding how a route should be labelled, and checking finished sheets for mistakes. The maps
+        deciding how a route should be labelled, and checking finished maps for mistakes. The maps
         themselves come out of code, from public data, with no network and no AI at drawing time, so
-        the same inputs always produce the same sheet.
+        the same inputs always produce the same map.
       </div>
     </div></section>
 
     <section class="alt"><div class="container">
       <h2>What comes out</h2>
-      <p class="section-intro">It works. The two sheets below are St Ives again, built by the system
+      <p class="section-intro">It works. The two maps below are St Ives again, built by the system
         from the open data rather than by hand, and deliberately answering the same two questions
         the volunteers' leaflet answered.</p>
 
@@ -144,18 +144,18 @@
         <div class="body">
           <h3><span class="badge">Area</span> The same town, generated</h3>
           <p>Routes and stops from the UK Bus Open Data Service, cross-checked against operators at
-            bustimes.org; streets and places from OpenStreetMap. Both sheets are A4 and print at
+            bustimes.org; streets and places from OpenStreetMap. Both maps are A4 and print at
             300&nbsp;dpi.</p>
-          <div class="outputs">Click either sheet to see it full size</div>
+          <div class="outputs">Click either map to see it full size</div>
         </div>
       </article>
 
       <div class="card" style="max-width:760px;margin-top:22px">
         <p class="mt-0">They are not identical to the originals, and they were never meant to be.
           The street map is drawn to the real geography rather than straightened out, so the shape
-          of the town is recognisable. The destinations sheet is a radial diagram: find where you
+          of the town is recognisable. The destinations map is a radial diagram: find where you
           want to go around the edge, follow the coloured line in to the middle, and the badge on it
-          is the bus you need. Both sheets say when the data was collected and where it came from,
+          is the bus you need. Both maps say when the data was collected and where it came from,
           because a map that will go out of date should admit it.</p>
         <p style="margin-bottom:0">The cost of the second town was a fraction of the first, and the
           cost of the twentieth was almost nothing. That is the whole point of doing it this way:
@@ -199,7 +199,7 @@
       <h2>Where it has got to</h2>
       <p class="section-intro">Maps for eight towns &mdash; St Ives, Huntingdon, St Neots, Ramsey,
         March and Wisbech in Cambridgeshire, and High Wycombe and Beaconsfield in Buckinghamshire
-        &mdash; plus a handful of sheets built around a single place rather than a whole town: a
+        &mdash; plus a handful of maps built around a single place rather than a whole town: a
         supermarket, a high street, the kind of destination where the useful question is simply
         <em>which buses stop here?</em></p>
 
@@ -214,13 +214,13 @@
           map.</p>
         <p>Four things hold that together:</p>
         <ul>
-          <li>Every sheet is built from public, licensed open data, and says so in its footer.</li>
-          <li>Every sheet is checked against the operators' own timetables before it goes up, and
+          <li>Every map is built from public, licensed open data, and says so in its footer.</li>
+          <li>Every map is checked against the operators' own timetables before it goes up, and
             the disagreements are written down rather than quietly resolved.</li>
           <li>The software is source-available now and becomes fully open source in 2030, so nobody
             is left stranded if this stops.</li>
           <li>The project is <a href="/faq.html#non-partisan">non-partisan</a>. Any organisation
-            whose community uses the bus may publish a map, whatever its politics, because a sheet
+            whose community uses the bus may publish a map, whatever its politics, because a map
             shows only what the open data shows and carries only the name of whoever published
             it.</li>
         </ul>

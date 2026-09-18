@@ -258,11 +258,16 @@ export default async function publicRoutes(app) {
     const title = services
       ? (m.kind === 'place' ? `Bus services serving ${m.name}` : `Bus services in ${m.name}`)
       : headline;
+    // A /m/<slug> PAGE CARRIES THE WHOLE SET, so its description is plural
+    // (buses-data OA-404). It used to open "A bus map published by ...", and a
+    // reader who followed that met two to four pictures, each of which they
+    // would call a map. "An accessible alternative to the map image" below is
+    // left singular on purpose: that one really is one picture.
     const desc = services
-      ? `Every bus service on the ${m.name} map, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
+      ? `Every bus service on the ${m.name} bus maps, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
       : m.org.isDemo
-        ? `A sample bus map${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
-        : `A bus map published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
+        ? `Sample bus maps${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
+        : `Bus maps published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
     const canonical = base + (services ? servicesPageUrl(m.slug) : mapPageUrl(m.slug));
     const card = m.outputs.length && m.outputs[0].previewUrl ? base + m.outputs[0].previewUrl : '';
     const jsonLd = {
@@ -360,8 +365,17 @@ export default async function publicRoutes(app) {
     // number the page prints, so the description cannot claim more maps than
     // the page shows. Null-guarded rather than assumed: a caller passing a row
     // without it should get a sentence that is merely vaguer, not "undefined".
+    //
+    // IT COUNTS PLACES, NOT MAPS, AND IT USED TO SAY "MAPS" (buses-data OA-404).
+    // The COUNT(*) is over map ROWS, and one row is a whole place: up to four
+    // pictures on one page. So "4 bus maps published by X" met a reader who
+    // then opened one of the four and found four more things they would each
+    // call a map -- and this sentence is the <meta name="description"> a search
+    // engine indexes, which makes it the version of our vocabulary most people
+    // ever see. Naming the PLACES says what the number actually counts and
+    // leaves "map" meaning what a reader means by it: one picture.
     const n = Number.isInteger(org.publicMaps) ? org.publicMaps : null;
-    const maps = n === null ? 'Bus maps' : n === 1 ? 'One bus map' : `${n} bus maps`;
+    const maps = n === null ? 'Bus maps' : n === 1 ? 'Bus maps for one place' : `Bus maps for ${n} places`;
     const desc = org.isDemo
       ? `${maps} published by ${org.name} to demonstrate BusMaps.uk. Free to view, print and share.`
       : `${maps} published by ${org.name} on BusMaps.uk. Free to view, print and share.`;
@@ -552,7 +566,7 @@ export default async function publicRoutes(app) {
         entry = { raw, gz: gzipSync(raw, { level: 9 }) };
       } catch (e) {
         req.log.error(e);
-        return reply.code(500).send({ ok: false, error: 'Could not prepare that sheet.' });
+        return reply.code(500).send({ ok: false, error: 'Could not prepare that map.' });
       }
       // One entry per published version per output — bounded by what is published,
       // and dropped wholesale rather than tracked when it grows.
@@ -575,7 +589,7 @@ export default async function publicRoutes(app) {
     const facts = factsForPublicMap(row);
     const services = publicServices(row, facts);
     if (!services || !services.routes.length) {
-      return reply.code(404).send({ ok: false, error: 'This map has no service list.' });
+      return reply.code(404).send({ ok: false, error: 'There is no service list for this place.' });
     }
     if (cached(req, reply, row.pub_key, 'services')) return reply;
     return { ok: true, map: publicMap(row), services };

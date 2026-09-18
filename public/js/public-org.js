@@ -39,7 +39,7 @@
       <div class="body">
         <h3><span class="badge ${m.kind === 'place' ? 'place' : ''}">${m.kind === 'place' ? 'Place' : 'Area'}</span> <a href="${esc(m.url)}">${esc(m.name)}</a></h3>
         <p>${esc(m.subject || '')}</p>
-        <div class="outputs">${esc(m.version)} · ${m.outputs.length} sheet${m.outputs.length === 1 ? '' : 's'}</div>
+        <div class="outputs">${esc(m.version)} · ${m.outputs.length} map${m.outputs.length === 1 ? '' : 's'}</div>
       </div>
     </article>`;
   }).join('');
