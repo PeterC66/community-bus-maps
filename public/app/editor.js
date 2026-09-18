@@ -571,7 +571,7 @@ function buildPublic() {
   $('publicBody').innerHTML = `${link}
     <label class="poi-row" style="margin-top:6px">
       <input type="checkbox" id="listedBox" ${listed ? 'checked' : ''}>
-      <span>List this map on the public site (and in our published-maps gallery)</span>
+      <span>List this place on the public site (and in our published-maps gallery)</span>
     </label>`;
   $('listedBox').addEventListener('change', async (e) => {
     const want = e.target.checked;
