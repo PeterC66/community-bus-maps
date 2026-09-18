@@ -1,0 +1,20 @@
+[
+  {
+    "id": "poi:leisure:Snap Fitness",
+    "text": "Snap Fitness",
+    "at": [
+      57.218268694868726,
+      148.03013404321084
+    ],
+    "reason": "no candidate clear"
+  },
+  {
+    "id": "poi:school:Beechview",
+    "text": "Beechview",
+    "at": [
+      13.191463297325384,
+      137.79920705758136
+    ],
+    "reason": "no candidate clear"
+  }
+]

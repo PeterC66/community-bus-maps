@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.17 | 2026-09-15 | sha=405aab07 -->
-**v1.17** · updated 15 September 2026
+<!-- docstamp v1.18 | 2026-09-18 | sha=c19d35d4 -->
+**v1.18** · updated 18 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -69,7 +69,7 @@ The whole system rests on v1.0 == the shipped leaflet. Confirm it:
 $env:FIXTURE_DIR = "<the S5-render dir>"; npm run verify:area   # or PLACE_FIXTURE_DIR + verify:place
 ```
 
-**The shell matters here.** This was written as bash (`FIXTURE_DIR="…" npm run …`) until 2026-08-07, and PowerShell has no inline env-var prefix: run that way on Windows the variable is never set, and the run **silently gates something else** — until 2026-08-20 that was nothing at all ("skipping", exit 0), and since then it is the committed fixture at `Areas/_portal-fixture/`, which is a real gate but not the map you are onboarding. In bash the original form is still correct. Either way, read the `fixture :` line the gate prints back and check it names the folder you meant; and if it prints a `⚠ … BEHIND the committed fixture` block, the `.env` entry it names is older than the committed pack and wants repointing ([DEVELOPING.md](DEVELOPING.md#which-pack-verify-gates-and-the-per-machine-env-keys-that-change-it)).
+**The shell matters here.** This was written as bash (`FIXTURE_DIR="…" npm run …`) until 2026-08-07, and PowerShell has no inline env-var prefix: run that way on Windows the variable is never set, and the run **silently gates something else** — until 2026-08-20 that was nothing at all ("skipping", exit 0), and since then it is the committed fixture — which since 2026-09-18 is this repository's own copy at `gate-fixtures/Areas/_portal-fixture/` — a real gate, but not the map you are onboarding. In bash the original form is still correct. Either way, read the `fixture :` line the gate prints back and check it names the folder you meant; and if it prints a `⚠ … BEHIND the committed fixture` block, the `.env` entry it names is older than the committed pack and wants repointing ([DEVELOPING.md](DEVELOPING.md#which-pack-verify-gates-and-the-per-machine-env-keys-that-change-it)).
 
 Green = the portal reproduces the desktop bytes exactly — insist on **PASS with byte counts**, not merely a zero exit. **If it fails, stop** — check the `sharp`/libvips version against the desktop pipeline before anything else (see [DEPLOY.md §7](DEPLOY.md)).
 
