@@ -45,6 +45,7 @@ import publicRoutes from './routes/public.js';
 // The repository, public-asset and view roots (OA-231): a route file may not
 // reach into server.js, so they live in a module with no side effects.
 import { PUBLIC_DIR } from './paths.js';
+import { TRUST_PROXY } from './http/trustProxy.js';
 import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
 import { notFoundPage } from './public/notFound.js';
@@ -53,15 +54,14 @@ const { port: PORT, host: HOST } = listenOn();
 const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
 
 // trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
-// otherwise the proxy's, not the client's — breaking authLink()'s https URLs
-// (GO-LIVE.md §2.4) and letting every visitor share one rate-limit bucket.
+// otherwise the proxy's, not the client's — letting every visitor share one
+// rate-limit bucket.
 //
-// `1`, not `true`: `true` trusts the WHOLE X-Forwarded-For chain and takes the
-// leftmost entry, which is the value the client sent. Caddy appends the real
-// peer address rather than replacing the header, so under `true` anyone could
-// pick their own req.ip with a header and rotate it to defeat every rate limit
-// below (technical-audit_2026-08-19 S3). `1` trusts exactly one hop — the
-// local Caddy — so req.ip is the address Caddy actually saw.
+// THE VALUE AND THE WHOLE ARGUMENT FOR IT ARE IN src/http/trustProxy.js. It
+// said `1` here until 2026-09-19, with a comment claiming that `1` trusts one
+// hop; in Fastify a numeric trustProxy trusts NOTHING, and had been yielding
+// the Docker bridge gateway for every visitor on the live host (buses-data
+// OA-256). The value is a module now so the suite can probe the real one.
 const app = Fastify({
   // P9 B8 — search queries are never logged, and an access log counts as a
   // log: the default request serializer logs req.url including its query
@@ -118,7 +118,7 @@ const app = Fastify({
     },
   },
   bodyLimit: 256 * 1024,
-  trustProxy: 1,
+  trustProxy: TRUST_PROXY,
 });
 
 // THE ROUTE TABLE, recorded as it is built (OA-231, 2026-09-02). scripts/test-admin-plugin.mjs
