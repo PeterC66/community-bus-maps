@@ -91,6 +91,8 @@
     "test:upcoming-join": "node scripts/test-upcoming-join.mjs",
     "test:sheet-version": "node scripts/test-sheet-version.mjs",
     "test:audit-p1": "node scripts/test-audit-p1.mjs",
+    "test:trust-proxy": "node scripts/test-trust-proxy.mjs",
+    "test:prove-red-trust-proxy": "node scripts/prove-red-trust-proxy.mjs",
     "test:ssr": "node scripts/test-ssr.mjs",
     "changelog": "node scripts/changelog-assemble.mjs",
     "changelog:check": "node scripts/changelog-assemble.mjs --check",
