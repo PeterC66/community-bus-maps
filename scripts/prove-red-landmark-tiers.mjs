@@ -326,9 +326,15 @@ const MUTATIONS = [
   },
   {
     what: 'a category loses its singular',
-    why: 'the other half of the same fault: a thirteenth category added to classify() would fall through to a lower-cased PLURAL heading, so the row would read "Unnamed parks and recreation grounds". It is the join between two files and only the join can check it',
+    why: 'the other half of the same fault: a category added to classify() would fall through to a lower-cased PLURAL heading, so the row would read "Unnamed parks and recreation grounds". It is the join between two files and only the join can check it',
     edits: [[CHOOSER, " museum: 'museum',", '']],
     expect: 'and every one of them has a singular for the nameless row',
+  },
+  {
+    what: 'a category loses its plural group heading',
+    why: 'until 2026-09-19 (OA-340) only the SINGULAR arm of this join was asserted, so a category the engine can emit and the chooser cannot name printed its raw engine key as the group heading — "pub", "gp", "townhall" — which is the exact fault OA-220 was written to remove. The heading is what a reader meets first, before any row',
+    edits: [[CHOOSER, " museum: 'Museums',", '']],
+    expect: 'and a plural group heading, which is what a reader meets first',
   },
   {
     what: 'the row prints the group heading own words again',
