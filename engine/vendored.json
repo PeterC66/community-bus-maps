@@ -57,8 +57,8 @@
       "path": "icons.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/icons.js",
-      "sha256": "fa701ffc8977afb891fd32b3f113f57d394fbea76321b30b706a83609062920f",
-      "vendoredOn": "2026-09-03"
+      "sha256": "073c87dbfa0897abc6869efeea3088056d984d29eb98d9d4049b7d71584c83a0",
+      "vendoredOn": "2026-09-19"
     },
     {
       "path": "labeller.js",
@@ -167,8 +167,8 @@
       "path": "poi_select.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/poi_select.js",
-      "sha256": "6927c1192e4ff6c70fc05beddd92a4abba14981541ad1a77de240815a92df020",
-      "vendoredOn": "2026-09-14",
+      "sha256": "272fc7ed04a45a685a72b9c4eaf93ae6ae91afb1173abbe2c608b833111ec9ea",
+      "vendoredOn": "2026-09-19",
       "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
     },
     {
@@ -223,8 +223,8 @@
       "path": "services_panel.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/services_panel.js",
-      "sha256": "a8d0186b04c6ce7ddb324c4b6e06a6e0d87f7e5b6f2945df0230367dd4e3fc35",
-      "vendoredOn": "2026-09-02",
+      "sha256": "793e1fe786acb12cfe1826512e272235485630d4fdf5c9c0321739695d5cb8e6",
+      "vendoredOn": "2026-09-19",
       "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
     },
     {
