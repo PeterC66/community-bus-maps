@@ -158,7 +158,14 @@ export default async function adminRoutes(app) {
     let emailError = null;
     if (link) {
       try {
-        const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        // THE ORGANISATION'S NAME TRAVELS WITH THE INVITE (OA-365). Until
+        // 2026-09-19 it did not, and the letter that reached the first person
+        // this project ever invited named nobody — not him, not his
+        // organisation, not the sender. `appn.org_name` was three lines above
+        // the call the whole time; the email module simply had no parameter to
+        // put it in. It is the same name written onto the customer row in the
+        // transaction just above, so the letter cannot disagree with the record.
+        const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: appn.org_name });
         emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
@@ -391,10 +398,14 @@ export default async function adminRoutes(app) {
     if (getUserByEmail(email)) return reply.code(409).send({ ok: false, error: `${email} already has an account.` });
 
     let customerId = null;
+    // The NAME is hoisted beside the id because the invite letter is written
+    // about the organisation (OA-365) and `cust` used to die with this block.
+    let customerName = null;
     if (b.customerId != null && b.customerId !== '') {
       const cust = getCustomer(Number(b.customerId));
       if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
       customerId = cust.id;
+      customerName = cust.name || null;
     }
     const role = USER_ROLES.includes(b.role) ? b.role : 'editor';
     // An adviser belongs to no organisation (buses-data OA-154 D1), and the whole
@@ -419,7 +430,14 @@ export default async function adminRoutes(app) {
     let emailError = null;
     if (link) {
       try {
-        const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        // ORGANISATION AND ROLE BOTH TRAVEL (OA-365). The organisation for the
+        // same reason as the approve route above; the ROLE because this is the
+        // one place that issues this letter to somebody who is not an editor,
+        // and two of its sentences are only true of an editor — "an editor's
+        // account", and the promise that nothing they do goes public without a
+        // review. An approver publishes. Passing the role is what stops the fix
+        // for one reader becoming a false sentence to another.
+        const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: customerName, role });
         emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
