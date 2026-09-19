@@ -26,6 +26,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { has } from './lib/cli.mjs';
+import { hostEnvDiagnosis, hostEnvProbe } from './lib/host-env.mjs';
 
 const DRY_RUN = has('dry-run');
 const SKIP_BACKUP = has('skip-backup');
@@ -151,12 +152,28 @@ if (!DRY_RUN) {
   // are the RESULT of an expansion, so the shell does not honour them and the
   // header word-splits into four arguments. Quoting only works when it is in the
   // script text, which is what this is.
+  //
+  // THE .env IS READ, NOT SOURCED, CHANGED 2026-09-19. It used to be
+  // `{ set -a; . ./.env 2>/dev/null; set +a; }`, which aborts on the host's real
+  // file: `EMAIL_FROM=Peter Cooper - BusMaps.uk <info@busmaps.uk>` is line 3 and
+  // `<` is a redirection operator, so the shell gives up there and never reaches
+  // `METRICS_TOKEN` on line 11. The `2>/dev/null` hid the syntax error and the
+  // `else` arm then announced that the host had no token — about a value that
+  // was present and 48 characters long, in both the file and the container. So
+  // every deploy in that form ended without the gitSha it exists to read, under
+  // an explanation that was not true. `scripts/lib/host-env.mjs` has the whole
+  // account; the short version is that `.env` is Compose's key/value file and
+  // applying shell semantics to it was always a category error.
   const url = '"localhost:5180/health?deep=1"';
-  const remote = 'sleep 3 && cd ' + APP_DIR + ' && { set -a; . ./.env 2>/dev/null; set +a; }; '
-    + 'if [ -n "$METRICS_TOKEN" ]; then '
-    + 'curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" ' + url + '; '
-    + 'else echo "(the HOST .env has no METRICS_TOKEN - gitSha, builtAt and checks{} '
-    + 'are gated OUT of the reply below)"; '
+  const probe = hostEnvProbe({ name: 'METRICS_TOKEN', outVar: 'CBM_MT' });
+  const diagnosis = hostEnvDiagnosis({
+    name: 'METRICS_TOKEN',
+    gated: 'gitSha, builtAt and checks{} are gated OUT of the reply below',
+  });
+  const remote = 'sleep 3 && cd ' + APP_DIR + ' && ' + probe + '; '
+    + 'if [ -n "$CBM_MT" ]; then '
+    + 'curl -fsS -H "Authorization: Bearer $CBM_MT" ' + url + '; '
+    + 'else ' + diagnosis + ' '
     + 'curl -fsS ' + url + '; fi';
   const rc = sshRun(remote);
   if (rc !== 0) {
@@ -188,9 +205,10 @@ if (!DRY_RUN && !has('skip-signin')) {
 
 console.log('\n✓ deploy sequence complete.');
 console.log(`  Deployed ${gitSha || '(dry run)'} at ${builtAt || '(dry run)'}.`);
-console.log('  Read the /health output above — and if it carries no gitSha/checks, that is the');
-console.log('  METRICS_TOKEN gate, not a healthy answer. Confirm the commit independently before');
-console.log('  calling it done: curl a file that only the new build serves (docs/DEPLOY.md §3a).');
+console.log('  Read the /health output above. If it carries no gitSha/checks, step 5 said which');
+console.log('  of the two reasons applies — the host has no METRICS_TOKEN= line, or it has one');
+console.log('  that read back empty. It no longer guesses: until 2026-09-19 it sourced .env, which');
+console.log('  aborts on a value the shell cannot parse, and then blamed a token that was there.');
 
 // 7. THE ONE CHECK THAT CAN SEE A LOST ROUTE, named here rather than only in the
 // docs (OA-232 Tier 1.6, the 2026-09-03 review's portal-ops W7).
