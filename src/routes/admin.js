@@ -138,24 +138,44 @@ export default async function adminRoutes(app) {
       return id;
     });
 
+    // THE SEND RESULT IS REPORTED, NOT SWALLOWED (OA-362). Until 2026-09-19 this
+    // block computed `r.sent`, wrote it to a server console nobody reads, and
+    // returned `ok: true` either way — so the admin screen said "The invite has
+    // been emailed" whether or not one had been. That is the same defect
+    // src/email/health.js was written for, surviving in a third route: the
+    // `catch` arm names a configured provider that threw, and it read identically
+    // to success. The adviser route below already answers this question with
+    // `emailed` and `emailError`; this is that shape, not a second one.
+    //
+    // The link travels back in the NOT-emailed case even outside DEV_LINKS,
+    // because an admin holding a customer who cannot sign in and no link has
+    // nothing to act on. It is not returned when the email DID go: there the
+    // customer has it, and a second copy on an admin screen is a credential
+    // lying around for no reason.
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
     if (link) {
       try {
         const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
+        emailError = e.message;
         req.log.error({ email, err: e.message }, 'invite email failed to send');
       }
     }
-    req.log.info({ applicationId: appn.id, customerId, email }, 'application approved → customer + editor created');
-    logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places } });
+    req.log.info({ applicationId: appn.id, customerId, email, emailed }, 'application approved → customer + editor created');
+    logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places, emailed } });
 
     return {
       ok: true,
       customer: { id: customerId, name: appn.org_name, type, quotaAreas: quota_areas, quotaPlaces: quota_places },
       user: { email },
-      inviteLink: DEV_LINKS ? link : undefined,
+      emailed,
+      emailError,
+      inviteLink: DEV_LINKS || !emailed ? link : undefined,
     };
   });
 
@@ -389,19 +409,27 @@ export default async function adminRoutes(app) {
     }
 
     const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
+    // Same treatment as the approve route above, and for the same reason
+    // (OA-362). This is the route that adds a customer's SECOND user, so the
+    // unconditional "The invite has been emailed" fired twice on the first real
+    // customer — once here and once at approval.
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
     if (link) {
       try {
         const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
+        emailError = e.message;
         req.log.error({ email, err: e.message }, 'invite email failed to send');
       }
     }
-    req.log.info({ userId, customerId, email, role }, 'user invited by admin');
-    logAudit(req, 'user.invite', { detail: { userId, customerId, email, role } });
-    return { ok: true, user: userShape(getUser(userId)), inviteLink: DEV_LINKS ? link : undefined };
+    req.log.info({ userId, customerId, email, role, emailed }, 'user invited by admin');
+    logAudit(req, 'user.invite', { detail: { userId, customerId, email, role, emailed } });
+    return { ok: true, user: userShape(getUser(userId)), emailed, emailError, inviteLink: DEV_LINKS || !emailed ? link : undefined };
   });
 
   app.patch('/users/:id', async (req, reply) => {

@@ -203,6 +203,95 @@ eq('…and now the customer exists', customers(), doomedBefore.customers + 1);
 eq('…and the application is approved', db.getApplication(doomedId).status, 'approved');
 
 // ===========================================================================
+console.log('\nThe answer says whether the invite was actually emailed (OA-362)');
+// ===========================================================================
+
+// WHAT THIS IS ABOUT. The route computed `r.sent`, wrote it to a server console
+// and returned `ok: true` either way, so the admin screen said "The invite has
+// been emailed" in all three outcomes — including the two where nothing left the
+// building. The adviser route one screen away had already been given `emailed`
+// and `emailError`; this asserts the approve route now answers the same way.
+//
+// BOTH ARMS ARE REAL, neither is stubbed. No provider is the state a test run is
+// already in; an UNKNOWN provider makes sendEmail() throw by its own declared
+// contract, which is the `catch` arm — the one a configured-but-broken Resend
+// key produces in production, and the one a green Ops "email ok" chip does not
+// rule out.
+
+const noProv = apply('Soham Parish Council', 'clerk@soham.example');
+const np = await post(`/api/admin/applications/${noProv}/approve`, adminTok);
+eq('with no provider configured the approval still succeeds', np.status, 200);
+eq('…and it says no email was sent, rather than claiming one was', np.json.emailed, false);
+eq('…and names no error, because not-configured is not a failure', np.json.emailError, null);
+check('…and hands back the link, so the operator can send it by hand',
+  typeof np.json.inviteLink === 'string' && np.json.inviteLink.includes('/auth/'), JSON.stringify(np.json.inviteLink));
+// The audit row is the only record that outlives the process, and it recorded an
+// approval with nothing about the send.
+check('…and the audit event carries the send outcome',
+  JSON.parse(db.listAudit({ limit: 1 })[0].detail_json).emailed === false,
+  db.listAudit({ limit: 1 })[0].detail_json);
+
+const savedProvider = process.env.EMAIL_PROVIDER;
+process.env.EMAIL_PROVIDER = 'not-a-real-provider';
+const threwId = apply('Littleport Parish Council', 'clerk@littleport.example');
+const th = await post(`/api/admin/applications/${threwId}/approve`, adminTok);
+if (savedProvider === undefined) delete process.env.EMAIL_PROVIDER; else process.env.EMAIL_PROVIDER = savedProvider;
+eq('a provider that THROWS does not fail the approval', th.status, 200);
+eq('…and the customer is created, because the send is outside the transaction',
+  !!db.getCustomerByName('Littleport Parish Council'), true);
+eq('…and the answer says nothing was emailed', th.json.emailed, false);
+check('…and reports WHY, which the console had only ever logged',
+  typeof th.json.emailError === 'string' && /not-a-real-provider/.test(th.json.emailError), JSON.stringify(th.json.emailError));
+check('…and still hands back the link', typeof th.json.inviteLink === 'string', JSON.stringify(th.json.inviteLink));
+
+// THE CONTROL THAT STOPS `emailed: false` BEING A CONSTANT, and it is the
+// assertion this section is really for. Every arm reachable without a network
+// answers false, so a route that hard-coded it would pass all six assertions
+// above and the old bug would be back with the suite green.
+//
+// ONLY THE NETWORK IS FAKED. `globalThis.fetch` is the outermost boundary there
+// is — everything inside it is the real path: sendMagicLink → sendEmail →
+// sendViaResend → recordSendSuccess → {sent:true} → the route's own `emailed`.
+// Nothing is monkey-patched, no module export is replaced, and the assertion is
+// what the route returned rather than what a stub was told to say.
+{
+  const savedFetch = globalThis.fetch;
+  const savedKey = process.env.RESEND_API_KEY;
+  let fetched = null;
+  globalThis.fetch = async (url, opts) => {
+    fetched = String(url);
+    return { ok: true, status: 200, json: async () => ({ id: 're_test_1' }), text: async () => '' };
+  };
+  process.env.EMAIL_PROVIDER = 'resend';
+  process.env.RESEND_API_KEY = 'test-key-not-a-real-one';
+  try {
+    const okId = apply('Witchford Parish Council', 'clerk@witchford.example');
+    const okr = await post(`/api/admin/applications/${okId}/approve`, adminTok);
+    check('CONTROL: the provider was actually reached', /api\.resend\.com/.test(fetched || ''), String(fetched));
+    eq('…and when the send reports success, so does the answer', okr.json.emailed, true);
+    eq('…and no error is reported', okr.json.emailError, null);
+    // THE LIMIT, STATED RATHER THAN PAPERED OVER. `DEV_LINKS` is
+    // `!emailProvider()` snapshotted at module load, and at load EMAIL_PROVIDER
+    // was unset, so it is ON for this whole process and the link comes back in
+    // every arm here. The condition the route added is `DEV_LINKS || !emailed`,
+    // and its new half is the not-emailed one — asserted twice above, in both
+    // arms that reach it. Whether a DEV_LINKS-off, emailed-true request withholds
+    // the link is a property of the OTHER half, unchanged since before OA-362,
+    // and it needs a subprocess launched with a provider already in the
+    // environment to see at all.
+    check('…and the link comes back, DEV_LINKS being on in any test run',
+      typeof okr.json.inviteLink === 'string', JSON.stringify(okr.json.inviteLink));
+    check('…and the audit event records that it went',
+      JSON.parse(db.listAudit({ limit: 1 })[0].detail_json).emailed === true,
+      db.listAudit({ limit: 1 })[0].detail_json);
+  } finally {
+    globalThis.fetch = savedFetch;
+    if (savedProvider === undefined) delete process.env.EMAIL_PROVIDER; else process.env.EMAIL_PROVIDER = savedProvider;
+    if (savedKey === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = savedKey;
+  }
+}
+
+// ===========================================================================
 console.log('\nwithTransaction itself');
 // ===========================================================================
 
