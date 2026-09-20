@@ -345,8 +345,8 @@ function rowCust(c) {
     <div class="gt-cell" role="cell"><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></div>
     <div class="gt-cell" role="cell"><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></div>
     <div class="gt-cell" role="cell"><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></div>
-    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners. Turned off at the same moment as Sample maps, when an organisation stops being ours and starts being theirs."${c.watermarkEnabled ? ' checked' : ''}></div>
-    <div class="gt-cell" role="cell"><input type="checkbox" data-q="isSample" title="Are this organisation's maps OUR samples? While this is on, every sheet carries the red PILOT - SAMPLE MAP band saying nobody published it. Turn it off - with Watermark downloads - when a real organisation takes the maps on."${c.isSample ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners. A SEPARATE decision from Sample maps, and it does not move with it: the first real customer asked to keep this on after registering, because it is the only marking that says work in progress without also saying nobody published the sheet. Leave it as the organisation asked."${c.watermarkEnabled ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="isSample" title="Are this organisation's maps OUR samples? While this is on, every sheet carries the red PILOT - SAMPLE MAP band saying nobody published it. Turn it off when a real organisation takes the maps on - and leave Watermark downloads alone, which is a separate decision and theirs rather than ours."${c.isSample ? ' checked' : ''}></div>
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></div>
   </div>`;
 }
