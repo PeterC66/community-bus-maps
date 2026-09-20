@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.18 | 2026-09-18 | sha=c19d35d4 -->
-**v1.18** · updated 18 September 2026
+<!-- docstamp v1.19 | 2026-09-20 | sha=bfa14c96 -->
+**v1.19** · updated 20 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -31,6 +31,22 @@ The S5-render folder contains the generators + JSON inputs + the rendered SVG/JP
 - **Place** dir carries `routes.json` + `place.json` (+ inputs). Its generators are **vendored in the portal** (`engine/place/`) and copied in at import — they need not be in the src.
 
 Keep the skill's verification `.docx` with the job — it's your red-team evidence.
+
+### Which render folder — and never `ls | tail -1`
+
+Every `<S5-render dir>` placeholder below names a folder like `Areas/St Neots/Places/St Neots Co-op/S5-render/v1.19_2026-09-13_2027`, and **the answer to which one comes from the map, not from a directory listing.** A listing sorted as text puts `v1.9` after `v1.19` and `v2.9` after `v2.32`, which on 2026-09-15 delivered three of one customer's four maps from renders 10, 10 and 23 builds old; the byte gate caught one of the three and passed the other two, because a stale render that still reproduces looks exactly like a current one to it. Two of those sheets are publicly live and a fortnight stale (buses-data OA-368).
+
+Ask a tool that knows. The board prints the current build for every map — run it from the engine's own folder, `C:\u3a St Ives\.claude\skills\make-bus-leaflet`, where both arguments are real paths on this machine rather than placeholders:
+
+```bash
+node assets/status.js --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claude/community-bus-maps"
+```
+
+The map's own `manifest.json` carries the same answer in `stages.S5.latest`, and since 2026-09-20 `deliver-map.mjs` asks it: step 0b refuses a `--src` the manifest does not call current, before anything leaves the laptop. `--render-superseded "<reason>"` is the escape hatch for a deliberate older delivery.
+
+**Run `npm run deliver -- --dry-run …` before the delete, whatever you are doing.** It runs both local gates and prints the exact `import-map.mjs` argument vector without an `scp`, an `ssh` or a write of any kind, so a refusal that would otherwise land *after* a row has been deleted costs nothing to buy in advance. It also shows how a customer name with an apostrophe survives the shell, which is worth reading rather than hoping about.
+
+**The board command above is the one exception on this page**, and everything from here on returns to the repository root (`C:\Claude\community-bus-maps`), as the note at the top of this page says.
 
 ## Step 2 — Import into the portal (deterministic)
 
