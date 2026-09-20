@@ -39,7 +39,7 @@ import { changeSummary } from '../publish/index.js';
 import { logAudit } from '../audit/index.js';
 import { isSampleCustomer } from '../render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { loadOwnedMap, loadPendingProposed, refreshNote, safeSubsetAllow, savedPoiTiers, visibleDownloadsForVersion, withMapLock } from '../maps/detail.js';
-import { parseJson, parseOutputs, requireUser, str } from '../http/helpers.js';
+import { parseJson, parseOutputs, RENDER_BUDGET_MESSAGE, renderBudgetSpent, requireUser, str } from '../http/helpers.js';
 
 export default async function proposedRoutes(app) {
   app.addHook('preHandler', async (req, reply) => {
@@ -54,6 +54,9 @@ export default async function proposedRoutes(app) {
     const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
     if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
     if (!map.cur_key) return reply.code(400).send({ ok: false, error: 'This map has no current version to compare against.' });
+    // Two generator runs, not one — `before` and `after` are both rendered — so
+    // this is the most expensive route the budget covers (OA-039, audit O7).
+    if (renderBudgetSpent(user)) return reply.code(429).send({ ok: false, error: RENDER_BUDGET_MESSAGE });
 
     const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
     const outputs = parseOutputs(map.outputs);
@@ -97,6 +100,8 @@ export default async function proposedRoutes(app) {
     if (getOpenRequestForMap(id)) {
       return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw that request before accepting an update.' });
     }
+
+    if (renderBudgetSpent(user)) return reply.code(429).send({ ok: false, error: RENDER_BUDGET_MESSAGE });
 
     const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
     const outputs = parseOutputs(map.outputs);
