@@ -234,18 +234,39 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
     const age = daysSince(d.draft_at);
     const stale = age != null && age >= 7;
     const sentBack = d.draft_state === 'rejected';
-    const pub = d.published_key
-      ? `the public still has ${d.published_key}`
-      : 'this map has never been published';
+    // "Published" and "public" are not the same predicate, and the schema uses
+    // almost the same word for both. A published version is one of the four
+    // clauses PUBLIC_WHERE wants; the others are public_listed, an active
+    // customer and a non-archived map (the query already filters the last).
+    // Consulting only the first and speaking for all four is OA-295: a map is
+    // un-listed for one reason — something on it was wrong enough to take down
+    // — so this sentence was most reassuring exactly where it was most wrong.
+    const unlisted = !!d.published_key && !(d.public_listed && d.customer_status === 'active');
+    const pub = !d.published_key
+      ? 'this map has never been published'
+      : unlisted
+        ? 'NOT LISTED — the public sees nothing'
+        : `the public still has ${d.published_key}`;
     add({
-      key: `draft-${d.id}`, rank: stale ? 8 : 9, type: 'draft-unsubmitted',
+      // An unsent draft on a listed map is housekeeping and ages into a nudge.
+      // On an UNLISTED map it is the tail of an incident and the draft is the
+      // thing that would end it, so it does not wait a week to be noticed.
+      key: `draft-${d.id}`, rank: unlisted ? 4 : stale ? 8 : 9, type: 'draft-unsubmitted',
       title: `"${d.name}" has an unsent draft (${d.draft_key}) — ${pub}`,
-      why: sentBack
-        ? `${d.draft_key} was sent back to ${d.customer_name || 'the customer'} and has not been resubmitted. Nothing will happen until they edit it and send it again.`
-        : `${d.customer_name || 'The customer'} has ${d.published_key ? 'a newer draft' : 'a first version'} that was never sent for review${stale ? `, ${age} days ago` : ''}. It will not publish itself, and no other queue shows it.`,
+      why: unlisted
+        ? `${d.name} is not on the public site at all — ${d.published_key} is published but ${d.customer_status === 'active' ? 'the map is un-listed' : `its customer is ${d.customer_status}`}, so /m/${d.slug || d.id} is a 404 and it is in no public listing. ${d.draft_key} is the version that would replace it, and it has never been sent for review.`
+        : sentBack
+          ? `${d.draft_key} was sent back to ${d.customer_name || 'the customer'} and has not been resubmitted. Nothing will happen until they edit it and send it again.`
+          : `${d.customer_name || 'The customer'} has ${d.published_key ? 'a newer draft' : 'a first version'} that was never sent for review${stale ? `, ${age} days ago` : ''}. It will not publish itself, and no other queue shows it.`,
       who: d.customer_name || 'unowned', ageDays: age,
       where: url(`/app/maps/${d.id}`), runbook: 'R3', slug: d.slug || null,
-      do: [{ kind: 'portal-ui', what: `Open the map, check the sheets, then "Send ${d.draft_key} for review" — and approve it at /app/review.`, url: url(`/app/maps/${d.id}`) }],
+      do: [{
+        kind: 'portal-ui',
+        what: unlisted
+          ? `Open the map, check the sheets, then "Send ${d.draft_key} for review" and approve it at /app/review — and re-list the map afterwards, because publishing a version does not undo the un-listing and the page stays a 404 until it is.`
+          : `Open the map, check the sheets, then "Send ${d.draft_key} for review" — and approve it at /app/review.`,
+        url: url(`/app/maps/${d.id}`),
+      }],
     });
   }
 
