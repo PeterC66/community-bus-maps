@@ -51,7 +51,7 @@ import { draftLabel, ensureDraftMarked } from '../render/draftStamp.js';
 import { isSampleCustomer } from '../render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { logAudit } from '../audit/index.js';
 import { bumpSearchIndex } from '../search/index.js';
-import { MAP_KINDS, operatorRead, parseOutputs, requireUser, slugify, str } from '../http/helpers.js';
+import { MAP_KINDS, operatorRead, parseOutputs, RENDER_BUDGET_MESSAGE, renderBudgetSpent, requireUser, slugify, str } from '../http/helpers.js';
 import { loadOwnedMap, loadReadableMap, mapDetail, safeSubsetAllow, savedPoiTiers, visibleDownloadsForVersion, withMapLock } from '../maps/detail.js';
 
 export default async function editorRoutes(app) {
@@ -140,6 +140,9 @@ export default async function editorRoutes(app) {
     const user = req.user;                       // the plugin guard above proved it
     const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
     if (!map) return reply.code(code).send({ ok: false, error });
+    // AFTER the ownership check, so a caller hammering somebody else's map is
+    // refused by the guard and spends none of their own budget on it.
+    if (renderBudgetSpent(user)) return reply.code(429).send({ ok: false, error: RENDER_BUDGET_MESSAGE });
     const id = map.id;
     const meta = readRoutesMeta(id);
     const poiKeys = editablePoiKeysFromDir(mapDataDir(id), savedPoiTiers(id));
@@ -327,6 +330,9 @@ export default async function editorRoutes(app) {
     if (getOpenRequestForMap(id)) {
       return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw the request to make further changes.' });
     }
+    // After the freeze too: a save the 409 refuses never reaches a generator,
+    // so it must not spend a budget that exists to ration generator runs.
+    if (renderBudgetSpent(user)) return reply.code(429).send({ ok: false, error: RENDER_BUDGET_MESSAGE });
     const meta = readRoutesMeta(id);
     const poiKeys = editablePoiKeysFromDir(mapDataDir(id), savedPoiTiers(id));
     const b = req.body || {};
