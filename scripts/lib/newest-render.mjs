@@ -80,6 +80,84 @@ function newestFromManifest(mapRoot) {
 }
 
 /**
+ * Is a delivery's `--src` the render the map's manifest calls current?
+ *
+ * WHY THIS IS HERE AND NOT IN THE CALLER (buses-data OA-368). On 2026-09-15 the
+ * first customer's four maps were delivered from render folders chosen with
+ * `ls -1 <map>/S5-render | tail -1`. Three of the four were wrong — `v2.9` sorts
+ * after `v2.32` and `v1.9` after `v1.19` — and two of those three are publicly
+ * live a fortnight out of date to this day. The portal's byte gate caught the
+ * third and could not catch the other two: a stale render that still reproduces
+ * is, to that gate, indistinguishable from a current one, because reproducing
+ * was never the question it was asking. So the gate's silence carried no
+ * information about staleness at all, and this is the question nothing asked.
+ *
+ * IT IS A STRING EQUALITY AGAINST THE RECORDED ANSWER, NOT A VERSION ORDERING,
+ * and that is deliberate. `stages.S5.latest` is what the map says its current
+ * render is; comparing the folder's own name to it needs no parse, so there is
+ * no second implementation of `v1.9 < v1.19` to get wrong — which is the fault
+ * this whole file exists about, and which this repository has now shipped four
+ * times. A `--src` that is merely DIFFERENT, including one built by hand after
+ * the manifest was written, is reported the same way, because "not the run the
+ * map records as current" is the whole of the claim being made.
+ *
+ * EVERY WAY OF NOT KNOWING SAYS SO AND IS ITS OWN VERDICT. The caller decides
+ * what to do about each; what this must never do is let "could not check" and
+ * "checked and fine" come back looking alike, which is the failure the S6 gate
+ * beside it was written for (technical-audit_2026-08-19 V2).
+ *
+ * @param {string} srcDir  the `--src` of a delivery
+ * @returns {{verdict: 'current'|'superseded'|'not-a-render'|'cannot-tell',
+ *            runId: string|null, latest: string|null, mapRoot: string|null,
+ *            latestOnDisk: boolean|null, message: string}}
+ */
+export function checkNewestRender(srcDir) {
+  const base = { runId: null, latest: null, mapRoot: null, latestOnDisk: null };
+  const parsed = versionedRender(srcDir);
+  if (!parsed) {
+    return { ...base, verdict: 'not-a-render',
+      message: `${srcDir} is not a <map>/S5-render/<run> folder, so no manifest records a "current render" for it. A committed _portal-fixture pack is the ordinary case.` };
+  }
+  const { mapRoot, runId } = parsed;
+  const town = path.basename(mapRoot);
+  const found = { ...base, runId, mapRoot };
+
+  const manifestPath = path.join(mapRoot, 'manifest.json');
+  if (!existsSync(manifestPath)) {
+    return { ...found, verdict: 'cannot-tell',
+      message: `${srcDir} looks like an S5 render, but there is no manifest.json in ${mapRoot}, so nothing here says which render is current.` };
+  }
+  let manifest;
+  try { manifest = JSON.parse(readFileSync(manifestPath, 'utf8')); }
+  catch (e) {
+    return { ...found, verdict: 'cannot-tell',
+      message: `${manifestPath} could not be read (${e.message}), so nothing here says which render is current.` };
+  }
+
+  const s5 = manifest?.stages?.S5;
+  const latest = s5?.latest;
+  if (!latest) {
+    return { ...found, verdict: 'cannot-tell',
+      message: `${town}'s manifest.json names no current S5 render (stages.S5.latest is absent), so there is nothing to compare ${runId} against.` };
+  }
+  if (latest === runId) {
+    return { ...found, latest, verdict: 'current',
+      message: `${runId} is the run ${town}'s manifest.json calls current (stages.S5.latest).` };
+  }
+
+  // Whether the newer run is still ON THIS DISK is reported and is NOT part of
+  // the verdict. S5-render is gitignored and prune_runs.py deletes old runs, so
+  // a tree can perfectly well record a current render it no longer holds — and
+  // "the newer one is missing" is a reason to go and get it, never a reason to
+  // treat the older one as current.
+  const run = (s5.runs || []).find((r) => r?.id === latest);
+  const latestOnDisk = run?.dir ? existsSync(path.join(mapRoot, run.dir)) : false;
+  return { ...found, latest, latestOnDisk, verdict: 'superseded',
+    message: `${town}'s manifest.json calls ${latest} the current S5 render, and this delivery is from ${runId}. ${
+      latestOnDisk ? 'The current one is on this disk.' : 'The current one is NOT on this disk — S5-render is gitignored, so it may need rebuilding or fetching.'}` };
+}
+
+/**
  * Advance each `$FIXTURE_DIR` entry to its map's current render, and say so.
  *
  * Called from `resolveFixtures()` for env-supplied fixtures only, so an unset
