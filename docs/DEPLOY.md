@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.90 | 2026-09-20 | sha=ab2889f1 -->
-**v1.90** · updated 20 September 2026
+<!-- docstamp v1.91 | 2026-09-20 | sha=5f04434f -->
+**v1.91** · updated 20 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -161,7 +161,7 @@ Adopted 7 September 2026 (buses-data OA-266, retired the same day). **Write the 
 
 **The sha an entry names is the change, and the sha that gets deployed is the merge carrying the entry.** Those are two different commits and always will be; say which is which in the entry rather than leaving a reader to work it out. Where the change is small enough to share a pull request with its own history entry, put both in one PR and the two collapse into one.
 
-**What an entry written in advance cannot hold is the post-deploy evidence** — `gitSha`, `builtAt`, the `check:live-routes` count, the §3a read-back. That is a real cost of this ordering and it is accepted deliberately: those readings are reproducible from the running site at any time, whereas the drift red this replaces was silent for twelve hours and then woke somebody at 20:14. So write what is known in advance — what is shipping, why, and what §3a check will be the one that can see it — and add a **second** entry only when the deploy fails or the read-back surprises you. A failure is loud and immediate; that is the ordering answering the obvious objection that a pre-written record claims a deploy that has not happened yet.
+**What an entry written in advance cannot hold is the post-deploy evidence** — `gitSha`, `builtAt`, the `check:live-routes` count, the §3a read-back. That is a real cost of this ordering and it is accepted deliberately, but **three of those four readings are reproducible from the running site at any time and the fourth is not**. The sha, the `check:live-routes` count and the §3a read-back need no credential — §4's `X-App-Version` header carries the sha to any caller, which is how the `gitSha` line is reproduced on a machine holding no token. **`builtAt` is the one reading that must be captured at deploy time**: it is served only in the `opsAuthorised()` branch of `/health`, so a caller without `METRICS_TOKEN` cannot ask for it later, and this laptop deliberately holds none. Against that, the drift red this ordering replaces was silent for twelve hours and then woke somebody at 20:14. So write what is known in advance — what is shipping, why, and what §3a check will be the one that can see it — and add a **second** entry only when the deploy fails or the read-back surprises you. A failure is loud and immediate; that is the ordering answering the obvious objection that a pre-written record claims a deploy that has not happened yet.
 
 ## 4. Smoke test after every deploy
 
