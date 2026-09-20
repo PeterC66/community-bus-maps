@@ -66,10 +66,17 @@ export async function readiness() {
   // here: this probe drives the external uptime alert, and a Resend outage is
   // not the site being down. Those are counted in src/email/health.js and
   // surface on the admin worklist instead.
+  //
+  // `from` rides along in BOTH branches because it is the one piece of email
+  // configuration that decides what a stranger sees in their inbox, and it was
+  // the only one this probe could not answer. It is not part of the verdict —
+  // a bare address is a poorer sender, not a broken one; see the comment on it
+  // in src/email/health.js — and `checks{}` reaches only a caller holding
+  // METRICS_TOKEN or a signed-in admin session (src/server.js).
   const email = configStatus();
   checks.email = email.ok
-    ? { ok: true, mode: email.mode, provider: email.provider }
-    : { ok: false, mode: email.mode, provider: email.provider, error: email.error };
+    ? { ok: true, mode: email.mode, provider: email.provider, from: email.from }
+    : { ok: false, mode: email.mode, provider: email.provider, from: email.from, error: email.error };
 
   return { ok: Object.values(checks).every((c) => c.ok), checks };
 }

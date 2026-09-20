@@ -68,6 +68,7 @@ console.log('\nO4 — email health');
 
 const { configStatus, signInSendable, recordSendFailure, recordSendSuccess, emailHealth, resetEmailHealth, FAILURE_THRESHOLD } =
   await import('../src/email/health.js');
+const { emailFrom } = await import('../src/config.js');
 
 resetEmailHealth();
 eq('no provider in development is fine', configStatus({ env: {} }).ok, true);
@@ -78,6 +79,35 @@ eq('no provider in PRODUCTION is a fault', configStatus({ env: { NODE_ENV: 'prod
 eq('provider with no key is a fault', configStatus({ env: { EMAIL_PROVIDER: 'resend' } }).ok, false);
 eq('provider with its key is healthy', configStatus({ env: { EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 'k' } }).ok, true);
 eq('an unknown provider is a fault', configStatus({ env: { EMAIL_PROVIDER: 'nope' } }).ok, false);
+
+// THE SENDER IS REPORTED, VERBATIM, IN EVERY BRANCH (2026-09-14). EMAIL_FROM is
+// the one piece of email configuration that decides what a stranger sees in
+// their inbox, it lives only on the host, and nothing anywhere returned it: the
+// only way to learn it was to send yourself an email. A session running the
+// pre-send check on a letter to a member of the public inferred it instead from
+// a deploy document that had RECOMMENDED setting it, concluded nobody had, and
+// rewrote a true sentence into a worse one.
+//
+// EVERY branch, because the fault branches are exactly when an operator is
+// reading this object, and a field present only when things are fine is a field
+// missing when it is wanted.
+const NAMED = { EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 'k', EMAIL_FROM: 'Peter Cooper - BusMaps.uk <info@busmaps.uk>' };
+eq('the configured sender is reported verbatim', configStatus({ env: NAMED }).from, 'Peter Cooper - BusMaps.uk <info@busmaps.uk>');
+eq('…on the no-provider branch too', configStatus({ env: { EMAIL_FROM: 'x@y.z' } }).from, 'x@y.z');
+eq('…and on a fault branch', configStatus({ env: { EMAIL_PROVIDER: 'nope', EMAIL_FROM: 'x@y.z' } }).from, 'x@y.z');
+eq('…and the object ops and the worklist read carries it', emailHealth({ env: NAMED }).from, 'Peter Cooper - BusMaps.uk <info@busmaps.uk>');
+// ONE OWNER FOR THE DEFAULT. If this drifts from src/config.js's emailFrom(),
+// the probe reports a sender no email has ever carried, which is worse than
+// reporting nothing at all.
+eq('unset falls back to the same default emailFrom() uses', configStatus({ env: {} }).from, emailFrom({}));
+// THE CONTROL, and it is what keeps this change honest. A bare address is a
+// poorer sender, not a broken one: it must be REPORTED and must not move the
+// verdict, which drives a 503 on /health?deep=1 and pages an operator. Without
+// this, the obvious next edit — "warn when there is no display name" — turns a
+// cosmetic property into an outage alert.
+const BARE = { EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 'k', EMAIL_FROM: 'info@busmaps.uk' };
+eq('a bare address is still healthy', configStatus({ env: BARE }).ok, true);
+eq('…and is reported as it stands', configStatus({ env: BARE }).from, 'info@busmaps.uk');
 
 const GOOD = { EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 'k' };
 eq('a healthy provider is sendable', signInSendable({ env: GOOD }).ok, true);
