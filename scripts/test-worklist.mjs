@@ -205,5 +205,46 @@ check('… and says so rather than naming a published version', /never been publ
 db.insertProposedUpdate({ map_id: neverId, source_note: 'BODS 2026-09 refresh' });
 check('a map with a pending update is not also listed as a draft', !keys().includes(`draft-${neverId}`));
 
+// --- the draft on a map the public cannot see (OA-295) ----------------------
+// "Published" and "public" are different predicates with almost the same name.
+// Ramsey was published, un-listed on 2026-08-28 because faults were reported
+// against it, and for a day this row told Peter "the public still has v7.0"
+// while /m/ramsey returned 404. The fixture below is that state, and the
+// CONTROL is the listed map above it: a check that shouted on every draft
+// would be indistinguishable from one that had learnt the difference.
+const downId = db.insertMap({ customer_id: customerId, slug: 'downton', name: 'Downton', kind: 'area', status: 'published' });
+const downPub = db.insertVersion({ map_id: downId, major: 7, minor: 0, storage_key: 'v7.0' });
+db.setPublishedVersion(downId, downPub);
+const downHead = db.insertVersion({ map_id: downId, major: 8, minor: 0, storage_key: 'v8.0' });
+db.setCurrentVersion(downId, downHead);
+check('a published, listed map still says the public has the old version',
+  /the public still has v7\.0/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+eq('… and is housekeeping while it is listed', byKey(`draft-${downId}`).rank, 9);
+
+db.setMapPublicListed(downId, false);
+check('un-listing it stops the row claiming the public has anything',
+  !/the public still has/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+check('… and says the public sees nothing instead',
+  /NOT LISTED/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+eq('… and leaves the housekeeping band, because it is the tail of an incident', byKey(`draft-${downId}`).rank, 4);
+eq('… into the operator\'s own move', byKey(`draft-${downId}`).band, 'Your move');
+check('… and the do-step says re-listing is a second act publishing does not do',
+  /re-list/.test(byKey(`draft-${downId}`).do[0].what), byKey(`draft-${downId}`).do[0].what);
+
+// A suspended customer is the fourth clause, and it hides the map just as hard.
+db.setMapPublicListed(downId, true);
+check('re-listing restores the ordinary sentence',
+  /the public still has v7\.0/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+db.updateCustomerAdmin(customerId, { status: 'suspended' });
+check('a suspended customer hides the map too, and the row says so',
+  /NOT LISTED/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+check('… naming the suspension rather than an un-listing',
+  /suspended/.test(byKey(`draft-${downId}`).why), byKey(`draft-${downId}`).why);
+// A map that has NEVER published keeps its own sentence under a suspension —
+// "not listed" would be wrong there; there is nothing to list.
+check('a never-published map is unaffected by the suspension',
+  /never been published/.test(byKey(`draft-${neverId}`)?.title || 'never been published'));
+db.updateCustomerAdmin(customerId, { status: 'active' });
+
 console.log(`\n${failures ? `✗ ${failures} check(s) failed` : '✓ all worklist checks passed'}\n`);
 process.exit(failures ? 1 : 0);
