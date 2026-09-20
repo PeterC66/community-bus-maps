@@ -1,0 +1,9 @@
+# The fallback that was correct on one laptop and wrong everywhere else
+
+The engine's module resolver, `engine_paths.js`, had four arms. A sibling, then `SKILL_ASSETS`, then the place skill's way across — and then a hard-coded path to the engine **installed on this machine**. That fourth arm is how eight hybrid sheets reached `main` in September: `rollout.js` copied a generator into a scratch folder without naming an engine, every shared module resolved to the install rather than to the engine being rolled out, and the sheet was stamped with the rolling engine's hash. One build drew two sheets from two different engines using the same generator file.
+
+The callers were fixed first (buses-data OA-342 items 1, 2 and 4). This is the other half: the arm itself now **refuses**. It is [claude-skills#64](https://github.com/PeterC66/claude-skills/pull/64) upstream, and this repository moves the one vendored file that carries it.
+
+**Nothing changes here, and that was measured rather than argued.** `renderMap.js` always passes `SKILL_ASSETS` pointing at `engine/`, so the refused arm is unreachable from the portal. `scripts/test-engine-selfsufficient.mjs` does not take that on trust: it runs all three sheet generators against a fixture and lists every module each one loaded — 34 loads across `internal`, `external` and `internal-schematic`, every one of them from `engine/` or the map's own data pack, and none from anywhere else.
+
+**The interesting part is why nobody caught it for a year.** On the laptop where the engine is installed, the fallback path and the engine under test are the *same folder*. An assertion about which of them answered is vacuous there, so the test that covered this arm was green and empty — the latent hybrid `gate_lib.js`'s own comment names. An assertion that the arm **throws** is vacuous nowhere, which is the whole reason it became a refusal rather than a warning.
