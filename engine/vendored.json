@@ -255,8 +255,8 @@
       "path": "engine_paths.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/engine_paths.js",
-      "sha256": "d411cffed03e8ce3bdb994537d56adb055667d7547c318bc34f673c756978892",
-      "vendoredOn": "2026-09-03"
+      "sha256": "f79711608c8aacc14df7a7a19ca4c55931c0de1c04207df2431a3319e2c036ed",
+      "vendoredOn": "2026-09-20"
     },
     {
       "path": "page.js",
