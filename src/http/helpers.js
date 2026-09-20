@@ -21,10 +21,14 @@ const ORG_TYPES = [
   'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
   'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
 ];
-// What the PUBLIC contact form may set. 'diagram-request' is a fourth kind in the
-// message table, but only the server writes it (see /api/maps/:id/diagram-request),
-// so it is deliberately not in this list.
-const MSG_KINDS = ['enquiry', 'question', 'feedback', 'issue'];
+// What the PUBLIC contact form may set. 'diagram-request' is a further kind in
+// the message table, but only the server writes it (see
+// /api/maps/:id/diagram-request), so it is deliberately not in this list.
+// 'map-request' joined on 2026-09-16 (buses-data OA-380 (c)): the /maps search
+// used to send a resident whose village has no map to /apply.html, which opens by
+// asking for an organisation name. This is the door that fits them, and giving it
+// its own kind is what makes those asks countable instead of filed as enquiries.
+const MSG_KINDS = ['enquiry', 'question', 'feedback', 'map-request', 'issue'];
 // The admin-settable states for a message (schema default is 'new' on insert).
 const MSG_STATUSES = ['new', 'read', 'answered'];
 const MAP_KINDS = ['area', 'place'];
@@ -273,6 +277,66 @@ function rateLimited(ip, max = 20, windowMs = 60_000) {
   return rec.n > max;
 }
 
+// ---- the per-USER budget on every route that runs a generator --------------
+// technical-audit_2026-08-19 O7, second half, via buses-data OA-039. O7's limit
+// half shipped for the five public POSTs and its bounded-caches half shipped
+// three different ways; the routes that spawn a generator were left with
+// neither, and the audit's sentence for them is that "any authenticated editor
+// can saturate the single VM".
+//
+// PER USER, NOT PER IP, and that is what the separate key is for. The public
+// limit is per address because a visitor has no identity; here the caller is
+// signed in, so the address is the wrong subject twice over — one organisation
+// behind one office NAT would share a bucket, and one editor moving from office
+// wifi to a phone would get a fresh one. `rateLimited()` keys an arbitrary
+// string, so `render:<user id>` is a NAMESPACE INSIDE the one map this module's
+// header insists on: it cannot collide with an address, and the second counter
+// map that header forbids is not created.
+//
+// ONE BUDGET ACROSS EVERY SUCH ROUTE, because what is rationed is a generator
+// run and all of them spawn one. A per-route counter would let a caller
+// alternate between routes and spend several times the CPU while obeying each.
+// That is why this lives here rather than in src/routes/editor.js, where the
+// audit's two named routes are: the audit named POST /api/maps/:id/preview and
+// POST /api/maps/:id/save, and asking the wider question — which routes run a
+// generator — finds FOUR that an ordinary signed-in editor can reach. The other
+// two are in src/routes/proposed.js, behind the same loadOwnedMap() guard, and
+// /proposed/:pid/preview renders TWICE. A limit on two of four is one a caller
+// walks around by using the other two.
+//
+// AND THE EXPERT DIAGRAM ROUTES ARE DELIBERATELY NOT IN IT. The three under
+// /api/expert/maps/:id/diagram also solve and render, and they are behind
+// requireAdmin() — so an editor cannot reach them, they are not a way around
+// this limit, and the audit's subject ("any authenticated EDITOR can saturate
+// the single VM") does not include them. Rationing ourselves is a different
+// question with a different answer, and it is left open on OA-039 rather than
+// settled here by reflex.
+//
+// WHY withMapLock IS NOT ALREADY THIS. It serialises runs per MAP, so one
+// editor cannot stack requests on one map — and can still run every map they
+// own at once, which is the audit's point and the reason a per-map lock does
+// not answer a per-user question.
+//
+// THE FIGURE IS THIS MODULE'S DEFAULT AND IT IS NOT MEASURED. Nothing here has
+// timed a render, and a cap fitted to a cost nobody has measured would be a
+// number pretending to be a finding. What IS measured is the distance from
+// legitimate use: every browser caller serialises itself — public/app/editor.js
+// runPreview() returns early while `inFlight` and re-runs at most once from
+// `queued`, the landmarks sheet dialog awaits its own fetch, and the diagram
+// page awaits each solve — so a person driving the UI cannot have two renders
+// outstanding, and their arrival rate is bounded by how long a render takes
+// rather than by how fast they click. Twenty a minute is far above what any
+// client can produce and bites a scripted caller alone. Refining it means
+// measuring a render, which is what OA-039 records as replacing this paragraph.
+const RENDER_BUDGET = 20;          // generator runs per user per minute
+const RENDER_WINDOW_MS = 60_000;
+const RENDER_BUDGET_MESSAGE = 'Too many renders in the last minute — please wait a moment and try again.';
+function renderBudgetSpent(user) {
+  if (!user || user.id == null) return false; // no identity, no budget to spend
+  return rateLimited(`render:${user.id}`, RENDER_BUDGET, RENDER_WINDOW_MS);
+}
+
 export {
   ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, requireAdviser, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited,
+  RENDER_BUDGET, RENDER_WINDOW_MS, RENDER_BUDGET_MESSAGE, renderBudgetSpent,
 };

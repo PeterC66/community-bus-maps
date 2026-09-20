@@ -642,14 +642,14 @@ console.log('\nthe chooser: the pictogram, the name, and whether the page can sp
     } else {
       try {
         api = new Function(`${consts.join('\n')}\n${fns.join('\n')}\n`
-          + 'return { displayName, statusWords, showEl, CAT_ONE };')();
+          + 'return { displayName, statusWords, showEl, CAT_ONE, CAT_LABEL };')();
       } catch (e) { why = e.message; }
     }
   }
   check('the row helpers can be read out of the chooser own source', !!api, why);
 
   if (api) {
-    const { displayName, statusWords, CAT_ONE, showEl } = api;
+    const { displayName, statusWords, CAT_ONE, CAT_LABEL, showEl } = api;
     const P = (o) => ({ key: 'x', cat: 'pharmacy', name: '', printsName: false, ...o });
 
     eq('a place with a name is called by it', displayName(P({ name: 'Boots' }), null), 'Boots');
@@ -673,6 +673,15 @@ console.log('\nthe chooser: the pictogram, the name, and whether the page can sp
     check('classify() still names a plausible number of categories', cats.length >= 10, 'found ' + cats.length);
     eq('and every one of them has a singular for the nameless row',
       [...new Set(cats)].filter((c) => !CAT_ONE[c]), []);
+    // THE OTHER HALF OF THE SAME JOIN, ASSERTED SINCE 2026-09-19 (OA-340). The
+    // comment above has said "would fall back to a lower-cased plural heading"
+    // since it was written, and nothing checked it: only CAT_ONE was joined, so
+    // the thirteenth category arrived, failed the singular arm, and the group
+    // HEADING — the thing the comment is actually about — was never asked.
+    // catLabel() returns the raw engine key when CAT_LABEL has no entry, which
+    // is the exact fault OA-220 removed for "gp" and "townhall".
+    eq('and a plural group heading, which is what a reader meets first',
+      [...new Set(cats)].filter((c) => !CAT_LABEL[c]), []);
 
     // c) the sub-line, and the group heading that had already said it
     eq('in a group where nothing prints its name, the row says nothing extra',

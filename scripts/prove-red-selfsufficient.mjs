@@ -53,6 +53,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { VENDORED_FIXTURE_ROOT } from './lib/fixtures.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 let failures = 0;
@@ -67,8 +68,20 @@ function scratchPortal() {
   return tmp;
 }
 
+/* THE SCRATCH COPY HAS NO FIXTURE, AND SINCE 2026-09-18 THAT MATTERS (OA-398).
+ * `scratchPortal()` copies `engine/` and `scripts/` and nothing else, because
+ * those are the only things it damages. Until the fixtures were vendored into
+ * this repository the gate found them through BUSES_DIR or a sibling buses-data
+ * checkout, so the scratch tree's own root was never asked; now the gate resolves
+ * `gate-fixtures/` from its own location, which in the scratch tree is empty, and
+ * every case reported "no fixture — this gate did not run" including the control.
+ * Pointing BUSES_DIR at the REAL vendored folder keeps the fixture constant while
+ * the engine is damaged, which is what each case is actually about — and it is
+ * what case 3 already did for its own doctored fixture. An explicit BUSES_DIR
+ * from the caller still wins. */
 function runGate(tmp, extraEnv = {}) {
   const env = { ...process.env, ...extraEnv };
+  if (!env.BUSES_DIR) env.BUSES_DIR = path.join(ROOT, VENDORED_FIXTURE_ROOT);
   const res = spawnSync(process.execPath, ['--env-file-if-exists=.env', path.join(tmp, 'scripts', 'test-engine-selfsufficient.mjs')],
     { cwd: ROOT, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   return { out: (res.stdout || '') + (res.stderr || ''), code: res.status };

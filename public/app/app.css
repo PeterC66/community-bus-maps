@@ -719,3 +719,18 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .ask-adviser label { display: flex; flex-direction: column; gap: 3px; font-size: .82rem; color: var(--muted); }
 .ask-adviser input, .ask-adviser select { min-width: 12rem; }
 .adviser-grant { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+
+/* ---- who owns this map: the admin-only owner picker (buses-data OA-364) ----
+   Full width above the editor grid, because it is a fact about the whole map
+   rather than one of the controls that change what it draws — and because it
+   must survive showPending(), which replaces the grid's contents wholesale for
+   a map that has not been built yet. */
+.owner-panel { margin: 0 0 18px; }
+.owner-panel .owner-field { max-width: 32rem; margin-bottom: 12px; }
+/* The confirmation's list of what this move costs. Roomy on purpose: it is the
+   difference between a picker and a trap, and nobody reads a dense one. */
+/* The list runs to five items for a suspended target, which on a short window
+   puts the outcome message and the buttons below the fold. */
+#ownerDialog { max-height: min(86vh, 760px); overflow: auto; }
+.owner-costs { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 9px; }
+.owner-costs li { font-size: .88rem; line-height: 1.5; }

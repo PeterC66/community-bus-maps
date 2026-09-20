@@ -1,0 +1,35 @@
+{
+  "_comment": [
+    "Where places.json came from and when it was built. The 47 MB CSV is not tracked; the",
+    "build is reproducible from `url`, and `sha256` (of the zip) is what says whether a later",
+    "download is the same edition. `built` is a stored date and nothing in CI compares it to",
+    "today; the bus-work worklist ages a row from it."
+  ],
+  "dataset": "Index of Place Names in Great Britain",
+  "publisher": "Office for National Statistics (Open Geography Portal)",
+  "edition": "July 2024",
+  "licence": "Open Government Licence v3.0",
+  "url": "https://www.arcgis.com/sharing/rest/content/items/208d9884575647c29f0dd5a1184e711a/data",
+  "file": "IPN_GB_2024.csv",
+  "sha256": "5b6b720e7eb183d878b0a440976d806c5bac97cf942269f165400756af7f8afc",
+  "built": "2026-09-16",
+  "counts": {
+    "sourceRows": 71624,
+    "loc": 61569,
+    "bua": 10055,
+    "rowsByCountry": {
+      "England": 58180,
+      "Scotland": 6478,
+      "Wales": 6966
+    },
+    "places": 59415,
+    "placesByCountry": {
+      "E": 47934,
+      "S": 5636,
+      "W": 5845
+    },
+    "districts": 350,
+    "englishDistricts": 296,
+    "directoryRows": 76
+  }
+}

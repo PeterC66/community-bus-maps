@@ -147,7 +147,11 @@ check('both seeded organisations are advertised by the slug they were given',
 const org = await get(pathOf(real));
 check('it names the organisation in its title', titleIn(org.body).includes('Testbury Town Council'),
   `title was "${titleIn(org.body)}"`);
-check('it says how many maps that organisation has published', /\bOne bus map\b/.test(descriptionIn(org.body)),
+// It counts PLACES, not maps (buses-data OA-404). The COUNT(*) behind this
+// number is over map rows, and one row is a whole place carrying up to four
+// pictures -- so "One bus map" met a reader who then found several. The
+// assertion still holds that the number reaches the description.
+check('it says how many places that organisation has published', /\bBus maps for one place\b/.test(descriptionIn(org.body)),
   `description was "${descriptionIn(org.body)}"`);
 check('it carries exactly one canonical, and it is its own URL',
   canonicalsIn(org.body).length === 1 && canonicalsIn(org.body)[0] === real,

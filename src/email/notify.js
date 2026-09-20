@@ -82,7 +82,7 @@ const SIGN_OFF = `You are receiving this because your organisation has a map on 
  *          maps?:{mapName:string, versionKey?:string, mapUrl:string}[]}} f
  */
 export function compose(kind, f) {
-  const map = f.mapName || 'your map';
+  const map = f.mapName || 'your bus maps';
   if (kind === 'update-ready') {
     return {
       subject: `An update is ready for ${map}`,
@@ -90,7 +90,7 @@ export function compose(kind, f) {
         lede: `A rebuilt version of <strong>${map}</strong> is waiting for you at ${SITE}.`.replace(/<\/?strong>/g, ''),
         body: [
           f.sourceNote ? `What changed: ${f.sourceNote}` : 'It has been rebuilt from newer timetable data.',
-          'Nothing is public yet and your map is unaffected until you decide. Open it to see exactly what moved, then accept the update or decline it.',
+          'Nothing is public yet and your published maps are unaffected until you decide. Open the page to see exactly what moved, then accept the update or decline it.',
           'Accepting creates a new draft with your colours and landmark choices re-applied — you then send it to us for review, and an approver publishes it.',
         ],
         action: { label: 'See what changed', url: f.mapUrl },
@@ -104,10 +104,10 @@ export function compose(kind, f) {
       ...wrap({
         lede: `An approver has reviewed and published <strong>${map}</strong>${f.versionKey ? ` ${f.versionKey}` : ''}.`.replace(/<\/?strong>/g, ''),
         body: [
-          'It is now the official version: the print-ready sheets people rely on, and what your public page serves.',
-          f.publicUrl ? `Public page: ${f.publicUrl}` : 'It is not listed on the public site — tick "List this map" on the map page when you want the page live.',
+          'It is now the official version: the print-ready maps people rely on, and what your public page serves.',
+          f.publicUrl ? `Public page: ${f.publicUrl}` : 'It is not listed on the public site — tick "List this place" on its page here when you want the public page live.',
         ],
-        action: { label: 'Open the map', url: f.mapUrl },
+        action: { label: 'Open the page', url: f.mapUrl },
         footnote: SIGN_OFF,
       }),
     };
@@ -120,7 +120,7 @@ export function compose(kind, f) {
       ...wrap({
         lede: `An approver has reviewed and published ${n} map${n === 1 ? '' : 's'} for your organisation.`,
         body: [
-          'Each is now the official version: the print-ready sheets people rely on, and what your public page serves.',
+          'Each is now the official version: the print-ready maps people rely on, and what your public page serves.',
           ...maps.map((m) => `${m.mapName}${m.versionKey ? ` ${m.versionKey}` : ''} — ${m.mapUrl}`),
         ],
         footnote: SIGN_OFF,
@@ -134,9 +134,9 @@ export function compose(kind, f) {
         lede: `An approver has sent <strong>${map}</strong>${f.versionKey ? ` ${f.versionKey}` : ''} back to you rather than publishing it.`.replace(/<\/?strong>/g, ''),
         body: [
           f.reason ? `Their reason: “${f.reason}”` : 'No reason was recorded.',
-          `Nothing changed for the public${f.publishedVersion ? ` — they still have ${f.publishedVersion}` : ''}. You can edit the map again and send it back for review when you are happy with it.`,
+          `Nothing changed for the public${f.publishedVersion ? ` — they still have ${f.publishedVersion}` : ''}. You can edit the maps again and send them back for review when you are happy with them.`,
         ],
-        action: { label: 'Edit the map', url: f.mapUrl },
+        action: { label: 'Edit the maps', url: f.mapUrl },
         footnote: SIGN_OFF,
       }),
     };

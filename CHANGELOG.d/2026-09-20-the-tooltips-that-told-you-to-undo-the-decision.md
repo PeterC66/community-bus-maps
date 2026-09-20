@@ -1,0 +1,14 @@
+---
+date: 2026-09-20
+title: "Both admin checkboxes told the operator to turn Watermark downloads off alongside Sample maps — which is the opposite of what the first real customer asked for"
+---
+
+- **`Sample maps` and `Watermark downloads` are two controls on the same customer row, and each one's hover text said the other moved with it.** `isSample` read *"Turn it off - with Watermark downloads - when a real organisation takes the maps on"*; `watermark` read *"Turned off at the same moment as Sample maps, when an organisation stops being ours and starts being theirs"*. Both were written when the two flags were assumed to travel together, which is the natural assumption and is true of every customer who does not ask otherwise.
+
+- **The first real customer is the case that separates them, and the decision went the other way on 2026-09-14** (buses-data OA-357). They asked to keep a marking that says the sheets are still being worked on. `is_sample` prints *PILOT — SAMPLE MAP · Not published by any organisation* across the sheet, which becomes a falsehood the moment a real organisation publishes it; the watermark says work-in-progress without claiming nobody published it. So `is_sample` went **off** and `watermark_enabled` stayed **on**, and the two tooltips became a standing instruction to undo half of that, sitting on the very controls that would carry it out.
+
+- **Nothing was ever broken in the code — the fault is entirely in what the UI tells the operator to do next**, which is why no test could see it and why it survived six days on a screen that has been opened repeatedly since. The flags themselves are independent in the schema, in `saveCust()`'s PATCH and on the sheet; only the guidance coupled them.
+
+- **Both strings are rewritten rather than one**, because the fault is symmetrical: fixing `isSample` and leaving `watermark` saying the same wrong thing in the other direction would have left the contradiction exactly where it was, one cell to the left. Each now says the other is a separate decision, and the watermark's says whose decision it is — the organisation's, not ours.
+
+- **Riding with it, one clause of [`DEPLOY.md` §3b](docs/DEPLOY.md)** (buses-data OA-334 step 4), which called the four post-deploy readings *"reproducible from the running site at any time"*. Three of them are, by anybody: §4's `X-App-Version` header carries the sha with no credential, and `check:live-routes` and the §3a read-back are ordinary fetches. **`builtAt` is not** — it is served only in the `opsAuthorised()` branch of `/health`, so a caller holding no `METRICS_TOKEN` cannot ask for it afterwards, and it is the one reading §3b has to capture at deploy time. That action asked the edit to travel with the next portal change rather than buy a pull request and a deploy of its own; this is that change.

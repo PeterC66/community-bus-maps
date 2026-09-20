@@ -60,7 +60,7 @@ import {
 import { publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, publicBases } from '../public/index.js';
 import { factsForPublicMap, publicServices, servicesPageUrl } from '../public/services.js';
 import { setInner, setAttr, setClass, removeBooleanAttr } from '../public/shell.js';
-import { grid, directoryBlock } from '../../public/js/shared/map-card.mjs';
+import { grid, directoryBlock, searchMeta } from '../../public/js/shared/map-card.mjs';
 import { servicesView } from '../../public/js/shared/services-view.mjs';
 import { inlineSvg } from '../public/inlineSvg.js';
 import { notFoundPage } from '../public/notFound.js';
@@ -70,7 +70,7 @@ import { escapeHtml } from '../html.js';
 import { versionDir, OUTPUT_FILES } from '../maps/store.js';
 import { ensureWatermarked } from '../render/watermark.js';
 import { searchPlaces } from '../search/index.js';
-import { searchDirectory, directorySize } from '../search/directory.js';
+import { searchDirectoryWithPlace, directorySize } from '../search/directory.js';
 import { recordMiss } from '../search/demand.js';
 import { PILOT, INDEXING, ENVIRONMENT } from '../config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
 import { APP_VERSION, GIT_SHA } from '../version.js';
@@ -171,11 +171,24 @@ export default async function publicRoutes(app) {
     // with JavaScript off and a ?q= link shared in an email all get the answer
     // in the HTML. Its markup comes from the same shared module.
     let directory = [];
+    let place = null;
+    let meta = '';
     if (q.length >= 2) {
-      const { results } = searchPlaces(q);
+      const { results, corrected } = searchPlaces(q);
       reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
       maps = results.map((r) => r.map);
-      directory = searchDirectory(q);
+      // OA-312 — `place` is where the reader's place IS (district, county,
+      // country), from the Index of Place Names, when the directory's own names
+      // did not answer. The panel renders it; the tally below does not read it.
+      ({ rows: directory, place } = searchDirectoryWithPlace(q));
+      // OA-380 (e) — the sentence above the grid, from the SAME function the
+      // browser uses. `corrected` was computed and thrown away here until
+      // 2026-09-16, and #searchMeta was left `hidden` in the shell, so
+      // /maps?q=Eynesbury served a Buckinghamshire map for a Cambridgeshire
+      // village with nothing on the page to say that the spelling had been
+      // corrected. A typed URL, a link shared in an email, a reader with
+      // JavaScript off and a crawler all got that page.
+      meta = searchMeta(q, { results, corrected, directory });
       // OA-308 tier 4 — the demand signal. Arriving at /maps?q=… is a deliberate
       // act (a typed URL, a shared link, a form submit with JavaScript off), so
       // unlike the API below this path needs no `intent` to tell it apart from a
@@ -192,11 +205,17 @@ export default async function publicRoutes(app) {
     let page = setInner(shell('maps.html'), 'grid', html);
     page = setClass(page, 'grid', className);
     page = setInner(page, 'directory', q.length >= 2
-      ? directoryBlock(directory, { query: q, size: directorySize() })
+      ? directoryBlock(directory, { query: q, size: directorySize(), place })
       : '');
     // Read the query back into the box, so a /maps?q=… link says what it searched
     // for with or without JavaScript.
     if (q) page = setAttr(page, 'q', 'value', q);
+    // The shell ships #searchMeta `hidden`, which is right when there is nothing
+    // to say. Unhide it only when there is.
+    if (meta) {
+      page = setInner(page, 'searchMeta', escapeHtml(meta));
+      page = removeBooleanAttr(page, 'searchMeta', 'hidden');
+    }
     reply.type('text/html; charset=utf-8');
     return reply.send(page);
   });
@@ -239,11 +258,16 @@ export default async function publicRoutes(app) {
     const title = services
       ? (m.kind === 'place' ? `Bus services serving ${m.name}` : `Bus services in ${m.name}`)
       : headline;
+    // A /m/<slug> PAGE CARRIES THE WHOLE SET, so its description is plural
+    // (buses-data OA-404). It used to open "A bus map published by ...", and a
+    // reader who followed that met two to four pictures, each of which they
+    // would call a map. "An accessible alternative to the map image" below is
+    // left singular on purpose: that one really is one picture.
     const desc = services
-      ? `Every bus service on the ${m.name} map, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
+      ? `Every bus service on the ${m.name} bus maps, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
       : m.org.isDemo
-        ? `A sample bus map${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
-        : `A bus map published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
+        ? `Sample bus maps${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
+        : `Bus maps published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
     const canonical = base + (services ? servicesPageUrl(m.slug) : mapPageUrl(m.slug));
     const card = m.outputs.length && m.outputs[0].previewUrl ? base + m.outputs[0].previewUrl : '';
     const jsonLd = {
@@ -341,8 +365,17 @@ export default async function publicRoutes(app) {
     // number the page prints, so the description cannot claim more maps than
     // the page shows. Null-guarded rather than assumed: a caller passing a row
     // without it should get a sentence that is merely vaguer, not "undefined".
+    //
+    // IT COUNTS PLACES, NOT MAPS, AND IT USED TO SAY "MAPS" (buses-data OA-404).
+    // The COUNT(*) is over map ROWS, and one row is a whole place: up to four
+    // pictures on one page. So "4 bus maps published by X" met a reader who
+    // then opened one of the four and found four more things they would each
+    // call a map -- and this sentence is the <meta name="description"> a search
+    // engine indexes, which makes it the version of our vocabulary most people
+    // ever see. Naming the PLACES says what the number actually counts and
+    // leaves "map" meaning what a reader means by it: one picture.
     const n = Number.isInteger(org.publicMaps) ? org.publicMaps : null;
-    const maps = n === null ? 'Bus maps' : n === 1 ? 'One bus map' : `${n} bus maps`;
+    const maps = n === null ? 'Bus maps' : n === 1 ? 'Bus maps for one place' : `Bus maps for ${n} places`;
     const desc = org.isDemo
       ? `${maps} published by ${org.name} to demonstrate BusMaps.uk. Free to view, print and share.`
       : `${maps} published by ${org.name} on BusMaps.uk. Free to view, print and share.`;
@@ -393,7 +426,11 @@ export default async function publicRoutes(app) {
     // client labels them as such. `directorySize` travels with it so the "we
     // looked and found nothing" line can say how big the thing we searched is
     // without a second request.
-    return { ok: true, results, corrected, directory: searchDirectory(q), directorySize: directorySize() };
+    // OA-312 — `place` says where the query IS when the directory's own names
+    // did not answer; the client hands it to the same directoryBlock() the server
+    // renders with, so the two paintings of the panel cannot differ.
+    const { rows: directory, place } = searchDirectoryWithPlace(q);
+    return { ok: true, results, corrected, directory, place, directorySize: directorySize() };
   });
 
   app.get('/api/public/maps/:slug', async (req, reply) => {
@@ -529,7 +566,7 @@ export default async function publicRoutes(app) {
         entry = { raw, gz: gzipSync(raw, { level: 9 }) };
       } catch (e) {
         req.log.error(e);
-        return reply.code(500).send({ ok: false, error: 'Could not prepare that sheet.' });
+        return reply.code(500).send({ ok: false, error: 'Could not prepare that map.' });
       }
       // One entry per published version per output — bounded by what is published,
       // and dropped wholesale rather than tracked when it grows.
@@ -552,7 +589,7 @@ export default async function publicRoutes(app) {
     const facts = factsForPublicMap(row);
     const services = publicServices(row, facts);
     if (!services || !services.routes.length) {
-      return reply.code(404).send({ ok: false, error: 'This map has no service list.' });
+      return reply.code(404).send({ ok: false, error: 'There is no service list for this place.' });
     }
     if (cached(req, reply, row.pub_key, 'services')) return reply;
     return { ok: true, map: publicMap(row), services };

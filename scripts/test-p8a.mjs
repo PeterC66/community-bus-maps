@@ -190,7 +190,7 @@ console.log('\nboarding index');
   check('the section renders as a table', html.includes('<table class="board-table"'));
   check('the destination is the row header', html.includes('<th scope="row">Elsewhere'));
   check('the stop to board at is in the row', html.includes('<td>Stop R</td>'));
-  check('the empty stand says so in words', html.includes('no bus on this sheet is boarded here'));
+  check('the empty stand says so in words', html.includes('no bus on this map is boarded here'));
   check('the sheet’s caveats are printed', html.includes('Not indexed: school journeys.'));
   // …and INTRODUCED, so the "here" in a sheet's own caveat is scoped to the index.
   // On the sheet there is no service list to contradict it; on this page there is

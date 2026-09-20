@@ -45,6 +45,10 @@ function makeCopy() {
   for (const sub of ['src', 'scripts', path.join('public', 'js'), path.join('public', 'data')]) {
     cpSync(path.join(ROOT, sub), path.join(dir, sub), { recursive: true });
   }
+  // public/contact.html joined the copy on 2026-09-16 (OA-380 (c)): the test now
+  // checks that the "ask for one" link names a `kind` the form really offers, so
+  // the form is part of its subject and arm 18 mutates it.
+  cpSync(path.join(ROOT, 'public', 'contact.html'), path.join(dir, 'public', 'contact.html'));
   return dir;
 }
 
@@ -123,8 +127,11 @@ arm('3  substring matching switched on in the matcher',
 // and worth leaving anchored somewhere that will not move again for a field.
 arm('4  rows that publish nothing filtered out of the results',
   (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
-    .replace('      matched: { kind: term.kind, text: term.text },\n    }));',
-      '      matched: { kind: term.kind, text: term.text },\n    }))\n    .filter((r) => r.offer.status !== \'none\');')),
+    // Re-anchored on 2026-09-16 when the authority branch moved two spaces right
+    // to sit inside `if (best.size)` (buses-data OA-312) — the "changed nothing"
+    // guard caught it, as it did for the `matched` field before.
+    .replace('        matched: { kind: term.kind, text: term.text },\n      }));',
+      '        matched: { kind: term.kind, text: term.text },\n      }))\n      .filter((r) => r.offer.status !== \'none\');')),
   [['still RETURNED by a search', 'the absence-is-a-result check']]);
 
 arm('4b  a survey note copied into the public vendored file',
@@ -152,6 +159,79 @@ arm('6  the checked date taken from the clock instead of the data',
   (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
     .replace('checked: row.checked || \'\',', 'checked: new Date().toISOString().slice(0, 10),')),
   [["the date rendered is the row's own, not today's", 'the clock-independence check']]);
+
+// buses-data OA-312 round 1 — the place stage. Each arm breaks one of the four
+// rules in src/search/places.js's header, or the order of the two stages.
+arm('7  the place stage removed — every village is an honest miss again',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace('const found = places ? resolvePlace(q, places) : resolvePlace(q);', "const found = { kind: 'none' };")),
+  [['"Harrogate" resolves', 'the Harrogate check'], ['"Lancaster" — a shire district', 'the Lancaster check']]);
+
+arm('8  guessing switched on — a name nobody holds is handed the first directory row',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace("if (found.kind === 'none') return { rows: [], place: { kind: 'none', source } };",
+      "if (found.kind === 'none') return { rows: [{ offer: offerOf(allRows[0]), reason: 'nearest', matched: { kind: 'place', text: q } }], place: null };")),
+  [['a name in neither the directory nor the Index is a MISS, not a guess', 'the no-guessing check']]);
+
+arm('9  Scotland and Wales resolved as if they were English districts',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace("if (first.country !== 'England') {", 'if (false) {')),
+  [['"Kirkwall" is placed in Scotland and resolved to NO authority', 'the England-only check']]);
+
+arm('10 the prefix cap removed — "Whit" returns hundreds of places',
+  (dir) => patch(dir, path.join('src', 'search', 'places.js'), (s) => s
+    .replace("  if (near.length > PREFIX_MAX_HITS) return { kind: 'short', count: near.length };\n", '')),
+  [['"Whit" is too short to place', 'the prefix-cap check']]);
+
+arm('11 the place stage pre-empting the authority stage whenever the Index knows the name',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace('  if (best.size) {', "  if (best.size && resolvePlace(q).kind !== 'found') {")),
+  [['CONTROL — "Cambridge" is still answered by covers[]', 'the stage-order control']]);
+
+arm('12 the honest-miss sentence reworded',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('and nothing in it matches <strong>', 'and there is no match for <strong>')),
+  [['the panel says so in the words it always used', 'the word-for-word check']]);
+
+arm('13 the "other places called X" links dropped',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('      ${ask}\n      ${others}\n', '      ${ask}\n')),
+  [['lists the other Burfords as links', 'the decision-5 check']]);
+
+// buses-data OA-380 — the five things Peter found reading the live page. Each
+// arm puts the page back the way it was on the morning of 2026-09-16.
+arm('14 the new tab taken off the links that leave this site',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace(' target="_blank" rel="nofollow noopener"', ' rel="nofollow noopener"')),
+  [['an external link opens in a new tab', 'the new-tab check']]);
+
+arm('15 the link labelled "Open their map" again, which it usually cannot deliver',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace("ext(d.url, 'Open their map page')", "ext(d.url, 'Open their map')")),
+  [['labelled as the PAGE', 'the honest-label check']]);
+
+arm('16 the word "yet" taken out of the directory branch',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('covers <strong>${esc(q)}</strong> yet — but somebody else', 'covers <strong>${esc(q)}</strong> — but somebody else')),
+  [['both branches say "yet"', 'the "yet" check']]);
+
+arm('17 the "ask for one" door pointed back at the organisation form',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace(/export function askForOneHref\(place\) \{[\s\S]*?\n\}/, 'export function askForOneHref() {\n  return \'/apply.html\';\n}')),
+  [
+    ['the first door is one a resident can walk through', 'the resident-door check'],
+    ['it goes to the contact form, not the organisation form', 'the join check'],
+  ]);
+
+arm('18 the form stops offering the kind the link names',
+  (dir) => patch(dir, path.join('public', 'contact.html'), (s) => s
+    .replace('<option value="map-request">Ask for a map of my area</option>\n            ', '')),
+  [['the form offers that kind as an option', 'the option check']]);
+
+arm('19 the server stops accepting that kind, so the ask is filed as an enquiry',
+  (dir) => patch(dir, path.join('src', 'http', 'helpers.js'), (s) => s
+    .replace("'feedback', 'map-request', 'issue'", "'feedback', 'issue'")),
+  [['the server accepts it rather than filing it', 'the whitelist check']]);
 
 for (const dir of scratches) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* windows file locks */ } }
 
