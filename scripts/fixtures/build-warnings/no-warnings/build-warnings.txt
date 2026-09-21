@@ -1,0 +1,1 @@
+No warnings — every generator ran clean.

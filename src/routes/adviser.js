@@ -180,7 +180,7 @@ export default async function adviserRoutes(app) {
 
     const base = str(req.params.base, 40);
     if (!sheetsFor(map, key).some((s) => s.base === base)) {
-      return reply.code(404).send({ ok: false, error: 'No such sheet on this map.' });
+      return reply.code(404).send({ ok: false, error: 'This map set has no such map.' });
     }
     const source = path.join(versionDir(map.id, key), `${base}.svg`);
     if (!existsSync(source)) return reply.code(404).send({ ok: false, error: 'Not found.' });
@@ -207,7 +207,7 @@ export default async function adviserRoutes(app) {
       });
     } catch (e) {
       req.log.error(e);
-      return reply.code(500).send({ ok: false, error: 'Could not prepare that sheet.' });
+      return reply.code(500).send({ ok: false, error: 'Could not prepare that map.' });
     }
 
     reply.header('Content-Type', 'image/svg+xml; charset=utf-8');

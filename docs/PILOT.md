@@ -1,11 +1,11 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.9 | 2026-09-12 | sha=dec9a546 -->
-**v1.9** · updated 12 September 2026
+<!-- docstamp v1.10 | 2026-09-21 | sha=81952756 -->
+**v1.10** · updated 21 September 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
-BusMaps.uk was built as if it were a running service. It isn't. There are no customers, no organisation has signed up, and every map on the site is one we made ourselves. The copy said otherwise — "maps **our customers** have published", "those are live, kept up to date", "**our team** then builds the map data" — and anyone reading it, a council clerk or a colleague, would have concluded there was an established service behind it.
+BusMaps.uk was built as if it were a running service. It isn't one yet. When pilot mode was written there were no customers, no organisation had signed up, and every map on the site was one we made ourselves; the pilot has had its first customer since September 2026, and most maps on the site are still ours. The copy said otherwise — "maps **our customers** have published", "those are live, kept up to date", "**our team** then builds the map data" — and anyone reading it, a council clerk or a colleague, would have concluded there was an established service behind it.
 
 Pilot mode is the correction. It is deliberately loud, and deliberately easy to remove: **one environment variable turns all of it off.**
 
@@ -33,7 +33,7 @@ Considered and rejected: *experimental* (reads as "may break your data" — wron
 
 The banner is injected by one generated script rather than pasted into seventeen hand-written HTML files, because there is no template engine here. Each page carries a single `<script src="/js/site-banner.js" defer>` tag.
 
-The sheet band **reserves space** rather than overlaying. The sheets have no reliable whitespace — the corners are taken by the title, the Services panel and the credits line — so the artwork is shrunk ~4% and slid down, and the band sits in space that belongs to nothing. That works for all four outputs and for any output added later. It is applied *after* the generator runs, which is why the byte-identical reproduce gate is unaffected (see below).
+The sheet band **reserves space** rather than overlaying. The sheets have no reliable whitespace — the corners are taken by the title, the Services panel and the credits line — so the artwork is shrunk ~4% and slid down, and the band sits in space that belongs to nothing. That works for all five outputs and for any output added later. It is applied *after* the generator runs, which is why the byte-identical reproduce gate is unaffected (see below).
 
 ## Switching it off
 
@@ -72,5 +72,5 @@ Do not "fix" a red gate by disabling the stamp globally — if the gate goes red
 
 ## Things this deliberately does not touch
 
-- **Emails.** None are sent; the magic link is printed to the server console. When an email provider is wired up, the pilot wording will need adding then.
-- **`legal.html` / `terms.html`** beyond a pointer to the FAQ entry. They were already correctly pre-launch in tone ("offered as it is", "we may change, pause or withdraw", no SLA, no warranty) and are the model the rest now follows. Their outstanding gates — the legal read, the data-controller identity, the governing law — are unchanged and still open.
+- **Emails.** Transactional email has been live since 2026-08-09, through Resend (`src/email/notify.js`); the magic link is printed to the server console only when `EMAIL_PROVIDER` is unset, as in development. The emails carry no pilot wording of their own.
+- **`legal.html` / `terms.html`** beyond a pointer to the FAQ entry. They were already correctly pre-launch in tone ("offered as it is", "we may change, pause or withdraw", no SLA, no warranty) and are the model the rest now follows. Of their gates, the data-controller identity is done (`legal.html` names the controller) and the governing law was confirmed on 2026-08-27; the legal read of `terms.html` is still open (buses-data OA-138).

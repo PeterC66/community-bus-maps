@@ -1,0 +1,8 @@
+---
+date: 2026-09-21
+title: "The signed-in pages say map where they said sheet"
+---
+
+- **OA-404 made the public pages say *map* for one picture and *map set* for everything one place gets, and stopped at the sign-in door.** The editor, the landmark chooser, the adviser page, the build warnings and three server error strings still called our output a *sheet*, which is our word and not the reader's (buses-data glossary §1 and §12). Fourteen strings now say *map* or *map set*: "Choose which maps to make for this place", "all N maps in this set together", "happy with the maps below", "Check the maps over", "See the real map", "Drawing the map with your choices…", the two `poi.tiers` warning headings, "adding that map needs a new version", "The map was granted, but drawing it failed", the boarding-plan conflict sentence, the adviser's "That map could not be loaded" / "This map set has no such map." / "Could not prepare that map.", and the suggested letter's "this kind of map".
+- **Left alone on purpose, because there *sheet* means a piece of paper:** "download print-ready sheets" (dashboard and editor), "It is not the printed sheet" on the landmark chooser, and the letter's "A single sheet showing the buses in a town". The approver and admin screens (`review.js`, the publish checklist, `admin.js`, the reassignment dialog, the parked diagram editor) are operator-facing and keep the internal word. No identifier, route, element id or API key changed — `/sheets/:base`, `sheetBtn` and `sheetCount()` stay as they are.
+- **The raw generator line under a heading is unchanged** (`matched no POI on this sheet`), because it is the engine's own stderr, vendored from the skills repository; only the portal's heading above it moved.

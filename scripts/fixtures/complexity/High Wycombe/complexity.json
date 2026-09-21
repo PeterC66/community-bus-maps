@@ -1,0 +1,156 @@
+{
+  "scoredAt": "2026-09-01 23:07",
+  "dir": "C:\\u3a St Ives\\Using AI\\Buses\\Areas\\High Wycombe\\S2-geometry\\2026-09-02_0007",
+  "geometrySource": "routes_paths.json (road-matched) + configured internalCorridors + configured corridorPalette + configured coreBox + configured stopThinning",
+  "geometryApproximate": false,
+  "metrics": {
+    "R": 11,
+    "S": 91,
+    "K5": 0,
+    "D5": 0,
+    "P": 145,
+    "poiFramePct": 8.7,
+    "linesDrawn": 14,
+    "maxRoutesPerCell": 4,
+    "congestedClusters": 0,
+    "largestClusterCells": 0,
+    "routeKm": 161,
+    "extentKm": [
+      7.63,
+      7.61
+    ],
+    "inkDensity": 2.77,
+    "medianBuriedFraction": 0,
+    "routesOverHalfBuried": 0
+  },
+  "bands": {
+    "amber": {
+      "R": 12,
+      "S": 120,
+      "K5": 0.5,
+      "D5": 1.6,
+      "P": 42
+    },
+    "red": {
+      "R": 18,
+      "S": 200,
+      "K5": 0.8,
+      "D5": 3.5,
+      "P": 110
+    }
+  },
+  "applied": {
+    "internalCorridors": [
+      [
+        "1",
+        "1A",
+        "1B"
+      ],
+      [
+        "32",
+        "32A"
+      ],
+      [
+        "102",
+        "103",
+        "104",
+        "105",
+        "M40",
+        "X74"
+      ]
+    ],
+    "corridorPalette": [
+      [
+        "1",
+        "41"
+      ],
+      [
+        "40",
+        "130"
+      ],
+      [
+        "102",
+        "37"
+      ]
+    ],
+    "coreBox": {
+      "radiusM": 600
+    },
+    "stopThinning": {}
+  },
+  "band": "RED",
+  "failedThresholds": [
+    "P=145 > 110"
+  ],
+  "colours": {
+    "routes": 22,
+    "distinct": 11,
+    "ambiguity": 2,
+    "byDesign": true
+  },
+  "congestionShape": "compact knot (a fisheye lens is the right tool)",
+  "ladder": [
+    {
+      "rung": 1,
+      "action": "bundle 1 co-running route family into single lines (CANDIDATES - confirm each really co-runs)",
+      "detail": "1/1A/1B/41",
+      "data": {
+        "families": [
+          [
+            "1",
+            "1A",
+            "1B",
+            "41"
+          ]
+        ],
+        "overlapMin": 0.6,
+        "internalCorridors": {
+          "1": [
+            "1A",
+            "1B",
+            "41"
+          ]
+        }
+      },
+      "after": {
+        "R": 13,
+        "S": 91,
+        "K5": 0,
+        "D5": 0,
+        "P": 145
+      },
+      "band": "RED",
+      "stillFailing": [
+        "P=145 > 110"
+      ]
+    },
+    {
+      "rung": "2c",
+      "action": "classify the POIs with a local: must / may / miss (routes.json \"poi\": {\"tiers\": …})",
+      "detail": "145 POIs reserve 8.7% of the map frame before a route line is drawn, and 27 of them draw a symbol that is never named — node poi_worksheet.js prints the list to ask about",
+      "data": {
+        "poiWorksheet": true,
+        "P": 145,
+        "mute": 27
+      },
+      "after": null,
+      "band": "unknown until a local answers"
+    }
+  ],
+  "perRouteBuried": {
+    "30": 0,
+    "31": 0,
+    "33": 0,
+    "34": 0.012474012474012475,
+    "36": 0,
+    "37": 0.040697674418604654,
+    "40": 0,
+    "41": 0,
+    "130": 0,
+    "300": 0,
+    "850": 0,
+    "1+": 0,
+    "32+": 0.022321428571428572,
+    "102+": 0.04671857619577308
+  }
+}

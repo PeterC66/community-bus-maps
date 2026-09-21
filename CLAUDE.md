@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.33 | 2026-09-11 | sha=12ce511a -->
-**v1.33** · updated 11 September 2026
+<!-- docstamp v1.36 | 2026-09-21 | sha=b0607a80 -->
+**v1.36** · updated 21 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -17,14 +17,13 @@ Node + Fastify + `node:sqlite`, no template engine, no framework.
 ## Read this first: the system is a PILOT
 
 It is feature-complete (P0–P7, plus P8a) and it works end to end — which makes it read like a live service.
-**It is not one.** There are **no customers**: every organisation in the database is seeded demo data
-(`scripts/seed-demo.mjs`) and every map on the public site is one we made ourselves.
+**It is not one yet.** The pilot has its first customer (September 2026), who has had maps delivered; every other organisation in the database is seeded demo data (`scripts/seed-demo.mjs`) or our own, and most maps on the public site are ones we made ourselves.
 
 While `PILOT_MODE` is on (the default — it is on unless explicitly `0`):
 
 - every page carries a banner and an `[Pilot]` title prefix, from one generated `/js/site-banner.js`
-- every rendered sheet carries a red **PILOT — SAMPLE MAP** band
-- `robots.txt` says `Disallow: /`
+- every rendered sheet **of a sample map** carries a red **PILOT — SAMPLE MAP** band — per customer since buses-data OA-320, so a real customer's maps can go without it
+- indexing is NOT part of the pilot switch: `robots.txt` follows `ALLOW_INDEXING`, independent of `PILOT_MODE` since 2026-08-21
 - seeded demo organisations render a **Sample** badge (`customer.is_demo`)
 
 **[`docs/PILOT.md`](docs/PILOT.md) is the authority** — what it claims, why "pilot" and not
@@ -61,9 +60,21 @@ Two structural facts that catch people out:
   `npm run sync:directory` from the repository root, and commit the result. The staleness check is
   `npm run sync:directory -- --check` and runs only in `verify.yml`, which is the one workflow with a
   buses-data checkout; `npm test` asserts the file's shape and the projection's privacy rule instead.
+  **The place lookup travels the same way** (buses-data OA-312, 2026-09-16): `src/search/data/` holds
+  `places.json`, `lad-to-lta.json` and `places-source.json` — every named place in Great Britain from
+  the ONS Index of Place Names and the directory row each English district belongs to — copied byte
+  for byte by the same script and checked by the same `--check`. They are server-side only and NOT
+  in `public/`: 1.2 MB the browser never needs. `src/search/places.js` reads them; the place stage in
+  `src/search/directory.js` runs only when the directory's own names have not answered, and a name
+  in neither is the same honest miss it always was — see that file's header for the four rules.
 - **`npm run verify` no longer skips** (2026-08-20, technical-audit_2026-08-19 V2). It finds a
-  committed fixture in `buses-data` — `Areas/_portal-fixture/` and `Places/_portal-fixture/` — via
-  `BUSES_DIR` or a sibling checkout, and it FAILS rather than exiting 0 when there is none.
+  committed fixture and FAILS rather than exiting 0 when there is none. **Since 2026-09-18 that
+  fixture is IN THIS REPOSITORY** (buses-data OA-398), under `gate-fixtures/`, which
+  `scripts/lib/fixtures.mjs` looks in FIRST — ahead of `BUSES_DIR` and a sibling `buses-data`
+  checkout, so the laptop and CI gate the same bytes. `verify.yml` therefore names no secret and
+  clones nothing else; whether the copy is still in step with `buses-data` is a different question,
+  asked by `npm run fixtures:vendor` from here and from buses-data's own gates workflow. The
+  convention, and what is deliberately not vendored, is [gate-fixtures/README.md](gate-fixtures/README.md).
   `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` still win when set, and still point at the live render tree on
   Peter's laptop, which is where a real regression shows first. `--allow-skip` exists for a clone of
   the portal alone and announces that it proved nothing. Still read the output: PASS with byte counts
@@ -112,7 +123,7 @@ Flag names, exit codes, streams, the `--apply` / `--yes` vocabulary, naming and 
 
 ```bash
 npm test          # the whole suite - scripts/run-tests.mjs discovers every test-*/prove-red-* file
-npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (needs the fixture dirs)
+npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (against gate-fixtures/)
 ```
 
 `npm run verify` is `verify:area && verify:place && verify:defaults`. The last of those proves every
@@ -125,7 +136,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 
 ## House rules
 
-- **No secrets, customer data or map data in git** — the portal is a public-facing service. `data/` is ignored.
+- **No secrets or customer data in git, and map data only deliberately** (the vendored `gate-fixtures/` and `engine/`) — the portal is a public-facing service. `data/` is ignored.
   So is `backups/`, and that one has bitten: **`npm run backup` writes to `<DATA_DIR>/../backups/`,
   which is *inside* the repo**, so a plain `git add -A` after a backup stages ~125 files of map
   payloads. `*.sqlite` was already ignored so the database never went in, but the JSON/SVG/JPG did.

@@ -1,13 +1,13 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.7 | 2026-09-12 | sha=dd46bf5a -->
-**v1.7** · updated 12 September 2026
+<!-- docstamp v1.8 | 2026-09-21 | sha=1216b1aa -->
+**v1.8** · updated 21 September 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn a public application into an **active customer with an editor who can sign in** — through the admin console, applying the vetting policy (**Pol1**). This closes the **first approval gate** (organisation).
 
-> **Pilot.** There are no customers yet, so the next person you onboard is the **first**. Say so explicitly when you welcome them (Step 4): the system is a pilot, there is no service level, the monthly cadence is an intention not a promise, their maps will carry a pilot band until the pilot ends, and what you want in return is to hear what does not work. The public copy already says all of this — don't let the welcome email be the one place that oversells. See [`PILOT.md`](PILOT.md).
+> **Pilot.** The pilot has its first customer (September 2026), so the next person you onboard joins a very small group. Say so explicitly when you welcome them (Step 4): the system is a pilot, there is no service level, the monthly cadence is an intention not a promise, their maps will carry a pilot band until the pilot ends, and what you want in return is to hear what does not work. The public copy already says all of this — don't let the welcome email be the one place that oversells. See [`PILOT.md`](PILOT.md).
 
 ## Where applications come from
 
@@ -58,7 +58,7 @@ It writes nothing without `--apply`; add it to the quoted command once the dry r
 ## Step 3 — Get the invite to them
 
 - **Dev (no `EMAIL_PROVIDER`):** the link is **printed to the server console** and shown to you in the approve dialog. Copy it and send it to the applicant yourself (or use it to test).
-- **Production:** once `EMAIL_PROVIDER` is set (see [DEPLOY.md §2](DEPLOY.md)), the invite is emailed automatically. Until then, onboarding depends on you handing the link over out-of-band.
+- **Production:** `EMAIL_PROVIDER` is set on the live host (Resend, since 2026-08-09; see [DEPLOY.md §2](DEPLOY.md#2-environment)), so the invite is emailed automatically.
 
 ## Step 4 — Record + welcome
 

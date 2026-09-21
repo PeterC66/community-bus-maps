@@ -27,28 +27,32 @@
 # outlines differ between Linux and the Windows laptop by design. That is what
 # render-parity.yml is for, and why these gates compare SVGs only.
 #
-# REQUIRES the secret CROSS_REPO_PAT2: a GitHub PAT with read access to
-# PeterC66/buses-data. Both repositories are private, and a job's own
-# GITHUB_TOKEN is scoped to this repository alone. The preflight step below says
-# so in one line if it is missing or under-scoped, rather than letting it surface
-# as a checkout `Not Found` that reads like a deleted repository — which is
-# exactly how the sibling workflow in buses-data managed to stay red for twelve
-# days without anyone noticing.
+# NO SECRET, NO SECOND CHECKOUT, SINCE 2026-09-18 (buses-data OA-398, R5 of the
+# 2026-09-17 process review). This workflow used to clone PeterC66/buses-data
+# with CROSS_REPO_PAT2 to read the two fixture packs. That token expires on
+# Sunday 22 November 2026, and this repository requires `verify` and forbids
+# bypassing -- so its expiry would have blocked every pull request here outright
+# until somebody turned branch protection off. Renewing it bought one more year
+# of the same cliff.
 #
-# THIS REPOSITORY NEEDS THE SECRET IN TWO STORES, NOT ONE. This job runs on
-# `pull_request`, and a pull request opened by Dependabot reads the DEPENDABOT
-# secret store, never the Actions one. A token added only under Actions leaves
-# every Dependabot PR failing at the preflight below while every human PR passes
-# -- so add it under Settings -> Secrets and variables -> BOTH Actions and
-# Dependabot, and change them together.
+# The fixtures are now VENDORED, under `gate-fixtures/`, and `scripts/lib/fixtures.mjs`
+# looks there first. So this job clones one repository, at the commit that
+# triggered it, and its verdict is about that commit alone. It used to depend on
+# whatever buses-data's `main` held the minute it ran: that produced a truthful
+# red on PR #107 (a v1.14 reference measured against a v1.15 engine) and, in the
+# other direction and far more dangerously, a false GREEN whenever buses-data was
+# AHEAD of what the commit was written against.
 #
-# ONE token, FOUR stores, and they renew together: this repo's Actions and
-# Dependabot stores, buses-data Actions, and claude-skills Actions. The
-# 2026-08-21 rotation updated three and missed the fourth, which cost six weeks
-# of a gate that could not run. CROSS_REPO_PAT2 expires Sunday 22 November 2026;
-# when it does, this job and both repos' `Bus leaflet gates` fail at once. Its
-# predecessor CROSS_REPO_PAT is no longer named by any workflow in any of the
-# three repos (migrated 2026-08-24).
+# WHAT IS NOT LOST. Whether the vendored copy has fallen behind buses-data is a
+# real question, and it is now asked where it can be answered for free: from the
+# laptop, and as a step in buses-data's own `gates.yml`, which clones this public
+# repository with no credential. `npm run fixtures:vendor` is the read-only form,
+# and `scripts/prove-red-vendored-fixtures.mjs` -- which runs in `npm test` --
+# is what proves it can go red. `gate-fixtures/README.md` states the whole chain.
+#
+# The predecessor CROSS_REPO_PAT and CROSS_REPO_PAT2 itself are no longer named
+# by any workflow in this repository. Deleting a secret from the Actions and
+# Dependabot stores here is OA-398 step 4.
 
 name: verify (byte-identical)
 
@@ -78,8 +82,13 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Daily, because this gate can break without anyone touching this repository:
-  # the fixture lives in buses-data and moves when the engine does.
+  # Daily. THE OLD REASON HAS GONE and the schedule has a new one (OA-398): it
+  # used to be that the fixture lived in buses-data and moved when the engine did,
+  # which is no longer true of anything this job reads. What can still break it
+  # with nobody touching this repository is the RUNNER -- ubuntu-latest moves, and
+  # the Node this job runs is derived from the Dockerfile rather than pinned here,
+  # so a change in what `node:<major>-slim` resolves to arrives without a commit.
+  # A daily run on a public repository is billed nothing.
   schedule:
     - cron: '35 4 * * *'
   workflow_dispatch:
@@ -92,64 +101,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Preflight — can the PAT see buses-data?
-        env:
-          PAT: ${{ secrets.CROSS_REPO_PAT2 }}
-        run: |
-          if [ -z "$PAT" ]; then
-            echo "::error::CROSS_REPO_PAT2 is not set on this repository. Add it under Settings -> Secrets and variables -> Actions, with read access to PeterC66/buses-data."
-            exit 1
-          fi
-          # Ask the credential when it dies rather than trusting a date typed
-          # into the comment above. GitHub returns a
-          # github-authentication-token-expiration header on any request
-          # authenticated with a PAT that expires. Until 2026-08-24 the date in
-          # this file came from a previous session's notes and had never been
-          # read back off the token itself; a third token in the account,
-          # carrying a third date, is what exposed that. Now every run prints it.
-          exp=$(curl -sS -D - -o /dev/null -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/PeterC66/buses-data" | sed -n 's/^github-authentication-token-expiration: *//Ip' | tr -dc '[:print:]')
-          if [ -n "$exp" ]; then
-            echo "  this token expires: $exp"
-          else
-            echo "::warning::GitHub reported no token-expiry header, so the date in this file's header comment is unverified."
-          fi
-          code=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer $PAT" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/PeterC66/buses-data")
-          if [ "$code" != "200" ]; then
-            echo "::error::CROSS_REPO_PAT2 cannot read PeterC66/buses-data (HTTP $code). Widen the token's repository access."
-            exit 1
-          fi
-          echo "  ok   PeterC66/buses-data"
-
       - name: Checkout the portal
         uses: actions/checkout@v7
         with:
           path: community-bus-maps
 
-      # Sparse: the fixtures are a few MB, the rest of that repository is
-      # hundreds. cone mode with a directory per gate keeps the checkout to what
-      # the gates actually read.
+      # ONE CHECKOUT, AND THAT IS THE CHANGE (OA-398). There were three steps
+      # here: a preflight that asked GitHub whether CROSS_REPO_PAT2 could still
+      # read buses-data and printed its expiry, a token-bearing sparse checkout of
+      # that private repository, and an `ls` proving the sparse paths were right.
+      # All three existed to make a cross-repository read legible when it failed,
+      # and none of them is needed now that there is no cross-repository read. The
+      # fixtures are in `gate-fixtures/`, vendored, and `scripts/lib/fixtures.mjs`
+      # looks there first.
       #
-      # THE THIRD PATH IS A JOIN, AND IT WENT RED ON ITS FIRST RUN (2026-09-11).
-      # The directory sync check below reads BusMapsUK/bus-map-directory, and a
-      # sparse checkout listing only the two fixture folders does not contain it
-      # — so the step reported "cannot find the source" and exited 2, which is
-      # what it is built to do when there is nothing to compare against. The
-      # lesson generalises past this file: ADDING A STEP THAT READS buses-data
-      # MEANS ADDING ITS PATH HERE, and the only thing that says so is a red run.
-      - name: Checkout buses-data (the fixtures and the bus-map directory)
-        uses: actions/checkout@v7
-        with:
-          repository: PeterC66/buses-data
-          token: ${{ secrets.CROSS_REPO_PAT2 }}
-          path: buses-data
-          sparse-checkout: |
-            Areas/_portal-fixture
-            Places/_portal-fixture
-            BusMapsUK/bus-map-directory
-          sparse-checkout-cone-mode: true
+      # THE SPARSE CHECKOUT LEFT A LESSON WORTH KEEPING even though the step has
+      # gone: it listed the paths the gates read, and adding a step that read one
+      # more meant editing that list. It went red on its first run for exactly
+      # that reason on 2026-09-11. The general form — a job that reaches into
+      # another repository carries a list of what it reaches for, and the only
+      # thing that says the list is wrong is a red run — is why this workflow no
+      # longer reaches.
+
+      # Named out loud so a red run's cause is legible from the step list. If this
+      # ever reports nothing, the fixtures did not come down with the checkout,
+      # which is a broken job and not a passing one; the scripts below say so
+      # themselves rather than skipping.
+      - name: Fixtures present?
+        working-directory: community-bus-maps
+        run: |
+          echo "gate-fixtures/Areas/_portal-fixture:"; ls -la gate-fixtures/Areas/_portal-fixture
+          echo "gate-fixtures/Places/_portal-fixture:"; ls -la gate-fixtures/Places/_portal-fixture
 
       # Read the major out of the Dockerfile rather than hardcoding it. This job
       # exists to run the gates on the same Node the deployment image runs, and a
@@ -177,50 +159,73 @@ jobs:
         working-directory: community-bus-maps
         run: npm ci
 
-      # WHICH TWO COMMITS IS THIS VERDICT ABOUT? (buses-data OA-018, portal half,
-      # added 2026-09-05.) The portal is checked out at the triggering commit;
-      # the fixtures come from buses-data at whatever its `main` holds THE MINUTE
-      # THIS JOB RUNS, because the checkout above names no `ref:`. So a verdict
-      # here is a statement about a pairing that existed for the minutes this job
-      # ran and may never exist again. On 2026-08-27 that produced a truthful red
-      # on PR #107 -- a v1.14 reference of 182,804 B measured against a v1.15
-      # engine writing 184,751 B -- cleared by nothing but a re-run once
-      # buses-data had been pushed. The same mechanism yields a false GREEN
-      # whenever buses-data is AHEAD of what the commit was written against.
+      # WHICH COMMIT IS THIS VERDICT ABOUT? It was WHICH TWO, and losing the
+      # second is the point of OA-398 rather than a casualty of it.
       #
-      # REPORT, DON'T PIN, the same decision buses-data's own gates.yml took on
-      # 2026-08-28. Pinning the fixtures would make the gate reproducible and
-      # blind to exactly the drift it exists to catch -- "does today's portal
-      # still reproduce this sheet" is a question about today. Naming both SHAs
-      # in the log and the step summary is what turns "verify was green on
-      # Tuesday" into "verify was green for THIS pairing", so a later red can be
-      # diffed against a known-good one. The habit that avoids the red is in
-      # buses-data's CLAUDE.md: push buses-data BEFORE opening a portal PR that
-      # depends on it, and read the POST-merge run rather than a PR's own checks.
-      - name: Which two commits is this verdict about
+      # The portal is checked out at the triggering commit. The fixtures used to
+      # come from buses-data at whatever its `main` held THE MINUTE THIS JOB RAN,
+      # because that checkout named no `ref:` -- so a verdict was about a pairing
+      # that existed for the minutes the job ran and might never exist again. On
+      # 2026-08-27 that produced a truthful red on PR #107, a v1.14 reference of
+      # 182,804 B measured against a v1.15 engine writing 184,751 B, cleared by
+      # nothing but a re-run once buses-data had been pushed. The same mechanism
+      # yielded a false GREEN whenever buses-data was AHEAD of what the commit was
+      # written against, which is the dangerous direction and is precisely the
+      # state a real drift would have had to be noticed through.
+      #
+      # This step stays because attribution is worth having even when there is one
+      # SHA to attribute: it is what turns "verify was green on Tuesday" into
+      # "verify was green for THIS commit". It cannot fail the job on its own --
+      # it reads a SHA out of a checkout an earlier step already made, and asserts
+      # nothing.
+      - name: Which commit is this verdict about
         run: |
           {
             echo "### Checked out for this run"
             echo
             echo "| Repository | Ref | SHA |"
             echo "|---|---|---|"
-            for d in community-bus-maps buses-data; do
-              sha=$(git -C "$GITHUB_WORKSPACE/$d" rev-parse HEAD)
-              ref=$(git -C "$GITHUB_WORKSPACE/$d" rev-parse --abbrev-ref HEAD)
-              pin='floats on its default branch'
-              [ "$d" = community-bus-maps ] && pin='pinned to the triggering commit'
-              echo "| \`$d\` | $ref — $pin | \`${sha:0:10}\` |"
-            done
+            sha=$(git -C "$GITHUB_WORKSPACE/community-bus-maps" rev-parse HEAD)
+            ref=$(git -C "$GITHUB_WORKSPACE/community-bus-maps" rev-parse --abbrev-ref HEAD)
+            echo "| \`community-bus-maps\` | $ref — pinned to the triggering commit | \`${sha:0:10}\` |"
+            echo
+            echo "The fixtures are this repository's own, under \`gate-fixtures/\`, so there is no second"
+            echo "commit in this verdict and no floating ref. Whether that copy is still in step with"
+            echo "buses-data is asked by \`npm run fixtures:vendor\`, from the laptop and from buses-data's"
+            echo "own gates workflow."
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # Named out loud so a red run's cause is legible from the step list.
-      # If this ever reports "no fixture", the sparse-checkout above is wrong —
-      # that is a broken job, not a passing one, and the scripts say so.
-      - name: Fixtures present?
-        run: |
-          echo "Areas/_portal-fixture:"; ls -la buses-data/Areas/_portal-fixture
-          echo "Places/_portal-fixture:"; ls -la buses-data/Places/_portal-fixture
-          echo "BusMapsUK/bus-map-directory:"; ls -la buses-data/BusMapsUK/bus-map-directory
+      # ---------------------------------------------------------------------
+      # EVERYTHING BELOW THIS LINE CARRIES `if: ${{ !cancelled() }}`, AND THIS
+      # STEP IS THE LINE (buses-data's 2026-09-14 review, W8, its Tier 1.5).
+      #
+      # A job's steps run in order and a failure skips the rest, so until now this
+      # workflow's verdict named only its FIRST fault: 0 conditions across 310
+      # lines. Six independent gates, one answer. That is the estate's named shape
+      # *the blocker behind the blocker* — landing OA-338 met four reds one at a
+      # time over seven hours, every one of them answerable locally in two minutes,
+      # because each rerun could only reveal the next one. A cross-repository byte
+      # gate is the worst place to pay that: each round trip is a push to the other
+      # repository and a fresh checkout here.
+      #
+      # WHY THE LINE IS HERE AND NOT HIGHER. Everything above is a PRECONDITION —
+      # the checkout, the fixture listing, the Node version read off the
+      # deployment image, `npm ci`, and the attribution step. If any of them fails
+      # the gates below cannot run at all, and five identical "fixtures missing"
+      # failures would be noise rather than information. (It used to name a PAT
+      # preflight and a second checkout as well; OA-398 removed both, and the
+      # argument for the line is unchanged by that.) Everything below is an independent
+      # VERDICT about the code, and each is worth having even when a sibling is
+      # red. `!cancelled()` rather than `always()` deliberately: a job somebody
+      # cancelled, or one that hit the runner's timeout, must still stop.
+      #
+      # It does NOT weaken the job. A step that fails still fails the job; this
+      # only decides whether its siblings are asked their question first. Read it
+      # as load-bearing rather than boilerplate — buses-data bought exactly this
+      # fix in `gates.yml` when it merged its docs job into `status`, and recorded
+      # there that without the condition the merge trades money for a check that
+      # reports only when everything else already passed.
+      # ---------------------------------------------------------------------
 
       # TWO PROVE-REDS USED TO RUN HERE AND NO LONGER DO (OA-232 Tier 2.3, the
       # 2026-09-03 review's portal-ops W6). `test:prove-red-fixture-drift` and
@@ -238,40 +243,35 @@ jobs:
       # `run-tests.mjs` refuses to skip a discovered file without a reason naming
       # where it DOES run, so nothing can quietly drop out of that suite.
 
-      # THE VENDORED BUS-MAP DIRECTORY, AGAINST ITS SOURCE (buses-data OA-308
-      # tier 2). public/data/bus-map-directory.json is a projection of a file in
-      # buses-data — the fields the /maps search panel renders, with the survey
-      # notes deliberately left behind in the private repository. This is the
-      # ONLY workflow that can compare the two, because it is the only one with a
-      # buses-data checkout; `npm test` asserts the vendored file's shape and
-      # says in its own header that it cannot ask this question. Without this
-      # step, the panel would keep telling readers about maps that were correct
-      # in September and nothing anywhere would notice.
+      # THE VENDORED BUS-MAP DIRECTORY CHECK HAS MOVED, AND IT HAS NOT BEEN
+      # DROPPED (OA-398). `public/data/bus-map-directory.json` is a projection of a
+      # file in buses-data -- the fields the /maps search panel renders, with the
+      # survey notes deliberately left behind in the private repository -- and
+      # `npm run sync:directory -- --check` compared the two. It ran here because
+      # this was the only workflow with a buses-data checkout. It now runs in
+      # buses-data's own `gates.yml`, which clones this PUBLIC repository for
+      # nothing, so the comparison still happens every day and happens in the suite
+      # that fires when the SOURCE changes, which is OA-218's rule.
       #
-      # `--allow-skip` is NOT passed: a missing checkout here is a broken job,
-      # exactly as the fixtures step above says.
-      - name: The vendored bus-map directory is in step with buses-data
-        working-directory: community-bus-maps
-        env:
-          BUSES_DIR: ${{ github.workspace }}/buses-data
-        run: npm run sync:directory -- --check
+      # `npm test` still asserts the vendored file's shape here, and still says in
+      # its own header that it cannot ask whether the content is current. Read that
+      # as the division of labour rather than a gap: this repository can say the
+      # projection is well-formed; only a machine holding both trees can say it is
+      # in step.
 
       - name: verify:area — the portal reproduces a shipped town sheet
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
-        env:
-          BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run verify:area
 
       - name: verify:place — the vendored place engine reproduces a shipped place sheet
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
-        env:
-          BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run verify:place
 
       - name: verify:defaults — every design/labels escape hatch is still live code
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
-        env:
-          BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run verify:defaults
 
       # The one gate that runs on a machine WITHOUT the skill tree, which is the
@@ -298,13 +298,11 @@ jobs:
       # Plus an intact control, because every arm going red at once would mean
       # the scratch copy was broken and not the gate. ~30 s.
       - name: prove the self-sufficiency gate can go red
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
-        env:
-          BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run test:prove-red-selfsufficient
 
       - name: self-sufficient — the engine renders with nothing but this repo
+        if: ${{ !cancelled() }}
         working-directory: community-bus-maps
-        env:
-          BUSES_DIR: ${{ github.workspace }}/buses-data
         run: npm run test:selfsufficient

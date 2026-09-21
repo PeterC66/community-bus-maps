@@ -131,6 +131,47 @@ arm('5  the fuzzy-pass guard removed — a typo reopens the door',
   (dir) => patch(dir, SEARCH, (s) => s.replace('    if (hit.fullOnly) continue;\n', '')),
   [['a typo on a street name gets no second chance either', 'the typo check']]);
 
+arm('6  the placeless list emptied — "Bus Station" is a place again',
+  (dir) => patch(dir, SEARCH, (s) => s.replace(
+    /const PLACELESS_NAMES = new Set\(\[[^\]]*\]\);/,
+    'const PLACELESS_NAMES = new Set([]);')),
+  [
+    ['"station" no longer returns a map whose only link is a stop called Bus Station', 'the Bus Station check'],
+    ['"park" no longer returns a map whose only park is called Business Park', 'the Business Park check'],
+  ]);
+
+// ARM 7 BREAKS NOTHING — IT BUILDS THE RULE THE ACTION ASKED FOR. The five
+// controls in that test section assert a SILENCE: that a one-word generic query
+// still finds a real place, because measuring the generic-word rule over the
+// estate falsified it. A control that asserts silence is exactly the shape that
+// can be green for ever without ever being able to fail, so this arm implements
+// the falsified rule and requires the controls to notice.
+// IT TAKES BOTH PASSES, AND FINDING THAT OUT IS THIS ARM'S OTHER PRODUCT. The
+// first version of the mutation put the rule in the exact pass alone, which is
+// where the action's residual describes it — and three of the four controls
+// stayed GREEN. The exact pass then returns nothing for "cross", "end" and
+// "station", so `searchPlaces` falls through to the fuzzy pass, where the query
+// word matches the same names at edit distance 0 and hands every result back.
+// Anyone implementing that rule as specified would have shipped one that does
+// nothing whenever no other map happens to match exactly.
+arm('7  the falsified generic-word rule implemented — real places stop answering one-word queries',
+  (dir) => patch(dir, SEARCH, (s) => s.replace(
+    'if (hit.fullOnly && mr !== 0 && qn !== hit.bare) continue;',
+    "if (hit.fullOnly && mr !== 0 && qn !== hit.bare) continue;\n    if (['hill', 'park', 'station', 'green', 'common', 'cross', 'end'].includes(qn) && mr !== 0 && hit.role !== 'map') continue;"))
+    && patch(dir, SEARCH, (s) => s.replace(
+      '    if (hit.fullOnly) continue;\n',
+      "    if (hit.fullOnly) continue;\n    if (['hill', 'park', 'station', 'green', 'common', 'cross', 'end'].includes(qn)) continue;\n")),
+  [
+    ['"Cross" still finds Gerrards Cross', 'the Gerrards Cross control'],
+    ['"Hill" still finds a map that passes through Bar Hill', 'the Bar Hill control'],
+    ['"End" still finds a map that goes to Bourne End', 'the Bourne End control'],
+    ['"station" still finds Heathrow Central Bus Station', 'the Heathrow control'],
+  ]);
+
+arm('8  the placeless list widened to a name that IS a place — the warning the action leaves in terms',
+  (dir) => patch(dir, SEARCH, (s) => s.replace("  'business park',", "  'business park',\n  'science park',")),
+  [['"Science" still finds Science Park', 'the Science Park control']]);
+
 for (const dir of scratches) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* windows file locks */ } }
 
 console.log(failures ? `\n✗ ${failures} falsification(s) failed` : '\n✓ every arm went red on purpose, and the control stayed green');

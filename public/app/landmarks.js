@@ -143,36 +143,52 @@ const ROAD_LABEL_MAX = 14;
 const ROAD_LABEL_PX = 11;
 
 /**
- * The reader's words for the twelve categories, exactly as TIER_LABEL is the
+ * The reader's words for the thirteen categories, exactly as TIER_LABEL is the
  * reader's words for the three tiers (OA-220).
  *
  * The engine's own keys were printed raw as the group headings — a reader saw
  * "gp" and "townhall" — and it took a pictogram appearing beside them to make
  * that obvious. The set is CLOSED: classify() in poi_select.js returns exactly
- * these twelve or null, which is also why the glyph sprite can be complete
+ * these thirteen or null, which is also why the glyph sprite can be complete
  * rather than defensive.
+ *
+ * TWO OF THE THIRTEEN ARE OPT-IN AND STILL BELONG HERE (OA-340, 2026-09-19).
+ * `allotments` and `pubs` only reach a sheet when that town's routes.json
+ * carries `poi.include`, so for most towns these two rows never appear — which
+ * is exactly why they have to be written down rather than met. A category the
+ * engine can emit and this page cannot name prints its raw key as a heading,
+ * and a town that has just switched pubs on is the one town whose reader is
+ * looking at that screen on purpose.
  */
 const CAT_LABEL = {
   shop: 'Supermarkets', gp: 'GP surgeries', pharmacy: 'Pharmacies',
   library: 'Libraries', museum: 'Museums', leisure: 'Leisure centres',
   school: 'Schools', park: 'Parks and recreation grounds',
   industrial: 'Industrial estates', community: 'Community centres',
-  townhall: 'Town halls', allotments: 'Allotments',
+  townhall: 'Town halls', allotments: 'Allotments', pub: 'Pubs',
 };
 const catLabel = (c) => CAT_LABEL[c] || c;
 
 /**
- * The same twelve, one at a time, for the row that has no name of its own.
+ * The same thirteen, one at a time, for the row that has no name of its own.
  *
  * Not derived from CAT_LABEL by trimming an "s": "Pharmacies" and "Parks and
  * recreation grounds" do not survive it, and a heading that reads "Unnamed
  * pharmacie" is worse than the blank it replaces.
+ *
+ * A NAMELESS PUB REACHES THIS PAGE AND NEVER REACHES THE SHEET, deliberately.
+ * classify() gives a pub the fallback name '' rather than 'Pub', so OA-238's
+ * nameless default leaves it undrawn — a bare glyph wearing a label would have
+ * walked straight past the rule that exists to stop it. It is still offered
+ * here, because the row's own rename box is how a local turns an unnamed
+ * amenity=pub into the one everybody navigates by.
  */
 const CAT_ONE = {
   shop: 'supermarket', gp: 'GP surgery', pharmacy: 'pharmacy',
   library: 'library', museum: 'museum', leisure: 'leisure centre',
   school: 'school', park: 'park', industrial: 'industrial estate',
   community: 'community centre', townhall: 'town hall', allotments: 'allotment site',
+  pub: 'pub',
 };
 
 /**
@@ -1202,7 +1218,7 @@ $('saveBtn').addEventListener('click', async () => {
 
 $('sheetBtn').addEventListener('click', async () => {
   const dlg = $('sheetDialog'); const stage = $('sheetStage');
-  stage.textContent = 'Rendering the sheet with your choices…';
+  stage.textContent = 'Drawing the map with your choices…';
   dlg.showModal();
   try {
     const r = await fetch(`/api/maps/${MAP_ID}/preview`, {
@@ -1216,7 +1232,7 @@ $('sheetBtn').addEventListener('click', async () => {
     if (b.rejected && b.rejected.length) note('Some entries were not accepted: ' + b.rejected.join('; '), 'warn');
     // The cheapest place to learn a *Must show* cannot be seated: nothing has
     // been saved, so the answer is still editable when the reader gets it.
-    else if (b.warnings && b.warnings.length) showWarnings(b.warnings, 'This is what the sheet looks like — but not every choice could be applied:');
+    else if (b.warnings && b.warnings.length) showWarnings(b.warnings, 'This is what the map looks like — but not every choice could be applied:');
   } catch (e) {
     stage.textContent = e.message;
   }

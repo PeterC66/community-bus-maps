@@ -99,6 +99,43 @@ function withoutQualifier(text) {
   return normalize(String(text || '').replace(/\([^)]*\)/g, ' '));
 }
 
+// A NAME THAT NAMES NO PLACE ANSWERS ONLY TO ITSELF (buses-data OA-311, the
+// residual, 2026-09-13). Every town's sheet carries a stop called "Bus
+// Station", so a reader typing "station" got ten maps back — eight of them for
+// that one name, which says nothing about WHICH town. The same for "Business
+// Park", which two maps carry.
+//
+// THIS REPLACES THE GENERIC-WORD RULE THE ACTION SPECIFIED, and the reason is a
+// measurement rather than a preference. That rule was "a single-word query that
+// is itself a generic — hill, park, station, green, common, cross, end —
+// matches only a whole name". Run over the estate's own 363 sidecar names, the
+// seven words reach 23 distinct names and TWENTY OF THEM ARE GENUINE PLACES:
+// Bar Hill, Gerrards Cross, Lane End, Bourne End, Seer Green & Jordans, Farnham
+// Common, Austenwood Common, Science Park, Orchard Park, Axis Park, Wood Green
+// Animal Shelter and more. Four of the seven words — green, common, cross, end
+// — return nothing BUT genuine places, and those four had never been measured:
+// the rule was written from the three that had. So it would have suppressed
+// nineteen real names to remove four noisy ones, and one of the nineteen is
+// Gerrards Cross, a town of 8,000 people.
+//
+// What survives measurement is this, which is a list of NAMES and not of words:
+// a handful of names that carry no locality at all. It is deliberately not a
+// rule you can derive — each entry is a name a person has looked at and judged
+// to name no place — because the derivable version is the one just falsified.
+// It also honours the warning the action leaves in terms: do NOT demote
+// "Science Park" or "Heathrow Central Bus Station", which ARE places. Typing
+// the whole name still finds these, exactly as it does for a street.
+const PLACELESS_NAMES = new Set([
+  'bus station',
+  'railway station',
+  'business park',
+]);
+
+/** Does this name carry no locality at all — "Bus Station", on every sheet? */
+function namesNoPlace(text) {
+  return PLACELESS_NAMES.has(withoutQualifier(text));
+}
+
 /**
  * Is this name shaped like a street rather than a place?
  * @param {string} text       the name as recorded on the sheet
@@ -138,7 +175,10 @@ function buildIndex() {
       const role = p.role === 'destination' ? 'destination' : 'stop';
       const hit = { map, role, text: p.name, via: p.via || '', norm: normalize(p.name) };
       if (!hit.norm) continue;
-      if (role === 'stop' && looksLikeThoroughfare(p.name, knownPlaces)) {
+      // The thoroughfare rule spares destinations, which are places by
+      // construction; the placeless rule does not, because a name carrying no
+      // locality names no place whatever role it was recorded in.
+      if ((role === 'stop' && looksLikeThoroughfare(p.name, knownPlaces)) || namesNoPlace(p.name)) {
         hit.fullOnly = true;
         hit.bare = withoutQualifier(p.name);
       }
@@ -147,7 +187,7 @@ function buildIndex() {
     for (const name of sidecar.pois || []) {
       const hit = { map, role: 'poi', text: name, via: '', norm: normalize(name) };
       if (!hit.norm) continue;
-      if (looksLikeThoroughfare(name, knownPlaces)) {
+      if (looksLikeThoroughfare(name, knownPlaces) || namesNoPlace(name)) {
         hit.fullOnly = true;
         hit.bare = withoutQualifier(name);
       }

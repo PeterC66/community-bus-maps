@@ -28,7 +28,7 @@
 // takes over when the reader actually types or submits. It imports the same
 // markup module the server imports, so a card looks identical whichever side
 // drew it.
-import { grid as renderGrid, directoryBlock } from './shared/map-card.mjs';
+import { grid as renderGrid, directoryBlock, searchMeta } from './shared/map-card.mjs';
 
 (() => {
   const gridEl = document.getElementById('grid');
@@ -113,24 +113,19 @@ import { grid as renderGrid, directoryBlock } from './shared/map-card.mjs';
       const results = (body && body.results) || [];
       const corrected = body && body.corrected;
       const directory = (body && body.directory) || [];
-      if (meta) {
-        if (results.length && corrected) {
-          meta.textContent = `No exact match for “${q}” — showing results for “${corrected}”.`;
-        } else if (results.length) {
-          meta.textContent = `${results.length} map${results.length === 1 ? '' : 's'} match “${q}”.`;
-        } else if (directory.length) {
-          // Not "no matches": we found somebody else's map, which is an answer.
-          meta.textContent = `No map of ours matches “${q}” — but see what the local transport authority publishes, below.`;
-        } else {
-          meta.textContent = `No matches for “${q}”.`;
-        }
-      }
+      // OA-380 (e) — the sentence comes from the shared module now, because the
+      // server renders it too. It was written here and nowhere else until
+      // 2026-09-16, so a `?q=` link opened from an email or typed into the bar
+      // carried no sentence at all. See searchMeta() in ./shared/map-card.mjs.
+      if (meta) meta.textContent = searchMeta(q, { results, corrected, directory });
       paint(renderGrid(results.map((r) => r.map), {
         reasons: new Map(results.map((r) => [r.map.slug, r.reason])),
         query: q,
         hasDirectory: directory.length > 0,
       }));
-      paintDirectory(directoryBlock(directory, { query: q, size: (body && body.directorySize) || 0 }));
+      // OA-312 — `place` is where the query IS, from the server's place lookup;
+      // the same shared renderer draws it here and in the server-rendered page.
+      paintDirectory(directoryBlock(directory, { query: q, size: (body && body.directorySize) || 0, place: (body && body.place) || null }));
     } catch {
       if (meta) meta.textContent = '';
       paintDirectory('');

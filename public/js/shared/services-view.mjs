@@ -143,7 +143,7 @@ export function boardingHtml(services) {
       // a reader standing at it needs to be told so.
       st.destinationCount
         ? `${esc(st.destinationCount)} destination${st.destinationCount === 1 ? '' : 's'}`
-        : 'no bus on this sheet is boarded here',
+        : 'no bus on this map is boarded here',
     ].filter(Boolean).join(' · ');
     return `<li><strong>${esc(st.label)}</strong> — ${bits}</li>`;
   }).join('');
