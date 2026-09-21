@@ -82,27 +82,16 @@ if [ -n "$conflicts" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# A staged .md whose stamp describes different content.
+# A staged .md whose stamp describes different content -- HISTORY, see the stamp
+# block at the end of this file for what runs now.
 #
-# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
-# at the END of a turn -- so a commit made DURING a turn carries the new content and
-# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
-# committed content" step correctly calls it stale. Whether a given commit is red
-# depends only on where the turn boundary happened to fall, which is why it looks
-# intermittent and why it is not.
-#
-# It has already happened here: commit "Docstamp: three committed stamps did not
-# describe their committed content" (#149, 2026-08-29) is exactly this fault, three
-# documents' worth, found by CI after the push rather than before it. In the sibling
-# buses-data repo the same fault took 10 of 15 gates runs red in a day.
-#
-# CI reporting it minutes later is the wrong end of the problem: by then the commit
-# is pushed and somebody has to decide whether a red run matters, which is how a
-# gate gets muted. This refuses the commit instead.
-#
-# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
-# A document that was already stale is not this commit's fault, and a hook that
-# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+# Until 2026-09-18 the docstamp was written by a Stop hook at the END of a turn, so
+# a commit made DURING a turn carried the new content and the OLD `sha=`, and the
+# `status` job's "Committed docstamps describe their committed content" step called
+# it stale (#149, 2026-08-29, three documents' worth; in buses-data 10 of 15 gates
+# runs in one day). That Stop hook is gone (buses-data OA-397, portal #315): the
+# stamp is now written by `docstamp.py --staged` in the last block below, and the
+# audit there is a control that should never fire.
 # ---------------------------------------------------------------------------
 # A byte-order mark, or a file carrying two kinds of line ending.
 #

@@ -2,7 +2,7 @@
   "name": "community-bus-maps",
   "version": "0.10.0-pilot",
   "private": true,
-  "description": "PILOT — self-serve portal for community bus maps: public shopfront plus a deterministic map renderer. No customers yet; see docs/PILOT.md. BUSL-1.1.",
+  "description": "PILOT — self-serve portal for community bus maps: public shopfront plus a deterministic map renderer. Pilot, with its first customer since September 2026; see docs/PILOT.md. BUSL-1.1.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Peter Cooper",

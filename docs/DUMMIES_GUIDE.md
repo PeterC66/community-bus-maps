@@ -1,13 +1,13 @@
 # The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.9 | 2026-09-04 | sha=3d994665 -->
-**v1.9** · updated 4 September 2026
+<!-- docstamp v1.10 | 2026-09-21 | sha=b975187a -->
+**v1.10** · updated 21 September 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
 It deliberately repeats nothing that's explained well elsewhere — each section says which of the existing docs to read for the deeper version.
 
-**Before you show it to anyone:** the system is a **pilot** — it has no customers, and every map on it is one of ours. Every page carries a banner saying so and every map sheet a red band. That is deliberate, and it is one env var (`PILOT_MODE=0`) to switch off when the time comes. See [`PILOT.md`](PILOT.md).
+**Before you show it to anyone:** the system is a **pilot** — it has its first customer (September 2026), and most maps on it are ours. Every page carries a banner saying so and every map sheet a red band. That is deliberate, and it is one env var (`PILOT_MODE=0`) to switch off when the time comes. See [`PILOT.md`](PILOT.md).
 
 **One-time fact worth knowing:** your 20i package is standard shared hosting (FTP + phpMyAdmin). 20i confirms Node.js apps only run on their separate *"Node.js Optimised Cloud Server"* product — ordinary shared hosting can't run this app at all. So "demonstrate it live" and "your 20i webspace" are two different things for this project (see Part 6).
 
@@ -204,10 +204,10 @@ Same folder again:
 ```powershell
 cd C:\Claude\community-bus-maps
 npm test       # the quick checks (public front, lifecycle, etc.)
-npm run verify # only meaningful once FIXTURE_DIR/PLACE_FIXTURE_DIR are set in .env — see below
+npm run verify # the byte-identical gate, against the fixtures committed under gate-fixtures/
 ```
 
-- `npm run verify` **only means something if `FIXTURE_DIR`/`PLACE_FIXTURE_DIR` are set in `.env`** to real fixture folders; otherwise it silently reports "skipping" and proves nothing. See `.env.example` for what those paths should point at.
+- `npm run verify` needs no setting: it gates the fixtures committed under [`gate-fixtures/`](../gate-fixtures/README.md) (since 2026-09-18), and it **fails** rather than skipping when it can find none (since 2026-08-20). `FIXTURE_DIR`/`PLACE_FIXTURE_DIR` in `.env` still win when set, to point it at a live render tree instead — see `.env.example`. Read the output: PASS with byte counts is the evidence, the exit code is not.
 - A quick look in the browser at the page you changed — the automated tests don't check what things look like.
 
 ---

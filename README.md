@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.21 | 2026-09-18 | sha=5445460f -->
-**v1.21** · updated 18 September 2026
+<!-- docstamp v1.22 | 2026-09-21 | sha=69af18ac -->
+**v1.22** · updated 21 September 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -14,7 +14,7 @@ Two kinds of map, from one deterministic engine:
 - **Area maps** — a whole town, a rural parish, or part of a larger town (e.g. *St Ives*, *March*).
 - **Place maps** — centred on a single point: a shop, school, station, community centre or town centre (e.g. *High Wycombe Aldi*, *St Neots Town Centre*).
 
-Each map can produce any of four outputs, and the customer chooses which they want:
+Each map can produce any of five outputs, and the customer chooses which they want:
 
 | Output | What it is |
 |---|---|
@@ -22,8 +22,9 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 | **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
 | **internal (diagram)** | **PARKED 2026-09-10** (buses-data OA-297) — not offered unless `TUBE_DIAGRAM=1`, which the live host does not set. A tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only** while offered — see [OPERATIONS-HANDBOOK §4b](docs/H1-operations-handbook.md))* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
+| **where to board** | a place's stops at walking scale, with an index naming the stand for each destination *(on request)* |
 
-> **Status: PILOT — feature-complete against the plan (P0–P7, plus P8a), but not a live service.** There are **no customers**: no organisation has signed up, and every map on the public site is one we made ourselves to build and test the system. Every page carries a pilot banner and every rendered sheet a pilot band; seeded demo organisations are labelled **Sample**. One env var (`PILOT_MODE=0`) switches all of that off — see [`docs/PILOT.md`](docs/PILOT.md).
+> **Status: PILOT — feature-complete against the plan (P0–P7, plus P8a), but not a live service.** The pilot has its first customer (September 2026); every other map on the public site is one we made ourselves to build and test the system. Every page carries a pilot banner and every rendered sheet of a sample map a pilot band; seeded demo organisations are labelled **Sample**. One env var (`PILOT_MODE=0`) switches all of that off — see [`docs/PILOT.md`](docs/PILOT.md).
 >
 > `CLAUDE.md` is the short orientation a new session (or developer) should read first.
 >
@@ -78,7 +79,7 @@ Then `npm run dev` and open **http://127.0.0.1:5180/app**. You'll be sent to a *
 
 As an **editor**, open a map to recolour routes, tick/untick landmarks, choose which **outputs** it produces, and **Save new version** for print-ready SVG + JPG. Version **1.0 is the imported baseline** (empty overrides ⇒ byte-identical to the shipped leaflet); each save bumps the minor and keeps every earlier version. Use **Request a map** to ask for a new area/place map within your quota.
 
-Each version stays a private **draft** until it is reviewed. In the editor's **Publish** panel, hit **Submit for publication** (editing then freezes) — then, as the **approver** or **admin**, open **/app/review**, check the change summary, inspect the print-ready JPGs, complete the **review checklist** and **Publish**. Publishing sets the map's **official public version** (retiring the previous one) and records the whole thing in the admin **Audit** tab. The editor who makes a change is not the one who publishes it — a deliberate separation of duties, enforced in code since 2026-08-20: an approver who submitted a version is refused when they try to approve it. **On this deployment that rule is currently overridden**, because there is one operator: `ALLOW_SELF_APPROVAL=1` is set, without it nothing could be published at all, and so the control has not yet operated on a single publication. Every publication made under the override is stamped `selfApproved` in the audit trail, so the log can tell the two eras apart — a control that is documented and not implemented is worse than one that is honestly bounded (`technical-audit_2026-08-19` S6, restated as N15 in `technical-audit_2026-08-25`). It begins to bite the day a second person holds `approver`, which is item 1 of the [pre-customer checklist](docs/H1-operations-handbook.md#3b-before-the-first-real-customer). Publishing also needs a sign-in from the last 30 minutes, so a long-lived cookie is not by itself enough to make a map public.
+Each version stays a private **draft** until it is reviewed. In the editor's **Publish** panel, hit **Send ‹version› for review** (editing then freezes) — then, as the **approver** or **admin**, open **/app/review**, check the change summary, inspect the print-ready JPGs, complete the **review checklist** and **Publish**. Publishing sets the map's **official public version** (retiring the previous one) and records the whole thing in the admin **Audit** tab. The editor who makes a change is not the one who publishes it — a deliberate separation of duties, enforced in code since 2026-08-20: an approver who submitted a version is refused when they try to approve it. **On this deployment that rule is currently overridden**, because there is one operator: `ALLOW_SELF_APPROVAL=1` is set, without it nothing could be published at all, and so the control has not yet operated on a single publication. Every publication made under the override is stamped `selfApproved` in the audit trail, so the log can tell the two eras apart — a control that is documented and not implemented is worse than one that is honestly bounded (`technical-audit_2026-08-19` S6, restated as N15 in `technical-audit_2026-08-25`). It begins to bite the day a second person holds `approver`, which is item 1 of the [pre-customer checklist](docs/H1-operations-handbook.md#3b-before-the-first-real-customer). Publishing also needs a sign-in from the last 30 minutes, so a long-lived cookie is not by itself enough to make a map public.
 
 As the **admin**, open **/app/admin** to review **applications** (approve → creates a customer + editor + invite link), work the **map-request** queue, and adjust **customer** quotas. Approving the seeded *Ramsey Town Council* application prints an invite link to the console — sign in with it to see the new customer's empty dashboard.
 
@@ -110,7 +111,7 @@ Everything a reviewed map produces is public, and nothing else is:
 | `/m/<map-slug>/services` | the same map **as text** — route, operator, days, stops served, where it goes *(P8a; the sheet's accessible equivalent)* |
 | `/accessibility.html` | what we aim for, what is done, what is not — plus wording a customer can paste into their own statement *(P8a)* |
 | `/o/<org-slug>` | one organisation's published maps + its branding |
-| `/legal.html` | what personal data we hold and why, the BODS/OSM licences, how the sheets may be reused *(working draft — read it before launch)* |
+| `/legal.html` | what personal data we hold and why, the BODS/OSM licences, how the sheets may be reused *(out of draft since 2026-08-25; names the data controller)* |
 | `/robots.txt`, `/sitemap.xml` | search engines; the sitemap is generated from what is actually public |
 
 Three conditions make a map public, and they are enforced **in SQL**, not at the edge: it has a **published version**, its customer is **active**, and the customer has left it **listed**. So drafts, pending versions, archived maps, suspended organisations and all customer PII are unreachable by construction — and because publishing never re-renders, a public page serves the exact bytes an approver reviewed. Gallery images are screen-sized copies **derived from** the published print JPG on first request (cached beside it), so nothing about the render path changes.
@@ -131,7 +132,7 @@ npm test
 
 > **PARKED 2026-09-10 (buses-data OA-297): the tube-map diagram is not offered — `TUBE_DIAGRAM` is off by default and unset on the live host — and everything below about it describes the mechanism kept for the return (buses-data OA-298).**
 
-Two of the four outputs are **expert styles**: the octolinear **schematic** and the tube-map **diagram**. Their engines are portal-owned in [`engine/expert/`](engine/expert/README.md) (a town's render folder never carried them), they are **opt-in per map** — the map's `routes.json` has to carry `internalSchematic` / `internalDiagram` — and they are **off by default**, because a schematic is an editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six** outputs (four area + two place) are proved on every release.
+Two of the five outputs are **expert styles**: the octolinear **schematic** and the tube-map **diagram**. Their engines are portal-owned in [`engine/expert/`](engine/expert/README.md) (a town's render folder never carried them), they are **opt-in per map** — the map's `routes.json` has to carry `internalSchematic` / `internalDiagram` — and they are **off by default**, because a schematic is an editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six** outputs (four area + two place) are proved on every release.
 
 The diagram goes one step further: it is **request-only**. The other three outputs are generated — same data, same sheet, nobody's hand on it — but the diagram is solved and then *pinned by hand*, and those pins are ours to re-judge every time the network moves. So it costs drawing time in the updates, not only in the first build, and a customer cannot tick it on: the editor shows it locked with an **Ask us** button that raises a `diagram-request` message. The refusal is enforced in `chooseOutputs()` (`src/maps/engine.js`) — a non-admin PATCH asking for it gets a 403 — because hiding a checkbox is UX, not security.
 
@@ -151,11 +152,11 @@ npm run prune:staged -- --days 90           # reclaim settled refresh data (dry 
 
 ## Data hygiene (important — the deployed portal is a public-facing service)
 
-**No map data, customer data, or secrets ever go in git.**
+**No customer data and no secrets ever go in git, and map data only deliberately.**
 
-- Map geometry/service data and per-customer data live under `./data` (git-ignored) or an object store — never committed.
+- Map geometry/service data and per-customer data live under `./data` (git-ignored) or an object store — never committed. The deliberate exceptions are the vendored gate fixtures under [`gate-fixtures/`](gate-fixtures/README.md) (buses-data OA-398) and the vendored generators under [`engine/`](engine/README.md).
 - Configuration and secrets come from environment variables (`.env`, git-ignored). See `.env.example`.
-- The only images committed are a few of the project's own rendered leaflets, downscaled for the web, under `public/examples/`, shown with attribution.
+- The images committed are a few of the project's own rendered leaflets, downscaled for the web, under `public/examples/`, shown with attribution, and the rendered sheets inside `gate-fixtures/`.
 
 ## Licence & attribution
 

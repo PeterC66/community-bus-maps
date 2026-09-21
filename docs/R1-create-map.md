@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.19 | 2026-09-20 | sha=bfa14c96 -->
-**v1.19** · updated 20 September 2026
+<!-- docstamp v1.20 | 2026-09-21 | sha=0a592e3e -->
+**v1.20** · updated 21 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -91,7 +91,7 @@ Green = the portal reproduces the desktop bytes exactly — insist on **PASS wit
 
 ## Step 4 — Choose outputs, then hand to review
 
-- Sign in as admin, open `/app/maps/<id>`, set which of the four **outputs** this map offers (v1.0 renders internal-geographic + external by default; the two expert styles are opt-in).
+- Sign in as admin, open `/app/maps/<id>`, set which of the five **outputs** this map offers (internal-geographic + external by default; the schematic is opt-in, the tube-map diagram is parked since 2026-09-10, and the "where to board" plan is on request).
 - The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer edits + submits, an approver reviews.
 
 ## Demo and example maps (for demos, docs and screenshots)
