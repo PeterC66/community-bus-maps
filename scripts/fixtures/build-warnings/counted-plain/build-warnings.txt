@@ -1,0 +1,7 @@
+1 warning, 0 blocking.
+
+BLOCKING means the engine refused to draw something, or drew a label that names
+nothing — the sheet is wrong and the reader cannot tell. Fix the config it names.
+
+--- WARN (1) ---
+[internal] northArrow: the configured spot is blocked — placed automatically at 191,179 (nearest clear corner).

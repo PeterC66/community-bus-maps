@@ -227,9 +227,20 @@ console.log('\ninert across the fixture corpus:');
   if (!files.length) {
     // Not a failure: the tests workflow deliberately runs on a clone of this
     // repo alone. It IS a hole in what this run proved, so it says so.
+    //
+    // AND IT SAYS ONLY WHAT IS TRUE. Until 2026-09-14 the last line here read
+    // "…and `npm run verify` covers the fixtures themselves", which consoles the
+    // reader with cover that does not exist: `verify:area`, `verify:place` and
+    // `verify:defaults` re-render and byte-compare, and the string `sanitiseSvg`
+    // appears in none of them — the sanitiser is exercised in this file and
+    // nowhere else in the repository. A skip note pointing at a run that cannot
+    // ask the question is worse than no note, because it stops the reader going
+    // to look. The committed excerpt IS the cover for this half, and it is real
+    // generator output rather than artwork invented here.
     console.log('  · NO FIXTURE SVGs FOUND — the corpus half did not run.');
     console.log(`    (area fixtures: ${area.source}; place fixtures: ${place.source}.) The committed`);
-    console.log('    excerpt above still ran, and `npm run verify` covers the fixtures themselves.');
+    console.log('    excerpt above still ran, and it is the ONLY cover this half has — no other');
+    console.log('    script in this repository calls the sanitiser, `npm run verify` included.');
   } else {
     let identical = 0; let cleanCount = 0; const bad = [];
     for (const f of files) {
