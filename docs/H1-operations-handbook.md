@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.28 | 2026-09-21 | sha=0fec936d -->
-**v1.28** · updated 21 September 2026
+<!-- docstamp v1.29 | 2026-09-21 | sha=05e0f8ca -->
+**v1.29** · updated 21 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -126,6 +126,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 |---|---|---|---|
 | **This handbook** | `docs/H1-operations-handbook.md` | the operator spine | ✅ |
 | **Daily To-do quickstart** | `docs/H2-todo-quickstart.md` | steps-only guide for working the `/app/admin` To-do tab, day to day | ✅ added 2026-08-08 |
+| **Second-operator handover drill** | `docs/H3-second-operator-drill.md` | what a second operator would need to deploy/verify/restore from the documents alone, and what is honestly still missing | ✅ added 2026-09-21 |
 | **Repo orientation for a new session** | `CLAUDE.md` | pilot status + the non-negotiables, loaded automatically by Claude Code | ✅ added 2026-07-26 |
 | **Pilot mode** | `docs/PILOT.md` | what the pilot claims on every surface + **the one-switch removal checklist** | ✅ added 2026-07-26 |
 | Documentation plan | `docs/DOCUMENTATION-PLAN.md` | what docs to build + order | ✅ |
@@ -161,6 +162,30 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | How to publish a map to the portal | `Documentation/README - How to publish a map to the portal.md` | the laptop end of deliver → accept → publish | ✅ |
 | Retention and pruning | `Documentation/README - Retention and pruning.md` | what is kept, what is deleted, and when | ✅ |
 | **Open actions** | `Development Docs/open-actions.md` | the strategic backlog — only what is genuinely still outstanding | ✅ live |
+
+## 7a. Which document wins, when two disagree
+
+§7 says where a document lives. This says which one is right when two of them describe the same thing differently, because they occasionally do and nothing here polices that automatically (`technical-audit_2026-08-19` C3).
+
+**The standing rule: the later dated document is right, and says so.** One that overtakes another's reasoning carries a dated line naming what it replaced, rather than leaving the older text to quietly disagree — [H2](H2-todo-quickstart.md) states this about itself in as many words (*"If something here disagrees with H1 or a runbook, they're right and this page is stale"*), and §2 above did the same the day the second glossary was found to have drifted from the first. A document carrying no such correction is assumed current; one that names what it superseded is telling you which one to distrust. Where a question below is not listed and two documents disagree anyway, that is the rule to apply by hand: the newer dated one wins, and the older one gets corrected to say so.
+
+| Question | Authoritative source |
+|---|---|
+| What does a role, a state or a term mean? | `Documentation/README - Glossary of terms.md` in buses-data — §2 above explains why it left this handbook |
+| What outputs can a map have, and what is each one called? | `src/maps/store.js` (`OUTPUTS`) — the code, not any document describing it |
+| What is an editor actually allowed to change? | `src/maps/safeSubset.js` |
+| Is a given route guarded, and by what? | `src/routes/*.js` plus `scripts/route-table.json` — [CONVENTIONS.md](CONVENTIONS.md)'s Routes section is the *rule*, not the current list |
+| What do I click today, step by step? | [H2](H2-todo-quickstart.md) — but where it disagrees with this handbook or a runbook on *why*, they are right (H2 says so of itself) |
+| Deploy, environment, backup, restore? | [DEPLOY.md](DEPLOY.md) — not [`_archive/GO-LIVE.md`](_archive/GO-LIVE.md), which is retired history |
+| Can somebody who is not Peter actually run this, from the documents alone? | [H3](H3-second-operator-drill.md) — the rest of this handbook says where things are, not whether a stranger could find them |
+| Who qualifies as a customer, and their default quota? | [Pol1](Pol1-vetting-and-quota-policy.md) |
+| What does the pilot claim, and how is it switched off? | [PILOT.md](PILOT.md) |
+| The attribution and licensing facts? | [LICENSING.md](LICENSING.md) |
+| The customer's privacy promise, in the words that bind us? | `public/legal.html` |
+| The customer's terms of use? | `public/terms.html` |
+| A flag, exit code, naming or Git convention? | [CONVENTIONS.md](CONVENTIONS.md) |
+| Is a claimed capability ("the laptop can deliver a new map end to end") actually true today? | whichever sentence carries a date and names itself the single record of it — [H2](H2-todo-quickstart.md)'s "what actually works" line is the model to copy |
+| The strategic backlog — what is genuinely still outstanding? | `Development Docs/open-actions.md` in buses-data — nothing in this repository tracks it |
 
 ## 8. Continuity — resuming cold
 
