@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.35 | 2026-09-18 | sha=4c9d1c71 -->
-**v1.35** · updated 18 September 2026
+<!-- docstamp v1.36 | 2026-09-21 | sha=b0607a80 -->
+**v1.36** · updated 21 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -17,14 +17,13 @@ Node + Fastify + `node:sqlite`, no template engine, no framework.
 ## Read this first: the system is a PILOT
 
 It is feature-complete (P0–P7, plus P8a) and it works end to end — which makes it read like a live service.
-**It is not one.** There are **no customers**: every organisation in the database is seeded demo data
-(`scripts/seed-demo.mjs`) and every map on the public site is one we made ourselves.
+**It is not one yet.** The pilot has its first customer (September 2026), who has had maps delivered; every other organisation in the database is seeded demo data (`scripts/seed-demo.mjs`) or our own, and most maps on the public site are ones we made ourselves.
 
 While `PILOT_MODE` is on (the default — it is on unless explicitly `0`):
 
 - every page carries a banner and an `[Pilot]` title prefix, from one generated `/js/site-banner.js`
-- every rendered sheet carries a red **PILOT — SAMPLE MAP** band
-- `robots.txt` says `Disallow: /`
+- every rendered sheet **of a sample map** carries a red **PILOT — SAMPLE MAP** band — per customer since buses-data OA-320, so a real customer's maps can go without it
+- indexing is NOT part of the pilot switch: `robots.txt` follows `ALLOW_INDEXING`, independent of `PILOT_MODE` since 2026-08-21
 - seeded demo organisations render a **Sample** badge (`customer.is_demo`)
 
 **[`docs/PILOT.md`](docs/PILOT.md) is the authority** — what it claims, why "pilot" and not
@@ -124,7 +123,7 @@ Flag names, exit codes, streams, the `--apply` / `--yes` vocabulary, naming and 
 
 ```bash
 npm test          # the whole suite - scripts/run-tests.mjs discovers every test-*/prove-red-* file
-npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (needs the fixture dirs)
+npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (against gate-fixtures/)
 ```
 
 `npm run verify` is `verify:area && verify:place && verify:defaults`. The last of those proves every
@@ -137,7 +136,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 
 ## House rules
 
-- **No secrets, customer data or map data in git** — the portal is a public-facing service. `data/` is ignored.
+- **No secrets or customer data in git, and map data only deliberately** (the vendored `gate-fixtures/` and `engine/`) — the portal is a public-facing service. `data/` is ignored.
   So is `backups/`, and that one has bitten: **`npm run backup` writes to `<DATA_DIR>/../backups/`,
   which is *inside* the repo**, so a plain `git add -A` after a backup stages ~125 files of map
   payloads. `*.sqlite` was already ignored so the database never went in, but the JSON/SVG/JPG did.

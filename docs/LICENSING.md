@@ -1,11 +1,11 @@
 # Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.11 | 2026-09-13 | sha=7183014f -->
-**v1.11** · updated 13 September 2026
+<!-- docstamp v1.12 | 2026-09-21 | sha=1e955ee3 -->
+**v1.12** · updated 21 September 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
-> **Pilot.** The scope this assessment covers is deliberately small — a few towns, monthly, expert-run, no customers, not indexed by search engines (`robots.txt` `Disallow: /` while `PILOT_MODE` is on). **Ending the pilot widens the scope**, so the review below should be revisited at the same time, not inherited. See [`PILOT.md`](PILOT.md).
+> **Pilot.** The scope this assessment covers is deliberately small — a few towns, monthly, expert-run, one customer (since September 2026). The site has been indexable since 2026-08-21, under its own flag `ALLOW_INDEXING` rather than `PILOT_MODE`. **Ending the pilot widens the scope**, so the review below should be revisited at the same time, not inherited. See [`PILOT.md`](PILOT.md).
 
 `NOTICE` carries the short attribution statement; this file is the working detail and the review record.
 
@@ -81,7 +81,7 @@ A read of bustimes.org's own `/data` page recorded: its timetable/route data is 
 
 ## 4. Other launch-gate items
 
-- **Privacy notice** — `/legal.html` is written but marked a working draft; confirm the wording and add a "last reviewed" date (P6 follow-up).
+- **Privacy notice** — `/legal.html` is out of draft (2026-08-25), names the data controller and carries a "last reviewed" date.
 - **No personal data on public pages** — verified by construction in P6 (an organisation's branding carries no contact details); re-check if branding ever gains new fields.
 - **Print-safety wording** — every public page and sheet says to confirm live times with the operator. Keep it: it is the honest limit of a printed map, and it is what makes "the map is a guide" defensible.
 - **Sheet branding** — a customer's logo/colours are deliberately *not* printed on the sheet (P6/P7 decision). If that changes, re-check that a customer cannot imply an endorsement by an operator or a council they don't represent.
@@ -98,7 +98,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | NaPTAN credit — on the **boarding-plan sheet** | ✅ present (footer line + in-map note) | Claude | 2026-08-25 |
 | NaPTAN credit — on the **site-wide web footer** | ✅ present on all 15 public pages, woven into the existing attribution sentence | Claude | 2026-08-25 |
 | OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
-| Printed-sheet credit **legibility**, all four outputs | ☐ check on paper (operator) | | |
+| Printed-sheet credit **legibility**, every output a map offers | ☐ check on paper (operator) | | |
 | bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
 | **OpenStreetMap ODbL terms** — map-matching, the locator extract and §4.6 | ✅ **resolved** — the Licensing Working Group answered in writing: map-matching is a *Trivial Transformation*, the only obligation is attribution while we publish Produced Works alone, and §4.6 is moot (§1, *asked and resolved*). One narrow point about a customer designer’s own sheet is asked and not yet answered | OSMF Licensing Working Group | 2026-09-12 |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |

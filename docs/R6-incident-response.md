@@ -1,13 +1,13 @@
 # Runbook R6 — Incident response
 
-<!-- docstamp v1.5 | 2026-09-04 | sha=04fb0b45 -->
-**v1.5** · updated 4 September 2026
+<!-- docstamp v1.6 | 2026-09-21 | sha=082a2e1c -->
+**v1.6** · updated 21 September 2026
 
 **Serves:** managing updates (and keeping the service safe) · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** What to do when something goes wrong — above all a **published map that's wrong in the wild**, because people act on it. Record every incident in the private incident log, `P3-incident-log.md` in the ops folder (`C:\Claude\community-bus-maps-ops\`).
 
-> **Pilot — and this runbook is now live.** It is still true that there are no *customer* maps: every organisation is one of ours, every rendered sheet carries the `PILOT — SAMPLE MAP` band ([`src/render/pilotStamp.js`](../src/render/pilotStamp.js)), and the pilot banner is on every page. **What is no longer true is that nobody acts on them.** On 2026-08-28 a member of the public in Ramsey read the published external map, found that it showed a place the X31 does not serve and omitted three that it does, and took the trouble to report all of it accurately through *report a problem*. Every claim held. The map was unlisted the same day. So treat the severities below as calibrated for **now**, not for after the pilot ends.
+> **Pilot — and this runbook is now live.** The pilot has its first customer (September 2026); every other organisation is one of ours, every rendered sheet of a sample map carries the `PILOT — SAMPLE MAP` band ([`src/render/pilotStamp.js`](../src/render/pilotStamp.js)), and the pilot banner is on every page. **What is no longer true is that nobody acts on them.** On 2026-08-28 a member of the public in Ramsey read the published external map, found that it showed a place the X31 does not serve and omitted three that it does, and took the trouble to report all of it accurately through *report a problem*. Every claim held. The map was unlisted the same day. So treat the severities below as calibrated for **now**, not for after the pilot ends.
 >
 > Two things that paragraph used to say are worth keeping as corrections, because both were load-bearing and both had quietly expired. **`robots.txt` is no longer `Disallow: /`** — the site has been indexable since 2026-08-21 and publishes a sitemap, so a wrong sheet is reachable from a search engine and not only from someone we told. And **the `SAMPLE MAP` band is on the rendered sheet only**: the `/services` text page, which exists as the accessible alternative to the sheet, presents the same service data with the pilot banner but no sample marking on the content itself. A reader who prefers text gets the weaker warning. See [`PILOT.md`](PILOT.md).
 

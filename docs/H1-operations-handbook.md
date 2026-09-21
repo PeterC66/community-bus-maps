@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.27 | 2026-09-19 | sha=c21c84b0 -->
-**v1.27** · updated 19 September 2026
+<!-- docstamp v1.28 | 2026-09-21 | sha=0fec936d -->
+**v1.28** · updated 21 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -13,9 +13,9 @@ This is the spine: the shared vocabulary, who does what, the operating rhythm, a
 
 ## 1. What the service is
 
-> **It is a pilot.** The system is feature-complete and works end to end, but it has no customers — every organisation in the database is seeded demo data and every published map is one of ours. Everything below describes how the service is *built to run*, not a track record. While pilot mode is on, every page and every rendered sheet says so. See [`PILOT.md`](PILOT.md) for what it claims and how to switch it off; §5's operating rhythm is the **intended** rhythm, not an established one.
+> **It is a pilot.** The system is feature-complete and works end to end, and it has its first customer (September 2026) — every other organisation in the database is seeded demo data and most published maps are ours. Everything below describes how the service is *built to run*, not a track record. While pilot mode is on, every page and every rendered sheet says so. See [`PILOT.md`](PILOT.md) for what it claims and how to switch it off; §5's operating rhythm is the **intended** rhythm, not an established one.
 
-A self-serve portal that lets **approved organisations** (councils first, then shops, schools, event organisers, the National Trust…) generate and maintain **printable bus maps**. Two map kinds — **area** and **place** — from one deterministic engine, each able to produce four outputs.
+A self-serve portal that lets **approved organisations** (councils first, then shops, schools, event organisers, the National Trust…) generate and maintain **printable bus maps**. Two map kinds — **area** and **place** — from one deterministic engine, each able to produce five outputs.
 
 **The load-bearing split** (this is what makes self-serve safe):
 
@@ -179,8 +179,8 @@ Run these from the repository root (`C:\Claude\community-bus-maps`). There are n
 
 ```bash
 npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) and /app
-npm test                 # P6 + P7 + lifecycle-seam tests
-npm run verify           # byte-identical gate (needs FIXTURE_DIR + PLACE_FIXTURE_DIR)
+npm test                 # every scripts/test-*.mjs and prove-red-*.mjs, discovered by scripts/run-tests.mjs
+npm run verify           # byte-identical gate, against the committed gate-fixtures/
 npm run backup -- --out /backups --keep-days 14 # server may stay up (VACUUM INTO)
 npm run prune:staged -- --days 90               # dry run by default; add --yes to delete
 # server STOPPED for these (one writer):

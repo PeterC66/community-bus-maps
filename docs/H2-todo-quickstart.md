@@ -1,13 +1,11 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.7 | 2026-09-10 | sha=88f7229c -->
-**v1.7** · updated 10 September 2026
-
-**v1.0** · updated 8 August 2026
+<!-- docstamp v1.8 | 2026-09-21 | sha=4159027f -->
+**v1.8** · updated 21 September 2026
 
 **For:** the operator (Peter), doing an ordinary daily/weekly pass. **Assumes:** you're working against the **live portal — `busmaps.uk`** — signed in there as admin. That's the normal case now the pilot is deployed; every command below defaults to it.
 
-**If you are testing the process against the local portal** (the dev checkout on this laptop, `http://localhost:3000`, not the live site) **then** swap in the local-mode variant called out under each step — look for the ▸ **Testing locally instead?** line. Don't mix the two: a local-mode command never touches busmaps.uk, and a live-mode command never touches your dev checkout's database. If you're ever unsure which one a command actually talked to, both `worklist.mjs` and `push-status.mjs` print a banner at the very top of their output — `REMOTE — LIVE PORTAL (…)` or `LOCAL — dev checkout (…)` — read that before reading anything else they print.
+**If you are testing the process against the local portal** (the dev checkout on this laptop, `http://127.0.0.1:5180`, not the live site) **then** swap in the local-mode variant called out under each step — look for the ▸ **Testing locally instead?** line. Don't mix the two: a local-mode command never touches busmaps.uk, and a live-mode command never touches your dev checkout's database. If you're ever unsure which one a command actually talked to, both `worklist.mjs` and `push-status.mjs` print a banner at the very top of their output — `REMOTE — LIVE PORTAL (…)` or `LOCAL — dev checkout (…)` — read that before reading anything else they print.
 
 **Purpose.** One page: open the To-do list, work down it, close it out. No runbook reading required for a normal day — this is the "just tell me what to click and what to type" version of [H1](H1-operations-handbook.md). If something here disagrees with H1 or a runbook, they're right and this page is stale.
 
@@ -27,30 +25,23 @@ Portal (busmaps.uk/app/admin, /app/review)  --you decide, in the browser-->
 Two places to look, never more:
 
 1. **The portal's To-do tab** — `https://busmaps.uk/app/admin`, opens on **To do** by default.
-   ▸ **Testing locally instead?** `http://localhost:3000/app/admin`, dev server running.
+   ▸ **Testing locally instead?** `http://127.0.0.1:5180/app/admin`, dev server running.
 2. **The `bus-work` skill on the laptop** — same list, plus laptop-only signals the portal can't see (stale renders, missing verification). It talks to the **live** portal by default. Run it in Claude Code:
 
 ```powershell
-node "%BW%\worklist.mjs" --url https://busmaps.uk --cookie <cbm_session value>
+node "C:\u3a St Ives\.claude\skills\bus-work\assets\worklist.mjs"
 ```
-(`BW` = `C:\u3a St Ives\.claude\skills\bus-work\assets`.) Or just say **"what's next on the buses"** — Claude defaults to live in this context unless you say "local" explicitly, and reads the stored cookie itself (see below).
+That is the whole command, from any folder, with nothing to substitute. Or just say **"what's next on the buses"** — Claude runs the same thing.
 
-**The `cbm_session` cookie — get it once a month, not every session.**
+**How it reaches the live portal: a read-only token, set once (OA-203, 2026-08-31).** `worklist.mjs` reads two lines from the portal checkout's own `.env` (`C:\Claude\community-bus-maps\.env`, which is gitignored): `BUSMAPS_URL=https://busmaps.uk` and `BUSMAPS_TOKEN=`, the latter holding the same value as `OPERATOR_TOKEN` on the host. That token is sent as a bearer header, is good for `GET` on the worklist, the map list and each map's landmark answer, and for nothing else — it cannot approve, publish or invite anyone. With neither line set and no `--local`, the tool refuses and prints the two lines to add rather than guessing which portal you meant. The same value can be given for one run as `--token <OPERATOR_TOKEN>`, where `<OPERATOR_TOKEN>` is that value.
 
-Sessions last **7 days**, sliding — the window is pushed forward each time the session is used, so a cookie in daily use never expires and one left alone dies within a week (`SESSION_DAYS` in `src/auth/index.js`). It said 30 days here until 2026-08-30; the value has been 7 since 2026-08-20 and `H1` §3b had it right all along. Claude keeps the current value at `C:\Claude\community-bus-maps-ops\live-admin-cookie.txt` (that folder is local-only, never in git — see its own `README.md`) and reads it from there for every `worklist.mjs` / `push-status.mjs` call, so you don't hand it over each time you ask "what's next."
+There is no cookie to fetch any more. Until OA-203 this page told you to copy a `cbm_session` value out of DevTools once a month and keep it in a file; that was a person's whole admin session, and it has been retired. `--cookie` / `BUSMAPS_COOKIE` still work for a portal deployed before OA-203, which none is. If a live call comes back 401, the token on the laptop and `OPERATOR_TOKEN` on the host disagree — most likely because the host's was rotated (`npm run rotate:secret -- OPERATOR_TOKEN`, [DEPLOY.md](DEPLOY.md#rotating-a-token)) — and the fix is to copy the new value into `BUSMAPS_TOKEN`.
 
-To refresh it — needed once the stored one has gone a week unused, or if a `worklist.mjs`/`push-status.mjs` call comes back with an auth error:
-1. Sign in as admin at `https://busmaps.uk` (email → magic link, or reuse the `/auth/verify?token=…` link from the sign-in email).
-2. Open DevTools → Application → Cookies → `busmaps.uk` → copy the `cbm_session` value.
-3. Paste it in chat. Claude overwrites `live-admin-cookie.txt` with the new value and date, and re-verifies with a live `worklist.mjs` call.
-
-Claude should proactively remind you to do this once the stored cookie is close to 30 days old — check the `obtained:` date in that file before relying on it for a live call.
-
-▸ **Testing locally instead?** Drop `--url` and `--cookie` entirely:
+▸ **Testing locally instead?** Say so with `--local`:
 ```powershell
-node "%BW%\worklist.mjs"
+node "C:\u3a St Ives\.claude\skills\bus-work\assets\worklist.mjs" --local
 ```
-With no `--url` it reads the local dev checkout's own SQLite directly (faster, and read-only either way) — but it is **not** the live site's data, so don't act on a local-mode list as if it were the real queue. Say "local" explicitly if that's what you want; otherwise assume live.
+That reads the local dev checkout's own SQLite directly (faster, and read-only either way) — but it is **not** the live site's data, so don't act on a local-mode list as if it were the real queue.
 
 **Normal daily routine:** run `bus-work` against the live portal, take the top item, follow the steps below for its type, repeat until the list is empty or everything left is "waiting on others."
 
@@ -64,7 +55,7 @@ The list is banded, most urgent first:
 |---|---|
 | 🔴 Broken | something that used to work no longer does — fix before anything else |
 | 🟠 Someone is blocked | a customer or applicant is waiting on **you** |
-| 🟡 Your move | approved work with no one waiting yet, or portal housekeeping |
+| 🟡 Your move | approved work with no one waiting yet, or portal housekeeping — including a deploy that is pending, which is a chore row (`deploy_pending.mjs`) and never a 🔴 |
 | ⚪ Waiting on others | nothing to do — a customer hasn't responded yet |
 
 Each row has a `type`. That type tells you which section below to use.
@@ -74,7 +65,7 @@ Each row has a `type`. That type tells you which section below to use.
 ## 1. `review` — a submitted map is waiting for publish
 
 **Where:** `https://busmaps.uk/app/admin` → **Proposed updates**, or click through to `https://busmaps.uk/app/review`.
-▸ **Testing locally instead?** `http://localhost:3000/app/admin` / `/app/review`.
+▸ **Testing locally instead?** `http://127.0.0.1:5180/app/admin` / `/app/review`.
 
 **What you're checking** (5-point reasonableness check, not a re-derivation of the routes):
 1. Services — routes shown match the change summary
@@ -94,7 +85,7 @@ Never decide this from the terminal — it's a browser click, always, and it's a
 ## 2. `application` — someone applied to become a customer
 
 **Where:** `https://busmaps.uk/app/admin` → **Applications**.
-▸ **Testing locally instead?** `http://localhost:3000/app/admin` → Applications.
+▸ **Testing locally instead?** `http://127.0.0.1:5180/app/admin` → Applications.
 
 **Check against the vetting policy** ([Pol1](Pol1-vetting-and-quota-policy.md)) before deciding:
 - Do they have a genuine connection to the area?
@@ -110,7 +101,7 @@ Default quota if approved: **1 area + 3 places**.
 ## 3. `request-decision` — an approved customer wants a new map
 
 **Where:** `https://busmaps.uk/app/admin` → **Map requests**.
-▸ **Testing locally instead?** `http://localhost:3000/app/admin` → Map requests.
+▸ **Testing locally instead?** `http://127.0.0.1:5180/app/admin` → Map requests.
 
 **Check:** the area/place is covered by our bus data (GTFS region), the stops are real, and — if it's a "RED band" complex request — that it's actually buildable.
 
@@ -136,7 +127,7 @@ Ask Claude: *"build the map for `<request>`"* — it runs S1→S6 and hands you 
 npm run deliver -- --src "<the S5-render dir>" --name "<Town/Place name>" --slug <slug> --kind area --request <id>
 # place map instead: --kind place
 ```
-It `scp`'s the render up, **pre-flight verifies it in a throwaway container on the host before touching the running service** (SVG only, never JPG — laptop/host font differences make a JPG check a permanent false alarm, see `GO-LIVE.md` §2.5), only then stops the live service, imports, restarts, and checks `/health?deep=1`. A failure at verify leaves the live site completely untouched. A failure at import leaves it **stopped** rather than serving a half-write — restart it by hand on the host (`docker compose up -d portal`) once you understand why, don't just retry blind.
+It `scp`'s the render up, **pre-flight verifies it in a throwaway container on the host before touching the running service** (SVG only, never JPG — laptop/host font differences make a JPG check a permanent false alarm, see [`_archive/GO-LIVE.md`](_archive/GO-LIVE.md) §2.5), only then stops the live service, imports, restarts, and checks `/health?deep=1`. A failure at verify leaves the live site completely untouched. A failure at import leaves it **stopped** rather than serving a half-write — restart it by hand on the host (`docker compose up -d portal`) once you understand why, don't just retry blind.
 *(This path is written and dry-run tested. Whether it has been proven end to end against a real request is recorded in ONE place — the "what actually works against the live portal" bullet near the foot of this page — so that the two cannot disagree. They did: this note was dated 10 Aug and that bullet 18 Aug, saying the same thing with eight days between them and nobody obliged to update both.)*
 
 ▸ **Testing locally instead?** Skip `npm run deliver`. Stop the dev server, then:
@@ -149,7 +140,7 @@ $env:PLACE_FIXTURE_DIR = "<the S5-render dir>"; npm run verify:place
 Must print **PASS** with byte counts. If it doesn't, stop — don't hand over a map that didn't verify.
 
 **Step 3 — hand over, in the browser:** open `https://busmaps.uk/app/maps/<id>` as admin, confirm the outputs (v1.0 defaults to internal-geographic + external; the tube-map diagram is parked since 2026-09-10 and not offered, see H1 §4b). The map is a **draft** until it goes through the `review` step above.
-▸ **Testing locally instead?** `http://localhost:3000/app/maps/<id>`.
+▸ **Testing locally instead?** `http://127.0.0.1:5180/app/maps/<id>`.
 
 ---
 
@@ -213,7 +204,7 @@ Nothing to do if it's recent. If it's been **2+ weeks**: send a nudge email nami
 
 Something the byte-identical check used to pass now fails. This is a laptop-only proof — it always regenerates from the local engine and compares against what's committed, regardless of whether busmaps.uk is up. Reproduce it:
 ```powershell
-node "%SK%\status.js"
+node "C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/status.js" --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claude/community-bus-maps"
 ```
 - If a **town** fails: either it's an *intended* engine change (fix it via `housekeeping` → `rollout.js` above) or a genuine regression (fix the generator, don't ship until it's clean).
 - If the **portal vendoring row** fails: re-vendor the changed file into `community-bus-maps/engine/`, then:
@@ -229,11 +220,12 @@ Must show **PASS** with byte counts before you touch anything else. This is exac
 
 After each item: re-run `bus-work` (or `worklist.mjs`) and confirm the row is gone. Occasionally — or whenever you've just fixed a `gate`/`housekeeping` item — push the result to the live portal so it shows up there too:
 ```powershell
-node "%BW%\push-status.mjs" --url https://busmaps.uk --token <STATUS_TOKEN>
+node "C:\u3a St Ives\.claude\skills\bus-work\assets\push-status.mjs" --url https://busmaps.uk --token <STATUS_TOKEN>
 ```
+`<STATUS_TOKEN>` is the value of `STATUS_TOKEN` in the host's `.env`.
 ▸ **Testing locally instead?** Drop `--url`/`--token` — it writes to the local checkout's own `status-snapshot.json` file instead of POSTing anywhere:
 ```powershell
-node "%BW%\push-status.mjs"
+node "C:\u3a St Ives\.claude\skills\bus-work\assets\push-status.mjs"
 ```
 
 ## Rules that always apply, whichever type you're doing

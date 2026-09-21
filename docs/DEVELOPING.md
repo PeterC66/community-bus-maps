@@ -1,7 +1,7 @@
 # Developing the portal — how to change it safely
 
-<!-- docstamp v1.29 | 2026-09-18 | sha=7e54aa63 -->
-**v1.29** · updated 18 September 2026
+<!-- docstamp v1.30 | 2026-09-21 | sha=59914e20 -->
+**v1.30** · updated 21 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -25,7 +25,7 @@ Practically, this makes ordinary git operations lower-risk than they'd otherwise
 
 See [`docs/DUMMIES_GUIDE.md`](DUMMIES_GUIDE.md#8-managing-a-change-across-laptop-github-and-the-live-site) for the plain-language walkthrough of what to commit, push, and merge when, and what never happens without being asked.
 
-> **The system is a PILOT.** It is feature-complete but has **no customers** — every organisation in the database is seeded demo data and every published map is one of ours. Every page carries a banner and every rendered sheet a band saying so, gated on one env var. Two consequences for you: the render path has a post-generation step you need to know about (see *The gates you must run*), and **you must not write copy that claims customers, uptime or response times**. Read [`PILOT.md`](PILOT.md) before touching the render path, the public copy or the seed script.
+> **The system is a PILOT.** It is feature-complete and has its first customer (September 2026); every other organisation in the database is seeded demo data, and most published maps are ours. Every page carries a banner and every rendered sheet a band saying so, gated on one env var. Two consequences for you: the render path has a post-generation step you need to know about (see *The gates you must run*), and **you must not write copy that claims customers, uptime or response times**. Read [`PILOT.md`](PILOT.md) before touching the render path, the public copy or the seed script.
 
 ---
 
@@ -130,17 +130,9 @@ So **adding a test is adding the file**. Give it an npm script too (`test:<thing
 
 The runner is itself falsified by [`scripts/prove-red-run-tests.mjs`](../scripts/prove-red-run-tests.mjs) (`npm run test:prove-red-run-tests`), which runs FIRST in `test.yml` for the usual reason: a bug in the thing that decides whether the suite is green does not make one test wrong, it makes the whole verdict wrong in the reassuring direction. Six cases on scratch repositories plus two controls, ~3 s.
 
-### Re-stamp a document you edited BEFORE you commit it — and a hook now refuses if you forget
+### The document stamp is written at commit time — there is nothing to run
 
-The docstamp is written by a **Stop hook**, which by definition runs at the *end* of a turn. So a commit made **during** the turn carries the new content and the **old** `sha=`, and the `status` job's *Committed docstamps describe their committed content* step correctly calls it stale. Whether a given commit goes red depends only on where the turn boundary fell, which is why it looks intermittent and why it is not. It has already happened here — the commit *"Docstamp: three committed stamps did not describe their committed content"* (#149) is exactly this fault, three documents' worth, caught by CI after the push rather than before it. In the sibling `buses-data` repo the same fault took 10 of 15 gates runs red in a single day.
-
-Re-stamp first, then `git add` the document **and** its stamp together. Run this from the repository root; the path is a real path on this machine, not a placeholder:
-
-```bash
-python "C:/Users/Peter/.claude/skills/stamp-docs/scripts/docstamp.py" --all
-```
-
-`.githooks/pre-commit` refuses the commit if you forget. It checks **only the `.md` files in the commit in front of you** — a document that was already stale is not this commit's fault, and a hook that blocks unrelated work gets `--no-verify`'d within a week. It exits 0 when the `stamp-docs` skill tree is absent, because that tree is not part of this repository and a hook that dies on someone's laptop teaches them to bypass it.
+`.githooks/pre-commit` runs `docstamp.py --staged` and writes each staged document's stamp into the commit itself (buses-data OA-397, portal #315, 2026-09-18), so there is no re-stamp step before committing. The same hook still audits that every staged `.md` stamp describes its staged content; that audit is now a control that should never fire, and a refusal from it means the stamper did not run — the hook's warning says why. Until 2026-09-18 the stamp was written by a Stop hook at the end of each turn, which is why older commits and notes talk about re-stamping before you commit.
 
 **`core.hooksPath` is local git config and does not travel with a clone**, so every clone and every worktree has to opt in once, from the repository root, with no placeholders:
 
@@ -149,8 +141,6 @@ git config core.hooksPath .githooks
 ```
 
 That is also why CI keeps its own full audit rather than trusting the hook: the hook guards whoever installed it, CI is the one that is always there.
-
-**One behaviour to expect, because it looks like the hook failing and is not.** The Stop hook restamps the working tree between turns, so a document you staged with a stale stamp can become *self-consistent* on its own — and the same commit that was refused will then be accepted. That is correct (the stamp now does describe the staged content) but it means **the refusal is not a durable veto on the content**: it is a veto on the mismatch. If the hook refuses you, re-stamp and re-add deliberately rather than simply retrying the commit.
 
 ### The inlined SVG is allowlisted, and adding to the artwork means adding to the list
 
@@ -233,8 +223,8 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 - **Pure functions where the decisions are.** `publish/`, `refresh/`, `branding/` are deliberately side-effect-free so the rules can be tested directly. Keep them that way.
 - **Server-enforced, always.** Every safe-subset restriction, quota, and visibility condition is checked on the server (and in SQL where it's a visibility condition). Client-side checks are UX, not security.
 - **Attribution is not optional.** Maps derive from OpenStreetMap (ODbL) and BODS (OGL). See `NOTICE`. Don't ship an output path that drops the credit.
-- **Don't claim what isn't true.** While the pilot is on there are no customers, no SLA and no guaranteed refresh cadence. Copy that says otherwise has been removed once already; don't reintroduce it. If you add a public page, give it the `/js/site-banner.js` `<script>` tag — that is what puts the pilot banner on it.
-- **Update `CHANGELOG.md`** with the version and what changed — including re-vendoring.
+- **Don't claim what isn't true.** While the pilot is on there is no SLA and no guaranteed refresh cadence, and one customer is not a customer base. Copy that says otherwise has been removed once already; don't reintroduce it. If you add a public page, give it the `/js/site-banner.js` `<script>` tag — that is what puts the pilot banner on it.
+- **Record what changed as a fragment in `CHANGELOG.d/`** — including re-vendoring. `CHANGELOG.md` is generated from the fragments and gitignored; see [`CHANGELOG.d/README.md`](../CHANGELOG.d/README.md).
 
 ## Stacked PRs: merge without deleting the base branch
 
@@ -253,16 +243,7 @@ So, merging a stack: **merge each PR without `--delete-branch`**, rebase the nex
 at the end. Re-run `npm test` (and `npm run verify` if the change goes anywhere near a render) **after
 each rebase**, not just before the first one — a rebase can silently drop or duplicate a hunk.
 
-Expect one casualty: the docstamp Stop hook restamps documents *after* your commit, so a stack often
-carries a stamp-only commit that conflicts on rebase. Drop it (`git rebase --skip`) — the hook
-regenerates it. **Largely avoidable since the pre-commit hook landed**: re-stamp before you commit
-(see *Re-stamp a document you edited BEFORE you commit it* under [The gates you must run](#the-gates-you-must-run))
-and the stamp rides inside its own content commit, so there is no stamp-only commit to conflict. The
-advice above still applies to a stack cut before that, and to stamps on documents you did not edit.
-
-## Known rough edge
-
-The vendored-engine duplication above is maintained by hand with no drift detection. If you are changing the engine often, that is the first thing worth fixing.
+A stack cut before 2026-09-18, when the docstamp was still written by a Stop hook after each turn, may carry a stamp-only commit that conflicts on rebase. Drop it (`git rebase --skip`); the pre-commit hook now writes the stamp inside each content commit, so a newer stack has no such commit.
 
 ## The update/publish flow has already been reviewed — read it first
 
