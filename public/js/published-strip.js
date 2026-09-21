@@ -1,10 +1,13 @@
 // Home page: a short strip of what has actually been published. The whole
 // section stays hidden when nothing is public yet, so the shopfront never shows
-// an empty shelf. Seeded demo organisations are labelled "Sample" — during the
-// pilot they are the only thing in here.
+// an empty shelf. Seeded demo organisations are labelled "Sample"; since our
+// first real customer published (2026-09), they are no longer the only thing
+// in here, so the intro sentence about them is written from what actually
+// rendered rather than asserted as a standing rule — see OA-433.
 (async () => {
   const sec = document.getElementById('publishedSection');
   const strip = document.getElementById('publishedStrip');
+  const intro = document.getElementById('publishedIntro');
   if (!sec || !strip) return;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const cardHtml = (m, output) => {
@@ -35,10 +38,14 @@
     const boardingMap = others.find((m) => m.slug === 'st-neots-town-centre');
     const boardingOutput = boardingMap && boardingMap.outputs.find((o) => o.key === 'boarding_plan' && o.previewUrl);
     const rest = others.slice(0, boardingOutput ? 2 : 3);
+    const shown = boardingOutput ? rest.concat([boardingMap]) : rest;
     const cards = rest.map((m) => cardHtml(m, m.outputs.find((o) => o.previewUrl)));
     if (boardingOutput) cards.push(cardHtml(boardingMap, boardingOutput));
     if (!cards.length) return;
     strip.innerHTML = cards.join('');
+    if (intro && shown.some((m) => m.org.isDemo)) {
+      intro.insertAdjacentHTML('beforeend', ' Maps marked <em>Sample</em> are ours, made to show what the system produces.');
+    }
     sec.hidden = false;
   } catch { /* leave the section hidden */ }
 })();

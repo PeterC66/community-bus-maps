@@ -7,11 +7,11 @@
 // see it: the web chrome (via /js/site-banner.js), the page titles and a stamp
 // on every rendered sheet (src/render/pilotStamp.js).
 //
-// BusMaps.uk was built as if it were a running service, but it has no
-// customers: every organisation in the database is demo data and every map on
-// the site is one we made ourselves. Until that changes, nobody — a prospective
-// customer, a council clerk, a colleague signing in — should be able to mistake
-// it for an established service.
+// BusMaps.uk was built as if it were a running service, and it still has only
+// one customer: every other organisation in the database is demo data and
+// every other map on the site is one we made ourselves. Until that changes
+// further, nobody — a prospective customer, a council clerk, a colleague
+// signing in — should be able to mistake it for an established service.
 //
 // ON by default, deliberately: forgetting to set an env var must fail towards
 // the honest state, not the confident one.
@@ -21,8 +21,9 @@ export const PILOT = {
   word: 'Pilot',
   short: 'Pilot — not yet a live service',
   long:
-    'BusMaps.uk is a pilot. The system works end to end, but it has no '
-    + 'customers yet: every map shown here was made by us to show what it produces. '
+    'BusMaps.uk is a pilot. The system works end to end, and Love’s Farm '
+    + 'Community Association is our first customer; every other map shown here '
+    + 'was made by us to show what it produces. '
     + 'Nothing here is a commitment to a service level.',
   href: '/faq.html#pilot',
   // Drawn onto every rendered sheet while the pilot is on (one banner line

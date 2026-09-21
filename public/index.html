@@ -35,7 +35,7 @@
     <section class="hero"><div class="container hero-grid">
       <div>
         <h1>Clear, printable bus maps for your community</h1>
-        <p class="lead">A system designed to help local organisations publish easy-to-read maps of the buses in their area — or the buses that reach their doorstep — and keep them up to date as services change. It is a pilot: we are looking for our first organisations.</p>
+        <p class="lead">A system designed to help local organisations publish easy-to-read maps of the buses in their area — or the buses that reach their doorstep — and keep them up to date as services change. It is a pilot: we have our first organisation and are looking for more.</p>
         <div class="cta">
           <a class="btn btn-primary" href="/apply.html">Register your interest</a>
           <a class="btn btn-ghost" href="/examples.html">See examples</a>
@@ -55,10 +55,11 @@
     </div></section>
 
     <!-- Live strip of what has actually been published (hidden until there is one).
-         During the pilot these are our own sample maps, labelled as such. -->
+         The second sentence is written by published-strip.js, which knows whether
+         any card it just rendered is one of our own sample maps — see OA-433. -->
     <section id="publishedSection" hidden><div class="container">
       <h2>Published through the portal</h2>
-      <p class="section-intro">These are maps that have been through the portal end to end, and anyone can view, print and share them. During the pilot they are our own — marked <em>Sample</em>.</p>
+      <p class="section-intro" id="publishedIntro">These are maps that have been through the portal end to end, and anyone can view, print and share them.</p>
       <div class="grid cols-3" id="publishedStrip"></div>
       <div class="lead-cta"><a class="btn btn-ghost" href="/maps">See all published maps</a></div>
     </div></section>
