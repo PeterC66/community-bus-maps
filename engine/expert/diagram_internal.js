@@ -28,6 +28,8 @@
 //   dirW:30 lenW:1.2 anchorW:0.03 pinW:50    solver weights
 //   mergeJn:5 mergeEdge:6 dropLoop:12 weldLeg:1.6   graph cleanup (mm)
 //   featureTol:2     linear-feature point thinning, mm (river keeps its winding)
+//   featureStitch:0.5     weld a feature's OSM ways into chains BEFORE mapping, mm
+//   featureStitchTurn:75  reject a weld that turns more than this at the join (deg)
 //   workDir:"diagram"
 //   stops:{ include:[ATCO...], exclude:[ATCO...], junctionDist:3, poiStopDist:8 }
 //   interchanges:[{atco,label?,w?}]        station lozenges (render, ID-gated)
@@ -37,24 +39,62 @@
 //   features:{ "<key>": {labelPos,labelReserve,...} }  per-feature workspace overrides
 const fs = require('fs');
 const path = require('path');
+const _EP = (() => { const local = path.join(__dirname, 'engine_paths.js');
+  try { if (fs.existsSync(local)) return local; } catch (e) {}
+  if (process.env.SKILL_ASSETS) return path.join(process.env.SKILL_ASSETS, 'engine_paths.js');
+  const across = path.join(__dirname, '..', '..', 'make-bus-leaflet', 'assets', 'engine_paths.js');
+  try { if (fs.existsSync(across)) return across; } catch (e) {}
+  return 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/engine_paths.js'; })();
+const { engineDep, spawnTarget } = require(_EP);
+const _dep = engineDep(__dirname);
+// The projection, the internalRoads reading and esc are the ENGINE's, not copies
+// (OA-230, 2026-09-02); resolved the way every entry point resolves a sibling.
+const { projection } = require(_dep('projection.js'));
+const { internalRoadsConfig } = require(_dep('internal_roads_config.js'));
+// page.js — the sheet's own size, and how an SVG for it opens. The debug skeleton
+// below typed the root element out in full, which is the twelfth copy page.js was
+// written to end (engine N28); svgOpen() returns that string character for
+// character.
+const { svgOpen } = require(_dep('page.js'));
+const { stitchSegs } = require(_dep('linear_features.js'));
+const { esc } = require(_dep('svg_primitives.js'));
+// The road graph both internal pre-stages build (OA-232 Tier 3.3) — this file
+// and schematize_internal.js are one algorithm written twice, and the three
+// differences between them are the two flags below plus a function name.
+//
+// The four plain re-exports are destructured HERE rather than where each used to
+// be declared, and that is not tidiness: dpTol() was called thirty lines ABOVE
+// its own `function` declaration and worked on hoisting, which a `const` does
+// not do. Left in place, the move would have thrown on the feature-simplify path
+// — which no gate reaches on every town.
+const roadGraph = require(_dep('road_graph.js'));
+const { key6, angdist, lsq, dpTol } = roadGraph;
+
+// ---- main() ---------------------------------------------------------------
+// OA-224 Tier 4.1: the body below runs only when this file is RUN, never when it
+// is required, so a test can ask whether it LOADS without asking it to draw a
+// map. Nothing inside is re-indented -- the diff has to read as "a scope was
+// added". Why it was worth a hash move, and the fault that proves it:
+// make-bus-leaflet/test/generator_load.test.js.
+function main() {
 const DIR = process.env.LEAFLET_DIR || process.cwd();
 const RJ = JSON.parse(fs.readFileSync(DIR + '/routes.json', 'utf8'));
 if (!RJ.internalDiagram) { console.log('no internalDiagram config — nothing to do'); process.exit(0); }
-if (!RJ.internalRoads) { console.error('internalDiagram needs internalRoads (route-path model) too'); process.exit(1); }
 const DG = Object.assign({ bendTurn: 50, maxBends: 3, edgeMin: 8, edgeMax: 55, gamma: 0.55,
   dirW: 30, lenW: 1.2, anchorW: 0.03, pinW: 50,
   mergeJn: 5, mergeEdge: 6, dropLoop: 12, weldLeg: 1.6, featureTol: 2,
+  featureStitch: 0.5, featureStitchTurn: 75,
   poiSnapDist: 22, featureDamp: 0.35, workDir: 'diagram' },
   RJ.internalDiagram === true ? {} : RJ.internalDiagram);
 DG.stops = Object.assign({ junctionDist: 3, poiStopDist: 8, include: [], exclude: [] }, DG.stops || {});
 
 // ---- inputs ----------------------------------------------------------------
-const IR = (function () {   // same defaulting as gen_internal
-  const u = (RJ.internalRoads === true) ? {} : RJ.internalRoads;
-  const o = Object.assign({ stroke: 1.7, gap: 2.8 }, u);
-  o.focus = Object.assign({ coreKm: 1.1, comp: 0.5 }, u.focus || {});
-  return o;
-})();
+// internalRoads, defaulted by the SAME function gen_internal.js uses (OA-230). The
+// copy here defaulted three keys where the generator defaults nine, and refused an
+// ABSENT key that the generator has treated as "on" since 2026-08-04. `false` is
+// the classic model and still refuses: there is no road graph to schematize.
+const IR = internalRoadsConfig(RJ);
+if (!IR) { console.error('internalDiagram needs the roads model (route-path); internalRoads:false is the classic model and has none'); process.exit(1); }
 const atco2ll = JSON.parse(fs.readFileSync(DIR + '/atco2ll.json', 'utf8'));
 const routes = (function () {
   for (const f of ['routes_intown_atco.json', 'routes_atco.json']) {
@@ -69,7 +109,7 @@ const ANCHOR = RJ.anchor || '0500HSTIV002';
 const PREFIX = RJ.atcoPrefix || String(ANCHOR).replace(/\d+$/, '');
 const order = RJ.routeOrder || Object.keys(RJ.palette);
 
-// ---- projection: EXACT copy of gen_internal's internalRoads path -----------
+// ---- projection: the engine's own, projection.js (OA-230) -----------------
 // (planar -> config rotation -> fisheye compress -> fit). Rotation + fisheye
 // are baked into the diagram coordinates; the workspace runs gen_internal with
 // rotationDeg:0 + comp:1 so 45-deg legs stay exactly 45 deg.
@@ -81,63 +121,54 @@ const stopPts = [];
     if (a.startsWith(PREFIX) || xc.has(a)) stopPts.push(atco2ll[a]);
   }
 }
-const lat0 = stopPts.reduce((s, p) => s + p[0], 0) / stopPts.length;
-const k = Math.cos(lat0 * Math.PI / 180);
-const planar = ([lat, lon]) => [lon * k, -lat];
-const P = stopPts.map(planar);
-const mx = P.reduce((s, p) => s + p[0], 0) / P.length, my = P.reduce((s, p) => s + p[1], 0) / P.length;
-let sxx = 0, sxy = 0, syy = 0; for (const [x, y] of P) { const dx = x - mx, dy = y - my; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; }
-let theta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-if (IR.rotationDeg != null) theta = -IR.rotationDeg * Math.PI / 180;
-const cosT = Math.cos(-theta), sinT = Math.sin(-theta);
-const rot = ([x, y]) => { const dx = x - mx, dy = y - my; return [dx * cosT - dy * sinT, dx * sinT + dy * cosT]; };
-const tform0 = ll => rot(planar(ll));
-const O = (function () {
-  const fc = IR.focus.center;
-  if (Array.isArray(fc)) return tform0(fc);
-  if (fc !== 'centroid' && atco2ll[ANCHOR]) return tform0(atco2ll[ANCHOR]);
-  const t = stopPts.map(tform0); return [t.reduce((s, p) => s + p[0], 0) / t.length, t.reduce((s, p) => s + p[1], 0) / t.length];
-})();
-const R0 = IR.focus.coreKm / 111.32;
-const CPF = IR.focus.comp;
-const R1 = (IR.focus.midKm != null) ? IR.focus.midKm / 111.32 : null;
-const CPF2 = (IR.focus.outerComp != null) ? IR.focus.outerComp : CPF;
-function compress([x, y]) {
-  if (CPF >= 1 && R1 === null) return [x, y];
-  const dx = x - O[0], dy = y - O[1], r = Math.hypot(dx, dy);
-  if (r <= R0 || r === 0) return [x, y];
-  const nr = (R1 !== null && r > R1) ? R0 + (R1 - R0) * CPF + (r - R1) * CPF2 : R0 + (r - R0) * CPF;
-  return [O[0] + dx / r * nr, O[1] + dy / r * nr];
-}
-const tform = ll => compress(tform0(ll));
-const MX0 = 6, MX1 = 196, MY0 = 30, MY1 = 205;
-const allT = stopPts.map(tform);
-let minX = Math.min(...allT.map(p => p[0])), maxX = Math.max(...allT.map(p => p[0]));
-let minY = Math.min(...allT.map(p => p[1])), maxY = Math.max(...allT.map(p => p[1]));
-const pad = 0.0006; minX -= pad; maxX += pad; minY -= pad; maxY += pad;
-const FM = IR.fitMargin != null ? IR.fitMargin : 4;
-const sc = Math.min((MX1 - MX0 - 2 * FM) / (maxX - minX), (MY1 - MY0 - 2 * FM) / (maxY - minY));
-const offX = (MX1 - MX0 - (maxX - minX) * sc) / 2, offY = (MY1 - MY0 - (maxY - minY) * sc) / 2;
-const XY = ll => { const [x, y] = tform(ll); return [MX0 + offX + (x - minX) * sc, MY0 + offY + (y - minY) * sc]; };
+// THE FRAME THE SOLVER LAYS OUT IN, AND IT IS A DECIDED RULE (OA-230, closed
+// 2026-09-02 by Peter on the measurement; reworded 2026-09-02, OA-224 Tier 4.1).
+//
+// Until 2026-09-02 the forty lines here were a copy of gen_internal.js's
+// projection, commented "EXACT copy", and the copy had drifted from projection.js
+// in four ways: a flat 205 mm frame bottom where every geographic sheet has run
+// the footer-safe frame since 2026-08-15, no design.fixedOrientation, no
+// overrides.json rotation and no detail lenses (engine F5, codebase review
+// 2026-09-01). This call hands the real module exactly what the copy computed, so
+// the extraction moved no byte on any of the 13 schematic and diagram sheets.
+//
+// THE ADOPTION WAS BUILT AND REJECTED, so this is not a deferral. The three sheets
+// it would move (High Wycombe's schematic and diagram, Ramsey's schematic) were
+// built in scratch against the town's real footer-safe frame -- plate top 188.10
+// mm, a 12.8% scale change on a height-bound fit -- each beside a control that
+// reproduced the committed sheet byte-for-byte. THE READER SEES THE SAME LAYOUT
+// EITHER WAY: the workspace gen_internal.js refits these pseudo-coordinates into
+// its own frame regardless, so the frame here changes only the SCALE at which the
+// solver's millimetre thresholds and the label placer's decisions are taken. That
+// showed up as a label reshuffle on the two High Wycombe sheets (6 lost / 5
+// gained; 2 lost / 1 gained) and nothing at all on Ramsey. Not worth three version
+// bumps, three re-renders, three S6 runs and a portal hand-off.
+//
+// So LEGACY_FRAME is what the pre-stage MEANS, not what it is stuck with: hand the
+// solver a stable frame of its own and let the workspace do the fitting. Passing
+// the town's fixedOrientation and overrides rotation through would be inert today
+// -- no schematic town sets either -- and that is the reason NOT to do it: an
+// inert pass-through is a silent behaviour change waiting for the first town that
+// does set one. pre_stages.test.js asserts these values, so the rule has an
+// instrument rather than a comment.
+const LEGACY_FRAME = { OV: {}, FIXED_ORIENTATION: null, FOOTER_SAFE: false, FOOTER_PLATE_TOP: null, DESIGN: {} };
+const _proj = projection(Object.assign({ stopPts, atco2ll, ANCHOR,
+  IR: Object.assign({}, IR, { lenses: undefined }),      // the copy had no lens support
+  ZOOM: { corePct: 1.0, comp: 1.0 } }, LEGACY_FRAME));   // ZOOM is the classic model's; unread with IR set
+const { XY, MX0, MX1, MY0, MY1, theta } = _proj;
+const { minX, minY, sc, offX, offY } = _proj.viewport;
 const INV = ([x, y]) => [-(minY + (y - MY0 - offY) / sc), minX + (x - MX0 - offX) / sc];
 const rll = v => +v.toFixed(8);
 
 // ---- route-only graph (NO keyRoads — the diagram draws no road skeleton) ----
-const key6 = ll => (+ll[0]).toFixed(6) + ',' + (+ll[1]).toFixed(6);
 let N = new Map();                         // key -> {mm:[x,y], ll:[lat,lon], adj:Map(key->edgeId)}
 let E = [];                                // edgeId -> {a,b,name}
-function node(ll) {
-  const kk = key6(ll); let n = N.get(kk);
-  if (!n) { n = { mm: XY(ll), ll: [+ll[0], +ll[1]], adj: new Map() }; N.set(kk, n); }
-  return kk;
-}
-function addEdge(ka, kb, name) {
-  if (ka === kb) return;
-  const na = N.get(ka);
-  if (na.adj.has(kb)) return;
-  const id = E.length; E.push({ a: ka, b: kb, name: name || null });
-  na.adj.set(kb, id); N.get(kb).adj.set(ka, id);
-}
+// withLatLon/withName are this pre-stage's two differences from the schematizer:
+// it keeps the real lat/lon on every node (the pin resolver reads it) and the
+// road name on every edge (the corridor labels do).
+const roadOps = roadGraph.graphOps({ XY, withLatLon: true, withName: true });
+const node = ll => roadOps.node(N, ll);
+const addEdge = (ka, kb, name) => roadOps.addEdge(N, E, ka, kb, name);
 // per-segment road names from routes_paths edges ("nodeIdA>nodeIdB") + edgeWay
 const wayName = (eid) => {
   if (!eid) return null;
@@ -158,71 +189,19 @@ for (const r of order) {
 console.log('graph: ' + N.size + ' nodes, ' + E.length + ' edges (routes only)');
 
 // ---- junction-cluster contraction (fixpoint; same as the schematizer) -------
-let REP = new Map();
-if (DG.mergeJn > 0 || DG.mergeEdge > 0) {
-  let totalMerged = 0;
-  for (let pass = 0; pass < 6; pass++) {
-    const jk = [...N.entries()].filter(([k, n]) => n.adj.size !== 2).map(([k]) => k);
-    const uf = new Map(jk.map(k => [k, k]));
-    const find = k => { let r = k; while (uf.get(r) !== r) r = uf.get(r); uf.set(k, r); return r; };
-    for (let i = 0; i < jk.length; i++) for (let j = i + 1; j < jk.length; j++) {
-      const a = N.get(jk[i]).mm, b = N.get(jk[j]).mm;
-      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < DG.mergeJn) {
-        const ra = find(jk[i]), rb = find(jk[j]); if (ra !== rb) uf.set(ra, rb);
-      }
-    }
-    if (DG.mergeEdge > 0) for (const e of E) {
-      const A = N.get(e.a), B = N.get(e.b);
-      if (A.adj.size === 2 || B.adj.size === 2) continue;
-      if (Math.hypot(A.mm[0] - B.mm[0], A.mm[1] - B.mm[1]) < DG.mergeEdge) {
-        const ra = find(e.a), rb = find(e.b); if (ra !== rb) uf.set(ra, rb);
-      }
-    }
-    const clusters = new Map();
-    for (const k of jk) { const r = find(k); (clusters.get(r) || clusters.set(r, []).get(r)).push(k); }
-    const localRep = new Map(); let merged = 0;
-    for (const [r, ms] of clusters) if (ms.length > 1) {
-      merged += ms.length - 1;
-      const cx = ms.reduce((s, k) => s + N.get(k).mm[0], 0) / ms.length;
-      const cy = ms.reduce((s, k) => s + N.get(k).mm[1], 0) / ms.length;
-      for (const k of ms) if (k !== r) { REP.set(k, r); localRep.set(k, r); }
-      N.get(r).mm = [cx, cy];
-    }
-    if (!merged) break;
-    totalMerged += merged;
-    const rep = k => localRep.has(k) ? localRep.get(k) : k;
-    const N2 = new Map(), E2 = [];
-    for (const [k, n] of N) if (rep(k) === k) N2.set(k, { mm: n.mm, ll: n.ll, adj: new Map() });
-    for (const e of E) {
-      const a = rep(e.a), b = rep(e.b);
-      if (a === b || N2.get(a).adj.has(b)) continue;
-      const id = E2.length; E2.push({ a, b, name: e.name });
-      N2.get(a).adj.set(b, id); N2.get(b).adj.set(a, id);
-    }
-    N = N2; E = E2;
-  }
-  const resolve = k => { let r = k; while (REP.has(r)) r = REP.get(r); return r; };
-  for (const k of [...REP.keys()]) REP.set(k, resolve(k));
-  if (totalMerged) console.log('contracted ' + totalMerged + ' junction node(s); graph now ' + N.size + ' nodes, ' + E.length + ' edges');
-}
+// road_graph.js does the contraction (OA-232 Tier 3.3). The LOG LINE stays here
+// rather than moving with it, because the schematizer's names its two thresholds
+// and this one does not, and that wording belongs to whoever reads the output.
+const _con = roadOps.contract(N, E, { mergeJn: DG.mergeJn, mergeEdge: DG.mergeEdge });
+N = _con.N; E = _con.E;
+const REP = _con.REP;
+if (_con.totalMerged) console.log('contracted ' + _con.totalMerged + ' junction node(s); graph now ' + N.size + ' nodes, ' + E.length + ' edges');
 
 // ---- corridors (degree-2 chains between junctions) --------------------------
-const deg = kk => N.get(kk).adj.size;
+const deg = kk => roadGraph.deg(N, kk);
 const corridors = [];
 const eSeen = new Set();
-function walk(k0, k1) {
-  const chain = [k0, k1];
-  eSeen.add(N.get(k0).adj.get(k1));
-  let prev = k0, cur = k1;
-  while (deg(cur) === 2) {
-    const nxt = [...N.get(cur).adj.keys()].find(x => x !== prev);
-    if (nxt == null) break;
-    const eid = N.get(cur).adj.get(nxt);
-    if (eSeen.has(eid)) break;
-    eSeen.add(eid); chain.push(nxt); prev = cur; cur = nxt;
-  }
-  return chain;
-}
+const walk = (k0, k1) => roadGraph.walk(N, eSeen, k0, k1);
 for (const [kk, n] of N) {
   if (deg(kk) === 2) continue;
   for (const nb of n.adj.keys()) {
@@ -293,7 +272,6 @@ console.log('corridors: ' + CORS.length);
 // recursively, capped at maxBends. This is what turns wiggly streets into the
 // hand-drawn leaflet's long straight runs.
 const bearDeg = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
-const angdist = (a, b) => { let d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
 for (const c of CORS) {
   const anchors = [0, c.mm.length - 1];
   const trySplit = (i0, i1, depth) => {
@@ -462,28 +440,6 @@ const PINS = [];
 }
 
 // ---- weighted least-squares position solve ------------------------------------
-function lsq(NV, rows) {
-  const M = new Float64Array(NV * NV), R = new Float64Array(NV);
-  for (const { cs, t, w } of rows)
-    for (const [i, ci] of cs) { R[i] += w * ci * t; for (const [j, cj] of cs) M[i * NV + j] += w * ci * cj; }
-  for (let c = 0; c < NV; c++) {
-    let p = c; for (let r2 = c + 1; r2 < NV; r2++) if (Math.abs(M[r2 * NV + c]) > Math.abs(M[p * NV + c])) p = r2;
-    if (Math.abs(M[p * NV + c]) < 1e-12) continue;
-    if (p !== c) { for (let j = c; j < NV; j++) { const t = M[c * NV + j]; M[c * NV + j] = M[p * NV + j]; M[p * NV + j] = t; } const t = R[c]; R[c] = R[p]; R[p] = t; }
-    const pv = M[c * NV + c];
-    for (let r2 = c + 1; r2 < NV; r2++) {
-      const f = M[r2 * NV + c] / pv; if (!f) continue;
-      for (let j = c; j < NV; j++) M[r2 * NV + j] -= f * M[c * NV + j];
-      R[r2] -= f * R[c];
-    }
-  }
-  for (let c = NV - 1; c >= 0; c--) {
-    let s = R[c];
-    for (let j = c + 1; j < NV; j++) s -= M[c * NV + j] * R[j];
-    R[c] = Math.abs(M[c * NV + c]) < 1e-12 ? 0 : s / M[c * NV + c];
-  }
-  return R;
-}
 {
   const ids = [...SN.keys()]; const idx = new Map(ids.map((d, i) => [d, i]));
   const rows = [];
@@ -644,17 +600,7 @@ for (const c of DUP) {
 }
 
 // ---- warp field for everything off the network --------------------------------
-const samples = [];
-for (const [id, n] of SN) samples.push({ o: n.mm0, d: [n.mm[0] - n.mm0[0], n.mm[1] - n.mm0[1]] });
-function warp(mm) {
-  let sw = 0, sx = 0, sy = 0;
-  for (const s of samples) {
-    const d2 = (mm[0] - s.o[0]) ** 2 + (mm[1] - s.o[1]) ** 2;
-    const w = 1 / (d2 + 9);
-    sw += w; sx += w * s.d[0]; sy += w * s.d[1];
-  }
-  return sw ? [mm[0] + sx / sw, mm[1] + sy / sw] : mm.slice();
-}
+const warp = roadGraph.makeWarp(SN);   // samples the SOLVED SN, so it is built here, not earlier
 
 // ---- network segments with solved endpoints (POI snap + river crossings) ------
 // The diagram's displacements are far too large for pure IDW warp (it folded
@@ -702,9 +648,19 @@ const segInt = (p1, p2, a, b) => {
 // where it crosses the solved network, similarity-transform each span between
 // consecutive crossings (keeps the real winding shape locally), warp fallback
 // when it never crosses a route.
-function mapFeatureSeg(mmSeg) {
+// Arc-lengths of a polyline's vertices — the line's own metric, shared by the
+// crossing search and the span mapper so both index it the same way.
+function featureArc(mmSeg) {
   const cum = [0];
   for (let j = 0; j < mmSeg.length - 1; j++) cum.push(cum[j] + Math.hypot(mmSeg[j + 1][0] - mmSeg[j][0], mmSeg[j + 1][1] - mmSeg[j][1]));
+  return cum;
+}
+// Where this polyline crosses the solved network, deduped along its own arc so a
+// bundle of parallel route segments counts once. Its OWN function so the build-time
+// report asks EXACTLY the question the mapper asks: a second implementation of "does
+// it cross" would be free to disagree with the one that decides the ink.
+function featureCrossings(mmSeg, cum) {
+  cum = cum || featureArc(mmSeg);
   const crossings = [];
   for (let j = 0; j < mmSeg.length - 1; j++) {
     const p1 = mmSeg[j], p2 = mmSeg[j + 1];
@@ -719,10 +675,15 @@ function mapFeatureSeg(mmSeg) {
       });
     }
   }
-  if (!crossings.length) return mmSeg.map(warp);
   crossings.sort((x, y) => x.arc - y.arc);
   const CR = [];      // dedupe crossings from bundled/parallel net segments
   for (const c of crossings) if (!CR.length || c.arc - CR[CR.length - 1].arc > 2) CR.push(c);
+  return CR;
+}
+function mapFeatureSeg(mmSeg, crossings) {
+  const cum = featureArc(mmSeg);
+  const CR = crossings || featureCrossings(mmSeg, cum);
+  if (!CR.length) return mmSeg.map(warp);
   const sim = (P0, P1, Q0, Q1) => {
     const vx = P1[0] - P0[0], vy = P1[1] - P0[1];
     const wx = Q1[0] - Q0[0], wy = Q1[1] - Q0[1];
@@ -846,26 +807,34 @@ const wjson = (f, o) => fs.writeFileSync(path.join(WD, f), JSON.stringify(o));
   let fgeo = {}; try { fgeo = JSON.parse(fs.readFileSync(DIR + '/features_geo.json', 'utf8')); } catch (e) { }
   const out = {};
   for (const kf in fgeo) {
-    out[kf] = fgeo[kf].map(seg => {
-      const mm = seg.map(p => XY(p));
-      const mapped = mm.length < 2 ? mm.map(warp) : mapFeatureSeg(mm);
+    // STITCH BEFORE MAPPING (OA-059). mapFeatureSeg() gives each polyline its own
+    // transform, so two OSM ways that met in reality stop meeting on the sheet, and
+    // one crossing no route falls to warp() — a third transform again. Measured on
+    // the shipped St Ives v6.70 diagram: the river is seven ways forming ONE chain
+    // through five joins, and three of the five arrived broken, by up to 18% of the
+    // river's own width across the page, with 767 mm of the 958 mm drawn flung off
+    // the page. Welding first means one transform per real line — the rule
+    // linear_features.js already applies at DRAW time, its own stitchSegs, imported
+    // rather than copied so the maxTurn guard is not re-derived by hand.
+    const mmSegs = fgeo[kf].map(seg => seg.map(p => XY(p)));
+    const chains = DG.featureStitch ? stitchSegs(mmSegs, DG.featureStitch, DG.featureStitchTurn) : mmSegs;
+    let noCross = 0;
+    out[kf] = chains.map(mm => {
+      const cr = mm.length < 2 ? [] : featureCrossings(mm);
+      if (mm.length >= 2 && !cr.length) noCross++;
+      const mapped = mm.length < 2 ? mm.map(warp) : mapFeatureSeg(mm, cr);
       if (mapped.length < 3) return mapped.map(p => INV(p).map(rll));
       const keep = [0]; dpTol(mapped, 0, mapped.length - 1, DG.featureTol, keep); keep.push(mapped.length - 1);
       return [...new Set(keep)].sort((a, b) => a - b).map(i => INV(mapped[i]).map(rll));
     });
+    // The line that would have caught OA-059 the day it shipped, and neither half
+    // of it is visible in a byte count or a label diff: ways outnumbering chains
+    // means the feature is arriving in pieces, and a chain crossing no route is on
+    // warp() — which is how one St Ives way ended at y = -263.76 mm on a 210 mm page.
+    console.log(`feature ${kf}: ${fgeo[kf].length} way(s) -> ${chains.length} chain(s)`
+      + (noCross ? `, ${noCross} crossing no route (warp fallback)` : ''));
   }
   wjson('features_geo.json', out);
-}
-function dpTol(pts, i0, i1, tol, keep) {
-  let bi = -1, bd = 0;
-  const a = pts[i0], b = pts[i1];
-  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
-  for (let i = i0 + 1; i < i1; i++) {
-    const d = L < 1e-9 ? Math.hypot(pts[i][0] - a[0], pts[i][1] - a[1])
-      : Math.abs((pts[i][0] - a[0]) * dy - (pts[i][1] - a[1]) * dx) / L;
-    if (d > bd) { bd = d; bi = i; }
-  }
-  if (bd > tol && bi > 0) { dpTol(pts, i0, bi, tol, keep); keep.push(bi); dpTol(pts, bi, i1, tol, keep); }
 }
 for (const f of ['osm.json', 'osm2.json']) {
   const o = JSON.parse(fs.readFileSync(DIR + '/' + f, 'utf8'));
@@ -950,7 +919,7 @@ try { fs.copyFileSync(path.join(DIR, 'diagram-overrides.json'), path.join(WD, 'o
 
 // ---- debug skeleton SVG ---------------------------------------------------------
 {
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="3508" height="2480" viewBox="0 0 297 210">`;
+  let s = svgOpen();
   s += `<rect width="297" height="210" fill="#fff"/>`;
   s += `<rect x="${MX0}" y="${MY0}" width="${MX1 - MX0}" height="${MY1 - MY0}" fill="none" stroke="#ddd" stroke-width="0.3"/>`;
   for (const c of CORS)
@@ -974,10 +943,10 @@ console.log('workspace written: ' + WD);
 // DIR/cwd, which don't hold once the workspace subfolder is in play).
 if (process.env.DIAGRAM_ONLY !== '1') {
   const { spawnSync } = require('child_process');
-  const cand = [path.join(DIR, 'gen_internal.js'),
-    process.env.SKILL_ASSETS && path.join(process.env.SKILL_ASSETS, 'gen_internal.js'),
-    path.join(__dirname, 'gen_internal.js')].filter(Boolean);
-  const gen = cand.find(f => { try { return fs.existsSync(f); } catch (e) { return false; } });
+  // Run dir, then SKILL_ASSETS, then this script's folder — engine_paths.js's
+  // spawnTarget(), which is where that search now lives; both pre-stages wrote it
+  // out (engine N24). It is a THIRD rule, not dep(): see the header there.
+  const gen = spawnTarget(DIR, __dirname)('gen_internal.js');
   if (!gen) { console.error('gen_internal.js not found'); process.exit(1); }
   const isPlace = fs.existsSync(path.join(DIR, 'gen_internal_place.js'));
   const env = { ...process.env };
@@ -1002,7 +971,6 @@ if (process.env.DIAGRAM_ONLY !== '1') {
     process.stderr.write('diagram labels: ' + nDropped + ' could not be placed -> unplaced-diagram.json\n');
   } else { try { fs.unlinkSync(UN_OUT); } catch (e) {} }
   if (isPlace) {
-    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const emitted = 'Buses within ' + esc(RJ.town);
     const title = RJ.internalTitle || RJ.placeTitle || ('Buses serving ' + (RJ.placeShort || RJ.place || RJ.town));
     let svg = fs.readFileSync(OUT, 'utf8');
@@ -1017,3 +985,7 @@ if (process.env.DIAGRAM_ONLY !== '1') {
     console.log('internal-diagram.svg written (render with render.js for the print JPG)');
   }
 }
+}
+
+if (require.main === module) main();
+module.exports = { main };

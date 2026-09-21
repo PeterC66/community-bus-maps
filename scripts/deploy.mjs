@@ -25,8 +25,9 @@
 // the other laptop-side scripts.
 
 import { spawnSync } from 'node:child_process';
+import { has } from './lib/cli.mjs';
+import { hostEnvDiagnosis, hostEnvProbe } from './lib/host-env.mjs';
 
-const has = (name) => process.argv.includes(`--${name}`);
 const DRY_RUN = has('dry-run');
 const SKIP_BACKUP = has('skip-backup');
 
@@ -135,20 +136,45 @@ if (!DRY_RUN) {
 console.log('\n-- 5. /health?deep=1');
 if (!DRY_RUN) {
   console.log(`   built and deployed: gitSha=${gitSha} builtAt=${builtAt}`);
-  if (!process.env.METRICS_TOKEN) {
-    console.log('   (no METRICS_TOKEN in this shell — if the host .env has none either,');
-    console.log('    gitSha/builtAt/checks are gated OUT of the reply below)');
-  }
+  // THE ADVISORY USED TO BE HERE AND ASKED THE WRONG MACHINE, fixed 2026-09-01.
+  // It read `process.env.METRICS_TOKEN` — this shell, on the laptop — and warned
+  // that the gated fields might be missing. But the token this step actually
+  // authenticates with is sourced from the HOST's .env, twelve lines below, so
+  // the local variable has no bearing on the reply. Once the laptop copy was
+  // deliberately retired (2026-09-01, after the value leaked twice), the warning
+  // fired on every single deploy while the fields it warned about came back
+  // perfectly. The check is now inside the remote shell, where its subject lives
+  // and where the answer is knowable: the `else` arm below runs only when the
+  // HOST has no token, which is the only condition that gates anything out.
+  //
   // An explicit if/else, NOT `${METRICS_TOKEN:+-H "Authorization: …"}`. The
   // parameter-expansion form looks tidier and is wrong: the quotes it produces
   // are the RESULT of an expansion, so the shell does not honour them and the
   // header word-splits into four arguments. Quoting only works when it is in the
   // script text, which is what this is.
+  //
+  // THE .env IS READ, NOT SOURCED, CHANGED 2026-09-19. It used to be
+  // `{ set -a; . ./.env 2>/dev/null; set +a; }`, which aborts on the host's real
+  // file: `EMAIL_FROM=Peter Cooper - BusMaps.uk <info@busmaps.uk>` is line 3 and
+  // `<` is a redirection operator, so the shell gives up there and never reaches
+  // `METRICS_TOKEN` on line 11. The `2>/dev/null` hid the syntax error and the
+  // `else` arm then announced that the host had no token — about a value that
+  // was present and 48 characters long, in both the file and the container. So
+  // every deploy in that form ended without the gitSha it exists to read, under
+  // an explanation that was not true. `scripts/lib/host-env.mjs` has the whole
+  // account; the short version is that `.env` is Compose's key/value file and
+  // applying shell semantics to it was always a category error.
   const url = '"localhost:5180/health?deep=1"';
-  const remote = 'sleep 3 && cd ' + APP_DIR + ' && { set -a; . ./.env 2>/dev/null; set +a; }; '
-    + 'if [ -n "$METRICS_TOKEN" ]; then '
-    + 'curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" ' + url + '; '
-    + 'else curl -fsS ' + url + '; fi';
+  const probe = hostEnvProbe({ name: 'METRICS_TOKEN', outVar: 'CBM_MT' });
+  const diagnosis = hostEnvDiagnosis({
+    name: 'METRICS_TOKEN',
+    gated: 'gitSha, builtAt and checks{} are gated OUT of the reply below',
+  });
+  const remote = 'sleep 3 && cd ' + APP_DIR + ' && ' + probe + '; '
+    + 'if [ -n "$CBM_MT" ]; then '
+    + 'curl -fsS -H "Authorization: Bearer $CBM_MT" ' + url + '; '
+    + 'else ' + diagnosis + ' '
+    + 'curl -fsS ' + url + '; fi';
   const rc = sshRun(remote);
   if (rc !== 0) {
     console.error('\n✗ the new container is not READY (curl returned ' + rc + ').');
@@ -179,6 +205,22 @@ if (!DRY_RUN && !has('skip-signin')) {
 
 console.log('\n✓ deploy sequence complete.');
 console.log(`  Deployed ${gitSha || '(dry run)'} at ${builtAt || '(dry run)'}.`);
-console.log('  Read the /health output above — and if it carries no gitSha/checks, that is the');
-console.log('  METRICS_TOKEN gate, not a healthy answer. Confirm the commit independently before');
-console.log('  calling it done: curl a file that only the new build serves (docs/DEPLOY.md §3a).');
+console.log('  Read the /health output above. If it carries no gitSha/checks, step 5 said which');
+console.log('  of the two reasons applies — the host has no METRICS_TOKEN= line, or it has one');
+console.log('  that read back empty. It no longer guesses: until 2026-09-19 it sourced .env, which');
+console.log('  aborts on a value the shell cannot parse, and then blamed a token that was there.');
+
+// 7. THE ONE CHECK THAT CAN SEE A LOST ROUTE, named here rather than only in the
+// docs (OA-232 Tier 1.6, the 2026-09-03 review's portal-ops W7).
+//
+// Everything above asks whether the process came up. None of it can see a route
+// that stopped being REGISTERED, because that does not throw -- it 404s, quietly,
+// to whoever asks for it next, and five plugin cuts in two days is exactly when
+// that happens. It is not run automatically from here on purpose: it interrogates
+// the LIVE site over the network, and a deploy script that fires a second network
+// pass at the end has one more way to fail after the deploy has already landed.
+// Printing it costs nothing and is the difference between a documented step and a
+// remembered one.
+console.log('\n  Then, from this folder, ask whether every route is still there:');
+console.log('      npm run check:live-routes');
+console.log('  It asks the running site about every route in scripts/route-table.json (docs/DEPLOY.md §4).');

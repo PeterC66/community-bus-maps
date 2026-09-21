@@ -71,80 +71,13 @@
     "",
     "Also note the `dataAsAt` values below are all stale: they say 2026-08-19,",
     "but every town's newest S3 is 2026-08-24_1600 (the opt-in rebase). The rows",
-    "understate their own staleness by five days."
+    "understate their own staleness by five days.",
+    "",
+    "EMPTIED 2026-09-18, AND THE FILE STAYS. All ten rows were dead letters: measured on 2026-09-15 through scripts/lib/s6-freshness.mjs over all 20 maps, 20 of 20 read `fresh`, none refuses, and every one carries verdict \"pass\" at 0 hard findings. gateS6() in scripts/deliver-map.mjs returns at verdict === \"fresh\" BEFORE it consults this file, so while the estate is in that state not one of these entries could affect a delivery and not one of their `until` dates could expire into anything.",
+    "THE ROWS WERE CLEARED THE WAY THIS FILE ASKS - by running S6, not by moving a date. The newest runs are dated 12-13 September and three were opened by hand (Ramsey 2026-09-12_0517, Huntingdon 2026-09-12_0215, Ely Co-op 2026-09-13_0518), each `pass`, 0 hard, borrowedRedteam null. That is item 5 of the pre-customer checklist in docs/H1-operations-handbook.md 3b, now ticked.",
+    "AND THE RISK RAN THE OTHER WAY WHILE THEY SAT HERE. Ely Co-op and both Godmanchester Co-ops were deferred to 3 and 10 November on the premise \"Never verified, and STANDALONE ... its red team has to be bought outright\", with s6AsAt null. All three now hold passing answers of their own. Had one gone stale before November, that live deferral would have covered it silently - the file working exactly as designed, on a reason that had stopped being true. Three of the ten `why` lines were false by the time they were deleted.",
+    "WHAT THIS MEASUREMENT IS NOT. verification.json is gitignored in buses-data, so from a clone or in CI all 20 maps read `no-verdict` and all 20 refuse. A green CI run is not evidence for this change and no check in any repository can be made to stand behind it; what stands behind it is the estate's own S6 runs on the operator's laptop. And `fresh` means the S6 run is newer than the data and reached a pass with soft findings ignored - it is less than \"the map is correct\".",
+    "THE EMPTY ARRAY IS THE STATE THIS FILE EXISTS TO REACH, so it is kept rather than deleted: the deferral mechanism stays available, the header stays readable, and the next entry starts from the same rules. scripts/test-audit-p1.mjs no longer requires the array to be non-empty - that assertion could only pass while the debt existed - and still checks every entry that IS present for its four fields and a dated `until`."
   ],
-  "waive": [
-    {
-      "map": "Huntingdon",
-      "until": "2026-09-15",
-      "s6AsAt": "2026-08-04T04:23",
-      "dataAsAt": "2026-08-19T04:45",
-      "why": "As St Ives: S6 predates the P1-round config pass.",
-      "removeBy": "Run S6 for Huntingdon against the current S3, then delete this entry."
-    },
-    {
-      "map": "High Wycombe",
-      "until": "2026-09-22",
-      "s6AsAt": "2026-08-04T04:23",
-      "dataAsAt": "2026-08-19T04:45",
-      "why": "As St Ives: S6 predates the P1-round config pass. Also the town whose Key filter and note panel changed most in that round, so its S6 is the one worth doing early.",
-      "removeBy": "Run S6 for High Wycombe against the current S3, then delete this entry."
-    },
-    {
-      "map": "Wisbech",
-      "until": "2026-09-22",
-      "s6AsAt": "2026-08-04T04:23",
-      "dataAsAt": "2026-08-19T04:45",
-      "why": "As St Ives, plus the P1-round palette guard repicked its X46 off the furniture grey onto amber, on a sheet that also draws the A47 in gold. Checked by eye at the time; pick_route_colour.js does not score against drawn roads, so this one wants a human look.",
-      "removeBy": "Run S6 for Wisbech against the current S3, then delete this entry."
-    },
-    {
-      "map": "March",
-      "until": "2026-09-29",
-      "s6AsAt": "2026-08-04T04:23",
-      "dataAsAt": "2026-08-19T10:44",
-      "why": "As St Ives, plus the schematic river-warp fix of 2026-08-19 — the only town combining the legacy river_geo.json fallback with internalSchematic, so its schematic sheet is the one that changed most and has never been verified in its fixed form.",
-      "removeBy": "Run S6 for March against the current S3, then delete this entry."
-    },
-    {
-      "map": "Ramsey",
-      "until": "2026-09-29",
-      "s6AsAt": "2026-08-08T04:40",
-      "dataAsAt": "2026-08-19T04:45",
-      "why": "As St Ives: S6 predates the P1-round config pass.",
-      "removeBy": "Run S6 for Ramsey against the current S3, then delete this entry."
-    },
-    {
-      "map": "Ely Co-op",
-      "until": "2026-11-03",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified, and STANDALONE - there is no Ely town map, so there is no parent S6 to lean on even in principle and its red team has to be bought outright. It was also invisible to every gate until 2026-08-25 (the three place layouts fix), so it has had less scrutiny than any other live map.",
-      "removeBy": "Run S6 for Ely Co-op (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "Godmanchester Co-op Cambridge Road",
-      "until": "2026-11-03",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified, standalone, and one of the three maps that were invisible to every gate until 2026-08-25. Huntingdon is the nearest mapped town and its S6 is itself BLOCKED, so nothing here can be inferred from a neighbour.",
-      "removeBy": "Run S6 for Godmanchester Co-op Cambridge Road (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "Godmanchester Co-op Ermine Street",
-      "until": "2026-11-10",
-      "s6AsAt": null,
-      "dataAsAt": null,
-      "why": "Never verified, standalone. As Godmanchester Co-op Cambridge Road; last of the ten so the queue does not end in a cluster.",
-      "removeBy": "Run S6 for Godmanchester Co-op Ermine Street (make-bus-leaflet references/s6-verify.md, section \"Running S6 on a PLACE\"): stage.js new S6, pull S1/S2/S3, run place_verified_services.js, then redteam_source.js - it will say BUY, so spawn the blind agent - then verify_report.js and gen_verification.py. Then delete this entry."
-    },
-    {
-      "map": "St Neots Tesco Extra",
-      "until": "2026-09-29",
-      "s6AsAt": "2026-08-28T00:11",
-      "dataAsAt": "2026-08-28T18:41",
-      "why": "Its S6 PASSED on 2026-08-28 and went stale hours later for a CONFIG-only reason: the checkedAt rollout gave all 20 maps a new S3 so the footer could stop claiming every map was cross-checked in June 2026. No service data moved. The four other maps the rollout made stale were re-run the same day reusing the blind answer they already owned; this one cannot, because redteam_source says BUY -- its S1/S2 have moved since that answer was derived, so reuse would not be independent.",
-      "removeBy": "Buy a fresh blind red team for St Neots Tesco Extra (redteam_source.js says BUY), run S6 against the current S3, then delete this entry."
-    }
-  ]
+  "waive": []
 }

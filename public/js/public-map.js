@@ -23,9 +23,9 @@
     // this sentence lives, and a tooltip reaches neither a keyboard nor a phone.
     $('sheetHint').innerHTML = o.hint ? `<strong>${esc(o.label)}.</strong> ${esc(o.hint)}` : '';
     $('sheetNote').textContent = 'Drag to move around the map, and zoom in for the detail. '
-      + 'The printable sheet is below.';
+      + 'The printable map is below.';
     $('downloads').innerHTML =
-      (o.jpgUrl ? `<a class="btn btn-primary btn-sm" href="${esc(o.jpgUrl)}?download">Download print sheet (A4, ${esc(mb(o.jpgBytes))})</a>` : '') +
+      (o.jpgUrl ? `<a class="btn btn-primary btn-sm" href="${esc(o.jpgUrl)}?download">Download to print (A4, ${esc(mb(o.jpgBytes))})</a>` : '') +
       (o.svgUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(o.svgUrl)}?download">Download vector (SVG)</a>` : '') +
       (o.jpgUrl ? `<a class="btn btn-ghost btn-sm" href="${esc(o.jpgUrl)}" target="_blank" rel="noopener">Open the image on its own</a>` : '');
     [...document.querySelectorAll('#tabs .tab')].forEach((b) => {
@@ -113,7 +113,7 @@
 
   if (!map.outputs.length) {
     $('err').hidden = false;
-    $('err').textContent = 'This map has no sheets available at the moment.';
+    $('err').textContent = 'There are no maps available for this place at the moment.';
     return;
   }
   $('tabs').innerHTML = map.outputs

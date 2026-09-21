@@ -23,6 +23,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, readdi
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BUSES_DIR } from './lib/buses-dir.mjs';
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-test-buildwarn-'));
 process.env.DATA_DIR = scratch;
@@ -106,7 +107,7 @@ eq('an unrecognised file reports null rather than guessing',
 // 5. Against the REAL corpus when it is present. CI checks out only this
 //    repository, so this is skipped there rather than failed — a check that
 //    cannot run must not report a pass it did not make.
-const TREE = 'C:/u3a St Ives/Using AI/Buses/Areas';
+const TREE = path.join(BUSES_DIR, 'Areas');   // env first, one named default (OA-232 Tier 1.6)
 if (existsSync(TREE)) {
   const found = [];
   (function walk(d, depth) {

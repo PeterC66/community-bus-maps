@@ -1,5 +1,5 @@
-<!-- docstamp v1.0 | 2026-08-14 | sha=e9b29dbf -->
-**v1.0** · updated 14 August 2026
+<!-- docstamp v1.1 | 2026-09-10 | sha=8892863c -->
+**v1.1** · updated 10 September 2026
 
 ---
 name: BusMaps.uk
@@ -120,7 +120,7 @@ The palette is small and disciplined: one primary (Civic Blue), one secondary/wa
 - **Civic Blue** (`#1b4db3` / dark: `#5a8dff`): the one actionable color. Primary buttons, links, active tab state, focus rings (`box-shadow: 0 0 0 3px` at 22% mix), the "area" map-type tag, the step-number badges on the shopfront's how-it-works section, current-node styling in the status strip.
 
 ### Secondary
-- **Notice Amber** (`#e08a00` / dark: `#f4b451`): the "pay attention" color. The pilot banner and pilot badge, the request-only/"extra cost" badge on the hand-pinned diagram output, the "place" map-type tag, in-progress/requested status pills, warning notices, the editor's-eye-view admin banner. Never used for a primary action — amber marks state, it doesn't trigger one.
+- **Notice Amber** (`#e08a00` / dark: `#f4b451`): the "pay attention" color. The pilot banner and pilot badge, the "by arrangement" badge on the where-to-board plan (and on the hand-pinned diagram output while that was offered — parked 2026-09-10, buses-data OA-297), the "place" map-type tag, in-progress/requested status pills, warning notices, the editor's-eye-view admin banner. Never used for a primary action — amber marks state, it doesn't trigger one.
 
 ### Neutral
 - **Paper** (`#ffffff` / dark: `#0f141b`, `--bg`): page and card background.

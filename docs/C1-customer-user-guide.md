@@ -1,7 +1,7 @@
-﻿# Using your bus maps — a guide for customers (C1)
+# Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.9 | 2026-08-29 | sha=215c1061 -->
-**v1.9** · updated 29 August 2026
+<!-- docstamp v1.16 | 2026-09-13 | sha=86ab02be -->
+**v1.16** · updated 13 September 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
@@ -31,10 +31,14 @@ Use **Request a map**, choose area or place, and give it a name (and, if you lik
 Open a map to make it yours. You can change:
 
 - **Route colours** — pick from a colour-blind-friendly palette.
-- **Landmarks (points of interest)** — switch icons on or off.
-- **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. Two are the exception, and both show an **Ask us** button instead of a tick-box. The tube-map-style **diagram** is positioned by hand rather than generated, so it is quoted separately. **Where to board** — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press either button and we will come back to you with what it would involve.
+- **Landmarks (points of interest)** — switch icons on or off here, or open **Landmarks** for the fuller version: your town's streets with every place marked on them, and three answers for each — **Must show**, **Show if there is room**, **Do not show**. You can answer a whole category at once, and give a place the name people locally use. There are a lot of places, so the screen keeps count: **the number sits on the buttons themselves** — *Not looked at yet 12*, *Answered 133* — and **Not looked at yet** narrows the list to the rest. Leaving somewhere exactly as it is counts as an answer, so you can stop half way and pick up where you left off. Once you have been all the way through, that button reads **0** and stays there: it is not broken, it is empty, and what fills it later is a place OpenStreetMap has added since — so it is worth a glance after each monthly update. **The map and the list are two views of the same thing.** Click a symbol on the map and that place opens in the list, ready to answer; pick a place in the list and the map travels to it and zooms in, so you never have to hunt for the one you just chose. Zoom in and the plain dots become the actual symbols the printed sheet uses, so you are deciding about the thing you will see on the paper. Road names are drawn to help you get your bearings, and there is a **Road names** button if you would rather they were not. It is the one part of the map only you can get right: the places come from OpenStreetMap, which lists what somebody happened to map rather than what a bus passenger is looking for.
 
-You see a **live preview** as you change things. When you're happy, **Save new version**. Your first version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the earlier ones. Bigger changes — moving things, the diagram layout, the geography — are done by us; ask if you need one.
+  The two controls are not the same thing, and the difference is worth a sentence. Unticking a landmark above stops its icon being *drawn* but keeps its space reserved. Answering **Do not show** in the chooser takes it off the map altogether, which is what actually gives the room back to everything else — so a sheet re-arranges a little when you save that.
+
+  Three smaller things worth knowing. **Your first draft deliberately has far too many places on it** — every one is there because OpenStreetMap has it and nobody has yet said it does not belong, so taking places off is the most useful thing you can do and the answer we least often get. **A row you answer disappears from *Not looked at yet* straight away**, so that filter always shows what is genuinely left; the list holds its place while it goes, so you are not thrown back to the top. And **a few places have no name in the map's data at all** — chemists and surgeries, whose names the printed sheet never shows, so nobody ever recorded one. Those read *Unnamed pharmacy* in italics: click the row to see where it is on the map, and if you know the place, put its name in the box. That name is then the one the sheet will use.
+- **Which outputs it produces** — the **internal (geographic)** street map, a straightened **schematic**, and the **external** "where the buses go" map are yours to switch on and off. One is the exception, and it shows an **Ask us** button instead of a tick-box. **Where to board** — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press the button and we will come back to you with what it would involve.
+
+You see a **live preview** as you change things. When you're happy, **Save new version**. Your first version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the earlier ones. Bigger changes — moving things, the geography — are done by us; ask if you need one.
 
 ## Branding your public page
 
@@ -65,11 +69,15 @@ Putting the map *inside* a page on your own website — rather than linking to o
 
 For any version you can download the **print-ready files** — an SVG and a 300 dpi A4 JPG for each output. Print them, put them on a noticeboard, add them to a newsletter. **Keep the credits** that appear on the sheet, and always point people to the operator or bustimes.org for live times — a printed map is a guide, not today's departures.
 
+**Where you put it up matters as much as what you print.** Fix the sheet between 900 mm and 1800 mm above the ground — centred about chest height, and lower rather than higher, so that somebody seated can read it — ask whoever owns the shelter, post or board before you fix anything to it, and print on matt paper rather than glossy. [The FAQ gives the detail and the source](../public/faq.html).
+
 ## Monthly updates
 
 Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed. You get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual review), or **Decline** to keep what you have. You stay in control of what gets published.
 
 Accepting doesn't send the new version for review straight away — it lands back on your dashboard as a fresh draft, carrying your existing choices over. If you'd like to revise anything — colours, landmarks, which outputs it produces — this is your chance to edit before you submit it for review, just as you would with any other draft.
+
+**The preview also tells you about new places.** The places on your map come from OpenStreetMap, and people add to it all the time — a new surgery, a shop that has changed its name. Anything that has appeared since your last version is listed on the update, because until you say otherwise it will be **shown if there is room**, which means accepting the update can quietly put a new symbol on your sheet. They are the ones waiting under **Not looked at yet** in *Landmarks*, so answering them is a two-minute job and worth doing before you submit the new version for review. Places that have GONE from OpenStreetMap are listed too, and there is nothing to do about those: whatever you had said about them is kept, in case they come back.
 
 ## If something looks wrong
 

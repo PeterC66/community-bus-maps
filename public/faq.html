@@ -1,10 +1,11 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FAQ — BusMaps.uk</title>
   <meta name="description" content="Frequently asked questions about the BusMaps.uk pilot: what the pilot means, who can apply, cost, editing, data sources and accuracy.">
+  <link rel="canonical" href="https://busmaps.uk/faq.html">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
@@ -12,7 +13,7 @@
   <script src="/js/site-banner.js" defer></script>
   <script src="/js/nav-current.js" defer></script>
   <script src="/js/auth-status.js" defer></script>
-  <!-- Opens the answer a link points at, e.g. /faq.html#diagram from the pricing page. -->
+  <!-- Opens the answer a link points at, e.g. /faq.html#boarding from the pricing page. -->
   <script src="/js/faq-anchor.js" defer></script>
   <script src="/js/faq-toggle.js" defer></script>
 </head>
@@ -50,10 +51,10 @@
           <summary>What does “pilot” mean here?</summary>
           <p>It means the system is built and working end to end, but it has never been used in anger. Specifically, and plainly:</p>
           <ul>
-            <li><strong>We have no customers.</strong> No organisation has signed up. Every map on this site was produced by us, to build and test the system.</li>
+            <li><strong>We have one organisation and no income.</strong> Love&rsquo;s Farm Community Association in St Neots publishes four of the maps here under its own name, and pays nothing for them. Every other map on this site was produced by us, to build and test the system.</li>
             <li><strong>The example maps are ours.</strong> They are real output — nothing is mocked up — but no council or business publishes them, and they are not maintained as live travel information. Anything shown as <em>Sample</em> is one of these.</li>
             <li><strong>There is no service level.</strong> No uptime promise, no response times, no guarantee the monthly refresh happens on time. It is run by one person alongside other work.</li>
-            <li><strong>Things may change or stop.</strong> We may alter how it works, pause it, or withdraw it. We would give reasonable notice and you would keep the sheets you had already downloaded.</li>
+            <li><strong>Things may change or stop.</strong> We may alter how it works, pause it, or withdraw it. We would give reasonable notice and you would keep the maps you had already downloaded.</li>
           </ul>
           <p>What is <em>not</em> provisional: the maps themselves are built from official open data and reviewed by a person before publication. The pilot label is about the <em>service around them</em>, not about the care taken over them.</p>
           <p>This is also exactly the phase where feedback on the tools and the experience is most useful — what's confusing, what's missing, what would make you trust this in front of your own committee. <a href="/contact.html">Tell us</a>. A mistake on a specific map has its own quicker route: the "Spotted a problem?" form on that map's own page.</p>
@@ -62,6 +63,14 @@
         <details>
           <summary>Who can apply?</summary>
           <p>Any organisation whose community uses the bus: councils, shops, businesses, schools, event organisers, charities, attractions and more. Every application is reviewed and approved before an account is set up. During the pilot we are looking for a small number of organisations willing to try it and tell us what is wrong with it.</p>
+          <p>That includes organisations with a politics &mdash; a party, a campaign group, a councillor&rsquo;s office. We are <a href="#non-partisan">non-partisan</a>, which is a rule about us rather than a test applied to you.</p>
+        </details>
+        <details id="non-partisan">
+          <summary>Is this political? Can a political party publish a map?</summary>
+          <p><strong>BusMaps.uk is non-partisan, and any organisation whose community uses the bus may publish a map &mdash; a political party, a campaign group or a councillor&rsquo;s office included.</strong> We do not decline an organisation because of its politics and we do not favour one. Buses are an ordinary thing that people of every persuasion get on, and an organisation that wants to tell its community where they go is doing something useful whoever it is.</p>
+          <p>What makes that workable is that there is nothing political inside a map to argue about. A map is drawn from the Bus Open Data Service and OpenStreetMap by ordinary code &mdash; it shows the services that exist, on the days they run, and nothing else. It carries the publishing organisation&rsquo;s name and badge and nobody else&rsquo;s. There is no editorial line on a bus map, and no room for one.</p>
+          <p><strong>Two conditions come with a published map, and they are the same for everybody.</strong> The credits stay on it and the map is not altered &mdash; <a href="/legal.html">already in our terms</a>, because the open data licences require the attribution to travel with the map. So adding any logo to a printed map, a party&rsquo;s or anyone else&rsquo;s, is an alteration we do not allow, and that rule was there before the question came up.</p>
+          <p><strong>We should be plain about the limit of this.</strong> A published map is a public download: anyone may print one and put it where they like, and we have no say in that. What we can do is make sure a reader can always see whose map it is &mdash; the credits along the bottom, and the publishing organisation&rsquo;s badge where a map has one. A map printed from this site and displayed by somebody else is still that organisation&rsquo;s map, or, while it carries our own pilot band, still ours.</p>
         </details>
         <details id="councils">
           <summary>We’re a council — does this help with our Enhanced Partnership or accessibility plan?</summary>
@@ -71,6 +80,7 @@
         <details id="print">
           <summary>Why a printed map, when there are apps?</summary>
           <p>National policy on passenger information is now firmly digital — open data, real-time feeds, journey planners — and for most journeys that is the right default. It leaves two groups out. People without a smartphone, without data, or without the confidence to use a journey planner are disproportionately the people who depend on the bus. And nobody searches for a bus they don’t know exists: an app answers a question you knew to ask, a map on a noticeboard tells you the question.</p>
+          <p>For a door-to-door journey you have already decided on, Google Maps, Moovit and Transit will all plan it, and for times on the day the operator or bustimes.org is the place to look. What none of them does is show the whole network at once, on a wall, to someone who has not decided anything yet.</p>
           <p>That argument is ours rather than the government’s, and we would rather state it plainly than imply it has official backing.</p>
         </details>
         <details>
@@ -90,20 +100,14 @@
           <p>You can choose which of the standard outputs you want, recolour and relabel routes, turn landmarks on or off, and accept the monthly updates — then download print-ready files. The more delicate layout work (straightening lines, nudging labels) we do for you, so the result reads properly in print.</p>
         </details>
         <details>
-          <summary>What are the five outputs?</summary>
-          <p>An <strong>internal geographic</strong> map (drawn to the streets), an <strong>internal schematic</strong> (straightened and tidied), an <strong>internal diagram</strong> (tube-map style), an <strong>external</strong> map showing where the buses go, and a <strong><a href="#boarding">where-to-board</a></strong> plan for a bus station or town centre. You pick which ones you want for each map — except the diagram and the boarding plan, which are asked for rather than switched on.</p>
+          <summary>What are the four outputs?</summary>
+          <p>An <strong>internal geographic</strong> map (drawn to the streets), an <strong>internal schematic</strong> (straightened and tidied), an <strong>external</strong> map showing where the buses go, and a <strong><a href="#boarding">where-to-board</a></strong> plan for a bus station or town centre. You pick which ones you want for each map — except the boarding plan, which is asked for rather than switched on.</p>
         </details>
         <details id="boarding">
-          <summary>What is the &ldquo;where to board&rdquo; sheet?</summary>
-          <p>The other four sheets answer <em>where do the buses go</em>. This one answers the opposite question, the one you actually have while standing in a bus station: <em>I have decided to go to Bedford — which of these five identically-named stops do I wait at?</em></p>
-          <p>It is a large-scale plan of one place — a bus station, an interchange, a town-centre street — with an index of the places you can reach from it, <strong>listed alphabetically by destination</strong> rather than by route number. Each row names the stop to stand at, how far it is, and which services run there. Every stop letter is printed straight from NaPTAN, the Department for Transport's national stop register, so the letter on the sheet is the letter on the flag in the street. We do not invent one.</p>
-          <p>That last rule is also its limit. Stop lettering is each transport authority's own policy, not a national standard: some letter their town-centre streets in one series, others letter only their bus stations, and some letter nothing at all. Where the stops around a place cannot each be named unambiguously, the sheet declines to be produced rather than guess — so it is asked for and checked for a given place rather than switched on. It also reads as a <em>companion</em> to the area map at a town-centre stop, not a replacement: buses that stay inside the town have no destination to index, and on a busy High Street that can be a quarter of the traffic.</p>
-        </details>
-        <details id="diagram">
-          <summary>Why does the tube-map diagram cost extra?</summary>
-          <p>Because it is the one output that is not simply generated. The geographic and schematic maps and the external map are produced deterministically from the data: the same data always draws the same sheet, with nobody's hand on it.</p>
-          <p>The diagram is different. The software solves the network's <em>topology</em> — which line meets which, and where — but a readable tube map then needs junctions moved by eye until the whole thing sits well on the page. Those hand placements are stored as <em>pins</em>, and they are ours to maintain: when a route is extended or a service withdrawn, the topology changes and the pins have to be re-judged against it.</p>
-          <p>So the diagram would never be a one-off drawing charge. It is drawing time in the first build <strong>and</strong> drawing time in every update — which is why, when charging starts, it would be quoted separately rather than folded into the price of the map. Everything is free during the <a href="#pilot">pilot</a>; what is true today is that it is offered in the editor with an <em>Ask us</em> button rather than a tick-box, so nobody switches it on and only afterwards finds out what it involves.</p>
+          <summary>What is the &ldquo;where to board&rdquo; map?</summary>
+          <p>The other three maps answer <em>where do the buses go</em>. This one answers the opposite question, the one you actually have while standing in a bus station: <em>I have decided to go to Bedford — which of these five identically-named stops do I wait at?</em></p>
+          <p>It is a large-scale plan of one place — a bus station, an interchange, a town-centre street — with an index of the places you can reach from it, <strong>listed alphabetically by destination</strong> rather than by route number. Each row names the stop to stand at, how far it is, and which services run there. Every stop letter is printed straight from NaPTAN, the Department for Transport's national stop register, so the letter on the map is the letter on the flag in the street. We do not invent one.</p>
+          <p>That last rule is also its limit. Stop lettering is each transport authority's own policy, not a national standard: some letter their town-centre streets in one series, others letter only their bus stations, and some letter nothing at all. Where the stops around a place cannot each be named unambiguously, the map declines to be produced rather than guess — so it is asked for and checked for a given place rather than switched on. It also reads as a <em>companion</em> to the area map at a town-centre stop, not a replacement: buses that stay inside the town have no destination to index, and on a busy High Street that can be a quarter of the traffic.</p>
         </details>
         <details>
           <summary>How up to date are the maps?</summary>
@@ -113,18 +117,31 @@
           <summary>Where does the data come from?</summary>
           <p>Bus routes, stops and timetables come from the UK <strong>Bus Open Data Service (BODS)</strong>, published under the Open Government Licence. Streets, rivers and landmarks come from <strong>OpenStreetMap</strong> (© OpenStreetMap contributors, ODbL). Live times should always be checked with the operator or at bustimes.org.</p>
         </details>
+        <details id="landmarks">
+          <summary>A place people navigate by is missing from our map — how do we add it?</summary>
+          <p>Check three things in order, because most “missing” places turn out not to be missing.</p>
+          <p><strong>1. Is it already there, or hidden?</strong> Every place on a map comes from OpenStreetMap, the first draft has more of them than will fit, and each one is then shown, shown if there is room, or left off. If you are the organisation behind the map, open <em>Landmarks</em> in the editor: if the place is listed, mark it <em>Must show</em>, save, and the next version draws it. If you are a reader rather than the organisation, use the “Spotted a problem?” form on the map’s own page and say which place, and why people use it to find their way.</p>
+          <p><strong>2. Is it a kind of place we draw?</strong> Town maps show supermarkets, doctors’ surgeries, pharmacies, hospitals, libraries, museums, theatres, schools, leisure centres, parks, community centres and town halls — the places people say “get off at”. Pubs, cafés, individual shops and offices are not drawn, however well known, because a map that shows them has no room left for the buses. If you think a category is missing, tell us: a town where a category mattered is how the list has grown.</p>
+          <p><strong>3. Is it on OpenStreetMap at all?</strong> If a place of a kind we draw is not offered under <em>Landmarks</em>, OpenStreetMap does not have it, or has it under a different category or without its name. The fix is to add or correct it there, and it reaches your map on the next monthly update, listed as a new place for you to answer. Anyone can do this: OpenStreetMap’s <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" rel="noopener">Beginners’ Guide</a> walks through making an account and adding a place, and if you would rather not edit, you can <a href="https://wiki.openstreetmap.org/wiki/Notes" rel="noopener">leave a note on the map</a> without an account, saying what is missing, and a local mapper will usually pick it up. The same route removes a place that has closed. Correcting OpenStreetMap improves every map made from it, not only yours.</p>
+        </details>
         <details id="ai">
           <summary>Do you use AI?</summary>
-          <p>Not to make decisions about your map. The maps themselves are <a href="#pilot">deterministic</a>: the geographic, schematic and external outputs are drawn straight from the BODS and OpenStreetMap data by ordinary code, with no AI involved and no network call made at the moment a sheet is generated — the same data always produces the same sheet. The <a href="#diagram">tube-map diagram</a> is hand-placed by a person, not by AI. And every map, whichever outputs it uses, is checked by a person before it can be published.</p>
+          <p>Not to make decisions about your map. The maps themselves are <a href="#pilot">deterministic</a>: the geographic, schematic and external outputs are drawn straight from the BODS and OpenStreetMap data by ordinary code, with no AI involved and no network call made at the moment a map is generated — the same data always produces the same map. And every map, whichever outputs it uses, is checked by a person before it can be published.</p>
           <p>Where AI has been involved is in building the software itself — it was written with the help of an AI coding assistant, the same as a growing share of software generally is. That is a statement about how the code was written, not about how your map gets drawn.</p>
         </details>
         <details>
           <summary>Does our map get a public web page?</summary>
-          <p>Yes. Once a version is reviewed, it gets a page on our public site — the sheets to view or download, your organisation’s name, badge, colour and website, and a form so readers can tell you if something looks wrong. It also appears in our <a href="/maps">published maps</a> gallery. You control your public details, and you can take a map off the public site with one tick without affecting your own copies.</p>
+          <p>Yes. Once a version is reviewed, it gets a page on our public site — the maps to view or download, your organisation’s name, badge, colour and website, and a form so readers can tell you if something looks wrong. It also appears in our <a href="/maps">published maps</a> gallery. You control your public details, and you can take a map off the public site with one tick without affecting your own copies.</p>
         </details>
         <details>
           <summary>Can I print them?</summary>
-          <p>Yes — every map is produced as a print-ready A4 sheet at 300 dpi (and as an SVG), sized and coloured for real printing. As the organisation behind a map, you can always download it clean for real printing. If you wish it, downloads by anyone else are watermarked, so the print-ready original stays yours to hand out.</p>
+          <p>Yes — every map is produced as a print-ready A4 sheet at 300 dpi (and as an SVG), sized and coloured for real printing. As the organisation behind a map, you can always download it clean for real printing. If you wish it, downloads by anyone else are watermarked, so the print-ready original stays yours to hand out. Once it is printed, <a href="#putting-it-up">where you put it up</a> matters as much as what you printed.</p>
+        </details>
+        <details id="putting-it-up">
+          <summary>We’re putting one up in a bus shelter — how high, and do we need permission?</summary>
+          <p><strong>How high.</strong> Fix the sheet so the whole of it sits between <strong>900 mm and 1800 mm</strong> above the ground. The Department for Transport’s <a href="https://www.gov.uk/government/publications/inclusive-mobility-making-transport-accessible-for-passengers-and-pedestrians" rel="noopener">Inclusive Mobility</a> guidance asks for a detailed sign — a timetable, a map, a diagram — to be centred about <strong>1400 mm</strong> up, which for an A4 sheet puts its middle at roughly chest height for a standing adult. Lower is better than higher: a wheelchair user, a child, or anyone shorter than the person holding the drill has to be able to get close enough to read small type, and the QR code in the bottom corner is how the paper reaches the text version of itself. <strong>If there is room, put two up.</strong> The same guidance recommends duplicating a detailed sign — one centred 1600–1700 mm for people standing, one centred 1000–1100 mm for people seated. That is an expensive recommendation for a council and a free one for you, because printing our sheets costs nothing.</p>
+          <p><strong>Whose wall is it.</strong> Ask the owner of the shelter, post or board before you fix anything to it. A bus shelter is usually the town or parish council’s, sometimes the district council’s, and sometimes an advertising contractor’s under a maintenance contract — your council can tell you which. It matters because fly-posting means a display put up <em>without the consent of the owner or occupier</em>: consent is what separates the two, so ask, and ask at the same time whether anything further is needed. Our licence lets your organisation reproduce and display the map as much as it likes; what it cannot do is give you permission over somebody else’s property.</p>
+          <p><strong>What to print it on.</strong> A4 or larger, on <strong>matt</strong> paper rather than glossy — the same guidance asks for a matt finish and good contrast, because glare and rain on a shiny surface are what make a timetable unreadable outdoors. If the sheet is going outside, put it behind glass or in a weatherproof frame.</p>
         </details>
         <details>
           <summary>Do you guarantee they’re correct?</summary>
@@ -150,7 +167,7 @@
       Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a>, stop and stand data via <a href="https://www.gov.uk/government/publications/national-public-transport-access-node-schema">NaPTAN</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>). Always check live times with the operator or at bustimes.org.
     </div>
     <div>
-      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a> · <a href="/changelog.html">What's new</a><br>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/background.html">Background</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a> · <a href="/changelog.html">What's new</a><br>
       <span class="muted">© BusMaps.uk</span>
     </div>
   </div></div></footer>

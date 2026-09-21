@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.5 | 2026-08-30 | sha=0c6e4dbd -->
-**v1.5** · updated 30 August 2026
+<!-- docstamp v1.6 | 2026-09-04 | sha=68e82569 -->
+**v1.6** · updated 4 September 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -41,7 +41,7 @@ Approving, in one action:
 
 ## Step 4 — Record + welcome
 
-- Add the customer to the private [customer register](../../community-bus-maps-ops/P1-customer-register.md) (`ops/`): org, contact, type, quota, status, onboarded date.
+- Add the customer to the private customer register, `P1-customer-register.md` in the ops folder (`C:\Claude\community-bus-maps-ops\`): org, contact, type, quota, status, onboarded date.
 - Send a welcome pointing them at the **customer user guide** (which opens with the pilot caveat) and telling them you'll build their first map. Set expectations honestly — see the pilot note above. They can also **Request a map** themselves from their dashboard, within quota.
 
 ## Step 5 — Their maps

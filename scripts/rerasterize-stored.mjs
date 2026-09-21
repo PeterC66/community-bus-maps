@@ -36,7 +36,7 @@
 import { mkdtempSync, readdirSync, readFileSync, existsSync, rmSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DATA_DIR } from '../src/db/index.js';
+import { DATA_DIR } from '../src/db/paths.js';   // paths only: importing src/db opens and migrates the database
 import { rasterise } from '../src/render/renderMap.js';
 
 const APPLY = process.argv.includes('--apply');

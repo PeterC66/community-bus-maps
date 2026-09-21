@@ -33,6 +33,13 @@
 // — the part that survives a restart as a real fault — is already covered by
 // readiness().
 
+// The only import this module has, and it is one function: `emailFrom(env)`
+// owns the default sender, so the value reported here and the value actually
+// put on an email cannot drift apart. src/config.js imports nothing itself, so
+// this module stays cheap enough for the audit suite to exercise before
+// anything boots.
+import { emailFrom } from '../config.js';
+
 /** Providers and the environment variable each one cannot work without. */
 const REQUIRED_KEY = { resend: 'RESEND_API_KEY' };
 
@@ -83,7 +90,8 @@ export function resetEmailHealth() {
 /**
  * Configuration verdict. No network, no side effects.
  *
- * `{ ok, provider, mode, error? }` where mode is one of:
+ * `{ ok, provider, from, mode, error? }` where `from` is the configured sender
+ * verbatim — see the comment on it below — and mode is one of:
  *   'dev-console'  no provider: links are printed to the server console. Fine in
  *                  development, a fault in production — a production deployment
  *                  that cannot email is a deployment nobody can sign in to.
@@ -92,20 +100,43 @@ export function resetEmailHealth() {
 export function configStatus({ env = process.env } = {}) {
   const provider = env.EMAIL_PROVIDER || '';
   const production = env.NODE_ENV === 'production';
+  // THE SENDER IS REPORTED AND NOT GRADED, and both halves are deliberate.
+  //
+  // Reported, because until now this function named the provider and whether
+  // its key was present, and said nothing about the one value a stranger
+  // actually sees. EMAIL_FROM lives only on the host: no repository holds it,
+  // no probe returned it, and the only way to learn it was to send yourself an
+  // email. On 2026-09-14 that invisibility cost something real — a session
+  // running the pre-send check on CORR-001 message 009 inferred the sender from
+  // a deploy document that had RECOMMENDED setting it, concluded nobody had,
+  // and rewrote a true sentence in a letter to a member of the public into a
+  // worse one. The letter was right; the check had nowhere to look.
+  //
+  // Not graded, because a bare address is a poorer sender and not a broken one.
+  // A rule making it a fault would turn `ok:false` — which drives a 503 on
+  // /health?deep=1 and pages an operator — on a cosmetic property, and this
+  // verdict already carries a real meaning: nobody can sign in. A check must be
+  // exactly as sensitive as the decision it guards.
+  //
+  // It is safe where it goes. readiness()'s `checks{}` is served only to a
+  // caller holding METRICS_TOKEN or a signed-in admin (src/server.js), and a
+  // From header is on every email that leaves anyway — unlike RESEND_API_KEY,
+  // which stays out of every surface.
+  const from = emailFrom(env);
 
   if (!provider) {
     return production
-      ? { ok: false, provider: null, mode: 'dev-console', error: 'EMAIL_PROVIDER is not set, so sign-in links are only printed to the server console. Nobody can sign in to this deployment.' }
-      : { ok: true, provider: null, mode: 'dev-console' };
+      ? { ok: false, provider: null, from, mode: 'dev-console', error: 'EMAIL_PROVIDER is not set, so sign-in links are only printed to the server console. Nobody can sign in to this deployment.' }
+      : { ok: true, provider: null, from, mode: 'dev-console' };
   }
   const keyName = REQUIRED_KEY[provider];
   if (!keyName) {
-    return { ok: false, provider, mode: 'provider', error: `Unknown EMAIL_PROVIDER "${provider}" — supported: ${Object.keys(REQUIRED_KEY).join(', ')}` };
+    return { ok: false, provider, from, mode: 'provider', error: `Unknown EMAIL_PROVIDER "${provider}" — supported: ${Object.keys(REQUIRED_KEY).join(', ')}` };
   }
   if (!env[keyName]) {
-    return { ok: false, provider, mode: 'provider', error: `EMAIL_PROVIDER=${provider} but ${keyName} is not set, so every send throws.` };
+    return { ok: false, provider, from, mode: 'provider', error: `EMAIL_PROVIDER=${provider} but ${keyName} is not set, so every send throws.` };
   }
-  return { ok: true, provider, mode: 'provider' };
+  return { ok: true, provider, from, mode: 'provider' };
 }
 
 /** Configuration verdict plus the delivery counters. Read by ops and the worklist. */

@@ -1,4 +1,4 @@
-﻿// Backup the portal's state (P7 ops).
+// Backup the portal's state (P7 ops).
 //
 //   node scripts/backup.mjs [--out <dir>] [--keep-days 14] [--keep 7]
 //                           [--keep-recent-hours 48] [--no-renders] [--quiet]
@@ -31,16 +31,12 @@ import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFile
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { DATA_DIR } from '../src/db/index.js';
+import { DATA_DIR } from '../src/db/paths.js';   // paths only: a backup must not migrate the database it is about to copy (OA-232 Tier 1.6)
 import { MAPS_DIR, mapDataDir, rendersDir } from '../src/maps/store.js';
-import { dirSize } from '../src/ops/index.js';
+import { dirSize } from '../src/ops/dir-size.js';   // the fs walk without the database behind it
 import { planRetention } from '../src/ops/backup-retention.js';
+import { arg, has as flag } from './lib/cli.mjs';
 
-const arg = (name, def) => {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-};
-const flag = (name) => process.argv.includes(`--${name}`);
 const quiet = flag('quiet');
 const say = (...a) => { if (!quiet) console.log(...a); };
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;

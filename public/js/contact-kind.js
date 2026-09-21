@@ -14,6 +14,23 @@
   if (kind && select && select.querySelector('option[value="' + kind + '"]')) {
     select.value = kind;
   }
+  // "Ask for a map of <place>" from the /maps search (buses-data OA-380 (c)).
+  // The place name is PREFILLED into the message rather than put in the
+  // placeholder, because a placeholder is not sent: a reader who replies "yes
+  // please" to a form headed "Ask for a map of my area" would arrive as a map
+  // request naming no area, and the one fact we needed would be the one thing
+  // lost. It goes in only when the box is empty, and it can be deleted.
+  if (kind === 'map-request') {
+    var place = new URLSearchParams(location.search).get('place');
+    var msg = document.getElementById('body');
+    if (msg && !msg.value) {
+      msg.value = place
+        ? 'I would like a bus map of ' + place + '.\n\n'
+        : 'I would like a bus map of my area.\n\n';
+      msg.placeholder = 'Which journeys are hard to work out? Which buses do you use? Anything you add helps.';
+      try { msg.setSelectionRange(msg.value.length, msg.value.length); } catch (e) { /* not focusable yet */ }
+    }
+  }
   if (kind === 'issue') {
     var body = document.getElementById('body');
     if (body && !body.value) body.placeholder = 'Which map, and what looks wrong? A link or a photo helps.';

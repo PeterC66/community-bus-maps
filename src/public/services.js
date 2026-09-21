@@ -18,12 +18,14 @@
 
 import { mapDataDir, versionDir } from '../maps/store.js';
 import { buildFacts, readFactsSnapshot, parseValidFrom, stripLeadingId } from '../maps/facts.js';
+import { staleAfterMonths } from '../config.js';
+import { parseDbDate } from '../db/dates.js';
 
 // How long after its data's valid-from date a map is called out as possibly out
 // of date. The refresh cycle is monthly, so anything past two full seasons has
 // been left alone through several offered updates. Configurable because it is a
 // policy number, not an engineering one.
-export const STALE_AFTER_MONTHS = Math.max(1, Number(process.env.STALE_AFTER_MONTHS) || 6);
+export const STALE_AFTER_MONTHS = staleAfterMonths();   // snapshotted at load, as it always was
 
 /**
  * The facts of one publicly-visible map row, or null when its payload has none.
@@ -55,7 +57,7 @@ const MONTH_MS = 2629746000; // average month, only ever used for a coarse age
  * Falls back to the publication date when the payload carries no `validFrom`.
  */
 export function provenanceFor(row, facts, now = new Date()) {
-  const published = row.published_at ? new Date(String(row.published_at).replace(' ', 'T') + 'Z') : null;
+  const published = parseDbDate(row.published_at);
   const fromLabel = (facts && facts.validFrom) || '';
   const fromDate = parseValidFrom(fromLabel) || (published && !isNaN(published) ? published : null);
   const ageMonths = fromDate ? Math.floor((now - fromDate) / MONTH_MS) : null;

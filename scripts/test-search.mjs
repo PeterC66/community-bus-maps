@@ -160,6 +160,124 @@ console.log('\ntypo tolerance — only kicks in when the exact pass finds nothin
   check('short words get no fuzzy leeway (avoids matching unrelated 3-letter words)', shortWord.results.length === 0, JSON.stringify(shortWord));
 }
 
+// ---------------------------------------------------------------------------
+// A STREET IS NOT A PLACE (buses-data OA-311). Every case below is a real name
+// off the live index on 2026-09-11, and the first two are the fault Peter found
+// within the hour of OA-308 tier 2 going out: searching "York" returned three
+// Buckinghamshire sheets because route 104 passes along York Road (UB8), and
+// "London" returned three more because of London Road.
+console.log('\na thoroughfare answers only to its whole name');
+{
+  seedMap({
+    customerId: activeCustomer, slug: 'search-streets', subject: 'Street Town',
+    destination: 'Street Town',
+    stops: ['York Road (UB8)', 'London Road', 'Chessmount Rise', 'Hemingford Grey', 'Bar Hill', 'Bourne End'],
+  });
+  // Bar Hill and Bourne End are VILLAGES whose names end in street types. Each
+  // is a destination on another map in the estate, and that is the only thing
+  // telling this index they are places — the whole point of the knownPlaces
+  // exemption.
+  seedMap({
+    customerId: activeCustomer, slug: 'search-barhill', subject: 'Bar Hill',
+    destination: 'Bar Hill', stops: ['Somewhere Else'],
+  });
+  seedMap({
+    customerId: activeCustomer, slug: 'search-bourne', subject: 'Bourne End',
+    destination: 'Bourne End', stops: ['Another Stop'],
+  });
+
+  check('"York" no longer returns a map whose only link is York Road',
+    !searchPlaces('York').some((r) => r.map.slug === 'search-streets'),
+    JSON.stringify(searchPlaces('York').map((r) => r.reason)));
+  check('"London" no longer returns a map whose only link is London Road',
+    !searchPlaces('London').some((r) => r.map.slug === 'search-streets'),
+    JSON.stringify(searchPlaces('London').map((r) => r.reason)));
+  check('a bracketed qualifier does not save the street from the rule — "York Road" still finds it',
+    searchPlaces('York Road').some((r) => r.map.slug === 'search-streets'),
+    'the whole name must still match: a reader checking whether their own road is on a map');
+  check('the whole name of a plain street matches too',
+    searchPlaces('Chessmount Rise').some((r) => r.map.slug === 'search-streets'));
+  check('one word of a street name does not', searchPlaces('Chessmount').length === 0);
+
+  // The villages. If any of these four go red the rule has eaten real places,
+  // which is a worse fault than the one it fixes.
+  check('"Hemingford" still finds Hemingford Grey — a place, not a street',
+    searchPlaces('Hemingford').some((r) => r.map.slug === 'search-streets'));
+  check('"Bar Hill" still finds the map that passes through it',
+    searchPlaces('Bar Hill').some((r) => r.map.slug === 'search-streets'),
+    'Bar Hill ends in a street type and is exempt because it is a destination elsewhere');
+  check('…and the map it is the subject of', searchPlaces('Bar Hill').some((r) => r.map.slug === 'search-barhill'));
+  // THIS is the check the exemption exists for, and finding that out took a
+  // falsification run: with the exemption deleted, "Bar Hill" and "Bourne End"
+  // still matched IN FULL, so every other case here stayed green and the
+  // exemption looked like decoration. What it actually buys is the PARTIAL
+  // query — somebody typing the first word of the village they live in.
+  check('"Bourne" finds Bourne End, because a village is not a street',
+    searchPlaces('Bourne').some((r) => r.map.slug === 'search-streets'),
+    JSON.stringify(searchPlaces('Bourne').map((r) => r.map.slug)));
+  check('a typo on a street name gets no second chance either',
+    searchPlaces('Yorkk Road').length === 0,
+    'the fuzzy pass must not reopen what the exact pass closed');
+}
+
+// ---------------------------------------------------------------------------
+// A NAME THAT NAMES NO PLACE ANSWERS ONLY TO ITSELF (buses-data OA-311, the
+// residual). "Bus Station" is on eight of the estate's twenty sheets, which is
+// why searching "station" returned ten maps; the name says nothing about which
+// town, so it cannot be what anybody meant.
+//
+// THE LAST FIVE CHECKS ARE CONTROLS ON A RULE WE DELIBERATELY DID NOT BUILD.
+// The action specified a generic-WORD rule — hill, park, station, green,
+// common, cross, end match only a whole name — and measuring it over the
+// estate's own 363 names falsified it: twenty of the twenty-three names those
+// words reach are genuine places, Gerrards Cross and Bar Hill among them. So
+// these five assert that a one-word query still finds a real place, and they go
+// red the moment somebody implements the rule the action asked for.
+console.log('\na name that names no place answers only to its whole self');
+{
+  seedMap({
+    customerId: activeCustomer, slug: 'search-placeless', subject: 'Placeless Town',
+    destination: 'Placeless Town', stops: ['Bus Station', 'Business Park'],
+  });
+  seedMap({
+    customerId: activeCustomer, slug: 'search-realplaces', subject: 'Real Place Town',
+    destination: 'Gerrards Cross', stops: ['Heathrow Central Bus Station', 'Science Park', 'Bar Hill'],
+  });
+
+  check('"station" no longer returns a map whose only link is a stop called Bus Station',
+    !searchPlaces('station').some((r) => r.map.slug === 'search-placeless'),
+    JSON.stringify(searchPlaces('station').map((r) => r.reason)));
+  check('…and the whole name still finds it — "Bus Station"',
+    searchPlaces('Bus Station').some((r) => r.map.slug === 'search-placeless'));
+  check('"park" no longer returns a map whose only park is called Business Park',
+    !searchPlaces('park').some((r) => r.map.slug === 'search-placeless'),
+    JSON.stringify(searchPlaces('park').map((r) => r.reason)));
+  check('…and "Business Park" in full still finds it',
+    searchPlaces('Business Park').some((r) => r.map.slug === 'search-placeless'));
+  check('a typo on a placeless name gets no second chance either',
+    !searchPlaces('Bus Statoin').some((r) => r.map.slug === 'search-placeless'),
+    'the fuzzy pass must not reopen what the exact pass closed');
+
+  // The action says in terms: do NOT demote Science Park or Heathrow Central
+  // Bus Station, which are places. These two are that warning, as tests.
+  check('"station" still finds Heathrow Central Bus Station — a place, not an anywhere',
+    searchPlaces('station').some((r) => r.map.slug === 'search-realplaces'));
+  check('"Science" still finds Science Park',
+    searchPlaces('Science').some((r) => r.map.slug === 'search-realplaces'));
+  // CONTROLS on the generic-word rule, measured and not built.
+  check('"Cross" still finds Gerrards Cross — the generic-word rule was falsified, not built',
+    searchPlaces('Cross').some((r) => r.map.slug === 'search-realplaces'),
+    'twenty of the twenty-three names those seven words reach are genuine places');
+  // These two name `search-realplaces` and `search-bourne` deliberately: their
+  // slugs and subjects carry none of the seven words, so the only thing that
+  // can answer the query is the place itself. Pointed at `search-barhill` the
+  // Hill control was green through the slug — a control that cannot fail.
+  check('"Hill" still finds a map that passes through Bar Hill',
+    searchPlaces('Hill').some((r) => r.map.slug === 'search-realplaces'));
+  check('"End" still finds a map that goes to Bourne End',
+    searchPlaces('End').some((r) => r.map.slug === 'search-bourne'));
+}
+
 console.log('\nsanity — an unrelated query still misses cleanly');
 check('a nonsense query returns no results', searchPlaces('zzznotarealplacezzz').length === 0);
 check('a one-character query is rejected (below MIN_QUERY_LEN)', searchPlaces('a').length === 0);

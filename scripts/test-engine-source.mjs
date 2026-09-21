@@ -82,14 +82,25 @@ function run(script, root, args = []) {
 }
 
 /* track-engine.mjs and backfill resolve engine/ relative to their OWN location,
- * so the scratch world gets its own copy of both scripts beside its engine/. */
+ * so the scratch world gets its own copy of both scripts beside its engine/ —
+ * and of everything they import, because a module that is not here fails with
+ * ERR_MODULE_NOT_FOUND on every case at once, which reads as nine broken
+ * assertions rather than as one missing file. `lib/vendored.mjs` and
+ * `src/db/paths.js` joined the list on 2026-09-02 (OA-224 Tier 3.3 and 3.6),
+ * when the two scripts stopped carrying their own copies of the CRLF-normalised
+ * file hash and of the DATA_DIR resolution. That is the cost of sharing a
+ * helper, paid once here, against two more copies of a hash rule in the tree. */
 function install(root) {
   mkdirSync(path.join(root, 'scripts', 'lib'), { recursive: true });
+  mkdirSync(path.join(root, 'src', 'db'), { recursive: true });
   for (const f of ['track-engine.mjs', 'backfill-engine-source.mjs']) {
     writeFileSync(path.join(root, 'scripts', f), readFileSync(path.join(HERE, f)));
   }
-  writeFileSync(path.join(root, 'scripts', 'lib', 'engine-source.mjs'),
-    readFileSync(path.join(HERE, 'lib', 'engine-source.mjs')));
+  for (const f of ['engine-source.mjs', 'vendored.mjs']) {
+    writeFileSync(path.join(root, 'scripts', 'lib', f), readFileSync(path.join(HERE, 'lib', f)));
+  }
+  writeFileSync(path.join(root, 'src', 'db', 'paths.js'),
+    readFileSync(path.resolve(HERE, '..', 'src', 'db', 'paths.js')));
   return {
     track: path.join(root, 'scripts', 'track-engine.mjs'),
     backfill: path.join(root, 'scripts', 'backfill-engine-source.mjs'),
@@ -278,20 +289,27 @@ console.log('');
   check('...and records that it came from an import, not a backfill',
     decl && decl.recorded === 'import', JSON.stringify(decl));
 
-  // --external-style busway must reach the record, or the field is decorative on
-  // every board where every town happens to be radial.
+  // --external-style TOOK TWO VALUES UNTIL 2026-09-02, and this block used to check
+  // that `busway` reached the record, "or the field is decorative on every board
+  // where every town happens to be radial". The engine now vendors ONE area
+  // external template, so the property worth holding has inverted: the flag must be
+  // REFUSED BY NAME, and refused before anything is written. The flag was kept
+  // rather than deleted precisely so this could be true -- a runbook or a shell
+  // history will go on passing it, and silently importing the radial generator
+  // under a busway intention is how a pack gets corrupted.
   const src2 = path.join(store, 'payload2');
   mkdirSync(src2, { recursive: true });
   writeFileSync(path.join(src2, 'routes.json'), JSON.stringify({ palette: { 55: '#000000' }, busway: [['A'], ['B']] }));
   writeFileSync(path.join(src2, 'external.svg'), '<svg/>');
   writeFileSync(path.join(src2, 'internal.svg'), '<svg/>');
   const r2 = importRun(['--src', src2, '--name', 'Busway Town', '--customer', 'Test Council', '--kind', 'area', '--external-style', 'busway']);
-  const packs2 = readdirSync(path.join(store, 'maps')).filter((p) => !packs.includes(p));
-  const decl2 = packs2.length && existsSync(path.join(store, 'maps', packs2[0], 'data', 'engine-source.json'))
-    ? JSON.parse(readFileSync(path.join(store, 'maps', packs2[0], 'data', 'engine-source.json'), 'utf8')) : null;
-  check('--external-style busway is recorded as busway, not as the default',
-    decl2 && decl2.generators['gen_external.js'] === 'area/gen_external_busway.js',
-    r2.code !== 0 ? `import exited ${r2.code}: ${r2.out.slice(-400)}` : JSON.stringify(decl2));
+  check('--external-style busway is REFUSED, not quietly treated as radial',
+    r2.code !== 0 && /only area external template is 'radial'/.test(r2.out), `exit ${r2.code}: ${r2.out.slice(-400)}`);
+  check('...and the refusal names the file that was dropped, so the reader knows why',
+    /gen_external_busway\.js was dropped/.test(r2.out), r2.out.slice(-400));
+  check('...and it wrote no map at all — the refusal comes before the store is touched',
+    readdirSync(path.join(store, 'maps')).filter((p) => !packs.includes(p)).length === 0,
+    readdirSync(path.join(store, 'maps')).join(','));
 
   // A payload carrying its OWN generator may have a hand-edited one, and a
   // hand-edited generator must never be overwritten by the vendored file.

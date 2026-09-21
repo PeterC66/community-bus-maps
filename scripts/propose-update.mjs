@@ -24,11 +24,8 @@ import {
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
 import { notify, appUrl } from '../src/email/notify.js';
+import { arg } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
 
 const mapRef = arg('map');
 const src = arg('src');
@@ -121,8 +118,9 @@ setProposedSummary(pid, summary);
 const n = (a) => (a && a.length ? a.length : 0);
 console.log(`\n✓ proposed update #${pid} staged for "${map.name}" (#${map.id})`);
 console.log(`    source: ${note}`);
+const lmName = (p) => String((p && p.name) || '').trim() || `(unnamed ${(p && p.cat) || '?'})`;
 if (summary.unchanged) {
-  console.log('    changes: none detected (the service facts are identical).');
+  console.log('    changes: none detected (the service facts and the landmark list are identical).');
 } else {
   if (n(summary.routesAdded)) console.log(`    routes added:   ${summary.routesAdded.join(', ')}`);
   if (n(summary.routesRemoved)) console.log(`    routes removed: ${summary.routesRemoved.join(', ')}`);
@@ -131,6 +129,17 @@ if (summary.unchanged) {
   if (n(summary.operatorsAdded)) console.log(`    operators added:   ${summary.operatorsAdded.join(', ')}`);
   if (n(summary.operatorsRemoved)) console.log(`    operators removed: ${summary.operatorsRemoved.join(', ')}`);
   if (summary.validity) console.log(`    validity: ${summary.validity.from || '—'} → ${summary.validity.to || '—'}`);
+  // OA-253 — printed here as well as shown to the customer, because whoever
+  // stages the update is the one who can still act on a surprising number
+  // before anybody is emailed about it.
+  if (n(summary.landmarksAdded)) console.log(`    new places:     ${summary.landmarksAdded.map(lmName).join(', ')}`);
+  if (n(summary.landmarksRemoved)) console.log(`    places gone:    ${summary.landmarksRemoved.map(lmName).join(', ')}`);
+}
+// Said out loud rather than left as an absence: the landmark comparison is
+// suppressed when either payload lists no POI candidates at all, and a reader
+// who is not told cannot tell that from "nothing changed".
+if (summary.landmarksKnown === false) {
+  console.log('    landmarks:      NOT compared — one of the two payloads lists no POI candidates at all.');
 }
 console.log(`\n  The customer reviews + accepts it at:  /app/maps/${map.id}`);
 

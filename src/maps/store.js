@@ -11,9 +11,13 @@
 
 import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { DATA_DIR } from '../db/index.js';
+import { DATA_DIR, MAPS_DIR } from '../db/paths.js';   // paths only — importing this cannot open a database (OA-232 Tier 1.6)
+import { tubeDiagramOffered } from '../config.js';    // config.js imports nothing, so this keeps the OA-232 property
 
-export const MAPS_DIR = path.join(DATA_DIR, 'maps');
+// Re-exported, not redeclared: `src/db/paths.js` already owns this join and had
+// its own copy of it. Two spellings of one path is how the DATA_DIR duplication
+// started (OA-224 Tier 3.3).
+export { MAPS_DIR };
 
 export function mapDir(id) {
   return path.join(MAPS_DIR, String(id));
@@ -72,12 +76,89 @@ export function readBuildWarnings(dir) {
   return { total: Number(head[1]), blocking: Number(head[2]), blockingLines };
 }
 
+/**
+ * THE TOWN'S COMPLEXITY BAND, AS SCORED WHEN THIS PACK WAS BUILT (buses-data OA-088).
+ *
+ * The bus skill scores every town at the end of S2 — `complexity_score.js`
+ * writes `complexity.json` with a band of GREEN, AMBER or RED and the metric
+ * that tripped it — and RED is the one verdict in the whole pipeline that says
+ * "do not build the standard single sheet; choose a strategy first". S4 pulls
+ * S2's outputs into its run folder, S5 copies them on, and `import-map.mjs`
+ * keeps every `*.json` in a payload, so the file has ridden with every AREA
+ * delivery since the first one: on 2026-09-05 all eight area maps on the live
+ * host held theirs, one of them RED and published, and the string
+ * "complexity" appeared in this repository only inside the vendored engine.
+ * The verdict was computed, was right, travelled, and was read by nothing.
+ * Exactly the shape readBuildWarnings() above was written for, five days
+ * earlier, for the other file the engine writes about its own work.
+ *
+ * Read from the pack rather than re-derived, for the same reason as the build
+ * report: the band an approver needs is the one the sheet was actually built
+ * under. The P metric did not exist before 2026-08-31, so an older pack's
+ * GREEN is a GREEN on four metrics, and the file says when it was scored.
+ * Place packs never carry one — the gate scores towns — so `null` is the
+ * ordinary answer for a place and the screen must not read it as a gap.
+ */
+export const COMPLEXITY = 'complexity.json';
+
+const BANDS = new Set(['GREEN', 'AMBER', 'RED']);
+
+/**
+ * Parse a `complexity.json` into something a screen can show.
+ *
+ * Tolerant by design, like readBuildWarnings(): an absent, unreadable or
+ * unrecognised file reports `null`, and a band outside the three the gate
+ * writes is unrecognised rather than passed through — a screen colouring on
+ * the band must never be handed a word it has no colour for.
+ *
+ * @returns {{band:'GREEN'|'AMBER'|'RED', failed:string[], scoredAt:string|null,
+ *            metrics:Record<string,number>, applied:string[]}|null}
+ */
+export function readComplexity(dir) {
+  let j;
+  try { j = JSON.parse(readFileSync(path.join(dir, COMPLEXITY), 'utf8')); } catch { return null; }
+  if (!j || typeof j !== 'object' || !BANDS.has(j.band)) return null;
+  const m = j.metrics && typeof j.metrics === 'object' ? j.metrics : {};
+  const metrics = {};
+  for (const k of ['R', 'S', 'K5', 'D5', 'P']) if (Number.isFinite(m[k])) metrics[k] = m[k];
+  // `applied` names the remedy keys the town was built with (internalCorridors,
+  // coreBox, …); the gate writes each as an object or a list under its key, and
+  // what a reader needs is which rungs were taken, not their values.
+  const applied = j.applied && typeof j.applied === 'object' ? Object.keys(j.applied).filter((k) => j.applied[k] != null) : [];
+  return {
+    band: j.band,
+    failed: Array.isArray(j.failedThresholds) ? j.failedThresholds.filter((s) => typeof s === 'string') : [],
+    scoredAt: typeof j.scoredAt === 'string' ? j.scoredAt : null,
+    metrics,
+    applied,
+  };
+}
+
 export const BASE_OVERRIDES = 'base-overrides.json';
 // P7 — the expert's hand-placed junction pins for the tube-map diagram, written by
 // the pin editor into the map's data folder and read by the diagram engine on every
 // render. Expert work, not a customer edit and not part of a monthly payload, so it
 // is carried forward when fresh data is swapped in (see swapInProposedData).
 export const DIAGRAM_LAYOUT = 'diagram-layout.json';
+// OA-143 - WHICH of the two vendored external generators a pack's `gen_external.js`
+// is a copy of. An AREA pack stores it under a name that cannot say which, so the
+// answer is recorded beside it and `track-engine.mjs` reads it rather than guessing.
+// Nothing in src/ writes this file; it is written by `scripts/import-map.mjs` at
+// import and by `scripts/backfill-engine-source.mjs` as a one-off. It is carried
+// forward across a data refresh by swapInProposedData() (OA-199), which is the only
+// reason src/ needs the name at all.
+//
+// THE NAME IS DUPLICATED, DELIBERATELY, AND THE DUPLICATION IS PINNED BY A TEST.
+// `scripts/lib/engine-source.mjs` owns the authoritative constant and cannot import
+// this module: `test-engine-source.mjs` builds a scratch world holding a copy of
+// `scripts/` ONLY, so a src/ import would break the suite that guards the tracker.
+// Importing the other way round would drag `src/db` - and a database migration -
+// into a script whose whole point is to run without one. (That is no longer true
+// of THIS module, which took its paths off `db/paths.js` on 2026-09-03; it is
+// still true of the direction that matters, because `test-engine-source.mjs`
+// builds a scratch world holding `scripts/` only.) So the two literals are
+// asserted equal in `scripts/test-carry-forward.mjs` rather than wished equal.
+export const ENGINE_SOURCE = 'engine-source.json';
 export function diagramLayoutPath(id) {
   return path.join(mapDataDir(id), DIAGRAM_LAYOUT);
 }
@@ -161,6 +242,14 @@ export function ensureProposedDirs(id, pid) {
 // (`engine: 'expert'`) and are only available when the map's routes.json opts in
 // with the config key the pre-stage requires (`requiresConfig`) — a map without it
 // shows the output as unavailable instead of failing at render time.
+//
+// PARKED, 2026-09-10 (buses-data OA-297). The tube-map diagram's `portal` flag
+// is now the TUBE_DIAGRAM environment flag (src/config.js), off by default, so
+// the row below describes a sheet that is not offered anywhere until somebody
+// sets it. Nothing about the row, the pin editor or the lock was deleted: the
+// return path is buses-data OA-298, and scripts/test-p7.mjs keeps the mechanism
+// tested with the flag on while scripts/test-parked-diagram.mjs holds the
+// parked state with it off.
 //
 // `requestOnly` marks an output the customer may SEE but not switch on: the
 // tube-map diagram is generated and then pinned by hand in the pin editor, and
@@ -287,7 +376,11 @@ export const OUTPUTS = {
   external:            { gens: ['gen_external.js', { file: 'gen_external_places.js', requiresConfig: 'destinations' }],
                          base: 'external',           label: 'To nearby places', placeLabel: 'Where those buses go', portal: true },
   internal_schematic:  { gens: ['gen_internal_schematic.js'], engine: 'expert', expert: true, requiresConfig: 'internalSchematic', base: 'internal-schematic', label: 'Simplified street map', portal: true, buildAlways: true },
-  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     portal: true, requestOnly: true },
+  // PARKED 2026-09-10 (buses-data OA-297): `portal` is a getter on the
+  // TUBE_DIAGRAM flag, read at each use rather than at load so a test can flip
+  // it. Off, this row is invisible to every reader that checks `portal` — and
+  // resolveGen() refuses it too, so `available` is false for the pin editor.
+  internal_diagram:    { gens: ['gen_internal_diagram.js'],   engine: 'expert', expert: true, requiresConfig: 'internalDiagram',   base: 'internal-diagram',   label: 'Tube-map diagram',     get portal() { return tubeDiagramOffered(); }, requestOnly: true },
   boarding_plan:       { gens: ['gen_boarding.js'],           engine: 'expert', expert: true, requiresConfig: 'boardingPlan',
                          requiresFiles: ['stands.json', 'boarding_index.json'],
                          base: 'boarding', label: 'Where to board', placeLabel: 'Where to board', portal: true, requestOnly: true },

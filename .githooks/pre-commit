@@ -1,25 +1,6 @@
 #!/bin/sh
-# Refuse a commit whose staged .md carries a stamp describing different content.
-#
-# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
-# at the END of a turn — so a commit made DURING a turn carries the new content and
-# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
-# committed content" step correctly calls it stale. Whether a given commit is red
-# depends only on where the turn boundary happened to fall, which is why it looks
-# intermittent and why it is not.
-#
-# It has already happened here: commit "Docstamp: three committed stamps did not
-# describe their committed content" (#149, 2026-08-29) is exactly this fault,
-# three documents' worth, found by CI after the push rather than before it. In the
-# sibling `buses-data` repo the same fault took 10 of 15 gates runs red in a day.
-#
-# CI reporting it minutes later is the wrong end of the problem: by then the commit
-# is pushed and somebody has to decide whether a red run matters, which is how a
-# gate gets muted. This refuses the commit instead.
-#
-# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
-# A document that was already stale is not this commit's fault, and a hook that
-# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+# Two refusals: a leftover merge-conflict marker, and a stamp describing different
+# content. Both are things git itself will happily commit.
 #
 # THIS HOOK IS NOT AUTOMATICALLY ACTIVE IN A FRESH CLONE. `core.hooksPath` is local
 # git config and does not travel with the repository, so each clone or worktree must
@@ -32,18 +13,203 @@
 # See docs/DEVELOPING.md.
 set -e
 
-STAMPER="$HOME/.claude/skills/stamp-docs/scripts/check_committed_stamps.py"
+# ---------------------------------------------------------------------------
+# indent -- print a block indented four spaces, WITHOUT a pipeline.
+#
+# WHY IT IS NOT `printf ... | sed`. MEASURED in the sibling buses-data repository,
+# in a throwaway checkout: with the sed form, `git commit 2>&1 | head -4` printed
+# the refusal and then GIT EXITED 0 AND THE COMMIT LANDED. `head` stops reading
+# after its four lines and closes the pipe; the `sed` inside the hook is killed
+# writing to it, and the hook dies partway through its own refusal without ever
+# reaching `exit 1`. Unpiped, and piped to `tail`, the identical commit was
+# correctly refused. That made every refusal here conditional on how the caller
+# happened to read the output. A guard that can be switched off by `| head` is not
+# a guard, so every write stays inside the hook's own process.
+indent() {
+  while IFS= read -r _line; do
+    echo "    $_line"
+  done <<INDENT_EOF
+$1
+INDENT_EOF
+}
 
-# A missing stamper must not block committing. The stamp-docs skill tree is not part
-# of this repository, and a hook that dies on a machine without it would teach
-# whoever hits that to bypass the hook permanently.
-if [ ! -f "$STAMPER" ]; then
+# ---------------------------------------------------------------------------
+# A leftover merge-conflict marker in a staged file.
+#
+# WHY THIS EXISTS. GIT DOES NOT STOP THIS. Git refuses a commit only while a merge
+# is IN PROGRESS with unmerged paths; the moment you `git add` the file, git treats
+# it as resolved and commits whatever is in it, markers and all. It is a REFUSAL
+# rather than a warning because, unlike an untracked sibling, it can never be
+# deliberate: there is no state of this repository in which a line beginning with a
+# conflict marker is the content somebody meant to commit.
+#
+# THE FAULT IS THIS REPOSITORY'S OWN, AND IT WAS SITTING ON `main` WHEN THIS LANDED.
+# The check was written in buses-data on 2026-08-31, motivated by an incident HERE
+# -- two sessions' changelog fragments meeting on main -- and it was never copied
+# across (codebase review 2026-09-01, cross-repo F23: this hook was a strict subset
+# of the other one). On 2026-09-03, rebasing #211, `main`'s CHANGELOG.md was found
+# to be carrying three committed conflict-marker lines with a stale duplicate
+# docstamp beneath them. Nothing had said so, because nothing was asking.
+#
+# WHAT MAKES IT WORTH A GUARD is a shape both repositories have: a GENERATED file
+# whose header the generator does not rewrite. CHANGELOG.md is rebuilt from the
+# CHANGELOG.d/ fragments by `npm run changelog` -- and it leaves everything above
+# the generated block alone, which is exactly where the docstamp lives. So "just
+# regenerate it" resolves the entries and leaves a conflict sitting across the two
+# `sha=` lines, looking resolved because the tool ran and exited 0. That is how
+# these markers reached main: on the same file, `npm run changelog` reported
+# "changelog index is up to date" with the markers still in the header above it.
+#
+# IT IS FIRST IN THIS FILE ON PURPOSE. The stamper block below exits 0 early when
+# the stamp-docs skill tree is absent, which is right for the stamp check and would
+# have silently disabled this one on every machine without that tree.
+#
+# It reads ADDED lines in the staged diff, so it fires on the commit that introduces
+# a marker and not for ever afterwards. A document that quotes the markers inline in
+# backticks does not trip it, which the failure-shape write-up depends on.
+conflicts=$(git diff --cached --check 2>/dev/null | grep 'leftover conflict marker' || true)
+if [ -n "$conflicts" ]; then
+  echo ""
+  echo "pre-commit: refused -- staged content still carries merge-conflict markers:"
+  indent "$conflicts"
+  echo ""
+  echo "  git does NOT catch this once the file is staged. Resolve the file, re-add it,"
+  echo "  and commit again. If it is a GENERATED file -- CHANGELOG.md, say -- regenerate"
+  echo "  it rather than hand-resolving the body, then check the HEADER as well: the"
+  echo "  generator does not rewrite the docstamp, so a conflict can survive the"
+  echo "  regenerate sitting across the two sha= lines."
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# A staged .md whose stamp describes different content.
+#
+# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
+# at the END of a turn -- so a commit made DURING a turn carries the new content and
+# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
+# committed content" step correctly calls it stale. Whether a given commit is red
+# depends only on where the turn boundary happened to fall, which is why it looks
+# intermittent and why it is not.
+#
+# It has already happened here: commit "Docstamp: three committed stamps did not
+# describe their committed content" (#149, 2026-08-29) is exactly this fault, three
+# documents' worth, found by CI after the push rather than before it. In the sibling
+# buses-data repo the same fault took 10 of 15 gates runs red in a day.
+#
+# CI reporting it minutes later is the wrong end of the problem: by then the commit
+# is pushed and somebody has to decide whether a red run matters, which is how a
+# gate gets muted. This refuses the commit instead.
+#
+# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
+# A document that was already stale is not this commit's fault, and a hook that
+# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+# ---------------------------------------------------------------------------
+# A byte-order mark, or a file carrying two kinds of line ending.
+#
+# WHY THIS REPOSITORY NEEDED IT MOST (buses-data OA-241, 2026-09-04). A sweep of
+# all three repositories found 47 faults here against 6 in buses-data and 2 in
+# claude-skills: 46 BOMs, among them CLAUDE.md, README.md, twelve docs/*.md,
+# twelve views/app/*.html and src/server.js. A BOM sits INVISIBLY before the first
+# character, so it breaks any edit matching the start of a file while showing up in
+# no diff and no review. They were stripped in the change that added this; the test
+# suite was 61/61 before and after.
+#
+# CI RUNS THIS TOO, as of the same day. The checker began life in buses-data,
+# which is PRIVATE, so a CI step here would have needed CROSS_REPO_PAT2 -- and
+# hanging a hygiene check off that token is exactly what buses-data's `docs` job
+# was separated out to avoid. It now lives in claude-skills, which is PUBLIC, so
+# `test.yml` fetches it with no secret at all and runs the committed-bytes half.
+#
+# WHAT REMAINS HOOK-ONLY IS THE MIXED-EOL HALF, and no CI run anywhere could ever
+# perform it: the index normalises to LF on staging and actions/checkout builds a
+# uniform tree, so mixed line endings are a property of a WORKING TREE that no
+# commit and no CI run can express. That is why this block stays even though CI
+# now covers the rest of it.
+#
+# THE PATH IS CONFIGURABLE and defaults to where claude-skills sits on the machine
+# this was written on. Point it somewhere else with, from this repository's root:
+#
+#   git config hooks.skillsPath "/c/some/other/claude-skills"
+#
+# A MISSING CHECKER MUST NOT BLOCK COMMITTING, the same rule the stamper below
+# follows: claude-skills is not part of this repository, and a hook that dies on a
+# machine without it teaches whoever hits that to bypass the hook for good.
+SKILLS=$(git config --get hooks.skillsPath || echo "/c/u3a St Ives/.claude/skills")
+HYGIENE="$SKILLS/tools/check-file-hygiene.mjs"
+if [ -f "$HYGIENE" ] && command -v node >/dev/null 2>&1; then
+  hygiene_out=$(node "$HYGIENE" --staged --root "$(git rev-parse --show-toplevel)" 2>&1) || {
+    echo ""
+    echo "pre-commit: refused -- staged files carry layout faults that confound an edit:"
+    indent "$hygiene_out"
+    echo ""
+    echo "  A BOM is invisible and shows up in no diff. MIXED-EOL is invisible to git"
+    echo "  itself: the index normalises to LF on staging, so the diff looks clean."
+    echo "  Rewrite the file without the mark, or with one kind of line ending."
+    echo "  (bypass with --no-verify only for a captured file kept as it arrived)"
+    exit 1
+  }
+fi
+
+# ---------------------------------------------------------------------------
+# The document stamp, written HERE, at commit time (buses-data OA-397, R4 of the
+# process review, 2026-09-18). Until this day the stamp was written by a Stop hook
+# AFTER the turn, which is why the block above exists: a commit made mid-turn
+# carried the old stamp and the audit refused it. The pre-commit hook is the one
+# moment at which the index is built and the commit is not yet written, so a stamp
+# written here into the index is the stamp that lands. `docstamp.py --staged`
+# stamps the in-scope documents of THIS commit: the disk copy too when it matches
+# the staged blob, the index alone when they differ, nothing in a repository the
+# stamp policy does not name. The post-commit hook beside this file keeps `git
+# status` truthful afterwards -- read its comment for the pathspec snapshot it
+# corrects.
+#
+# THE AUDIT STAYS, AS THE CONTROL THAT MUST NEVER FIRE. A refusal below now means
+# the stamper did not run -- the WARNING says why -- and never "you forgot to
+# re-stamp", because there is nothing to re-stamp. The wiring is proved in
+# buses-data (.github/scripts/prove-red-stamp-at-commit.mjs, against the same
+# hook text) and the mechanism in claude-skills (stamp-docs/scripts/prove_staged.py).
+#
+# `hooks.stampDocsPath` names the scripts folder and defaults to the skill tree on
+# this machine; `hooks.stampPolicy` names a policy file for a repository the
+# configured roots do not cover. A machine without the scripts skips the block, on
+# the same rule as every block above.
+STAMP_SCRIPTS=$(git config --get hooks.stampDocsPath || echo "$HOME/.claude/skills/stamp-docs/scripts")
+STAMP_POLICY=$(git config --get hooks.stampPolicy || true)
+STAMPER="$STAMP_SCRIPTS/docstamp.py"
+AUDIT="$STAMP_SCRIPTS/check_committed_stamps.py"
+PY=python
+command -v python >/dev/null 2>&1 || PY=python3
+
+if [ ! -f "$AUDIT" ]; then
   exit 0
 fi
 
-python "$STAMPER" --staged || {
+if [ -f "$STAMPER" ]; then
+  if [ -n "$STAMP_POLICY" ]; then
+    stamp_out=$("$PY" "$STAMPER" --staged --policy "$STAMP_POLICY" 2>&1) || stamp_failed=1
+  else
+    stamp_out=$("$PY" "$STAMPER" --staged 2>&1) || stamp_failed=1
+  fi
+  if [ -n "${stamp_failed:-}" ]; then
+    echo ""
+    echo "pre-commit: WARNING -- docstamp.py --staged did not run cleanly, so nothing was stamped; the audit below decides:"
+    indent "$stamp_out"
+    echo ""
+  else
+    stamped_lines=$(printf '%s\n' "$stamp_out" | grep -E '^(stamped|bumped) ' || true)
+    if [ -n "$stamped_lines" ]; then
+      echo "pre-commit: docstamp wrote the version stamp into this commit:"
+      indent "$stamped_lines"
+    fi
+  fi
+fi
+
+"$PY" "$AUDIT" --staged || {
   echo ""
-  echo "pre-commit: refused. Re-stamp, re-add, and commit again."
+  echo "pre-commit: refused -- a staged stamp does not describe its staged content."
+  echo "  Since OA-397 the stamper above writes the stamp into the commit, so this can only"
+  echo "  fire when it did not run: read the WARNING above, or run it by hand and re-add:"
+  echo "      python \"$STAMPER\" --staged"
   echo "  (bypass with --no-verify only if you mean to commit a stamp that lies)"
   exit 1
 }

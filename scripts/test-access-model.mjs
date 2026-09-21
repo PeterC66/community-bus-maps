@@ -144,13 +144,28 @@ eq('renaming a user revokes nothing', renamed.json && renamed.json.revokedSessio
 
 // 7. The client half. The server's 403 arrives in the middle of a page that was
 //    only testing for 401, so every app shell loads the guard that announces it.
-//    Asserted rather than remembered: eight script tags is exactly the kind of
-//    list that is right on the day it is written.
+//    Asserted rather than remembered: a list of script tags is exactly the kind
+//    of list that is right on the day it is written.
+//
+//    BOTH FILES, SINCE 2026-09-12, AND THAT IS THE WHOLE POINT OF THIS BLOCK.
+//    Until then only `account-guard.js` was asserted, and `csrf.js` beside it was
+//    remembered — nine shells out of ten. The tenth was `adviser.html`, written
+//    the same week: it carried the guard, because the guard was checked, and not
+//    the CSRF shim, because the shim was not. Every mutating request from that
+//    page was then refused 403, which on the only one it had — Sign out — meant
+//    the button navigated away and left the session open. A member of the public
+//    would have believed they had signed out on a shared computer.
+//
+//    So the two are one loop over a LIST, and a third file added to that list
+//    gets the same treatment for free. The lesson is not about CSRF: it is that
+//    an invariant beside an un-asserted twin will be met and the twin will not.
 const SHELLS = readdirSync(path.join(ROOT, 'views', 'app')).filter((f) => f.endsWith('.html'));
 check('there are app shells to check', SHELLS.length >= 8, `found ${SHELLS.length}`);
-const missingGuard = SHELLS.filter((f) => !readFileSync(path.join(ROOT, 'views', 'app', f), 'utf8').includes('/js/account-guard.js'));
-eq('every app shell loads /js/account-guard.js', missingGuard, []);
-check('…and the file it loads exists', existsSync(path.join(ROOT, 'public', 'js', 'account-guard.js')));
+for (const script of ['account-guard.js', 'csrf.js']) {
+  const missing = SHELLS.filter((f) => !readFileSync(path.join(ROOT, 'views', 'app', f), 'utf8').includes(`/js/${script}`));
+  eq(`every app shell loads /js/${script}`, missing, []);
+  check(`…and /js/${script} exists`, existsSync(path.join(ROOT, 'public', 'js', script)));
+}
 
 // ===========================================================================
 // OA-008 — a map with no owning organisation

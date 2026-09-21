@@ -61,15 +61,17 @@ const val = (f, d) => { const i = argv.indexOf(f); return i >= 0 && argv[i + 1] 
 // sits in the skill's assets folder beside them. The portal runs a generator from
 // its own engine folder against a map's data dir and passes SKILL_ASSETS, so the
 // __dirname-only form could never have rendered a boarding sheet there - it would
-// have thrown on the require, before reading a single input. Resolution order: a
-// sibling file, then SKILL_ASSETS, then the skill's own path. Resolution does not
-// affect the SVG.
-const _dep = (name) => {
-  const local = path.join(__dirname, name);
+// have thrown on the require, before reading a single input. The resolver lives in
+// engine_paths.js since 2026-09-02 (OA-224 Tier 3.4) and its header has the order
+// and the reasons; the four lines below are the bootstrap that finds THAT file.
+const _EP = (() => { const local = path.join(__dirname, 'engine_paths.js');
   try { if (fs.existsSync(local)) return local; } catch (e) {}
-  return process.env.SKILL_ASSETS ? path.join(process.env.SKILL_ASSETS, name)
-       : 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/' + name;
-};
+  if (process.env.SKILL_ASSETS) return path.join(process.env.SKILL_ASSETS, 'engine_paths.js');
+  const across = path.join(__dirname, '..', '..', 'make-bus-leaflet', 'assets', 'engine_paths.js');
+  try { if (fs.existsSync(across)) return across; } catch (e) {}
+  return 'C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/engine_paths.js'; })();
+const { engineDep } = require(_EP);
+const _dep = engineDep(__dirname);
 const FOOTER = require(_dep('footer.js'));
 const ICONS = require(_dep('icons.js'));
 const FM = require(_dep('font_metrics.js'));
@@ -82,6 +84,14 @@ const FM = require(_dep('font_metrics.js'));
 // The flag, the counter and refuse() live in strict_guards.js, shared with
 // gen_internal.js, which carried the original of all of it.
 const { STRICT_GUARDS, refuse, report: reportRefusals } = require(_dep('strict_guards.js'));
+
+// ---- main() ---------------------------------------------------------------
+// OA-224 Tier 4.1: the body below runs only when this file is RUN, never when it
+// is required, so a test can ask whether it LOADS without asking it to draw a
+// map. Nothing inside is re-indented -- the diff has to read as "a scope was
+// added". Why it was worth a hash move, and the fault that proves it:
+// make-bus-leaflet/test/generator_load.test.js.
+function main() {
 
 // The data folder: --dir wins, then LEAFLET_DIR (what the portal and the skill's
 // own runners set), then the current directory. Before LEAFLET_DIR was honoured
@@ -130,7 +140,7 @@ if (STANDS.verdict !== 'OK') {
 /* ------------------------------------------------------------------ page */
 // Millimetres throughout, as every other generator does; the raster size is the
 // shared 3508x2480 (A4 landscape at 300 dpi) so render.js needs no special case.
-const W = 297, H = 210;
+const { W, H, svgOpen } = require(_dep('page.js'));
 const SAFE = 8;                       // print-safe margin, matches footer.js
 // PRINT LEGIBILITY FLOOR. quality_metrics.js counts EVERY text element below
 // 2.4 mm as a hard defect, so a sheet with 84 small labels scores 84 defects
@@ -139,7 +149,7 @@ const SAFE = 8;                       // print-safe margin, matches footer.js
 const MIN_TEXT = 2.4;
 const parts = [];
 const out = (s) => parts.push(s);
-const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const { esc } = require(_dep('svg_primitives.js'));   // the one copy — OA-224 Tier 3.4
 const f2 = (n) => (Math.round(n * 100) / 100).toString();
 
 /* --------------------------------------------------------------- palette */
@@ -223,7 +233,7 @@ if (!dests.length) { console.error('gen_boarding: the index is empty — nothing
 const TITLE = BP.title || `Where to catch your bus in ${PLACE.name || ''}`.trim();
 const SUBTITLE = BP.subtitle || '';
 
-out(`<svg xmlns="http://www.w3.org/2000/svg" width="3508" height="2480" viewBox="0 0 ${W} ${H}">`);
+out(svgOpen(W, H));
 out(`<rect width="${W}" height="${H}" fill="#ffffff"/>`);
 out(`<g font-family="Arial, Helvetica, sans-serif">`);
 
@@ -998,6 +1008,57 @@ const keyLabelOf = (s) => {
   if (nm.toLowerCase() === String(s.label || '').trim().toLowerCase()) return s.label;
   return s.label + ' \u2014 ' + nm;
 };
+/* WHICH STREET DO I WALK TO? -- THE ONE QUESTION THE SHEET WAS NOT ANSWERING (OA-034).
+ *
+ * At High Wycombe town centre the frame is 240 m wide because the two boarding areas
+ * are 230 m apart, and Oxford Street was the ONE street inside it the locator could not
+ * label: its own two stops sit on the only stretch in frame, so the name had nowhere to
+ * go that was not under a marker disc. Every other street on that sheet is named. The
+ * sheet's own subtitle says "Oxford Street and the bus station", and the map was weakest
+ * at exactly the place it matters most.
+ *
+ * `naptan_stands.py` has carried a full NaPTAN block per stop since the file was first
+ * written, `Street` included; `boarding_index.py` v1.4 carries it into the stand view
+ * this generator reads. So this costs no data work and no second input.
+ *
+ * WHY IT IS DERIVED AND NOT A CONFIG KEY. `standKeyNames` -- the CommonName beside the
+ * code -- already exists and is OFF at High Wycombe town centre, because turning it on
+ * prints "High Wycombe BusStn" fifteen times. A `standKeyStreets` flag would be off
+ * there for exactly the same reason and for exactly the same fifteen rows: "Bridge
+ * Street" fifteen times is the same noise in a different word. A whole-sheet switch
+ * cannot express "print it where it distinguishes", which is the only thing anyone
+ * wants, so the rule asks that question per stand instead. Four suppressions, each
+ * with a case behind it and each measured on the four sheets that exist:
+ *
+ *   1. NO STREET IN THE REGISTER. Nothing to print.
+ *   2. EVERY DRAWN STAND SHARES ONE STREET. St Neots Market Square: five stands, all
+ *      "Market Square", which is the name of the place in the title. Five identical
+ *      grey lines that answer nothing. This sheet stays byte-identical, which is what
+ *      makes it the control for the whole change.
+ *   3. THE KEY ALREADY SAYS IT. With `standKeyNames` on at High Wycombe High Street the
+ *      key reads "Stop R -- High Street"; appending "High Street" to its own sub-line is
+ *      a stutter. Five of the six stands there are in this position, and the sixth --
+ *      "Stop T -- Town Hall", which stands on Queen Victoria Street -- is the one whose
+ *      street a reader genuinely cannot guess. It is the only line that changes there.
+ *   4. THE READER IS ALREADY STANDING ON IT. Where `hereLabel`/`HERE_PHRASE` applies the
+ *      sheet is telling them not to walk anywhere; naming a street and then saying "in
+ *      the bus station" is two answers to one question. At St Ives the three bays are
+ *      inside the polygon and keep their phrase, and The Busway Station Road (47 m, and
+ *      outside) gains "Station Road" -- the stop this suppression exists to distinguish.
+ *
+ * The stand key's width guard below measures whatever this produces, so an overrun
+ * refuses the build rather than printing across the destination index. */
+const _streetOf = (s) => String(s.street || '').trim();
+const _STREETS = stands.map(_streetOf);
+const _ONE_STREET = _STREETS.every(Boolean) && new Set(_STREETS).size === 1;
+const streetOf = (s) => {
+  const st = _streetOf(s);
+  if (!st) return null;                                   // 1
+  if (_ONE_STREET) return null;                           // 2
+  if (String(keyLabelOf(s)).toLowerCase().includes(st.toLowerCase())) return null;  // 3
+  if (HERE_PHRASE && alreadyThere(s)) return null;        // 4
+  return st;
+};
 const KEY_TOP = MAP_Y1 + 5.0;
 const KEY_LIMIT = PLATE_TOP - 0.8;      // St Ives's fourth sub-line sits 0.9 mm clear
 const KEY_ROW_1 = KEY_TOP + 4.2;        // baseline of the first stand's label
@@ -1039,7 +1100,17 @@ for (const s of stands) {
   // Built from the parts that survive, so the bearing can stand alone as the whole
   // caption. It is a sentence fragment either way, so it takes a capital when it leads.
   const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
-  const walkLine = walk ? [walk, facing].filter(Boolean).join(', ') : (cap(facing) || '');
+  // THE STREET LEADS (OA-034). It is the thing a reader looks for first -- "Stop J --
+  // Oxford Street, buses face east" is read in that order -- and a street name is
+  // already capitalised, so it never wants `cap`. The capital moves to whichever part
+  // survives FIRST, which reproduces the previous line exactly whenever `streetOf`
+  // suppresses: walk present gives [walk, facing], walk absent gives cap(facing), and
+  // neither gives ''. St Neots Market Square, where rule 2 suppresses on every stand,
+  // is the byte-identical proof of that.
+  const street = streetOf(s);
+  const _parts = [street, walk, facing].filter(Boolean);
+  if (_parts.length && !street && !walk) _parts[0] = cap(_parts[0]);
+  const walkLine = _parts.join(', ');
   // AN EMPTY STAND'S CAPTION REPLACES THE WALK LINE, IT DOES NOT EXTEND IT.
   // Appended, "Not the best stop for anywhere on this sheet" made the grey line
   // 114 mm long in an 89 mm column and it printed straight across the destination
@@ -1422,3 +1493,7 @@ if (reportRefusals('refused to draw something this sheet was asked for.')) {
   process.exit(1);
 }
 process.exit(overflow > 0 ? 1 : 0);
+}
+
+if (require.main === module) main();
+module.exports = { main };

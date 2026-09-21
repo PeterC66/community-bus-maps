@@ -9,10 +9,19 @@
 //   node scripts/check-vendored.mjs --json
 //
 // --skills points at the folder holding make-bus-leaflet/ and
-// make-place-bus-leaflet/. It defaults to `skillRootDefault` in
-// engine/vendored.json, and SKILL_ROOT overrides that. Where the skill tree is
-// not present — CI, or a second developer's machine — the source half of the
-// audit is SKIPPED and says so by name; it never silently passes.
+// make-place-bus-leaflet/. **It comes from `SKILL_ROOT` in `.env`** (see
+// `.env.example`), which this script loads; `--skills` overrides that. This
+// header said the default was `skillRootDefault` in engine/vendored.json for a
+// day after that key was REMOVED from the manifest on 2026-09-02 — it was one
+// laptop's absolute path in a file that also ships to a VPS and to CI — and the
+// 2026-09-03 review caught the header still describing it (portal-ops V4). The
+// read at the bottom of the resolution chain is kept on purpose, as a legacy
+// fallback for an old manifest, and `test-vendored.mjs` exercises it; nothing
+// tracked here carries the key, and `test-portal-lib.mjs` asserts that.
+//
+// Where the skill tree is not present — CI, or a second developer's machine —
+// the source half of the audit is SKIPPED and says so by name; it never silently
+// passes.
 //
 // Three populations are enumerated, not one, and the third was added on
 // 2026-08-26 because the first two between them could not see a real hand-off:
@@ -33,17 +42,15 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditVendored, restampManifest } from './lib/vendored.mjs';
+import { arg, has } from './lib/cli.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const ENGINE_DIR = path.join(ROOT, 'engine');
 const MANIFEST = path.join(ENGINE_DIR, 'vendored.json');
 
 const argv = process.argv.slice(2);
-const flag = (name) => argv.includes(`--${name}`);
-const opt = (name) => {
-  const i = argv.indexOf(`--${name}`);
-  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
-};
+const flag = (name) => has(name, argv);
+const opt = (name) => arg(name, null, argv);
 
 if (!existsSync(MANIFEST)) {
   console.error(`✗ no manifest at ${MANIFEST} — engine/vendored.json is what this check reads.`);
@@ -97,7 +104,35 @@ if (flag('update')) {
     console.error('  DRIFTED   → the skill source moved: re-vendor (changing-the-engine.md §4) and run --update');
     console.error('  MISSING   → a vendored file is gone; a require() will throw, not a byte gate');
     console.error('  UNRESOLVED→ a vendored file requires a module the portal has NEVER been given:');
-    console.error('              vendor it too, IN THE SAME COMMIT, and add its manifest row by hand');
+    console.error('              vendor it too, IN THE SAME COMMIT — the command is printed below');
+    /*
+     * THE EXACT COMMAND, not a procedure (OA-224 Tier 3.6). This used to end with
+     * "add its manifest row by hand", and the row holds a SHA-256 — the one thing
+     * in this repository nobody can check by eye. `--add` writes the row and lets
+     * restampManifest() fill the hash in from the bytes that land.
+     *
+     * The SOURCE is a guess and is printed as one. Where a skill tree is at hand
+     * it is resolved for real, by looking; where it is not — CI, the VPS — the
+     * likely paths are offered and the caller picks. A guess presented as a fact
+     * is how a wrong `source` gets committed, and a wrong `source` makes DRIFTED
+     * mean nothing for that row for ever.
+     */
+    const unresolved = bad.filter((r) => r.status === 'UNRESOLVED');
+    if (unresolved.length) {
+      const SKILL_ASSET_DIRS = ['make-bus-leaflet/assets', 'make-place-bus-leaflet/assets'];
+      console.error('\n  From the repository root, with no placeholders left in it:');
+      for (const r of unresolved) {
+        const found = skillRoot
+          ? SKILL_ASSET_DIRS.map((d) => `${d}/${r.file}`).filter((s) => existsSync(path.join(skillRoot, s)))
+          : [];
+        const sources = found.length ? found : SKILL_ASSET_DIRS.map((d) => `${d}/${r.file}`);
+        for (const s of sources) {
+          const doubt = found.length ? '' : '   # source unverified — no skill tree here to look in';
+          console.error(`    node scripts/vendor-engine.mjs --add ${r.file} --source ${s}${doubt}`);
+        }
+        if (found.length > 1) console.error(`              (${r.file} exists in both skills — pick the one the vendored copy came from)`);
+      }
+    }
     process.exitCode = 1;
   }
 }

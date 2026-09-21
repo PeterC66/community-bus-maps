@@ -38,6 +38,12 @@
 //      anything leaves the laptop, so a refusal costs nothing. Deferrals with
 //      expiry dates live in scripts/s6-waivers.json; --s6-unchecked "<reason>"
 //      is the one-off escape hatch.
+//   0b. NEWEST RENDER — refuse a --src the map's own manifest.json does not
+//      call the current S5 run (buses-data OA-368). Also local and also before
+//      the scp. Step 2 proves these bytes reproduce; it cannot tell a stale
+//      render that still reproduces from a current one, and two of the first
+//      customer's sheets went publicly live a fortnight stale through that gap.
+//      --render-superseded "<reason>" is the one-off escape hatch.
 //   1. scp --src up to a scratch dir on the host (rsync isn't reliably
 //      available on Windows/Git Bash laptops, so this uses scp instead).
 //   2. PRE-FLIGHT VERIFY there, inside a throwaway container, BEFORE touching
@@ -86,12 +92,9 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkS6, findWaiver, refuses } from './lib/s6-freshness.mjs';
+import { checkNewestRender } from './lib/newest-render.mjs';
+import { arg, has } from './lib/cli.mjs';
 
-function arg(name, def = undefined) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
-}
-const has = (name) => process.argv.includes(`--${name}`);
 
 const SRC = arg('src');
 const KIND = arg('kind', 'area');
@@ -145,6 +148,8 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
   // Local to this script's step 0 — import-map.mjs would reject them.
   if (a === '--s6-unchecked') return false;
   if (all[i - 1] === '--s6-unchecked') return false;
+  if (a === '--render-superseded') return false;
+  if (all[i - 1] === '--render-superseded') return false;
   return true;
 });
 
@@ -291,6 +296,101 @@ if (S6_UNCHECKED) {
   console.log('   Nothing has verified that this map is correct against its current data.');
 } else {
   gateS6();
+}
+
+// ---------------------------------------------------------------------------
+// STEP 0b — is --src the render this map records as CURRENT?
+// buses-data OA-368.
+//
+// A DIFFERENT QUESTION FROM STEP 0, AND FROM THE BYTE GATE IN STEP 2. Step 0
+// asks whether the map was independently checked after its data moved. Step 2
+// asks whether the portal reproduces these bytes. Neither asks whether this is
+// the newest render we hold, and on 2026-09-15 that gap delivered three of the
+// first customer's four maps from renders 10, 10 and 23 builds old — the folder
+// having been picked with `ls -1 <map>/S5-render | tail -1`, which sorts `v2.9`
+// after `v2.32`. Step 2 refused one of the three; the other two reproduced
+// exactly, because the engine change between the two renders happened not to
+// alter those sheets, and they are publicly live a fortnight stale. A gate that
+// is silent because it was never asking the question is the shape here.
+//
+// Like step 0, deliberately BEFORE the scp: it is a fact about the local tree,
+// needs no host, and a refusal here has uploaded nothing and stopped nothing.
+//
+// WHY A REFUSAL WITH AN OVERRIDE RATHER THAN A WARNING. OA-368 left the choice
+// open on one term — how often a deliberate re-delivery of an OLDER render has
+// actually happened — and said it was a read-only query away on the live host.
+// It is not: nothing on the host records which render a delivery came from.
+// `map_version.storage_key` is the portal's own `v1.0`, assigned by
+// import-map.mjs and unrelated to the S5 run; the audit-log detail written at
+// fulfilment records `src`, and deliver-map.mjs rewrites `--src` to the
+// container's `/import` before the importer ever sees it. The frequency cannot
+// be counted, by anyone, so the instrument has to be the one that is safe under
+// either answer: it stops, and it prints the flag that lets an operator who
+// means it go on. That is the same bargain `--s6-unchecked` already strikes in
+// this file, and a deliberate older delivery pays one flag and a reason for it.
+//
+// A `cannot-tell` REFUSES too, for step 0's reason: "could not check" and
+// "checked and fine" must never report the same way (the audit's V2). The one
+// case that passes quietly is a `--src` that is not a versioned render folder
+// at all — a committed `_portal-fixture` pack — where no manifest claims
+// anything about it and there is no claim to contradict.
+// ---------------------------------------------------------------------------
+const RENDER_SUPERSEDED = (() => {
+  const i = process.argv.indexOf('--render-superseded');
+  return i === -1 ? null : (process.argv[i + 1] || '(no reason given)');
+})();
+
+function gateNewestRender() {
+  const r = checkNewestRender(SRC);
+
+  if (r.verdict === 'current') {
+    console.log(`-- 0b. Newest render: OK — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'not-a-render') {
+    console.log(`-- 0b. Newest render: N/A — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'cannot-tell') {
+    console.error('\n✗ 0b. Newest render: CANNOT TELL — nothing has been uploaded.');
+    console.error(`  ${r.message}`);
+    console.error('  Refusing rather than assuming, exactly as step 0 does for the same shape of');
+    console.error('  ignorance. Deliver from a render folder inside a real map tree, or add');
+    console.error('  --render-superseded "<reason>" if you mean to ship one from outside it.');
+    process.exit(1);
+  }
+
+  // superseded — and anything this function has not learned, which must stop
+  // rather than fall out of the bottom as a pass. Step 0 acquired three new
+  // verdicts in one afternoon; this is the same guard for the same reason.
+  if (r.verdict !== 'superseded') {
+    console.error(`\n✗ 0b. Newest render: UNKNOWN VERDICT "${r.verdict}" — nothing has been uploaded.`);
+    console.error(`  ${r.message}`);
+    console.error('  scripts/lib/newest-render.mjs produced a verdict this gate does not know how to');
+    console.error('  judge. Teach gateNewestRender() what it means rather than widening the pass.');
+    process.exit(1);
+  }
+
+  console.error('\n✗ 0b. Newest render: REFUSED (SUPERSEDED) — nothing has been uploaded and the live service is untouched.');
+  console.error(`  ${r.message}`);
+  console.error(`\n  delivering : ${r.runId}`);
+  console.error(`  current    : ${r.latest}   (manifest.json, stages.S5.latest)`);
+  console.error('\n  A render that still reproduces is not thereby the newest one — that is what step 2');
+  console.error('  proves and this is what it cannot see. Two of the first customer\'s sheets went live');
+  console.error('  a fortnight stale through exactly this gap (buses-data OA-368).');
+  console.error('\n  Do one of these:');
+  console.error(`   1. Deliver the current render instead — ${r.latest} (the right answer${r.latestOnDisk ? '' : ', once it is back on this disk'}).`);
+  console.error('   2. --render-superseded "<reason>" if an older render is genuinely what you mean to');
+  console.error('      ship. It is recorded in this log and nowhere else.');
+  process.exit(1);
+}
+
+if (RENDER_SUPERSEDED) {
+  console.log('!! 0b. Newest render: SKIPPED BY HAND');
+  console.log(`   reason: ${RENDER_SUPERSEDED}`);
+  console.log('   Nothing has established that this is the newest render we hold for this map.');
+} else {
+  gateNewestRender();
 }
 console.log('');
 

@@ -1,4 +1,4 @@
-﻿// Repair unreadable route-number badges on renders that already exist.
+// Repair unreadable route-number badges on renders that already exist.
 //
 // src/render/badgeContrast.js fixes this at render time, so every sheet produced
 // from now on is fine. Anything rendered BEFORE it landed still carries the fault
@@ -18,7 +18,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, statSync, rmSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { DATA_DIR } from '../src/db/index.js';
+import { DATA_DIR } from '../src/db/paths.js';   // paths only: importing src/db opens and migrates the database
 import { fixBadgeContrast } from '../src/render/badgeContrast.js';
 import { rasterise } from '../src/render/renderMap.js';
 

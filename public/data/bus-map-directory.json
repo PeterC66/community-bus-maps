@@ -1,0 +1,1381 @@
+{
+  "_comment": [
+    "A PROJECTION of BusMapsUK/bus-map-directory/directory.json in the private",
+    "buses-data repository, written by scripts/sync-directory.mjs and checked by",
+    "`npm run sync:directory -- --check`. It carries the fields the /maps search",
+    "panel renders and deliberately NOT the survey notes or the pages each row",
+    "was read from — those are our own assessment of somebody else's website and",
+    "they stay in the private repository. Do not hand-edit this file."
+  ],
+  "source": {
+    "surveyed": "2026-09-11",
+    "rows": 76
+  },
+  "rows": [
+    {
+      "lta": "Bedford Borough Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.bedford.gov.uk/parking-roads-and-travel/public-transport/bus-timetables-and-maps",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2025-04"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Bedford"
+        ],
+        "url": "https://www.bedford.gov.uk/parking-roads-and-travel/public-transport/bus-timetables-and-maps"
+      },
+      "landingPage": "https://www.bedford.gov.uk/parking-roads-and-travel/public-transport/bus-timetables-and-maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Blackburn and Darwen Borough Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://bwdconnect.org.uk/travel-choices/bus/bus-network-map/",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2025-05"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.blackburn.gov.uk/transport-and-travel/bus-services",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Blackpool Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.blackpool.gov.uk/Residents/Parking-roads-and-transport/Transport/Public-transport/Public-transport.aspx",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Bournemouth, Christchurch and Poole Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.bcpcouncil.gov.uk/roads-and-transport/travel-and-transport/buses/routes-and-operators",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Bracknell Forest Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.bracknell-forest.gov.uk/roads-parking-and-transport/travel-and-public-transport/buses",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-08"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.bracknell-forest.gov.uk/roads-parking-and-transport/travel-and-public-transport/buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Brighton and Hove City Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.brighton-hove.gov.uk/travel-and-road-safety/travel-transport-and-road-safety/buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Buckinghamshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.buckinghamshire.gov.uk/parking-roads-and-transport/bus-passes-and-travel/check-bus-times/",
+        "format": "interactive",
+        "publisher": "FWT CartoGold"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.buckinghamshire.gov.uk/parking-roads-and-transport/bus-passes-and-travel/check-bus-times/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Cambridgeshire and Peterborough Combined Authority",
+      "covers": [
+        "Cambridge",
+        "East Cambridgeshire",
+        "Fenland",
+        "Huntingdonshire",
+        "South Cambridgeshire"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://cambridgeshirepeterborough-ca.gov.uk/better-buses/",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2024-05"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://transport.cambridgeshirepeterborough-ca.gov.uk/buses/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Central Bedfordshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.centralbedfordshire.gov.uk/transport-roads-and-parking/public-transport/bus-timetables/bus-maps",
+        "format": "pdf",
+        "publisher": "unknown"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Ampthill and Flitwick",
+          "Biggleswade",
+          "Dunstable",
+          "Leighton Buzzard",
+          "Sandy"
+        ],
+        "url": "https://www.centralbedfordshire.gov.uk/transport-roads-and-parking/public-transport/bus-timetables/bus-maps"
+      },
+      "landingPage": "https://www.centralbedfordshire.gov.uk/transport-roads-and-parking/public-transport/bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Cheshire East Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.cheshireeast.gov.uk/public_transport/bus-and-rail-maps.aspx",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-04"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Crewe and Nantwich",
+          "Macclesfield",
+          "Congleton, Sandbach and Alsager",
+          "Middlewich",
+          "Wilmslow, Knutsford and Alderley Edge"
+        ],
+        "url": "https://www.cheshireeast.gov.uk/public_transport/bus-and-rail-maps.aspx"
+      },
+      "landingPage": "https://www.cheshireeast.gov.uk/public-transport/bus-service-timetables-and-journey-planning",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Cheshire West and Chester Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.cheshirewestandchester.gov.uk/residents/transport-and-roads/public-transport/bus-timetables-route-maps/local-bus-network-maps-and-bus-service-information",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-09"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Chester",
+          "Ellesmere Port",
+          "Neston",
+          "Northwich",
+          "Winsford"
+        ],
+        "url": "https://www.cheshirewestandchester.gov.uk/residents/transport-and-roads/public-transport/bus-timetables-route-maps/local-bus-network-maps-and-bus-service-information"
+      },
+      "landingPage": "https://www.cheshirewestandchester.gov.uk/residents/transport-and-roads/public-transport/bus-timetables-route-maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Cornwall Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.transportforcornwall.co.uk/services",
+        "format": "pdf",
+        "publisher": "Transport for Cornwall",
+        "dated": "2026-07"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.cornwall.gov.uk/transport-parking-and-streets/public-transport/cornwalls-transport-services/buses-in-cornwall/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Cumberland Council",
+      "covers": [
+        "Allerdale",
+        "Carlisle",
+        "Copeland"
+      ],
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.cumberland.gov.uk/parking-roads-and-transport/bus-services/buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Devon County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.traveldevon.info/bus/interactive-bus-map/",
+        "format": "interactive",
+        "publisher": "FWT CartoGold",
+        "dated": "2026-04"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [],
+        "url": "https://www.traveldevon.info/bus/interactive-bus-map/"
+      },
+      "landingPage": "https://www.traveldevon.info/bus/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Dorset Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.dorsetcouncil.gov.uk/w/timetables-and-journey-plan",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "East Midlands Combined Authority",
+      "covers": [
+        "Derby",
+        "Derbyshire",
+        "Nottingham",
+        "Nottinghamshire"
+      ],
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.eastmidlands-cca.gov.uk/what-we-do/transport/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "East Riding of Yorkshire Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.eastriding.gov.uk/environment/public-transport-travel/bus-and-rail-service-information/local-bus-service-timetables/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "East Sussex County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.eastsussex.gov.uk/roads-transport/public/journeyplan",
+        "format": "interactive",
+        "publisher": "FWT CartoGold"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Bexhill",
+          "Eastbourne",
+          "Hailsham",
+          "Hastings",
+          "Uckfield"
+        ],
+        "url": "https://www.eastsussex.gov.uk/roads-transport/public/buses/routes/bus-network-maps"
+      },
+      "landingPage": "https://www.eastsussex.gov.uk/roads-transport/public/buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Essex County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.travelessex.co.uk/about-timetables-maps/bus-train-maps",
+        "format": "pdf",
+        "publisher": "GRM Mapping"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Chelmsford",
+          "Colchester",
+          "Basildon",
+          "Harlow",
+          "Braintree"
+        ],
+        "url": "https://www.travelessex.co.uk/about-timetables-maps/bus-train-maps"
+      },
+      "landingPage": "https://www.essexhighways.org/getting_around/bus",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Gloucestershire County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.gloucestershire.gov.uk/transport/county-bus-network-maps",
+        "format": "interactive",
+        "publisher": "council",
+        "dated": "2026-06"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Cheltenham",
+          "Cirencester",
+          "Gloucester",
+          "Stroud",
+          "Tewkesbury"
+        ],
+        "url": "https://www.gloucestershire.gov.uk/transport/county-bus-network-maps"
+      },
+      "landingPage": "https://www.gloucestershire.gov.uk/transport/county-bus-network-maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Greater Manchester Combined Authority",
+      "covers": [
+        "Bolton",
+        "Bury",
+        "Oldham",
+        "Rochdale",
+        "Salford",
+        "Stockport",
+        "Tameside",
+        "Trafford",
+        "Wigan"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://tfgm.com/public-transport/network-maps-region",
+        "format": "pdf",
+        "publisher": "other",
+        "dated": "2026-07"
+      },
+      "townMaps": {
+        "status": "some",
+        "examples": [
+          "Manchester city centre",
+          "Bolton",
+          "Stockport",
+          "Wigan",
+          "Rochdale"
+        ],
+        "url": "https://tfgm.com/public-transport/maps"
+      },
+      "landingPage": "https://tfgm.com/public-transport/maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Hampshire County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "some",
+        "examples": [
+          "Southampton area",
+          "Blackwater Valley (Rushmoor)"
+        ],
+        "url": "https://www.hants.gov.uk/transport/publictransport/timetables"
+      },
+      "landingPage": "https://www.hants.gov.uk/transport/publictransport/timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Herefordshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.herefordshire.gov.uk/travel-and-transport/public-transport/bus-services/bus-maps/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2024-03"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Hereford",
+          "Bromyard",
+          "Kington",
+          "Ledbury",
+          "Leominster"
+        ],
+        "url": "https://www.herefordshire.gov.uk/travel-and-transport/public-transport/bus-services/bus-maps/"
+      },
+      "landingPage": "https://www.herefordshire.gov.uk/travel-and-transport/public-transport/bus-services/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Hertfordshire County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.intalink.org.uk/services",
+        "format": "pdf",
+        "publisher": "other"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Hemel Hempstead",
+          "Hitchin",
+          "Hertford",
+          "Bishop's Stortford",
+          "Berkhamsted"
+        ],
+        "url": "https://www.intalink.org.uk/services"
+      },
+      "landingPage": "https://www.intalink.org.uk/services",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Hull City Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.hull.gov.uk/downloads/download/259/hull-citywide-bus-map",
+        "format": "pdf",
+        "publisher": "council"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://travel.hull.gov.uk/buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Isle of Wight Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.iow.gov.uk/article/2455/Public-transport",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Kent County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": [],
+        "url": "https://www.kentbusinfo.co.uk/search-for-a-timetable"
+      },
+      "landingPage": "https://www.kentbusinfo.co.uk/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Lancashire County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.lancashire.gov.uk/roads-parking-and-travel/public-transport/bus-timetables/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Leicester City Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.leicesterbuses.co.uk/timetables-maps",
+        "format": "pdf",
+        "publisher": "other",
+        "dated": "2026-08"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.leicesterbuses.co.uk/timetables-maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Leicestershire County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.choosehowyoumove.co.uk/area-guides/",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2026-08"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Loughborough",
+          "Melton Mowbray",
+          "Hinckley",
+          "Market Harborough",
+          "Coalville"
+        ],
+        "url": "https://www.choosehowyoumove.co.uk/area-guides/"
+      },
+      "landingPage": "https://www.choosehowyoumove.co.uk/public-transport/bus-routes-and-timetables/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Lincolnshire County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://lincsbus.com/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Liverpool City Region Combined Authority",
+      "covers": [
+        "Halton",
+        "Knowsley",
+        "Sefton",
+        "St Helens",
+        "Wirral"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.merseytravel.gov.uk/customer-information/routes-and-maps/",
+        "format": "pdf",
+        "publisher": "other"
+      },
+      "townMaps": {
+        "status": "some",
+        "examples": [
+          "Liverpool city centre",
+          "Southport",
+          "Birkenhead",
+          "St Helens"
+        ],
+        "url": "https://www.merseytravel.gov.uk/customer-information/routes-and-maps/"
+      },
+      "landingPage": "https://www.merseytravel.gov.uk/customer-information/routes-and-maps/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Luton Borough Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.luton.gov.uk/parking-streets-transport/travel-transport/buses-minibuses/buses/plan-bus-journey-bus-timetables",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2025-12"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Luton and Dunstable"
+        ],
+        "url": "https://www.luton.gov.uk/parking-streets-transport/travel-transport/buses-minibuses/buses/plan-bus-journey-bus-timetables"
+      },
+      "landingPage": "https://www.luton.gov.uk/parking-streets-transport/travel-transport/buses-minibuses/buses/plan-bus-journey-bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Medway Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.medway.gov.uk/downloads/download/254/bus_timetables_and_maps",
+        "format": "pdf",
+        "publisher": "council"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": [],
+        "url": "https://www.medway.gov.uk/downloads/download/254/bus_timetables_and_maps"
+      },
+      "landingPage": "https://www.medway.gov.uk/info/200161/travel/516/bus_timetables/1",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Milton Keynes Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.milton-keynes.gov.uk/highways/bus-rail-and-taxis/bus-timetables-and-maps",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-09"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.milton-keynes.gov.uk/highways/bus-rail-and-taxis/bus-timetables-and-maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Norfolk County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.travelnorfolk.co.uk/bus-routes-and-timetables-2/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "North East Combined Authority",
+      "covers": [
+        "County Durham",
+        "Gateshead",
+        "Newcastle upon Tyne",
+        "North Tyneside",
+        "Northumberland",
+        "South Tyneside",
+        "Sunderland"
+      ],
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.nexus.org.uk/bus",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "North East Lincolnshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.arcgis.com/home/item.html?id=87f0e434284243f8925627fd218eebaf",
+        "format": "interactive",
+        "publisher": "council",
+        "dated": "2026-05"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.nelincs.gov.uk/streets-travel-and-parking/bus-and-train-information/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "North Lincolnshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.northlincs.gov.uk/roads-paths-and-transport/public-transport-and-amenities/bus-services-and-information/bus-service-maps/",
+        "format": "pdf",
+        "publisher": "Pindar Creative",
+        "dated": "2024-05"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.northlincs.gov.uk/roads-paths-and-transport/public-transport-and-amenities/bus-services-and-information/bus-services/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "North Northamptonshire Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.northnorthants.gov.uk/buses-and-transport/bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "North Somerset Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://travelwest.info/bus/network-maps-support-services/",
+        "format": "pdf",
+        "publisher": "other",
+        "dated": "2026-09"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": [],
+        "url": "https://travelwest.info/bus/network-maps-support-services/"
+      },
+      "landingPage": "https://n-somerset.gov.uk/my-services/parking-travel-roads/transport-travel/bus-travel/bus-services-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Oxfordshire County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.mybusoxfordshire.org.uk/discover-oxfordshires-bus-routes-with-our-maps",
+        "format": "pdf + interactive",
+        "publisher": "FWT CartoGold"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Abingdon",
+          "Banbury",
+          "Bicester",
+          "Didcot",
+          "Witney"
+        ],
+        "url": "https://www.mybusoxfordshire.org.uk/discover-oxfordshires-bus-routes-with-our-maps"
+      },
+      "landingPage": "https://www.oxfordshire.gov.uk/transport-and-travel/public-transport/bus-maps-and-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Plymouth City Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.plymouth.gov.uk/buses-plymouth",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2026-08"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.plymouth.gov.uk/buses-plymouth",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Portsmouth City Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://travel.portsmouth.gov.uk/bsip-schemes/public-transport-map/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2025-09"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://travel.portsmouth.gov.uk/public-transport/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Reading Borough Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.reading.gov.uk/vehicles-roads-and-transport/buses-and-concessionary-travel/buses-in-reading/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Royal Borough of Windsor and Maidenhead",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.rbwm.gov.uk/transport-and-streets/public-transport/bus-routes",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2025-08"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.rbwm.gov.uk/transport-and-streets/public-transport/bus-routes",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Rutland County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.rutland.gov.uk/rutland-buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Shropshire Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://next.shropshire.gov.uk/public-transport/travelling-by-bus/bus-services",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Slough Borough Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.slough.gov.uk/downloads/download/964/slough-bus-map",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2014-04"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.slough.gov.uk/buses",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Somerset Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://somerset.thinktravel.info/map",
+        "format": "interactive",
+        "publisher": "council"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.somerset.gov.uk/roads-travel-and-parking/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "South Yorkshire Mayoral Combined Authority",
+      "covers": [
+        "Barnsley",
+        "Doncaster",
+        "Rotherham",
+        "Sheffield"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.travelsouthyorkshire.com/en-gb/journeyplanning/public-transport-maps",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-05"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Barnsley",
+          "Doncaster",
+          "Rotherham",
+          "Sheffield"
+        ],
+        "url": "https://www.travelsouthyorkshire.com/en-gb/journeyplanning/public-transport-maps"
+      },
+      "landingPage": "https://www.travelsouthyorkshire.com/en-gb/journeyplanning/public-transport-maps",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Southampton City Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.southampton.gov.uk/travel-transport/getting-around-southampton/getting-around/public-transport/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-09"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.southampton.gov.uk/travel-transport/getting-around-southampton/getting-around/public-transport/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Southend-on-Sea City Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "alsoPublished": [
+        {
+          "publisher": "Essex County Council (Travel Essex)",
+          "covers": "Southend",
+          "what": "Southend bus and train map, on the Travel Essex maps page — the neighbouring authority draws it",
+          "url": "https://www.travelessex.co.uk/about-timetables-maps/bus-train-maps",
+          "checked": "2026-09-11"
+        }
+      ],
+      "landingPage": "https://www.southend.gov.uk/public-transport-southend-airport/bus-train-information",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Staffordshire County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": [],
+        "url": "https://www.staffordshire.gov.uk/roads-parking-and-transport/public-transport-and-travel-passes/plan-your-journey/stafford-and-stone"
+      },
+      "landingPage": "https://www.staffordshire.gov.uk/Transport/Buses/Plan-your-journey/Plan.aspx",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Stoke-on-Trent City Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.stoke.gov.uk/info/20048/travel",
+        "format": "pdf + interactive",
+        "publisher": "FWT CartoGold"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.stoke.gov.uk/info/20048/travel",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Suffolk County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.suffolkonboard.com/ways-to-travel/bus/maps-fares-and-tickets/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-04"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Ipswich",
+          "Bury St Edmunds",
+          "Lowestoft"
+        ],
+        "url": "https://www.suffolkonboard.com/ways-to-travel/bus/maps-fares-and-tickets/"
+      },
+      "landingPage": "https://www.suffolkonboard.com/ways-to-travel/bus/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Surrey County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.surreycc.gov.uk/roads-and-transport/buses-and-other-transport/bus-timetables/maps-of-routes-and-stops",
+        "format": "pdf",
+        "publisher": "Pindar Creative",
+        "dated": "2022-01"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Guildford",
+          "Woking",
+          "Dorking",
+          "Farnham",
+          "Epsom and Ewell"
+        ],
+        "url": "https://www.surreycc.gov.uk/roads-and-transport/buses-and-other-transport/bus-timetables/maps-of-routes-and-stops"
+      },
+      "landingPage": "https://www.surreycc.gov.uk/roads-and-transport/buses-and-other-transport/bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Swindon Borough Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.swindon.gov.uk/info/20031/roads_parking_and_transport/496/public_transport/2",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Tees Valley Combined Authority",
+      "covers": [
+        "Darlington",
+        "Hartlepool",
+        "Middlesbrough",
+        "Redcar and Cleveland",
+        "Stockton-on-Tees"
+      ],
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://teesvalley-ca.gov.uk/travel/bus/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Telford and Wrekin Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.telford.gov.uk/roadworks-transport-and-streets/public-transport/bus-services-and-timetables/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Thurrock Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.thurrock.gov.uk/transport-map/transport-map-information",
+        "format": "pdf",
+        "publisher": "FWT CartoGold",
+        "dated": "2024-07"
+      },
+      "townMaps": {
+        "status": "some",
+        "examples": [
+          "Grays",
+          "Lakeside",
+          "Stanford-le-Hope",
+          "Tilbury"
+        ],
+        "url": "https://www.thurrock.gov.uk/transport-map/transport-map-information"
+      },
+      "landingPage": "https://www.thurrock.gov.uk/bus-timetables/thurrock-bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Torbay Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.torbay.gov.uk/roads/travel/bus/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Transport for London",
+      "covers": [
+        "London"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://tfl.gov.uk/maps/bus",
+        "format": "pdf",
+        "publisher": "council"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Westminster",
+          "Camden",
+          "Croydon",
+          "Ealing",
+          "Tower Hamlets"
+        ],
+        "url": "https://tfl.gov.uk/maps_/bus-spider-maps"
+      },
+      "landingPage": "https://tfl.gov.uk/maps/bus",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Warrington Borough Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.warrington.gov.uk/bus-timetables",
+        "format": "pdf",
+        "publisher": "Pindar Creative",
+        "dated": "2024-10"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.warrington.gov.uk/bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Warwickshire County Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://warwickshire.pindarcreative.co.uk/",
+        "format": "interactive",
+        "publisher": "Pindar Creative"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.warwickshire.gov.uk/directory/58/bus-timetables-finder",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "West Berkshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.westberks.gov.uk/article/39037/Journey-Planning-and-Timetables",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2026-08"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.westberks.gov.uk/article/39037/Journey-Planning-and-Timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "West Midlands Combined Authority",
+      "covers": [
+        "Birmingham",
+        "Coventry",
+        "Dudley",
+        "Sandwell",
+        "Solihull",
+        "Walsall",
+        "Wolverhampton"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.tfwm.org.uk/plan-your-journey/discover-the-west-midlands/local-area-maps/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-06"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Birmingham city centre",
+          "Coventry city centre",
+          "Wolverhampton city centre"
+        ],
+        "url": "https://www.tfwm.org.uk/plan-your-journey/discover-the-west-midlands/local-area-maps/"
+      },
+      "landingPage": "https://www.tfwm.org.uk/plan-your-journey/ways-to-travel/buses-in-the-west-midlands/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "West Northamptonshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.westnorthants.gov.uk/travel/bus-timetables",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-09"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Northampton",
+          "Daventry",
+          "Towcester",
+          "DIRFT"
+        ],
+        "url": "https://www.westnorthants.gov.uk/travel/bus-timetables"
+      },
+      "landingPage": "https://www.westnorthants.gov.uk/travel/bus-timetables",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "West of England Combined Authority",
+      "covers": [
+        "Bath and North East Somerset",
+        "Bristol",
+        "South Gloucestershire"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://travelwest.info/bus/network-maps/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-09"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Bath city centre",
+          "Bristol city centre",
+          "Keynsham",
+          "Yate"
+        ],
+        "url": "https://travelwest.info/bus/network-maps/"
+      },
+      "landingPage": "https://travelwest.info/bus/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "West Sussex County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.westsussex.gov.uk/roads-and-travel/travel-and-public-transport/bus-travel/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "West Yorkshire Combined Authority",
+      "covers": [
+        "Bradford",
+        "Calderdale",
+        "Kirklees",
+        "Leeds",
+        "Wakefield"
+      ],
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.wymetro.com/buses/bus-maps-and-guides/",
+        "format": "pdf",
+        "publisher": "unknown",
+        "dated": "2026-08"
+      },
+      "townMaps": {
+        "status": "yes",
+        "examples": [
+          "Leeds",
+          "Bradford",
+          "Halifax",
+          "Huddersfield",
+          "Wakefield"
+        ],
+        "url": "https://www.wymetro.com/buses/bus-maps-and-guides/"
+      },
+      "landingPage": "https://www.wymetro.com/buses/bus-maps-and-guides/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Westmorland and Furness Council",
+      "covers": [
+        "Barrow-in-Furness",
+        "Eden",
+        "South Lakeland"
+      ],
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.westmorlandandfurness.gov.uk/parking-streets-and-transport/bus-services",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Wiltshire Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://archive.connectingwiltshire.co.uk/bus/timetables/bus-route-maps/",
+        "format": "pdf",
+        "publisher": "council"
+      },
+      "townMaps": {
+        "status": "some",
+        "examples": [
+          "Bradford on Avon",
+          "Chippenham",
+          "Devizes",
+          "Melksham",
+          "Trowbridge"
+        ],
+        "url": "https://archive.connectingwiltshire.co.uk/bus/timetables/bus-route-maps/"
+      },
+      "landingPage": "https://www.connectingwiltshire.co.uk/getting-around/bus/bus-timetables-maps/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Wokingham Borough Council",
+      "networkMap": {
+        "status": "yes",
+        "url": "https://www.myjourneywokingham.com/bus-travel/local-buses/",
+        "format": "pdf",
+        "publisher": "Pindar Creative",
+        "dated": "2024-09"
+      },
+      "townMaps": {
+        "status": "some",
+        "examples": [
+          "Wokingham",
+          "Woodley",
+          "Earley",
+          "Twyford"
+        ],
+        "url": "https://www.myjourneywokingham.com/bus-travel/local-buses/"
+      },
+      "landingPage": "https://www.myjourneywokingham.com/bus-travel/",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "Worcestershire County Council",
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "landingPage": "https://www.worcestershire.gov.uk/council-services/travel-and-highways/bus-travel-worcestershire/bus-timetables-and-journey-planning",
+      "checked": "2026-09-11"
+    },
+    {
+      "lta": "York and North Yorkshire Combined Authority",
+      "covers": [
+        "City of York",
+        "North Yorkshire"
+      ],
+      "networkMap": {
+        "status": "no"
+      },
+      "townMaps": {
+        "status": "no",
+        "examples": []
+      },
+      "alsoPublished": [
+        {
+          "publisher": "City of York Council",
+          "covers": "York",
+          "what": "York Bus Route Map — a leaflet, a bus-shelter poster and a PDF, cartography by Pindar Creative",
+          "url": "https://www.itravelyork.info/bus-route-timetables/york-bus-route-map",
+          "checked": "2026-09-11"
+        }
+      ],
+      "landingPage": "https://yorknorthyorks-ca.gov.uk/what-we-do/transport/",
+      "checked": "2026-09-11"
+    }
+  ]
+}

@@ -1,11 +1,13 @@
-﻿# Developing the portal — how to change it safely
+# Developing the portal — how to change it safely
 
-<!-- docstamp v1.18 | 2026-08-30 | sha=1e03300a -->
-**v1.18** · updated 30 August 2026
+<!-- docstamp v1.29 | 2026-09-18 | sha=7e54aa63 -->
+**v1.29** · updated 18 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
 `README.md` covers architecture and quick start — read that first. Start here when you are about to edit code.
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 ## Three separate copies of the code — none of them update each other automatically
 
@@ -103,6 +105,10 @@ So the marking is derived at download time on the **authenticated per-version ro
 
 ---
 
+## Conventions
+
+Flag names, exit codes, which stream carries what, how a mutating script asks permission, the naming rule and the Node pin are all settled in one place: [`docs/CONVENTIONS.md`](CONVENTIONS.md). Read it before writing a new script in `scripts/`.
+
 ## The gates you must run
 
 ```bash
@@ -111,8 +117,18 @@ npm run verify:place    # same for a place map
 npm run test:p7         # expert styles (schematic + diagram), 6 gated outputs
 npm run test:lifecycle  # request → build → publish → revert lifecycle
 npm run check:vendored  # engine/ still matches what it was vendored from
-npm test                # public front (P6)
+npm test                # the whole suite - it prints its own count and timings
 ```
+
+### `npm test` discovers its tests - adding one means adding the file
+
+`npm test` runs [`scripts/run-tests.mjs`](../scripts/run-tests.mjs), which **globs `scripts/test-*.mjs` and `scripts/prove-red-*.mjs`** and runs every one of them. Until 2026-09-02 it was a 36-command `&&` chain in `package.json`, and that chain had three faults the runner exists to remove. It stopped at the first failure, so one red test hid every test after it. Nothing tied it to the files on disk, and four of the thirty-seven had drifted out of it unnoticed. And it named each invocation a second time, so a chain entry that forgot `--env-file-if-exists=.env` would have run a different command under the same name - which is why the runner takes each file's command **from the `package.json` script that owns it** rather than rebuilding it.
+
+So **adding a test is adding the file**. Give it an npm script too (`test:<thing>`), because that script is what the runner invokes and what you will want when running it alone; the runner names any file that has no script, in case that was an oversight rather than a choice.
+
+**A test that cannot run here needs an entry in the runner's `EXCLUDED` map with a reason that says where it DOES run** - the two current entries are slow (they rasterise) and run in `verify.yml`. Both said "needs `BUSES_DIR`" until 2026-09-18, when the fixtures were vendored into this repository and that stopped being true; a stale reason is worse than a stale exclusion, because it tells the next reader the test CANNOT run here. The runner refuses to start (exit 2) on an exclusion with no reason or one naming a file that is no longer there, so an exclusion cannot quietly become a hole. Exit codes are the house rule: 0 ok, 1 a test failed, 2 the runner was used wrongly.
+
+The runner is itself falsified by [`scripts/prove-red-run-tests.mjs`](../scripts/prove-red-run-tests.mjs) (`npm run test:prove-red-run-tests`), which runs FIRST in `test.yml` for the usual reason: a bug in the thing that decides whether the suite is green does not make one test wrong, it makes the whole verdict wrong in the reassuring direction. Six cases on scratch repositories plus two controls, ~3 s.
 
 ### Re-stamp a document you edited BEFORE you commit it — and a hook now refuses if you forget
 
@@ -138,27 +154,35 @@ That is also why CI keeps its own full audit rather than trusting the hook: the 
 
 ### The inlined SVG is allowlisted, and adding to the artwork means adding to the list
 
-`src/public/svgSanitise.js` keeps eight elements and 38 attributes — a census of what the generators actually draw — and removes everything else, counting what it removed. If the engine starts emitting something new (a `<tspan>`, a gradient, a `style` attribute), the web view will silently lose it and `scripts/test-svg-sanitise.mjs` will go red on the fixture corpus. That is the intended prompt: widen the allowlist deliberately, in that file, and re-run `npm run test:svg`. Do **not** widen it to `style` or to any URL-valued attribute without saying why in the Caddyfile's CSP block, which reasons about exactly this sink.
+`src/public/svgSanitise.js` keeps eight elements and 38 attributes — a census of what the generators actually draw — and removes everything else, counting what it removed. If the engine starts emitting something new (a `<tspan>`, a gradient, a `style` attribute), the web view will silently lose it and `scripts/test-inline-svg.mjs` will go red on the fixture corpus. That is the intended prompt: widen the allowlist deliberately, in that file, and re-run `npm run test:svg`. Do **not** widen it to `style` or to any URL-valued attribute without saying why in the Caddyfile's CSP block, which reasons about exactly this sink.
 
 ### `engine/` is vendored, and `engine/vendored.json` is the list
 
 Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one of the two map skills or a portal-owned wrapper, and `engine/vendored.json` says which, with a hash. `npm test` runs `scripts/test-vendored.mjs`, which fails on an edited copy, a missing one, or a file the manifest does not name — so vendoring something new means classifying it, not just copying it. After a deliberate re-vendor run `node scripts/check-vendored.mjs --update` from the repository root and commit the manifest with the file. Run `npm run check:vendored` with no flags on a machine that also has the skill trees and it additionally tells you whether the SOURCE has moved on; in CI that half is skipped and says so. See [`../engine/README.md`](../engine/README.md).
 
+**Adding a file to the vendored set is a command, not a hand-edit** (2026-09-02, OA-224 Tier 3.6). When a vendored generator starts requiring a module the portal has never been given, `check-vendored` reports it `UNRESOLVED` and now prints the exact command to fix it, run from the repository root: `node scripts/vendor-engine.mjs --add <engine/path.js> --source <path under the skill root>`. It writes the manifest row, copies the file, and lets `restampManifest()` fill in the SHA-256 from the bytes that landed — the hash is never typed, which matters because a hash is the one thing in this repository nobody can check by eye. It refuses a `--source` the skill tree does not have (exit 3) and a path that already has a row (exit 2). Where the skill trees are present it resolves the source by looking; where they are not it offers the likely paths and says the source is unverified, because a guess printed as a fact is how a wrong `source` gets committed, and a wrong `source` makes `DRIFTED` mean nothing for that row for ever.
+
+**Where the skill trees are is `SKILL_ROOT` in `.env`**, documented in `.env.example`, and `npm run check:vendored` and `npm run vendor:engine` load `.env` so they can see it. Until 2026-09-02 it was `skillRootDefault` inside `engine/vendored.json` — one laptop's absolute path, tracked into a repository that also runs on a VPS and in CI.
+
 ### Which pack `verify` gates, and the per-machine `.env` keys that change it
 
-**You do not have to set anything.** `scripts/lib/fixtures.mjs` resolves a COMMITTED fixture — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in the buses-data repo — from `BUSES_DIR` or from a buses-data checkout sitting beside this one, and when it can find nothing at all the gate **fails** rather than skipping. It used to print "skipping" and exit 0, which is how a fresh clone, a CI run and a second developer all got a green result from a gate that had never executed (technical-audit_2026-08-19, finding V2); `npm run verify -- --allow-skip` is the one remaining way to get a green board without proving anything, and it says so in capitals. The committed fixture is what `verify.yml` gates in CI.
+**You do not have to set anything, and since 2026-09-18 you do not have to have buses-data either** (buses-data OA-398). `scripts/lib/fixtures.mjs` resolves a COMMITTED fixture — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` — from [`gate-fixtures/`](../gate-fixtures/README.md) in this repository first, then `BUSES_DIR`, then a buses-data checkout sitting beside this one; and when it can find nothing at all the gate **fails** rather than skipping. It used to print "skipping" and exit 0, which is how a fresh clone, a CI run and a second developer all got a green result from a gate that had never executed (technical-audit_2026-08-19, finding V2); `npm run verify -- --allow-skip` is the one remaining way to get a green board without proving anything, and it says so in capitals. The committed fixture is what `verify.yml` gates in CI.
 
 **`FIXTURE_DIR` and `PLACE_FIXTURE_DIR` in `.env` override that pack, and are per-machine.** `.env` is git-ignored, so this is a step every clone and every laptop does for itself; `.env.example` carries the full form of both keys. Point `FIXTURE_DIR` at a live `Areas/<Town>/S5-render/<version>` folder and the local gate becomes **stronger** than CI's — that tree is where a real regression surfaces first — which is why the environment wins over the committed fixture rather than the other way round. It may be a `;`-separated list (`;`, not `:`, because these are Windows absolute paths): `verify:area` takes the first entry, and `verify:defaults` needs all three towns, because no single town exercises all thirteen escape hatches.
 
 **The catch is that those paths carry a version number, so they go stale at every rollout, and until 2026-08-30 nothing read them.** This laptop gated `St Ives/S5-render/v6.55_2026-08-24_1603` for six days after the committed fixture was refreshed from `v6.59` — same `npm run verify`, two machines, two different packs, no message (OA-180). The resolver now compares the two packs' `build-meta.json` and prints a `⚠ … is BEHIND the committed fixture` block naming both `builtAt` stamps whenever the env entry is the older one. It is a warning and not a failure, because aiming at the live tree is a legitimate choice; what failed was the silence. It stays quiet when the env entry is newer (the normal state between a rollout and the next fixture refresh), and it says *cannot tell* out loud rather than nothing when a pack has no `build-meta.json` to compare.
 
-**When it warns, repoint the key** — edit `.env`, replacing each town's version folder with the newest one under that town's `S5-render/`, or delete the line to gate exactly what CI gates. Then re-run the gate from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
+**Since 2026-09-01 you do not have to repoint it at all, because the entry names the TOWN (OA-211).** A warning is not a guard: this one was accurate, prominent and ignorable, the run went red afterwards anyway, and that trains a reader to skip a red on the one gate whose whole job is to be believed. The evidence is that it recurred inside a day — `.env` was repointed at three current renders on the morning of 2026-09-01, and the landmark-chooser rollout had made all three stale again by that evening. So an entry shaped `Areas/<Town>/S5-render/<version>` is now read as naming that town, and the resolver gates the town's **current** render, taken from its `manifest.json` (`stages.S5.latest`) and never from a directory listing sorted as strings — `v6.9` sorts after `v6.67` that way, and that bug has already shipped twice. The substitution is **printed**, because a verification tool that swaps its own input without saying so is a check that lies about what it read. Nothing in `.env` needs editing after a rollout any more, and the version left in the path is now inert.
+
+**It only ever moves forward, and only inside the live render tree the env variable already chose** — which is what preserves the property the override exists for. It is not a fallback to the committed pack. Everything it cannot place is passed through exactly as written and still reaches the `BEHIND` warning above: no `manifest.json`, a `latest` the manifest lists no folder for, a run folder that is not on this disk (`S5-render/` is gitignored, so a fresh clone has none), or a path with no `S5-render` segment at all — which is why `PLACE_FIXTURE_DIR`, pointing straight at a committed `_portal-fixture` pack, is untouched. The first two say out loud why they could not resolve; the last two are correct silences.
+
+Run the gate from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
 
 ```bash
 npm run verify:area
 ```
 
-Confirm the output names the fixture you expect, says `source : $FIXTURE_DIR`, and ends in PASS with byte counts. The warning has its own falsification harness — `npm run test:prove-red-fixture-drift`, run from the same folder, seven scratch trees, no fixture repository needed — which requires it to fire on a stale path and to stay silent on the five shapes that do not deserve it. It runs in `verify.yml` ahead of the gates.
+Confirm the output names the fixture you expect, says `source : $FIXTURE_DIR`, and ends in PASS with byte counts. Both halves share one falsification harness — `npm run test:prove-red-fixture-drift`, run from the same folder, **thirteen** scratch trees, no fixture repository needed. It requires the warning to fire on a stale path and stay silent on the five shapes that do not deserve it, and the resolution to advance an entry on exactly one of its six trees while leaving the other five alone.
 
 ### The post-generation sheet fixes and the reproduce gates
 
@@ -182,9 +206,15 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 |---|---|
 | How a map is rendered / which outputs exist | `src/render/renderMap.js`, `src/maps/store.js` (`resolveGen`, `engine:` tags) |
 | What a customer is allowed to edit | `src/maps/engine.js` + the safe-subset validation — **server-enforced; never trust the client** |
-| Which outputs a customer may switch | `chooseOutputs()` in `src/maps/engine.js` — pure, so `test-p7.mjs` asserts the rules without a server. The tube-map diagram is `requestOnly` (hand-pinned, priced separately): a non-admin PATCH asking for it is **403**, not a silent no-op |
+| Which outputs a customer may switch | `chooseOutputs()` in `src/maps/engine.js` — pure, so `test-p7.mjs` asserts the rules without a server. The tube-map diagram is `requestOnly` (hand-pinned, priced separately): a non-admin PATCH asking for it is **403**, not a silent no-op — and since 2026-09-10 it is **parked** (buses-data OA-297): `portal` reads `TUBE_DIAGRAM`, off by default, so the key is simply absent from `chooseOutputs()`'s answer; `test-p7.mjs` runs with the flag on, `test-parked-diagram.mjs` with it off |
 | The publish gate / review checklist | `src/publish/` (pure functions — unit-testable) |
-| Monthly change acceptance (accept/decline a proposed update) | `src/refresh/` + `scripts/propose-update.mjs` |
+| What a **local adviser** can see (buses-data OA-154 D1) | `src/routes/adviser.js` — a Fastify plugin under `/api/adviser` whose door is `requireAdviser`, and `loadAdvisedMap()` in `src/maps/detail.js`, which admits a live row in `map_adviser_grant` and nothing else. Their reach is a per-map **grant**, never a `customer_id`: `loadOwnedMap()` matches on that column without consulting `role`, so `src/db/guards.js` installs a trigger refusing an adviser one at all. `scripts/test-adviser-seat.mjs` pairs every refusal with a control, and `scripts/prove-red-adviser-seat.mjs` breaks eleven rules to prove the suite can see each of them |
+| A review-and-publish route (the queue, approve, reject, published history, revert) | `src/routes/review.js` — a Fastify plugin under `/api/review` with ONE plugin-level approver guard, the same shape as the admin console. `scripts/test-review-plugin.mjs` asserts the door on every route in the live table, and `scripts/prove-red-review-plugin.mjs` breaks that guard three ways so the suite has been seen to go red |
+| An admin-console route | `src/routes/admin.js` — a Fastify plugin under `/api/admin` with ONE plugin-level guard, so a route added there is admin-only without saying so; declare an exception as route config (`GET /worklist` and the operator token are the only one). `scripts/test-admin-plugin.mjs` asserts the door on every route in the live table |
+| A guard or a small request helper (`str`, `parseJson`, `baseUrl`, `requireUser`, `requireStepUp`, `operatorRead`) | `src/http/helpers.js` — the route files import these rather than closing over `server.js`'s scope (OA-231) |
+| What the signed-in app is told about one map (`mapDetail()`), or how a route loads a map it may edit or read | `src/maps/detail.js` — shared by the editor, review and monthly-refresh routes, moved out before those sections are cut into their own files |
+| The set of routes the app registers | `scripts/route-table.json`, recorded from the app itself; `test-admin-plugin.mjs` fails on a route gained or lost, so a deliberate change to the table means re-recording it with `node scripts/test-admin-plugin.mjs --record` from the repository root and committing the file with the route |
+| Monthly change acceptance (accept/decline a proposed update) | `src/refresh/` + `scripts/propose-update.mjs`; the three HTTP routes are `src/routes/proposed.js`, a Fastify plugin under the parametric prefix `/api/maps/:id/proposed/:pid`. **Its plugin guard is `requireUser` only** — the decision that matters is `loadOwnedMap()` in the handlers, because it needs the map. `scripts/test-proposed-plugin.mjs` asserts both, and `scripts/prove-red-proposed-plugin.mjs` breaks the ownership check to prove the suite can see past the door |
 | Auth / sessions | `src/auth/` (magic link, server-side sessions, hand-rolled cookies, no deps) |
 | Public pages and listings | `src/public/` — a **read model** over the publish gate, PII-free by construction |
 | Per-customer branding | `src/branding/` — a server-enforced whitelist. It decorates the **page**, not the printed sheet |
@@ -192,7 +222,7 @@ If output changed *on purpose*, the shipped fixture is now stale. Re-render the 
 | Badge legibility after a recolour | `src/render/badgeContrast.js` (+ the mirrored rule in `public/app/editor.js`), `scripts/fix-badge-contrast.mjs` |
 | Contrast of a tinted chip on a web page (badges, pills, the organisation badge) | `public/css/styles.css` tokens `--accent-tint-ink` / the `.org-badge` ink, gated by `scripts/test-contrast.mjs` |
 | Ops: health, metrics, backup | `src/ops/`, `scripts/backup.mjs`, `scripts/prune-staged.mjs` |
-| **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/server.js` — see [`PILOT.md`](PILOT.md) |
+| **Pilot mode** (banner, sheet band, robots block) | `src/config.js`, `src/render/pilotStamp.js`, the `/js/site-banner.js` route in `src/routes/public.js` — see [`PILOT.md`](PILOT.md) |
 | Whether a demo org is labelled "Sample" | `customer.is_demo` → `src/branding/index.js` → `src/public/` → `public/js/public-*.js` |
 | Importing a finished map | `scripts/import-map.mjs` (`--request <id>` builds an approved request in place) |
 | A static per-map extra that isn't a render output (e.g. `disagreements.pdf`) | Add it to `OUTPUT_FILES` in `src/maps/store.js` as one extra entry (outside the `OUTPUTS`-driven list) so the existing generic download/serve routes pick it up for free; copy it into the version folder at the end of `renderVersion()` (`src/maps/engine.js`); add it to `carryExpertTuning()`'s file list so a staged monthly refresh that doesn't bring its own still carries the old one forward |
@@ -264,6 +294,7 @@ Settled 12 August 2026 (findings **D**), applied across the app, the public page
 | What only an approver does | **publish** | — |
 | The party that reviews | **BusMaps.uk** (to a customer), **approver** (to an operator) | we, the reviewer, the operator |
 | The two geographic sheets | area: *Within the area* / *To nearby places*; place: *Serving this place* / *Where those buses go* | area wording on a place map |
+| Somebody local who is shown a draft for comment | **local adviser**, and we **ask** them | reviewer *(that is the approver)*, consultant, contributor, tester; *invite* *(that is what an organisation's own users get)* |
 
 Its companion, `portal-update-flow-walkthrough_2026-08-11.md`, is the same flow written for a customer's admin person, and is the better starting point if you need to understand what the screens are *for* before changing them.
 

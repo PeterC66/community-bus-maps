@@ -5,11 +5,19 @@
  * `generateSvg()` runs THAT copy, so `track-engine.mjs` keeps them level with
  * `engine/` after every re-vendor. It can only do that where the pack's filename
  * says what the file is. An AREA pack stores its external generator as
- * `gen_external.js`, and the portal vendors two of them —
+ * `gen_external.js`, and the portal vendored TWO of them until 2026-09-02 —
  * `engine/area/gen_external_radial.js` and `engine/area/gen_external_busway.js` —
- * so the name does not say. The tracker refuses to guess, which is right:
+ * so the name did not say. The tracker refuses to guess, which is right:
  * overwriting a busway map with the radial generator is a silent corruption of
- * the pack, discovered at the next render. The measured cost of refusing was
+ * the pack, discovered at the next render.
+ *
+ * THE BUSWAY TEMPLATE IS GONE AND THIS FILE STAYS, deliberately. Two reasons, and
+ * neither is sentiment. The live store holds packs imported before that date and
+ * this laptop cannot read them, so a pack that names the dropped generator has to
+ * be something the next `track:engine` REPORTS rather than something a person
+ * remembers to look for — it prints the pack by name and, since 2026-09-02, exits
+ * non-zero. And a declaration is the right shape whatever the count of templates
+ * happens to be today: `gen_external.js` still does not say what it is a copy of. The measured cost of refusing was
  * **eight of eighteen live maps skipped, every run, for ever** — every town's
  * external sheet, which is a whole sheet type on every town we publish.
  *

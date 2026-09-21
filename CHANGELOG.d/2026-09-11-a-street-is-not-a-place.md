@@ -1,0 +1,13 @@
+---
+date: 2026-09-11
+title: "A street is not a place: searching for York stopped returning three Buckinghamshire maps"
+---
+
+Searching `/maps` for **York** returned Beaconsfield Simpson Centre, Beaconsfield Waitrose and High Wycombe Aldi, each explaining itself as *Route 104 passes through York Road (UB8)*. The same shape returned three maps for **London**, five for **Hill**, six for **Park** — every common street word collides with a real place name, and each new map adds far more street names than place names. Fixed under buses-data [OA-311](https://busmaps.uk).
+
+- **A thoroughfare-shaped stop or landmark name now matches only in full.** For a hit whose role is `stop` or `poi`, if the name — with any bracketed qualifier stripped — ends in a street type (*road, street, lane, avenue, close, drive, crescent, terrace, gardens, court, square, parade, rise, walk, grove, way, hill, row, mews, end, green*), only an exact match counts. Map names, subjects and destinations are unchanged: those are places by construction.
+- **One exemption, and it is the load-bearing half:** a name the index knows as a `destination` anywhere in the estate keeps word-level matching. *Bar Hill* and *Bourne End* are villages whose names end in street types, and this is the only thing that tells the index so.
+- **"Whole name" means with or without the bracketed qualifier**, because a reader checking whether their own road is on a map types *York Road*, not *York Road (UB8)*. The first version required the postcode; the test caught it on its first run.
+- **In the reader, not the sidecar writer.** `places.json` is written at publish time, so a fix in `place-index.js` would have reached only maps republished afterwards. In `src/search/index.js` it reaches all 137 existing sidecars the moment it deploys.
+- **Measured over the live index before the rule was chosen, not after:** 76 of 336 distinct stop and landmark names become full-match-only, all of them genuine streets, and every village keeps word matching — Fen Drayton, Hemingford Grey, Hemingford Abbots, Old Hurst, Longstanton.
+- **Falsified in five ways** (`scripts/prove-red-search.mjs`), and two arms found real faults in the first draft. Deleting the exemption left every check green, because *Bar Hill* still matched in full — what the exemption actually buys is the PARTIAL query, somebody typing the first word of the village they live in, so the test now asks that. And every arm initially "passed" while proving nothing, because the scratch tree had no `node_modules` and the test was dying on a missing import before it could run a single check.

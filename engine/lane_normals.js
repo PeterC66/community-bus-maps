@@ -84,10 +84,38 @@ function pointSegDist(px, py, s) {
  * ways along one street are the same corridor. Deciding which of them to flip
  * is the caller's job, below.
  */
-function corridorNeighbours(a, b, { dist, cosAngle }) {
+function corridorNeighbours(a, b, { dist, cosAngle, alongside }) {
   if (Math.abs(a.ux * b.ux + a.uy * b.uy) < cosAngle) return false;
-  if (pointSegDist(a.mx, a.my, b) > dist) return false;
-  if (pointSegDist(b.mx, b.my, a) > dist) return false;
+  if (pointSegDist(a.mx, a.my, b) <= dist && pointSegDist(b.mx, b.my, a) <= dist) return true;
+  return !!alongside && (liesAlongside(a, b, dist) || liesAlongside(b, a, dist));
+}
+
+/*
+ * Does the whole of segment `s` lie beside segment `u` — both of its ends
+ * projecting INSIDE u's extent, each within `dist` of u's line?
+ *
+ * THE MIDPOINT TEST CANNOT PAIR A SHORT SEGMENT WITH A LONG ONE, and that is a
+ * property of the test rather than of any street. The reciprocal half asks
+ * whether u's midpoint is within `dist` of s; when s is 0.1 mm long beside the
+ * middle of a 6 mm u, that distance is measured to s's nearest END and is the
+ * along-track distance, ~3 mm, so the pair is refused. The short segment then
+ * belongs to no bundle for its 0.1 mm, every lane in the bundle steps inward by
+ * half a gap to fill the space it left, and steps back out one vertex later — a
+ * spike the width of a stroke. Measured 2026-09-04 over the 18 internal sheets:
+ * 160 such one-segment blips, 72 of them on High Wycombe, where a fourteen-lane
+ * bundle at x≈98 drops the 850 for one segment and every other lane jumps.
+ *
+ * This predicate can only ADD pairs: a pair the midpoint test accepts is not
+ * consulted here. It is asked in both directions by the caller, and it is opt-in
+ * (`alongside`), because widening bundle membership moves casing widths and lane
+ * offsets on every sheet, and that has to be judged on the artwork.
+ */
+function liesAlongside(s, u, dist) {
+  for (const [px, py] of [[s.ax, s.ay], [s.ax + s.ux * s.L, s.ay + s.uy * s.L]]) {
+    const t = (px - u.ax) * u.ux + (py - u.ay) * u.uy;
+    if (t < 0 || t > u.L) return false;
+    if (Math.hypot(px - (u.ax + u.ux * t), py - (u.ay + u.uy * t)) > dist) return false;
+  }
   return true;
 }
 
@@ -183,8 +211,31 @@ function chainPairs(segs, { cosAngle }) {
  * +1, i.e. as digitised. That is what keeps the common case (a corridor whose
  * routes all run the same way) byte-identical to the behaviour before any of
  * this existed, instead of mirroring every lane bundle on the board for nothing.
+ *
+ * WHAT A CHAIN EDGE SAYS, and the two answers (`chainRel`).
+ *
+ * A segment's sign is whether the route travels WITH the corridor direction or
+ * against it, and the lane normal is the corridor's, so the sign is also which
+ * side of its own travel a route's lane sits on. A chain edge joins two
+ * consecutive segments of one route, and until 2026-09-04 it related them by
+ * the sign of their dot product — 'heading': agree through a turn of less than
+ * a right angle, oppose through anything sharper. That is the right relation
+ * for a LATERAL pair, where opposite headings really are opposite directions
+ * along one street; for a chain edge it means every bridged corner sharper than
+ * 90 degrees mirrors the whole bundle, because the normal turns 180 minus the
+ * corner's angle the OTHER way while the route turns the corner. High Wycombe's
+ * 32 and 34 turn 107 degrees together at x=158, y=112 and swap sides there; the
+ * exact right angle is a coin toss on the fourth decimal, and Beaconsfield's
+ * five-route bundle at x=87, y=63 landed on the wrong side of it (dot -0.011).
+ *
+ * 'continue' says what a ribbon cable says: a route keeps its side of travel
+ * through every turn. The only thing that may reverse a route's side is the
+ * lateral structure — a route doubling back beside itself is both with and
+ * against its corridor, unavoidably — and a chain edge is applied only as a
+ * bridge, so the lateral structure still wins wherever it has an opinion.
+ * Default 'heading', so a caller that does not ask gets the field as it was.
  */
-function orientSegments(segs, lateral, chain) {
+function orientSegments(segs, lateral, chain, { chainRel = 'heading' } = {}) {
   const n = segs.length;
   const parent = new Int32Array(n);
   const rank = new Int32Array(n);
@@ -227,7 +278,7 @@ function orientSegments(segs, lateral, chain) {
   for (let p = 0; p < chain.length; p++) {
     const i = chain[p][0], j = chain[p][1];
     if (find(i).root === find(j).root) continue;      // bridges only, never a cycle
-    union(i, j, rel(segs[i], segs[j]));
+    union(i, j, chainRel === 'continue' ? 1 : rel(segs[i], segs[j]));
     bridges++;
   }
 
@@ -254,18 +305,39 @@ function orientSegments(segs, lateral, chain) {
  * divide by its length themselves, and segment headings are already unit
  * vectors, so this is a distinction without a difference. Kept identical so
  * that a corridor with no flips in it reproduces byte-for-byte.
+ *
+ * NEAREST IS NOT ALONGSIDE (`cosAngle`, 2026-09-04). Bundle membership was
+ * decided by a segment of r0 that runs near-parallel to the asking segment and
+ * within the bundling distance of it — and then the normal was taken from
+ * whichever segment of r0 has the nearest MIDPOINT, which at a junction is
+ * routinely the one where r0 turns off. High Wycombe's 34 heads north at x=158,
+ * y=131 beside the 102, whose nearest segment there heads EAST: the 34's
+ * 4.2 mm lane offset was applied along its own line instead of across it.
+ * Measured 2026-09-04: 693 in-frame bundled segments on the estate took their
+ * normal from a reference segment more than 22 degrees off their own heading,
+ * 271 of them on High Wycombe. With `cosAngle` given, `fx, fy` is read as the
+ * asking segment's own heading and only r0's segments within that angle of it
+ * are candidates; `last.parallel` says whether one was found, and when none
+ * was the nearest of all is returned as before so the caller can decide.
  */
-function makeRefDir(segs, indexByRoute, sign) {
-  const last = { r0: null, at: -1, ux: 0, uy: 0, dist: 0, sign: 1 };
+function makeRefDir(segs, indexByRoute, sign, { cosAngle } = {}) {
+  const last = { r0: null, at: -1, ux: 0, uy: 0, dist: 0, sign: 1, parallel: true };
   const refDir = (r0, mx, my, fx, fy) => {
     const idx = indexByRoute[r0];
-    if (!idx || !idx.length) { last.at = -1; return [fx, fy]; }
+    if (!idx || !idx.length) { last.at = -1; last.parallel = false; return [fx, fy]; }
+    const fL = Math.hypot(fx, fy) || 1, ox = fx / fL, oy = fy / fL;
+    const filter = cosAngle != null;
     let best = Infinity, bux = fx, buy = fy, bAt = -1, bSeg = -1;
+    let anyBest = Infinity, aux = fx, auy = fy, aAt = -1, aSeg = -1;
     for (let k = 0; k < idx.length; k++) {
       const s = segs[idx[k]];
       const dd = (s.mx - mx) * (s.mx - mx) + (s.my - my) * (s.my - my);
+      if (dd < anyBest) { anyBest = dd; aux = s.ux; auy = s.uy; aAt = s.i; aSeg = idx[k]; }
+      if (filter && Math.abs(s.ux * ox + s.uy * oy) < cosAngle) continue;
       if (dd < best) { best = dd; bux = s.ux; buy = s.uy; bAt = s.i; bSeg = idx[k]; }
     }
+    last.parallel = bSeg >= 0;
+    if (bSeg < 0) { best = anyBest; bux = aux; buy = auy; bAt = aAt; bSeg = aSeg; }
     // sign === null is the key-off path: no orientation, raw heading, which is
     // byte-for-byte what refDir did before this module existed.
     const sg = (sign && bSeg >= 0) ? (sign[bSeg] || 1) : 1;
@@ -277,4 +349,297 @@ function makeRefDir(segs, indexByRoute, sign) {
   return refDir;
 }
 
-module.exports = { pointSegDist, corridorNeighbours, chainPairs, orientSegments, makeRefDir };
+/*
+ * The offset to apply at a polyline VERTEX, given the offsets applied to the two
+ * segments that meet there.
+ *
+ * gen_internal.js averaged them — `(v[i-1] + v[i]) / 2` — and for a ribbon that
+ * holds its side through a corner the average is the wrong point: it lies on
+ * the bisector at cos(θ/2) times the lane offset, so every lane in a bundle is
+ * pulled toward the raw corner by the same FACTOR, and the lanes close up. At a
+ * right angle they sit at 71% of their spacing; at 120 degrees, 50%, which with
+ * a 2.8 mm gap and a 1.7 mm stroke is a corner where the colours touch. The
+ * mitre point, `(a + b) / (1 + n1·n2)`, is where two lines each offset by the
+ * same distance actually meet, so the lanes stay their full gap apart through
+ * the turn. `limit` caps the factor for a very sharp corner, the way an SVG
+ * miterlimit does; past it the vertex is still on the bisector, just short.
+ *
+ * Two degenerate cases keep this safe under the old field. A vertex whose two
+ * sides have the SAME offset (a route doubling back beside itself, both legs
+ * overlaid) has n1·n2 = 1 and the mitre IS the average. A vertex where the
+ * sides oppose (a mirror, which the 'continue' field removes and the 'heading'
+ * field cannot) has a + b = 0, and the answer is the average again — nothing
+ * here can make a mirror worse than it was.
+ *
+ * AND THE MITRE MUST FIT THE SEGMENTS IT SITS BETWEEN. The mitre point reaches
+ * d·tan(θ/2) along each segment from the raw corner; a segment shorter than
+ * that has its two vertices thrown past each other and the lane folds into a
+ * notch — seen on High Wycombe's 36 at x=160, y=133 the first time this ran.
+ * `la`, `lb` are the raw lengths of the two segments; the reach along either is
+ * held to half its length, which is the point past which the other end's own
+ * mitre would meet it. A vertex given no lengths is capped by `limit` alone.
+ */
+function laneVertex(a, b, { limit = 3, la, lb } = {}) {
+  const ax = a[0], ay = a[1], bx = b[0], by = b[1];
+  const La = Math.hypot(ax, ay), Lb = Math.hypot(bx, by);
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  if (La < 1e-9 || Lb < 1e-9) return [mx, my];
+  const c = (ax * bx + ay * by) / (La * Lb);
+  let f = (1 + c) <= 1e-9 ? limit : Math.min(limit, 2 / (1 + c));
+  // reach of the averaged vertex along a segment is |avg|·sin(θ/2); scaled by f
+  const reach = Math.hypot(mx, my) * Math.sqrt(Math.max(0, (1 - c) / 2));
+  const room = Math.min(la == null ? Infinity : la, lb == null ? Infinity : lb) / 2;
+  if (reach > 1e-9 && reach * f > room) f = Math.max(1, room / reach);
+  return [mx * f, my * f];
+}
+
+/*
+ * One unit heading per segment of a polyline, each read over a window of
+ * ±`w` mm of arc length around the segment's midpoint rather than from the
+ * segment alone.
+ *
+ * A map-matched polyline carries segments a tenth of a millimetre long at every
+ * junction node, and their headings are noise: High Wycombe's 34 at x=157.7,
+ * y=132.7 runs 0.008,-1.000 then -0.563,-0.827 then 0.073,-0.997 over 0.2 mm.
+ * The middle one is 35 degrees off the street, fails the 22 degree bundling
+ * test against every other route on it, and the bundle loses a lane for one
+ * segment — the "blip" the 2026-09-04 census counted 160 of. Every route on
+ * that street shares the vertex, so every one of them blips at the same spot.
+ * Length is not the cure: the same segment also takes its lane normal from a
+ * reference segment parallel to its NOISE, and swings the normal 25 degrees
+ * for 0.1 mm. The chord over ±1 mm is the street's heading, and a segment
+ * longer than 2w reads exactly its own heading, so nothing moves elsewhere.
+ * Returns null for a polyline with fewer than two points.
+ */
+function smoothHeadings(points, w) {
+  const n = points.length - 1;
+  if (n < 1) return null;
+  const cum = new Float64Array(n + 1);
+  for (let i = 0; i < n; i++) cum[i + 1] = cum[i] + Math.hypot(points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1]);
+  const total = cum[n];
+  const at = (s) => {                       // the point at arc length s, clamped to the ends
+    if (s <= 0) return points[0];
+    if (s >= total) return points[n];
+    let i = 0; while (i < n - 1 && cum[i + 1] < s) i++;
+    const L = cum[i + 1] - cum[i]; const t = L > 0 ? (s - cum[i]) / L : 0;
+    return [points[i][0] + (points[i + 1][0] - points[i][0]) * t, points[i][1] + (points[i + 1][1] - points[i][1]) * t];
+  };
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const m = (cum[i] + cum[i + 1]) / 2;
+    const a = at(m - w), b = at(m + w);
+    let dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    if (L < 1e-9) { dx = points[i + 1][0] - points[i][0]; dy = points[i + 1][1] - points[i][1]; L = Math.hypot(dx, dy) || 1; }
+    out[i] = [dx / L, dy / L];
+  }
+  return out;
+}
+
+/*
+ * Draw a route's own out-and-back ONCE (OA-176 4.24, 2026-09-05): a later leg
+ * of a polyline that runs back along an earlier leg of the same polyline is
+ * moved onto it, vertex by vertex. Same number of points out as in, so
+ * `stopT`'s (i, t) indices survive; the moved vertices are reported so a trace
+ * can name them.
+ *
+ * WHY A LANE RULE CANNOT DO THIS. The ribbon key's orientation field gives every
+ * segment a side of travel and asks that lateral neighbours agree. High
+ * Wycombe's 34 goes down a spur and comes back on a road 2 mm from the one it
+ * went out on and 2.1 mm from the road it ARRIVED on: the return leg is a
+ * corridor neighbour of both, must oppose the first and agree with the second,
+ * and the route travels arrival → out → return, which is an odd cycle. Every
+ * assignment of sides flips somewhere, so the crossing moves and does not go
+ * (the lane-ribbon round, 2026-09-04). Beaconsfield's five-route town-centre
+ * loop is the same shape at five lanes; Huntingdon's 303 at x=142, y=96 is it
+ * at one, a 2 mm spike to a stop and back. A retrace drawn as ONE line has no
+ * return leg to be anybody's neighbour, and the cycle is gone by construction —
+ * which is what the reader's "draw a shared section once" means for a single
+ * route, and why 4.21 and 4.24 are one proposal.
+ *
+ * WHAT COUNTS AS THE RETURN LEG. Later onto earlier, always: the out leg is the
+ * part of the polyline the route reached first and it does not move, so a stop
+ * on it stays where the map-matcher put it. A vertex is a CANDIDATE when the
+ * segment arriving at it or the one leaving it is within `cosAngle` of
+ * ANTIPARALLEL to some earlier segment that does not touch it, and the nearest
+ * point of that segment, ends included, is within `reach`. Headings are read
+ * over ±`w` mm (smoothHeadings), for the same reason the rest of the key does:
+ * a junction node's 0.1 mm segment is noise. Consecutive candidates form a RUN,
+ * and the run is folded whole or not at all, on ONE condition read off the
+ * polyline as digitised: some vertex of it lies within `dist`, the bundling
+ * distance, of the INTERIOR of its target. Both halves of that are load-bearing,
+ * and each was found on High Wycombe's 34 by folding the wrong thing first.
+ *
+ *   - `dist` says whether the leg is a retrace at all; `reach`, default twice
+ *     `dist`, says how far a leg that IS one may open before it is two streets.
+ *     The spur's two legs are 1.3 mm apart at the foot and 3.5 mm by the
+ *     junction, because the return road converges on the out road only at the
+ *     top; a fold that stopped at 2.4 mm merged the bottom half and left the V
+ *     the reader reported standing on the top half. A run that never comes
+ *     within `dist` is never folded, so a road 4 mm away is not folded for
+ *     being 4 mm away.
+ *   - INTERIOR, because the ends of a segment are where every street a route
+ *     uses meets every other. The out leg starts 2 mm from the junction the
+ *     arrival road ends at, and runs 4 mm from that road, antiparallel: with a
+ *     clamped end allowed to vouch for the run, the out leg itself folded 4 mm
+ *     east onto the road the route arrived by. A run whose every vertex clamps
+ *     to an end is likewise a route passing a corner it once turned, heading
+ *     the other way (the 34 at x=100.7, y=107, seven vertices), not a leg.
+ *
+ * Ends are still included, so the return leg's first vertex after the turning
+ * loop snaps onto the out leg's tip and the leg rejoining where the out leg
+ * began snaps onto that corner — a single line rather than a line with a 2 mm
+ * diagonal at each end — but a vertex clamped to an end moves only within
+ * `dist`, so the road the route takes onward from the junction is left where
+ * it is, and an interior target is preferred to a nearer end for the same
+ * reason.
+ *
+ * A candidate is antiparallel to its target both as the target was digitised
+ * and as it now lies: a segment whose far vertex has already been folded is a
+ * connector across the fold, and its original heading no longer says where it
+ * runs. A vertex already on its target is not counted as moved.
+ *
+ * FOLDED GEOMETRY IS THE TARGET, not the original: a third pass over the same
+ * street (out, back, out again) is antiparallel to the second leg, which has
+ * already moved onto the first, so it lands on the one line rather than where
+ * the second leg used to be. Earlier segments are final by the time a vertex is
+ * asked about, because every vertex before it has been decided; the run's two
+ * conditions are read ahead on the original polyline, which is what decides
+ * whether the leg is a retrace, and the positions come from the fold so far.
+ *
+ * WHAT IT ALSO FOLDS, deliberately. A one-way pair — out along one street and
+ * back along its parallel neighbour — is geometrically this shape and is folded
+ * when the two come within `dist`. That is the reader's proposal applied
+ * exactly, and it is why the key stays opt-in per map: a map whose one-way loop
+ * is worth its 2 mm (Ramsey's X31/32, drawn on purpose on 2026-08-31) declines
+ * the key. A stop on the folded leg is drawn on the earlier one, up to `reach`
+ * from where it is.
+ */
+function foldRetrace(points, { dist, cosAngle, w = 0, reach } = {}) {
+  const n = points.length - 1;
+  const out = points.map(p => [p[0], p[1]]);
+  const moved = [];
+  if (n < 2) return { points: out, moved };
+  const R = reach == null ? 2 * dist : reach;
+  const H = w > 0 ? smoothHeadings(points, w) : null;
+  const head = (i) => {
+    if (H) return H[i];
+    const dx = points[i + 1][0] - points[i][0], dy = points[i + 1][1] - points[i][1], L = Math.hypot(dx, dy) || 1;
+    return [dx / L, dy / L];
+  };
+  const straight = (i, j) => { const a = head(i), b = head(j); return a[0] * b[0] + a[1] * b[1] >= cosAngle; };
+  // the nearest earlier segment vertex k runs back along, read off `P` (the
+  // original polyline for the run's verdict, the folded one for its position)
+  const cand = (k, P) => {
+    const hs = [head(k - 1)]; if (k < n) hs.push(head(k));
+    const anti = (hx, hy) => hs.some(h => h[0] * hx + h[1] * hy < -cosAngle);
+    const px = points[k][0], py = points[k][1];
+    let best = null;
+    for (let i = 0; i <= k - 2; i++) {                       // earlier, and not touching vertex k
+      const ax = P[i][0], ay = P[i][1], dx = P[i + 1][0] - ax, dy = P[i + 1][1] - ay, L = Math.hypot(dx, dy);
+      if (L < 1e-9) continue;                                // a leg already folded to a point
+      if (!anti(dx / L, dy / L) || (H && !anti(H[i][0], H[i][1]))) continue;
+      let t = ((px - ax) * dx + (py - ay) * dy) / (L * L);
+      // interior, or level with a vertex the earlier leg runs straight through:
+      // two legs digitised from the same nodes project onto shared vertices
+      const inside = (t > 1e-9 && t < 1 - 1e-9)
+        || (Math.abs(t) <= 1e-9 && i > 0 && straight(i - 1, i))
+        || (Math.abs(t - 1) <= 1e-9 && i + 1 <= k - 2 && straight(i, i + 1));
+      if (t < 0) t = 0; else if (t > 1) t = 1;               // ends included
+      const cx = ax + dx * t, cy = ay + dy * t, d = Math.hypot(px - cx, py - cy);
+      if (d > R) continue;
+      // an interior target beats a nearer end: a vertex beside a leg belongs to
+      // the leg, not to the corner of some other segment it happens to pass
+      if (!best || (inside && !best.inside) || (inside === best.inside && d < best.d)) best = { d, cx, cy, i, inside };
+    }
+    return best;
+  };
+  let runEnd = 0, fold = false;                              // the current run's verdict, read ahead once
+  const asDigitised = new Array(n + 1);                      // each run vertex's candidate on the original polyline
+  for (let k = 1; k <= n; k++) {
+    if (k > runEnd) {                                        // a new run begins here, or no run
+      let j = k, c; fold = false;
+      while (j <= n && (c = cand(j, points))) { asDigitised[j] = c; fold = fold || (c.inside && c.d <= dist); j++; }
+      runEnd = j - 1;
+      if (runEnd < k) continue;
+    }
+    if (!fold) continue;
+    const c = cand(k, out);
+    // a vertex beside the leg follows it out to `reach`; one clamped to an end
+    // moves only if it was within `dist` as digitised, so the tip and the rejoin
+    // close up and the road the route takes onward from the junction is left
+    // where it is. As digitised, because the fold so far has already carried the
+    // leg's end away from a corner vertex that belongs with it.
+    if (c && c.d > 1e-9 && (c.inside || asDigitised[k].d <= dist)) { out[k] = [c.cx, c.cy]; moved.push({ k, i: c.i, d: c.d, from: [points[k][0], points[k][1]], to: [c.cx, c.cy] }); }
+  }
+  return { points: out, moved };
+}
+
+/*
+ * THE SHARED SECTION DRAWN ONCE (OA-176 4.24, 2026-09-05) — three small pieces
+ * gen_internal.js composes for an internalCorridors family that carries a
+ * `style`. The family already takes one lane; what these add is the drawing of
+ * the stretch where its members co-run, once, in every member's colour, from
+ * the group leader's geometry. They are here rather than in the generator so
+ * that each can be asserted on its own: the generator is gated byte-for-byte
+ * and no committed map carries a style yet, so without these tests the code
+ * would be dark to every gate (feedback_the_gate_that_could_only_see_what_runs).
+ */
+
+/*
+ * The maximal runs of consecutive segments that share one group. `groupAt(i)`
+ * answers for segment i with an array (the members co-running there, leader
+ * first) or null (nothing to draw). Two segments belong to one run when their
+ * arrays are equal member for member — a family of three that drops to two
+ * starts a new run, so the dash period restarts rather than tiling a group of
+ * two with a pattern cut for three.
+ */
+function sharedRuns(count, groupAt) {
+  const runs = []; let cur = null;
+  for (let i = 0; i < count; i++) {
+    const g = groupAt(i); const key = g ? g.join('\u0000') : null;
+    if (key != null && cur && cur.key === key) { cur.i1 = i; continue; }
+    cur = null; if (key == null) continue;
+    cur = { i0: i, i1: i, key, group: g }; runs.push(cur);
+  }
+  return runs.map(({ i0, i1, group }) => ({ i0, i1, group }));
+}
+
+/*
+ * A polyline moved `d` mm to the left of its direction of travel (page y runs
+ * down, so the left normal of heading (ux,uy) is (-uy,ux)); negative d is the
+ * right. Ends take their segment's normal; interior vertices are mitred by
+ * laneVertex() and held to the segments they sit between, exactly as the lane
+ * offsetter treats a lane under design.laneRibbon, so a pair of touching
+ * parallels keeps its gap round a corner rather than opening on the outside of
+ * the bend. A zero-length segment inherits its predecessor's normal.
+ */
+function offsetPolyline(pts, d) {
+  const n = pts.length; if (n < 2) return pts.map(p => [p[0], p[1]]);
+  const v = [], len = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = pts[i + 1][0] - pts[i][0], dy = pts[i + 1][1] - pts[i][1], L = Math.hypot(dx, dy); len.push(L);
+    v.push(L < 1e-9 ? (v[i - 1] || [0, 0]) : [-dy / L * d, dx / L * d]);
+  }
+  return pts.map((p, i) => {
+    const o = i === 0 ? v[0] : i === n - 1 ? v[n - 2] : laneVertex(v[i - 1], v[i], { la: len[i - 1], lb: len[i] });
+    return [p[0] + o[0], p[1] + o[1]];
+  });
+}
+
+/*
+ * The stroke-dasharray for member j of n on a shared stretch drawn as colour
+ * blocks of `block` mm: one block on, the other n-1 off, and the j-th block of
+ * each period. The PHASE IS IN THE ARRAY — a leading zero-length dash and a gap
+ * of j blocks — rather than in stroke-dashoffset, because the portal's SVG
+ * allowlist (src/public/svgSanitise.js) admits stroke-dasharray and not the
+ * offset: a phase dropped on the web would put every member's blocks in the
+ * same place and leave one colour on the shared stretch. Butt caps are the
+ * caller's job; with round caps the zero-length dash prints a dot.
+ */
+function alternation(n, j, block) {
+  const f = x => +x.toFixed(2);
+  const P = n * block, phase = j * block;
+  return phase > 0 ? `0 ${f(phase)} ${f(block)} ${f(P - block - phase)}` : `${f(block)} ${f(P - block)}`;
+}
+
+module.exports = { pointSegDist, corridorNeighbours, liesAlongside, chainPairs, orientSegments, makeRefDir, laneVertex, smoothHeadings, foldRetrace, sharedRuns, offsetPolyline, alternation };

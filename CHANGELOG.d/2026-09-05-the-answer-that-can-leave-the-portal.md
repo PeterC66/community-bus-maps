@@ -1,0 +1,11 @@
+---
+date: 2026-09-05
+title: "The landmark answer can leave the portal by a route a script can call"
+---
+
+buses-data OA-233. `GET /api/maps/:id/poi-tiers` returns a map's landmark answer — every place the town has answered on `/landmarks`, keyed `<cat>:<name>`, as `{tier}` or `{tier, as}` — together with the two layers it is the union of (`saved`, the customer's overrides; `pack`, the delivered `routes.json`) and the keys an old-style hide contributes as `miss`.
+
+- **Why a route and not a better button.** The chooser's admin-only *Copy for our records* put the same block on the clipboard, touched no file, set no flag and told no server, so the fact that a town's answer was waiting to be pasted into its source `routes.json` existed only in the head of whoever pressed it. High Wycombe's 145 keys travelled that way on 2026-09-03 and sat unbuilt for two days while the estate rollout was held around them. A GET is a thing `poi_tiers_sync.js` in the engine can call and the bus-work worklist can compare, so *this town's answer is not in its source yet* is now a row rather than a memory.
+- **The read-only OPERATOR_TOKEN now has three routes, not two.** The worklist has to read this block for every map to raise that row, and a bearer that reads lists and does nothing else is the credential built for exactly that. It stays GET-only by the method guard; `test-operator-token.mjs` holds the call-site count at four across `src/`, pairs the new read with a refusal on the neighbouring `/landmarks` route, and `prove-red-operator-token.mjs` gained two arms — the config flag dropped, and the handler no longer asking how the call arrived.
+- **Built from the two layers, not from the candidate enumerator.** A key whose POI OpenStreetMap has since dropped is absent from what the button copies and present here, which is the right way round for source data: a `miss` on a place that has gone costs nothing and is honoured the day it comes back, and the alternative is running the selector for eighteen maps on every worklist read.
+- `route-table.json` records the fifteenth `/api/maps` route; the editor plugin suite asserts it takes the per-map guard (another customer's editor and an approver are refused, the owner and an admin reach it).

@@ -3,14 +3,120 @@
 # hostname belong here, not to the app.
 #
 # Deploy: sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# — or, from the laptop, `npm run deploy:caddy`, which does that and then reads
+# the live site back. Merging this file changes nothing; only that does.
 #
 # Automatic HTTPS needs busmaps.uk's DNS pointing at this host first (GO-LIVE.md
 # §3 "DNS at 20i") — until then Caddy keeps this site on the ACME retry path
 # and serves it over plain HTTP meanwhile; nothing else to do here once DNS is live.
 
-busmaps.uk, www.busmaps.uk {
+# THE ACCESS LOG REDACTS TWO QUERY PARAMETERS BY NAME (buses-data OA-006(a)),
+# AND MASKS THE VISITOR'S ADDRESS (buses-data OA-086 phase 1, 2026-09-06).
+#
+# Caddy's request line records the FULL URI including its query string. Two
+# things travel in a query string on this site and neither belongs in a file
+# that is in no backup:
+#
+#   q      — a search term. src/server.js's own log serialiser has stripped this
+#            off /api/public/search and /maps since P9 B8, on the rule that
+#            "search queries are never logged, and an access log counts as a
+#            log". It could not reach THIS log, which is why that comment ends by
+#            naming this block as the follow-on. This is that follow-on.
+#   token  — a live sign-in credential. /auth/verify?token=… is a magic link, so
+#            it is the one credential here that cannot be moved to a header: it
+#            arrives as a link in an email. It is single-use with a 15-minute
+#            TTL, and a cross-site click only PEEKS at it, so a token written
+#            here can still be live when the line is written. The two ops tokens
+#            that used to accept `?token=` were removed outright in the
+#            2026-08-25 audit (N7); this one cannot be, so it is redacted
+#            instead.
+#
+# `replace` rather than `delete`, so the log still shows THAT a search or a
+# verification happened — the shape of the traffic is the reason to keep an
+# access log at all — while the value reads `REDACTED`.
+#
+# `wrap json` is stated rather than left to the default. It IS the default for a
+# file output, and writing it down is what stops a later `format` edit silently
+# changing the format of a file something may one day parse.
+#
+# THE THIRD THING ON EVERY LINE IS THE VISITOR'S ADDRESS, and it was written in
+# full until 2026-09-06. That was defensible while everyone who reached this
+# server had chosen to: /legal.html says there is no other organisation involved,
+# and that is true today. It stops being true the day a map is embedded on a
+# council's page — the visitor never chose to contact us, the council is the
+# controller for that visit, and what would accumulate here is its residents'
+# addresses. So the mask lands BEFORE the embed rather than with it. Its twin is
+# in src/server.js's own log serialiser, which masks the same address the same
+# way; the two must agree, and that is now a third thing they have to agree
+# about alongside the two parameter lists.
+#
+# TWO FIELDS, NOT ONE. Since Caddy v2.7 the address is logged twice — as
+# `remote_ip`, the socket's peer, and as `client_ip`, the address parsed out of
+# the forwarding headers. Masking one leaves the other in full, which is the
+# whole failure mode of this block, so both are named below.
+#
+# WHY /24 AND /32 AND NOT THE USUAL /24 AND /48. The common pairing (Google
+# Analytics zeroes an IPv6's last 80 bits, which is a /48) is not symmetric: a
+# residential IPv6 allocation is a /56 or a /48, so a /48 mask leaves the
+# household's whole prefix and anonymises nothing. /32 is the honest analogue of
+# the /24 — roughly an ISP's own allocation, so what survives is "which
+# provider, roughly where", which is all the /24 leaves of an IPv4 address and
+# all this log needs. The reasoning is repeated at IP_MASK_BITS in
+# src/public/logRedaction.js because the two have to move together.
+#
+# ROLLING IS NOW STATED, AND IT WAS ALWAYS HAPPENING. This block used to say the
+# file was "rotated by nothing here and covered by no retention rule", which is
+# true of this file and was easy to misread as no rotation at all: Caddy rolls a
+# log file BY DEFAULT at 100 MiB, keeping 10 rolled files for 90 days. So the
+# real state was a 90-day retention nobody had chosen and nothing wrote down.
+# The numbers below are that decision made explicitly and made shorter, which is
+# what lets /legal.html call these logs short-lived and say how long.
+#
+# VERIFYING THIS ONE IS NOT A curl. Every other line in this file shows up in a
+# response header; a log filter shows up only in the log. Read it back on the
+# host after deploying — the last line must show `q=REDACTED`, not the term, AND
+# both address fields must end in `.0` or `::`:
+#
+#   npm run ssh
+#   sudo tail -2 /var/log/caddy/busmaps.access.log
+#
+# after visiting https://busmaps.uk/maps?q=ely in a browser. `npm run
+# deploy:caddy` prints both of those instructions; neither is a header, so
+# neither can be checked from the laptop.
+(access_log) {
+	log {
+		output file /var/log/caddy/busmaps.access.log {
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					replace q REDACTED
+					replace token REDACTED
+				}
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 32
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 32
+				}
+			}
+		}
+	}
+}
+
+busmaps.uk {
 	reverse_proxy 127.0.0.1:5180
 
+	# Don't let the reverse proxy handle 404s for /api/ or /m/ (GO-LIVE.md's
+	# reminder not to strip those paths) — there is no path rewriting above, so
+	# this is automatically satisfied; kept explicit as documentation.
+	#
 	# Caddy forwards X-Forwarded-For/-Proto/-Host to the upstream by default,
 	# which is what src/server.js's trustProxy setting relies on — no manual
 	# header_up needed.
@@ -72,10 +178,70 @@ busmaps.uk, www.busmaps.uk {
 		-Server
 	}
 
-	# Don't let the reverse proxy handle 404s for /api/ or /m/ (GO-LIVE.md's
-	# reminder not to strip those paths) — there's no path rewriting above, so
-	# this is automatically satisfied; kept explicit as documentation.
-	log {
-		output file /var/log/caddy/busmaps.access.log
+	import access_log
+}
+
+# www REDIRECTS TO THE APEX (buses-data OA-172).
+#
+# Until this block existed, `busmaps.uk` and `www.busmaps.uk` were one address
+# list on one site block: both answered 200, byte-identical, and nothing
+# downstream picked a winner. Measured 2026-08-29 — the two homepages hashed the
+# same, and www served its own robots.txt and its own sitemap.xml. Every
+# /m/<slug> page already emitted a canonical pointing at the apex, so the
+# generated half was safe; the twelve shopfront pages emitted none, so each was
+# reachable as two indexable copies with nothing to say which was authoritative.
+#
+# A `redir` collapses that at the edge for every path at once, including ones
+# nobody has written yet — which is why it is the primary fix and the canonicals
+# added to the shopfront pages in the same change are the belt to its braces.
+#
+# Two things about this block that are deliberate:
+#
+#   It is SEPARATE, and it is SECOND. Separate, because a name that redirects
+#   cannot also be an alias of the site it redirects to. Second, because
+#   scripts/deploy-caddy.mjs reads the public hostname out of this file and must
+#   go on reading `busmaps.uk` — it now skips snippet definitions and takes the
+#   first real site block, and there is a test for that.
+#
+#   THE STATUS CODE IS WRITTEN OUT AS 308 rather than spelt `permanent`, and
+#   that is not a style choice. Caddy's `permanent` emits a **301**. This block
+#   said `permanent` when it was first deployed, on 2026-08-31, and what said
+#   so was the deploy script's own read-back of the live site, printing
+#   `NO  301 https://busmaps.uk/` against an assertion written for 308. The
+#   comment that used to sit here asserted the opposite, confidently, and was
+#   wrong; nothing on this laptop could have contradicted it, because Caddy is
+#   not installed here and CI cannot run it either.
+#
+#   Why 308 and not the 301 we accidentally shipped: a 308 preserves the method
+#   and body, so a POST to www is re-sent as a POST, where a 301 lets it be
+#   downgraded to a GET. Nothing here expects a POST on this name, but the block
+#   is a catch-all for every path including ones nobody has written yet. For
+#   search engines the two are equivalent, so the canonical half of this row
+#   turns on none of it — the reason to name the number is that `permanent` is
+#   ambiguous to a reader and was, in fact, misread.
+#
+# Automatic TLS still covers this name: it is a site address in its own right, so
+# Caddy gets it a certificate exactly as it did when it was an alias.
+#
+# The log is imported here too, and that is not decoration — a redirect preserves
+# the query string, so `www.busmaps.uk/maps?q=…` writes the search term into the
+# access log on its way past. Redacting it in one block and not the other would
+# leave the hole open on the hostname nobody watches.
+#
+# Verify by reading the live response, not the merge:
+#   curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.busmaps.uk/
+# should print `308 https://busmaps.uk/`. `npm run deploy:caddy` now asserts it.
+www.busmaps.uk {
+	redir https://busmaps.uk{uri} 308
+
+	# HSTS on this name in its own right. The apex's header carries
+	# includeSubDomains and therefore already covers www, but only AFTER a
+	# browser has visited the apex — and the whole point of this block is the
+	# visitor who arrives at www first.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
 	}
+
+	import access_log
 }

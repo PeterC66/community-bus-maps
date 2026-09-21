@@ -23,18 +23,34 @@
   <main class="app-main">
     <div class="login-card card">
       <h1 class="mt-0">Sign in</h1>
-      <p class="hint-line">Enter your email and we'll send you a one-time sign-in link — no password needed.</p>
+      <p class="hint-line">Enter your email and we'll send you a one-time sign-in link — no password needed. Use the address your account or invitation is under.</p>
 
       <form id="loginForm">
         <div class="field">
           <label for="email">Email address</label>
-          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@organisation.org">
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
         </div>
         <button class="btn btn-primary" type="submit" id="loginBtn">Send me a sign-in link</button>
         <div class="form-msg" id="loginMsg"></div>
       </form>
 
+      <!-- HELP FIRST, JOINING SECOND (2026-09-12). This page had one way off it —
+           "Not a customer yet? Apply to join" — which serves exactly one of the
+           people who reach it. A LOCAL ADVISER is a member of the public who will
+           never be a customer, and being told to apply for a map service for an
+           organisation they do not represent is worse than being told nothing;
+           and anybody whose link has expired, or who is typing the wrong address,
+           had no route to a person at all. The apply link stays, because the one
+           audience it did serve is still real — it is simply no longer the only
+           door. `?kind=question` pre-selects on the contact form, which already
+           knows how to do that from the footer's "Report an issue" link.
+
+           Deliberately no promise about how quickly anyone answers: this is a
+           pilot, and docs/PILOT.md's copy rule forbids implying a response time. -->
       <p class="hint-line" style="margin-top:18px">
+        Trouble signing in? <a href="/contact.html?kind=question">Get in touch</a>.
+      </p>
+      <p class="hint-line">
         Not a customer yet? <a href="/apply.html">Apply to join</a>.
       </p>
     </div>

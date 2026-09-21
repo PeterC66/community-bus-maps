@@ -1,4 +1,4 @@
-﻿// Safe-subset map editor (client).
+// Safe-subset map editor (client).
 //
 // Two content edits (recolour a route, show/hide a POI) staged into an overrides
 // object and previewed through the real generator, plus a map-level control:
@@ -45,17 +45,34 @@ function inkFor(bg, want) {
 const routeInk = (r) => inkFor(staged.colors[r.id] || r.defaultColor, r.textOn);
 
 // ---- overrides <-> staged ----------------------------------------------------
+/*
+ * THIS PAGE MUST CARRY THE LANDMARK ANSWER THROUGH UNTOUCHED (OA-215).
+ *
+ * `overridesFromStaged` builds the overrides object from scratch and
+ * sanitizeOverrides() then rebuilds it from scratch again — so anything this
+ * page does not re-emit is DELETED on save. The chooser was careful about that
+ * in its own direction (it carries this page's colours) and this page was never
+ * taught the other half, so one save here silently threw away every must / may /
+ * miss and every rename a town had given us. `poiTiers` is opaque to this
+ * screen: it is read, held, and written back exactly as it arrived, and it is
+ * deliberately absent from sig() because nothing here can change it and a value
+ * nobody can edit must not make the Save button light up.
+ */
 function stagedFromOverrides(ov) {
   const colors = { ...(ov.routeColors || {}) };
   const hide = new Set(Object.keys((ov.internal && ov.internal.pois) || {})
     .filter((k) => ov.internal.pois[k] && ov.internal.pois[k].hide));
   const hiddenOps = new Set(Array.isArray(ov.hiddenOperators) ? ov.hiddenOperators : []);
-  return { colors, hide, hiddenOps };
+  const poiTiers = (ov.internal && ov.internal.poiTiers) || null;
+  return { colors, hide, hiddenOps, poiTiers };
 }
 function overridesFromStaged(s) {
   const ov = {};
   if (Object.keys(s.colors).length) ov.routeColors = { ...s.colors };
-  if (s.hide.size) ov.internal = { pois: Object.fromEntries([...s.hide].map((k) => [k, { hide: true }])) };
+  const internal = {};
+  if (s.hide.size) internal.pois = Object.fromEntries([...s.hide].map((k) => [k, { hide: true }]));
+  if (s.poiTiers && Object.keys(s.poiTiers).length) internal.poiTiers = s.poiTiers;
+  if (Object.keys(internal).length) ov.internal = internal;
   if (s.hiddenOps.size) ov.hiddenOperators = [...s.hiddenOps];
   return ov;
 }
@@ -117,10 +134,12 @@ function applyLock() {
 function setPvState(kind, text) { $('pvDot').className = 'dot ' + kind; $('pvText').textContent = text; }
 
 // ---- controls: outputs -------------------------------------------------------
-// One output — the tube-map diagram — is `requestOnly`: hand-finished, quoted
-// separately, and re-pinned by us every time the network moves. The customer sees
-// it locked with an "Ask us" button rather than hidden, so they know it exists.
-// The lock is enforced in the server's PATCH handler; this is only the UX of it.
+// A `requestOnly` output is hand-finished, quoted separately and granted by us.
+// The customer sees it locked with an "Ask us" button rather than hidden, so
+// they know it exists. The lock is enforced in the server's PATCH handler; this
+// is only the UX of it. An output the portal does not OFFER (`portal: false` —
+// the tube-map diagram since 2026-09-10, buses-data OA-297) is not drawn at
+// all: to the customer it does not exist.
 const isAdmin = () => !!(ME && ME.role === 'admin');
 const lockedOutput = (o) => o.requestOnly && !isAdmin();
 
@@ -131,7 +150,7 @@ function outputHint(o) {
 }
 function buildOutputs() {
   const box = $('outputs');
-  box.innerHTML = detail.outputs.map((o) => `
+  box.innerHTML = detail.outputs.filter((o) => o.portal).map((o) => `
     <div class="poi-item ${o.enabled ? '' : 'off'}" data-key="${esc(o.key)}">
       <input type="checkbox" id="out_${esc(o.key)}" ${o.enabled ? 'checked' : ''} ${o.available && !lockedOutput(o) ? '' : 'disabled data-fixed="1"'}>
       <label for="out_${esc(o.key)}">${esc(o.label)}${outputHint(o)}</label>
@@ -409,16 +428,16 @@ function buildVersionList() {
   const list = detail.versions || [];
   if (list.length < 2) { box.innerHTML = ''; return; }  // nothing to "go back" to yet
   const rows = list.map((v) => {
-    const key = v.storage_key;
+    const key = v.versionKey;
     const isHead = key === detail.currentVersion;
     const isPub = key === detail.publishedVersion;
-    const state = isPub ? VER_STATE.published : (VER_STATE[v.review_state] || VER_STATE.draft);
+    const state = isPub ? VER_STATE.published : (VER_STATE[v.reviewState] || VER_STATE.draft);
     const dls = (v.downloads || []).length ? dlRow(v.downloads) : '<p class="hint-line">Files for this version are no longer on disk.</p>';
     const copy = !isHead && v.overrides && !isLocked()
       ? `<button class="link-btn v-copy" data-ver="${esc(key)}" type="button">Copy these settings into a new draft</button>` : '';
     return `<details class="ver-row${isHead ? ' head' : ''}">
       <summary><strong>${esc(key)}</strong> ${state}
-        <span class="muted">${esc(PC().fmtDay(v.created_at))}</span>
+        <span class="muted">${esc(PC().fmtDay(v.createdAt))}</span>
         ${isHead ? '<span class="muted">· the one you are editing</span>' : ''}
         ${v.note ? `<span class="ver-note">${esc(v.note)}</span>` : ''}</summary>
       <div class="ver-body">${dls}${copy}</div>
@@ -431,7 +450,7 @@ function buildVersionList() {
 }
 
 function copySettingsFrom(key) {
-  const v = (detail.versions || []).find((x) => x.storage_key === key);
+  const v = (detail.versions || []).find((x) => x.versionKey === key);
   if (!v || !v.overrides) return;
   staged = stagedFromOverrides(v.overrides);
   buildRoutes(); buildOperators(); buildPois(); onEdit();
@@ -459,6 +478,8 @@ function renderChangeSummary(sum, pubKey) {
   if (sum.routes.length) parts.push(`<li><strong>${sum.routes.length}</strong> route colour${sum.routes.length === 1 ? '' : 's'} changed <span class="muted">(${sum.routes.map((r) => esc(r.id)).join(', ')})</span></li>`);
   if (sum.poisHidden.length) parts.push(`<li><strong>${sum.poisHidden.length}</strong> landmark${sum.poisHidden.length === 1 ? '' : 's'} hidden</li>`);
   if (sum.poisShown.length) parts.push(`<li><strong>${sum.poisShown.length}</strong> landmark${sum.poisShown.length === 1 ? '' : 's'} shown</li>`);
+  if ((sum.landmarks || []).length) parts.push(`<li><strong>${sum.landmarks.length}</strong> landmark${sum.landmarks.length === 1 ? '' : 's'} re-answered</li>`);
+  if ((sum.renames || []).length) parts.push(`<li><strong>${sum.renames.length}</strong> landmark${sum.renames.length === 1 ? '' : 's'} renamed</li>`);
   const yours = parts.length
     ? `<div class="change-box"><div class="change-title">${dataHtml ? 'What you changed' : `What publishing will change vs ${base}`}</div><ul class="change-list">${parts.join('')}</ul></div>`
     : (dataHtml ? '<p class="hint-line">You have made no changes of your own to this version — the difference is all in the data above.</p>' : '');
@@ -550,7 +571,7 @@ function buildPublic() {
   $('publicBody').innerHTML = `${link}
     <label class="poi-row" style="margin-top:6px">
       <input type="checkbox" id="listedBox" ${listed ? 'checked' : ''}>
-      <span>List this map on the public site (and in our published-maps gallery)</span>
+      <span>List this place on the public site (and in our published-maps gallery)</span>
     </label>`;
   $('listedBox').addEventListener('change', async (e) => {
     const want = e.target.checked;
@@ -658,6 +679,14 @@ function renderDataSummary(sum) {
   if (has(sum.operatorsAdded)) li.push(`<li><strong>New operator${sum.operatorsAdded.length > 1 ? 's' : ''}:</strong> ${sum.operatorsAdded.map(esc).join(', ')}</li>`);
   if (has(sum.operatorsRemoved)) li.push(`<li><strong>Operator${sum.operatorsRemoved.length > 1 ? 's' : ''} removed:</strong> ${sum.operatorsRemoved.map(esc).join(', ')}</li>`);
   if (sum.validity) li.push(`<li><strong>Timetable valid from:</strong> ${esc(sum.validity.from || '—')} → ${esc(sum.validity.to || '—')}</li>`);
+  // The two OA-253 lines, and they are LAST because they are the only ones that
+  // ask the reader to go and do something. RENDERED BY changes.js, which this page
+  // already loads: the wording lived here for about an hour and a duplicate is how
+  // two screens come to describe one refresh differently. `chooserHref` is what
+  // makes this the CUSTOMER's version of the bullet — it says what happens if they
+  // do nothing, because a place nobody has answered is drawn if there is room, so
+  // accepting the update silently puts it on the sheet.
+  for (const b of (PC().landmarkBullets ? PC().landmarkBullets(sum, { chooserHref: `/app/maps/${MAP_ID}/landmarks` }) : [])) li.push(b);
   return `<ul class="update-list">${li.join('')}</ul>`;
 }
 
@@ -701,7 +730,7 @@ function stripState() {
   const lastReq = hist[0] || null;
   const approvedPub = hist.find((h) => h.status === 'approved' && h.version_key === pub) || null;
   const sentBack = !pending && lastReq && lastReq.status === 'rejected' && lastReq.version_key === head ? lastReq : null;
-  const headVer = (detail.versions || []).find((v) => v.storage_key === head) || null;
+  const headVer = (detail.versions || []).find((v) => v.versionKey === head) || null;
   // An approver or admin looking at somebody else's map is not the one being asked,
   // so the strip says "their move" — the same read-out, from the other side of the
   // handoff. (Admins carry no customer of their own, hence the explicit test.)
@@ -714,7 +743,7 @@ function stripState() {
 
   const common = {
     offeredAt: pu ? pu.createdAt : (accepted ? accepted.created_at : null),
-    draftAt: headVer ? headVer.created_at : null,
+    draftAt: headVer ? headVer.createdAt : null,
     sentAt: pending ? pending.createdAt : (lastReq ? lastReq.created_at : null),
     publishedAt: approvedPub ? approvedPub.reviewed_at : null,
     fromRefresh: !!accepted, sentBack, mine,
@@ -975,6 +1004,300 @@ function showPending() {
     </div></div>`;
 }
 
+// ---- who owns this map (admin only, buses-data OA-364) -----------------------
+/*
+ * THE ROUTE WAS COMPLETE AND NOTHING CALLED IT.
+ *
+ * POST /api/admin/maps/:id/owner has required step-up auth, refused a move that
+ * would overspend the receiving organisation's quota, written a `map.reassign`
+ * audit row, bumped the search index and reconciled the map's stored sheets
+ * since 2026-08-30 — and until this panel existed there was no button anywhere
+ * in the client that reached it. docs/R1-create-map.md documents it under
+ * "Wrong customer", because it was built as a REPAIR for an import that named
+ * the wrong organisation. Handing a real customer their first map is not a
+ * repair: it is the single act that makes a registration visible to a reader,
+ * and it had no surface at all.
+ *
+ * THE GENERALISATION WORTH KEEPING: a capability is not delivered when the route
+ * works. Server-side tests pass on the half that has tests; the missing half is
+ * the one no server-side test can fail on.
+ *
+ * THREE THINGS THIS PANEL MUST NOT DO, each of them a fault already paid for.
+ *
+ *   1. ASSUME SUCCESS. OA-362's approve button told the admin "The invite has
+ *      been emailed" over a response that never said whether it had. Every
+ *      sentence below is composed from what came BACK — `body.customer` for the
+ *      new owner, `body.restamped` for the stored sheets — and then checked
+ *      against a re-read of /api/maps/:id. The restamp runs AFTER the
+ *      reassignment is committed and the route reports its failure rather than
+ *      swallowing it, so a 200 can still carry bad news, and this says so.
+ *   2. READ A REFUSAL AS A FAILURE. A 403 for step-up and a 409 for quota are
+ *      both recoverable and both say how. Neither writes anything, the selection
+ *      is kept, and the message says what to do rather than restating the code.
+ *   3. MOVE AN ASSET BETWEEN TENANTS ON ONE CLICK. The confirmation names what
+ *      this particular move costs before it happens, which is the difference
+ *      between a picker and a trap.
+ */
+
+let ORGS = null;              // /api/admin/customers, for the picker and its quota words
+let SESSION = null;           // the /api/me session block — step-up freshness
+
+function ownerMsg(kind, text) {
+  const el = $('ownerMsg');
+  if (!el) return;
+  el.className = kind ? 'notice show ' + kind : 'notice';
+  el.textContent = text || '';
+}
+
+// How much of its quota an organisation has spent on maps of THIS kind, in the
+// words the server's own refusal uses. Shown in the option label so the admin
+// meets the limit while choosing rather than after confirming.
+function quotaWord(c, kind) {
+  const cap = kind === 'place' ? c.quotaPlaces : c.quotaAreas;
+  const held = kind === 'place' ? c.usedPlaces : c.usedAreas;
+  const noun = kind === 'place' ? 'place' : 'area';
+  if (cap == null) return `${held} ${noun} map${held === 1 ? '' : 's'}, no quota set`;
+  return `${held} of ${cap} ${noun} maps${held >= cap ? ' (FULL)' : ''}`;
+}
+
+function ownerOptionLabel(c, kind) {
+  const bits = [quotaWord(c, kind)];
+  // Not decoration: the public queries admit `c.status = 'active'` only, so a
+  // suspended owner's maps leave the public site. The dialog says so too.
+  if (c.status !== 'active') bits.push(c.status);
+  if (c.isSample) bits.push('publishes sample maps');
+  return `${c.name} — ${bits.join(' · ')}`;
+}
+
+function renderOwnerState() {
+  const name = detail && detail.customer ? detail.customer.name : null;
+  $('ownerState').textContent = name || 'nobody';
+  $('ownerNow').textContent = name
+    ? `This map belongs to ${name}. Its people are the ones who can sign in and edit it, and its name, badge and colour are what the public page carries.`
+    : 'This map belongs to nobody. Both public queries JOIN the owning organisation, so an unowned map is dropped however published it says it is — its public page returns “not found”.';
+}
+
+function populateOwnerSelect() {
+  const sel = $('ownerSelect');
+  sel.innerHTML = '';
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '— nobody (takes it off the public site) —';
+  sel.appendChild(none);
+  for (const c of ORGS) {
+    const o = document.createElement('option');
+    o.value = String(c.id);
+    o.textContent = ownerOptionLabel(c, detail.kind);
+    sel.appendChild(o);
+  }
+  sel.value = detail.customer ? String(detail.customer.id) : '';
+}
+
+async function loadOrgs() {
+  try {
+    const res = await fetch('/api/admin/customers');
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok || !Array.isArray(body.customers)) return false;
+    ORGS = body.customers;
+    return true;
+  } catch { return false; }
+}
+
+// What THIS move costs, written per direction. The three the action asked for —
+// the badge on a public sheet, a quota slot, and where reports and notifications
+// go — plus the two the code makes true and a confirmation that omitted them
+// would be lying by silence: who can sign in and edit it, and the fact that an
+// inactive or absent owner takes the map off the public site.
+function ownerCostsFor(toId) {
+  const to = toId ? ORGS.find((c) => String(c.id) === String(toId)) : null;
+  const from = detail.customer ? detail.customer.name : null;
+  const noun = detail.kind === 'place' ? 'place' : 'area';
+  const costs = [];
+
+  if (to) {
+    costs.push(`The badge on the public sheet changes hands. ${to.name}’s name, badge and colour replace ${from ? from + '’s' : 'what is there now'} on this map’s public page, and the stored sheets are re-stamped to match whether ${to.name} publishes sample maps — the “PILOT — SAMPLE MAP” band, whose middle line reads “Not published by any organisation”.`);
+    costs.push(`It spends one of ${to.name}’s ${noun}-map slots — they hold ${quotaWord(to, detail.kind)} today. If they are already at their limit the move is refused, and raising a quota is a separate change on the Customers tab.`);
+    costs.push(`${to.name}’s people gain the sign-in that edits this map${from ? `, and ${from}’s people lose it` : ''}. Administrators keep access either way.`);
+    costs.push(`Notifications follow the owner: “published” and “sent back” emails about this map go to ${to.name}’s users from now on. A “Spotted a problem?” report still arrives in our own inbox tagged with this map — ${from ? `it is ${to.name}, not ${from}, that we would pass it on to` : `${to.name} is who we would pass it on to`}.`);
+    if (to.status !== 'active') {
+      costs.push(`${to.name} is “${to.status}”, and the public queries admit an active organisation only — so this map LEAVES the public site until that changes.`);
+    }
+  } else {
+    // isSampleCustomer(null) is TRUE — "absent or unreadable means sample" — so
+    // un-owning does not merely remove a badge, it puts the band back on. Hedged
+    // on the pilot because this screen cannot see PILOT_MODE; `restamped` in the
+    // response is what reports the outcome that actually happened.
+    costs.push('The map becomes unowned, and an unowned map is dropped by both public queries however published it says it is — its public page starts returning “not found” at once, under nobody’s badge.');
+    costs.push('A map with no owner counts as a sample, so while the pilot is on its stored sheets are re-stamped WITH the “PILOT — SAMPLE MAP” band and its middle line, “Not published by any organisation”.');
+    costs.push(`${from || 'The present owner'} gets ${noun === 'area' ? 'an' : 'a'} ${noun}-map slot back, and ${from ? 'their' : 'its'} people lose the sign-in that edits it. Administrators keep access.`);
+    costs.push('Nobody is emailed when a new version of it is published, and a “Spotted a problem?” report about it has no organisation for us to pass it to.');
+  }
+  return costs;
+}
+
+function openOwnerDialog() {
+  const toId = $('ownerSelect').value;
+  const to = toId ? ORGS.find((c) => String(c.id) === String(toId)) : null;
+  const fromId = detail.customer ? String(detail.customer.id) : '';
+  // The server refuses a no-op with a 409 of its own. Saying so here is kinder
+  // than a confirmation that leads to one.
+  if ((to ? String(to.id) : '') === fromId) {
+    ownerMsg('warn', to
+      ? `This map already belongs to ${to.name} — pick a different organisation, or “nobody”.`
+      : 'This map is already unowned — pick an organisation to give it to.');
+    return;
+  }
+  ownerMsg('', '');
+  $('ownerFromTo').textContent = `${detail.name} — from ${detail.customer ? detail.customer.name : 'nobody'} to ${to ? to.name : 'nobody'}.`;
+  const ul = $('ownerCosts');
+  ul.innerHTML = '';
+  for (const line of ownerCostsFor(toId)) {
+    const li = document.createElement('li');
+    li.textContent = line;
+    ul.appendChild(li);
+  }
+  $('ownerConfirm').textContent = to ? `Yes — move it to ${to.name}` : 'Yes — leave it unowned';
+  $('ownerConfirm').disabled = false;
+  $('ownerDialogMsg').className = 'notice';
+  $('ownerDialogMsg').textContent = '';
+  $('ownerDialog').showModal();
+}
+
+async function submitOwnerChange() {
+  const toId = $('ownerSelect').value;
+  const to = toId ? ORGS.find((c) => String(c.id) === String(toId)) : null;
+  const btn = $('ownerConfirm');
+  const msg = $('ownerDialogMsg');
+  const label = btn.textContent;
+  const refuse = (kind, text) => {
+    msg.className = 'notice show ' + kind;
+    msg.textContent = text;
+    btn.disabled = false;
+    btn.textContent = label;
+  };
+  btn.disabled = true;
+  btn.textContent = 'Moving…';
+
+  let status = 0;
+  let body = {};
+  try {
+    const res = await fetch(`/api/admin/maps/${MAP_ID}/owner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId: toId === '' ? null : Number(toId) }),
+    });
+    status = res.status;
+    body = await res.json().catch(() => ({}));
+  } catch {
+    // NOT "nothing has changed". A request that never came back may still have
+    // been carried out — the write is committed before the response is written.
+    refuse('err', 'The request did not come back, so we cannot tell whether the move happened. Reload the page and look at who owns this map before trying again.');
+    return;
+  }
+
+  // Step-up refuses BEFORE anything is written (requireStepUp runs above the
+  // first database call), so "nothing has moved" is a claim this one can make.
+  if (status === 403 && body && body.code === 'step-up-required') {
+    refuse('warn', `${body.error || 'This needs a recent sign-in.'} Nothing has moved and your choice is kept — sign in again in another tab, come back to this one and press the button again.`);
+    return;
+  }
+  if (status === 409 && body && body.code === 'quota') {
+    refuse('err', `${body.error} Nothing has moved — the Customers tab is where a quota is raised.`);
+    return;
+  }
+  if (status !== 200 || !body || !body.ok) {
+    refuse('err', (body && body.error)
+      ? `${body.error} Nothing has moved.`
+      : `The move was refused with HTTP ${status} and no reason. Reload the page and check who owns this map before trying again.`);
+    return;
+  }
+
+  // ---- what the response actually said ----------------------------------
+  // `body.customer` is the server's own answer, not the option that was picked.
+  const said = body.customer ? body.customer.name : null;
+  const lines = [`${detail.name} now belongs to ${said || 'nobody'}. A map.reassign row is in the audit log.`];
+
+  // The stored sheets are the one part of a 200 that can be bad news: the
+  // reassignment is already committed when reconcileMapRenders() runs, and the
+  // route deliberately reports a failure rather than swallowing it.
+  const r = body.restamped;
+  if (r && r.error) {
+    lines.push('BUT the stored sheets were NOT re-stamped — the reason is in the server log. They may still carry the wrong band: the sample notice reading “Not published by any organisation” over the new owner’s badge, or its absence where it is still wanted. Run scripts/restamp-renders.mjs --apply on the server before anyone prints one.');
+  } else if (r && typeof r.changed === 'number') {
+    // `seen` is why this can say which of the two silences it is looking at.
+    lines.push(r.changed > 0
+      ? `${r.changed} stored sheet file${r.changed === 1 ? '' : 's'} re-stamped — the sample band is now ${r.band ? 'ON' : 'OFF'} for this map.`
+      : (r.seen ? `None of its ${r.seen} stored sheet file${r.seen === 1 ? '' : 's'} needed re-stamping — they already carry the band this owner should have (${r.band ? 'on' : 'off'}).`
+        : 'This map has no stored sheets yet, so there was nothing to re-stamp.'));
+  } else {
+    lines.push('The server said nothing about the stored sheets, so whether they carry the right band is unchecked here.');
+  }
+
+  // ---- and then what a READ says ----------------------------------------
+  // The write's own word is evidence, not proof. /api/maps/:id is the query
+  // every other panel on this page is drawn from, so a disagreement here is
+  // worth more than a tidier message would be.
+  let reread = false;
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}`);
+    const rb = await res.json().catch(() => ({}));
+    if (res.ok && rb && rb.ok && rb.map) {
+      reread = true;
+      detail.customer = rb.map.customer || null;
+      const back = detail.customer ? detail.customer.name : null;
+      if (back !== said) {
+        lines.push(`A re-read of this map disagrees: it reports ${back || 'nobody'}. Somebody may have changed it in the same moment — reload before acting on either answer.`);
+      }
+    }
+  } catch { /* fall through to the sentence below */ }
+  if (!reread) {
+    lines.push('The map could not be re-read to confirm that, so the sentence above is the write’s own word. Reload the page to check it.');
+  }
+  if (to) {
+    lines.push('The rest of this page was drawn for the previous owner — reload it to see the map under the new owner’s own settings.');
+  }
+
+  $('ownerDialog').close();
+  renderOwnerState();
+  // The quota counts in the option labels moved with the map, so re-read them
+  // too rather than leaving a stale number in front of the next decision.
+  if (await loadOrgs()) populateOwnerSelect();
+  else $('ownerSelect').value = detail.customer ? String(detail.customer.id) : '';
+  ownerMsg(r && r.error ? 'warn' : 'ok', lines.join(' '));
+}
+
+async function buildOwnerPanel() {
+  if (!isAdmin()) return;                       // to everybody else the panel does not exist
+  const panel = $('ownerPanel');
+  if (!panel) return;
+  panel.hidden = false;
+  renderOwnerState();
+
+  // Say up front that a stale sign-in will be turned away, for the reason
+  // review.js gives about publishing: the server has always known, and the only
+  // thing that ever mentioned it was the 403 at the end.
+  const stale = !!(SESSION && SESSION.stepUpFresh === false);
+  const warn = $('ownerStepUp');
+  warn.className = stale ? 'notice show warn' : 'notice';
+  warn.textContent = stale
+    ? `Changing an owner needs a sign-in from the last ${SESSION.stepUpMinutes} minutes and yours is older. Sign out and follow a fresh sign-in link before you start, or the move will be refused at the last step.`
+    : '';
+
+  if (!(await loadOrgs())) {
+    const sel = $('ownerSelect');
+    sel.innerHTML = '<option value="">— the organisations could not be loaded —</option>';
+    sel.disabled = true;
+    $('ownerChangeBtn').disabled = true;
+    ownerMsg('err', 'The list of organisations could not be loaded, so the owner cannot be changed from here. Reload the page to try again.');
+    return;
+  }
+  populateOwnerSelect();
+  $('ownerChangeBtn').disabled = false;   // it ships disabled; the loaded list is what turns it on
+  $('ownerChangeBtn').addEventListener('click', openOwnerDialog);
+  $('ownerCancel').addEventListener('click', () => $('ownerDialog').close());
+  $('ownerForm').addEventListener('submit', (e) => { e.preventDefault(); submitOwnerChange(); });
+}
+
 // ---- init --------------------------------------------------------------------
 (async () => {
   // gate
@@ -982,7 +1305,11 @@ function showPending() {
   try {
     const r = await fetch('/api/me');
     if (r.status === 401) { location.href = '/app/login.html'; return; }
-    me = (await r.json()).user;
+    const meBody = await r.json();
+    me = meBody.user;
+    // The session block says whether this sign-in is fresh enough for a
+    // step-up-gated action, so the owner panel can warn BEFORE the 403.
+    SESSION = meBody.session || null;
     $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
     $('logoutBtn').style.display = '';
     if (me.role === 'admin') $('adminLink').style.display = '';
@@ -1002,12 +1329,24 @@ function showPending() {
     $('mapTag').innerHTML = `<span class="tag ${detail.kind === 'place' ? 'place' : 'area'}">${detail.kind === 'place' ? 'Place' : 'Area'}</span>`;
     $('mapCrumb').textContent = [detail.subject, detail.currentVersion ? 'current ' + detail.currentVersion : ''].filter(Boolean).join(' · ');
 
+    // Who owns this map: admin-only, and deliberately ABOVE the pending return
+    // below, because a map still being built is exactly one that may need
+    // giving to the customer who asked for it (buses-data OA-364).
+    buildOwnerPanel().catch(() => {});
+
     // A requested/approved/building map has no rendered version yet — show a
     // friendly "being prepared" state instead of empty editing controls.
     if (!detail.currentVersion) { showPending(); return; }
 
     staged = stagedFromOverrides(detail.overrides || {});
     savedSig = sig(staged);
+    // The landmark chooser (OA-212) is a page of its own: it needs the town's
+    // streets under the list, and the three-way answer does not fit a tick box.
+    for (const el of [$('landmarksLink'), $('poiPanelLink')]) {
+      if (!el) continue;
+      el.href = `/app/maps/${MAP_ID}/landmarks`;
+      el.style.display = '';
+    }
     buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildVersionList();
     buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); buildStatusStrip(); applyLock();
     buildExpertLinks();

@@ -1,4 +1,4 @@
-﻿// Diagram pin editor (client) — the expert half of the editing story (P7).
+// Diagram pin editor (client) — the expert half of the editing story (P7).
 //
 // Adapted from the desktop tool that shipped with the map-making skill
 // (assets/diagram_edit.js): same interaction — drag a junction to pin it, drop to

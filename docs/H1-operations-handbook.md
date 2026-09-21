@@ -1,7 +1,7 @@
-﻿# Operations Handbook (H1) — BusMaps.uk portal
+# Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.21 | 2026-08-30 | sha=9ba03ca6 -->
-**v1.21** · updated 30 August 2026
+<!-- docstamp v1.27 | 2026-09-19 | sha=c21c84b0 -->
+**v1.27** · updated 19 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -45,6 +45,10 @@ At launch **you wear three hats** — Admin, Approver, and central map-maker. Th
 | Recolour/toggle, choose outputs, save, submit, download | **Editor** (the customer) | `/app`, `/app/maps/:id` |
 | Per-customer branding of public pages | Customer (or you) | `/app/branding` |
 | Expert diagram pin editing | **Admin** | `/app/maps/:id/diagram` |
+| Ask somebody local to look at a map, or stop asking them | **Admin** | `/app/admin` → Advisers |
+| Look at one map's current version and say what is wrong with it | **Local adviser** (a member of the public) | `/app/adviser` |
+
+**The fourth role is not a fourth hat — it is somebody outside this operation entirely.** A **local adviser** knows a town on the ground and has agreed to look at a map before it is published. They are not a customer and do not work for one, and they reach exactly one map's current version, on screen, watermarked, with no download of any kind and nowhere to write anything down — replies still come by email into `Correspondence/`, because the answering half is not built. Asking somebody is one action on the **Advisers** tab: an email address and a map create the account, grant the map and send the sign-in link together. *Stop asking* revokes and keeps the record, since who was shown which draft, and when, is asked months later. Two operational gotchas, both learned the hard way on 2026-09-12: **a switched-off account cannot be asked**, because no sign-in link can be issued for one — the console refuses and tells you to set it active on the Users tab first; and **the console now says whether the email actually went**, so read *"no sign-in link was emailed"* as the outcome rather than a footnote. Who qualifies and why it is sign-in rather than a share link: [`Pol1-vetting-and-quota-policy.md`](Pol1-vetting-and-quota-policy.md).
 
 **Separation of duties (do not collapse it):** the editor who makes a change never publishes it. Even when you are both, submit as the editor, then switch to the approver view and review — the audit trail depends on it. **This is now enforced, not just asked for.** `POST /api/review/:id/approve` refuses when the approver is the submitter, unless `ALLOW_SELF_APPROVAL=1` is set on the host — which it currently is, because with one operator the alternative is that nothing can be published at all. Every publication made under that override is stamped `selfApproved: true` in the decision evidence and the audit row, so the trail says which publications had a second pair of eyes and which did not. Unset it the day a second person holds `approver` — item 1 of §3b below, and the only entry there that no amount of work closes.
 
@@ -58,7 +62,7 @@ A short list kept deliberately apart from `open-actions.md`. Each of these is so
 | 2 | **The privacy statement is out of draft** and names a data controller | It read "Working draft — to be confirmed before the service opens publicly" while the apply form was already asking organisations for names, emails and phone numbers. | ☑ 2026-08-25 (audit N8) |
 | 3 | **Retention and erasure actually run** for `application` and `message` | A UK erasure request needs a code path and a runbook that reaches the backups too, not a sentence promising one. | ☑ 2026-08-25 (audit N8) |
 | 4 | **Backups are encrypted before they leave the VPS** | Until 2026-08-25 an unencrypted copy of every name, email and phone number in the database was pulled to a laptop and kept indefinitely. | ☑ 2026-08-25 (audit N3) |
-| 5 | **The S6 correctness waivers are cleared**, by running S6 rather than by moving the dates | Seven of the eight live towns are published under one (`scripts/s6-waivers.json`, `until` 15 Sept – 6 Oct), so every live map has passed a reproducibility check and not a correctness check since its data last moved. | ☐ open — six S6 runs (audit N16) |
+| 5 | **The S6 correctness waivers are cleared**, by running S6 rather than by moving the dates | Seven of the eight live towns were published under one (`scripts/s6-waivers.json`, `until` 15 Sept – 6 Oct), so every live map had passed a reproducibility check and not a correctness check since its data last moved. | ☑ 2026-09-18 — cleared by running S6, not by moving a date. Measured 2026-09-15 over all 20 maps through `scripts/lib/s6-freshness.mjs`: 20 of 20 `fresh`, every one `verdict: "pass"` at 0 hard findings, so all ten rows were dead letters and the `waive` array is now empty. Read its closing note for what the measurement does **not** cover — `verification.json` is gitignored in `buses-data`, so no CI run can stand behind this |
 
 **Sessions and step-up.** Sign-in sessions last **7 days** and slide forward on use, so an unused account loses its credential within a week (they were fixed 30-day sessions until 2026-08-20). Three actions need a sign-in from the **last 30 minutes** whatever the session's own age: publishing a version, changing an organisation's settings or quota, and changing a user's role or organisation. If one is refused with `step-up-required`, sign out and follow a fresh sign-in link. **Admin → Sessions** lists everyone signed in and revokes any of them on the spot; that is the tool for a lost laptop or a token that has been somewhere it should not, and it replaces keeping a live admin cookie in a file. **Admin → Users** now carries *Sign out everywhere* on each row for the same job across all of one person's devices at once.
 
@@ -71,6 +75,8 @@ A short list kept deliberately apart from `open-actions.md`. Each of these is so
 3. **Publish** — a rendered version stays a **draft** until an **approver reviews it** (a required checklist + the deterministic change summary as evidence) → the public-current pointer advances.
 
 ### 4b. The tube-map diagram is request-only
+
+> **PARKED 2026-09-10 (buses-data OA-297): the tube-map diagram is not offered — `TUBE_DIAGRAM` is off by default and unset on the live host — and everything below about it describes the mechanism kept for the return (buses-data OA-298).** While parked there is no *Ask us* button, no `diagram-request` message can be raised (the route is 404), the pin editor reports no diagram to tune, and the public file routes refuse the sheet's URLs. Nothing below is deleted; it is what comes back with the flag.
 
 The other three outputs are generated: the same data always draws the same sheet. The diagram is solved and then **pinned by hand**, and those pins are ours to re-judge every time the network moves — so it is a *priced* output, not a tick-box, and it costs drawing time in the updates as well as in the first build.
 
@@ -104,11 +110,11 @@ Point of reference for "what do I do, and how often." Detail lives in the linked
 
 **App** (magic-link sign-in): **`/app`** dashboard · **`/app/maps/:id`** editor (recolour/toggle, outputs, versions, **Publish** panel) · **`/app/admin`** console (Applications · Map requests · Customers · Messages · Proposed updates · Audit · Ops) · **`/app/review`** approver review · **`/app/branding`** customer branding · **`/app/maps/:id/diagram`** expert diagram pins.
 
-**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session) · **`POST /api/admin/status`** the laptop's `push-status.mjs` sends status.js's byte-identical gate + engine/S6 staleness here, gated by `STATUS_TOKEN` or an admin session — it then shows up at ranks 0/8 of the To-do tab / `/api/admin/worklist` alongside the portal's own queues.
+**Ops endpoints:** **`/health?deep=1`** readiness (DB + disk + engine + a sharp raster; 503 on fail) · **`/metrics`** Prometheus text (gated by `METRICS_TOKEN` or an admin session) · **`POST /api/admin/status`** the laptop's `push-status.mjs` sends status.js's byte-identical gate + engine/S6 staleness here, gated by `STATUS_TOKEN` or an admin session — it then shows up at ranks 0/8 of the To-do tab / `/api/admin/worklist` alongside the portal's own queues. **`GET /api/admin/worklist`** and **`GET /api/maps`** also accept an `OPERATOR_TOKEN` Bearer header (OA-203), which is how the laptop's bus-work worklist reads the live site without borrowing somebody's sign-in session; it is GET-only, those two routes only, and admits nothing else anywhere.
 
 **Scripts** (`scripts/`, run with the server **stopped** where they write): `import-map.mjs` (seed one map → v1.0 baseline, or `--request <id>` to build an approved request in place) · `delete-map.mjs` (retire a map — row, versions, publish/proposed-update rows and its `data/maps/<id>/` dir; dry run by default, `--yes` to act — e.g. freeing a demo-held town's slug for a real customer, R1) · `seed-demo.mjs` (multi-customer demo) · `propose-update.mjs` (stage a monthly refresh) · `backup.mjs` (`VACUUM INTO` + renders) · `prune-staged.mjs` (settled refreshes) · `fix-badge-contrast.mjs` (re-ink route numbers that a recolour made invisible, on sheets already stored — a one-off catch-up; renders made now are fixed as they are produced) · `test-contrast.mjs` (WCAG AA gate over the tinted chips in `styles.css`, including every organisation accent; part of `npm test`) · `verify-reproduce.mjs` / `verify-reproduce-place.mjs` (byte-identical gate) · `test-p6.mjs` / `test-p7.mjs` / `test-lifecycle.mjs` (`npm test`).
 
-**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
+**Data & secrets** (never in git): everything under **`DATA_DIR`** — `portal.sqlite` + `maps/<id>/…`. Config via env (`DATA_DIR`, `HOST`/`PORT`, `PUBLIC_BASE_URL`, `EMAIL_PROVIDER`/`EMAIL_FROM`, `METRICS_TOKEN`, `STATUS_TOKEN`, `OPERATOR_TOKEN`) — see [`.env.example`](../.env.example) and [DEPLOY.md §2](DEPLOY.md).
 
 **Private ops folder** (local-only, no cloud): **`C:\Claude\community-bus-maps-ops\`** — the customer register, vetting log, incident log and business notes. **Never** synced to GitHub. Back it up yourself.
 
@@ -160,7 +166,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 
 If someone (or a future session) has to pick this up:
 
-1. Read this handbook, then `docs/ROADMAP.md` (architecture) and `CHANGELOG.md` (why things are as they are). The code is at **github.com/PeterC66/community-bus-maps** (private, Business Source License 1.1 — converts to Apache-2.0 on 2030-08-09).
+1. Read this handbook, then `docs/ROADMAP.md` (architecture) and `CHANGELOG.md` (why things are as they are). The code is at **github.com/PeterC66/community-bus-maps** — **a public repository since 2026-09-03** (source-available, not secret; anything committed there is world-readable), under Business Source License 1.1, converting to Apache-2.0 on 2030-08-09. The PII and business records are what is private, and they are private by living outside git, in the local-only ops folder — never by the repository being closed.
 2. **The code is not the service.** The service also needs, and git does **not** contain: the runtime data under `DATA_DIR` (customers, maps, published bytes) and the **local-only ops folder** (PII + business). Both must be restored from their own backups — confirm they exist before you need them ([DEPLOY.md §5](DEPLOY.md) restore drill; the ops folder you back up yourself).
 3. **The promise is byte-identical output.** After any dependency/host change, `npm run verify` must pass before you serve anything — a different `sharp`/libvips build silently breaks "the file we serve is the file that was approved."
 4. Remember the **one-writer rule** (§5) and the **separation of duties** (§3).
@@ -168,6 +174,8 @@ If someone (or a future session) has to pick this up:
 ---
 
 ## Appendix — quick command reference
+
+Run these from the repository root (`C:\Claude\community-bus-maps`). There are no placeholders except the quoted paths, which are explained beside each command.
 
 ```bash
 npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) and /app

@@ -38,6 +38,15 @@
 // it is STRONGER than the committed pack — so a version of it that quietly
 // repointed anything would have broken the thing it was written to protect.
 //
+// SIX MORE TREES JOINED ON 2026-09-01 (OA-211), thirteen in all, and they belong
+// to the RESOLUTION that replaced the nagging rather than to the warning. They
+// are documented where they are, below case 6. The paragraph above still holds
+// exactly as written — every tree up there has no `manifest.json`, so nothing is
+// resolvable and nothing moves — but read it as being about this WARNING, not
+// about the resolver: what it ruled out was repointing QUIETLY, and away from
+// the live tree. The resolver moves an entry only FORWARD, only within the tree
+// the variable already chose, and prints what it did.
+//
 // IT TOUCHES NOTHING REAL. Every tree is built under os.tmpdir() from a handful
 // of one-line JSON files; the repository's own fixtures are never read, and the
 // ambient FIXTURE_DIR / PLACE_FIXTURE_DIR / BUSES_DIR are stripped from the
@@ -195,9 +204,142 @@ console.log('\n6  PLACE_FIXTURE_DIR pointing AT the committed fixture — silent
   rmSync(tmp, { recursive: true, force: true });
 }
 
+/* =========================================================================
+ * OA-211 — RESOLVING THE VERSION INSTEAD OF NAGGING ABOUT IT (2026-09-01).
+ *
+ * Cases 0-6 above run on a tree with NO manifest.json, which is why every one of
+ * them still asserts the resolution is untouched: an entry the resolver cannot
+ * place is passed through exactly as written, so the warning still covers every
+ * case it covered before. That is worth not relying on by accident, so the cases
+ * below build the OTHER tree — one with a real manifest — and assert both halves.
+ *
+ * THE DANGEROUS DIRECTION IS SUBSTITUTING WHEN IT SHOULD NOT. A resolver that
+ * moved an entry on a guess would gate a pack nobody asked for while printing
+ * that everything reproduced, so four of the six cases here are ones where
+ * nothing may move: a `latest` naming a run that is not listed, a run folder
+ * that is not on this disk, an entry already current, and a place path with no
+ * version in it at all.
+ *
+ *   7  env one render behind    -> advanced, and SAYS SO, naming both versions
+ *   8  env already the current  -> silent, untouched (a notice on every good run
+ *                                  is a notice nobody reads by Friday)
+ *   9  latest not on this disk  -> untouched, and says why (S5-render is
+ *                                  gitignored, so a fresh clone has none)
+ *  10  latest listed in no run  -> untouched, and says why
+ *  11  a pack the manifest does -> ADVANCED, deliberately; see the case
+ *      not list
+ *  12  a place _portal-fixture  -> untouched (no S5-render segment to resolve)
+ * ========================================================================= */
+
+/** The same tree, plus a manifest declaring which S5 render is current. */
+function treeWithManifest(stagesS5) {
+  const tmp = tree();
+  writeFileSync(
+    path.join(tmp, 'Areas', 'St Ives', 'manifest.json'),
+    JSON.stringify({ town: 'St Ives', stages: { S5: { name: 'render', ...stagesS5 } } }),
+  );
+  return tmp;
+}
+const RUNS = [
+  { id: 'v1.0_old', dir: 'S5-render/v1.0_old' },
+  { id: 'v2.0_current', dir: 'S5-render/v2.0_current' },
+  { id: 'v3.0_ahead', dir: 'S5-render/v3.0_ahead' },
+];
+const at = (tmp, v) => path.join(tmp, 'Areas', 'St Ives', 'S5-render', v);
+
+/* ---- 7: the fault this row was filed for ------------------------------- */
+console.log('\n7  FIXTURE_DIR one render behind the manifest — advanced, and it says so');
+{
+  const tmp = treeWithManifest({ latest: 'v3.0_ahead', runs: RUNS });
+  const { out, result } = resolve('area', { FIXTURE_DIR: at(tmp, 'v1.0_old') });
+  if (!result || result.fixtures[0] !== at(tmp, 'v3.0_ahead')) fail(`the entry was not advanced to the manifest's current render — resolved ${result && result.fixtures[0]}`);
+  else ok('advanced to the current render');
+  if (!out.includes('v1.0_old') || !out.includes('v3.0_ahead')) fail('the substitution does not print BOTH versions, so the reader cannot see what was swapped');
+  else ok('it prints both versions');
+  // READ THE SUBSTITUTION LINE, NOT THE WHOLE STREAM. `out.includes('St Ives')`
+  // was written here first and it was satisfied by the stale-fixture WARNING,
+  // which names the town too — so it stayed green under the mutation that
+  // deleted the advance entirely. An assertion a neighbouring clause can satisfy
+  // is not evidence about the clause it was written for.
+  const line = out.split('\n').find((l) => l.includes('gating its current render instead'));
+  if (!line || !line.includes('St Ives')) fail('the substitution line does not name the map, so a three-town list would not say which entry moved');
+  else ok('the substitution line names the map');
+  if (warned(out)) fail(`it advanced the entry AND warned it was behind. The advance runs first precisely so the warning is left saying something still true.\n${out}`);
+  else ok('no stale warning left over after advancing');
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+/* ---- 8: the control that keeps case 7 readable ------------------------- */
+console.log("\n8  FIXTURE_DIR already at the manifest's current render — silent, untouched");
+{
+  const tmp = treeWithManifest({ latest: 'v3.0_ahead', runs: RUNS });
+  const { out, result } = resolve('area', { FIXTURE_DIR: at(tmp, 'v3.0_ahead') });
+  if (!result || result.fixtures[0] !== at(tmp, 'v3.0_ahead')) fail('a current entry was changed');
+  else ok('untouched');
+  if (out.includes('gating its current render instead')) fail(`it announced a substitution it did not make. A notice on every correct run is one nobody reads.\n${out}`);
+  else ok('silent');
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+/* ---- 9: the fresh-clone shape ------------------------------------------ */
+console.log("\n9  the manifest's current render is not on this disk — untouched, and says why");
+{
+  const tmp = treeWithManifest({ latest: 'v9.9_gone', runs: [...RUNS, { id: 'v9.9_gone', dir: 'S5-render/v9.9_gone' }] });
+  const { out, result } = resolve('area', { FIXTURE_DIR: at(tmp, 'v1.0_old') });
+  if (!result || result.fixtures[0] !== at(tmp, 'v1.0_old')) fail('it resolved to a folder that does not exist');
+  else ok('untouched');
+  if (!out.includes('could not read the current render')) fail(`silent when it could not resolve. Silence here reads as "this entry is current", which is the shape of the original fault.\n${out}`);
+  else ok('it says why it could not');
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+/* ---- 10: a manifest that contradicts itself ---------------------------- */
+console.log('\n10 the manifest names a current render it lists no run for — untouched, and says why');
+{
+  const tmp = treeWithManifest({ latest: 'v3.0_ahead', runs: [RUNS[0], RUNS[1]] });
+  const { out, result } = resolve('area', { FIXTURE_DIR: at(tmp, 'v1.0_old') });
+  if (!result || result.fixtures[0] !== at(tmp, 'v1.0_old')) fail('it moved the entry on a manifest that does not say where to');
+  else ok('untouched');
+  if (!out.includes('could not read the current render')) fail(`silent on a self-contradictory manifest.\n${out}`);
+  else ok('it says why it could not');
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+/* ---- 11: a pack the manifest has never heard of ------------------------ */
+console.log('\n11 FIXTURE_DIR names a render the manifest does not list — advanced anyway, on purpose');
+{
+  const tmp = treeWithManifest({ latest: 'v3.0_ahead', runs: RUNS });
+  const dir = pack(at(tmp, 'v5.0_byhand'), OLD);
+  const { result } = resolve('area', { FIXTURE_DIR: dir });
+  // ASSERTED SO THAT IT IS A DECISION RATHER THAN AN ACCIDENT. A hand-built pack
+  // under `S5-render/` is still that map's render tree, and the manifest is
+  // still the authority on which render is current, so advancing it is the same
+  // answer as case 7 rather than a special case. If somebody later wants a pack
+  // the manifest does not list left alone, this is the assertion to flip and
+  // `newest-render.mjs` is where the clause would go.
+  if (!result || result.fixtures[0] !== at(tmp, 'v3.0_ahead')) fail(`an unlisted pack resolved to ${result && result.fixtures[0]} — expected the manifest's current render`);
+  else ok("advanced to the manifest's current render, like any other entry");
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+/* ---- 12: places have no version to resolve ----------------------------- */
+console.log('\n12 PLACE_FIXTURE_DIR at a committed pack — no S5-render segment, untouched');
+{
+  const tmp = treeWithManifest({ latest: 'v3.0_ahead', runs: RUNS });
+  const dir = path.join(tmp, 'Places', '_portal-fixture', 'High Wycombe Aldi');
+  const { out, result } = resolve('place', { PLACE_FIXTURE_DIR: dir });
+  if (!result || result.fixtures[0] !== dir) fail('a committed place pack was repointed — it carries no version and has nothing to advance to');
+  else ok('untouched');
+  if (out.includes('gating its current render instead')) fail(`it announced a substitution on a place pack.\n${out}`);
+  else ok('silent');
+  rmSync(tmp, { recursive: true, force: true });
+}
+
 console.log('');
 if (failures) {
-  console.error(`x ${failures} check(s) failed — the FIXTURE_DIR drift warning does not do what OA-180 asked of it.`);
+  console.error(`x ${failures} check(s) failed — the FIXTURE_DIR resolution does not do what OA-180 and OA-211 asked of it.`);
   process.exit(1);
 }
-console.log('+ the drift warning speaks on both cases that deserve it and stays silent on the five that do not (7 trees, nothing touched outside the temp dir).');
+console.log('+ the drift warning speaks on both cases that deserve it and stays silent on the five that do not,');
+console.log('  and the version resolution moves an entry on exactly one of its six trees');
+console.log('  (13 trees, nothing touched outside the temp dir).');

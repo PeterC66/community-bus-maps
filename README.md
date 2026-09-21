@@ -1,9 +1,11 @@
-﻿# BusMaps.uk — portal
+# BusMaps.uk — portal
 
-<!-- docstamp v1.17 | 2026-08-28 | sha=5b1f6412 -->
-**v1.17** · updated 28 August 2026
+<!-- docstamp v1.21 | 2026-09-18 | sha=5445460f -->
+**v1.21** · updated 18 September 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 > **The project is BusMaps.uk; the repository is still `community-bus-maps`.** The repo name predates the brand and is deliberately not being changed — renaming it would break existing clones, the links in these docs, and every local path, for no benefit. The same goes for the `package.json` name and the `/healthz` service id. Anything a *user* sees says BusMaps.uk.
 
@@ -18,14 +20,14 @@ Each map can produce any of four outputs, and the customer chooses which they wa
 |---|---|
 | **internal (geographic)** | a street-anchored map of the buses within the area/around the place |
 | **internal (schematic)** | an octolinear, straightened version of the same *(expert style, opt-in per map)* |
-| **internal (diagram)** | a tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only**: hand-pinned work, so it is quoted separately and granted by us — see [OPERATIONS-HANDBOOK §4b](docs/H1-operations-handbook.md))* |
+| **internal (diagram)** | **PARKED 2026-09-10** (buses-data OA-297) — not offered unless `TUBE_DIAGRAM=1`, which the live host does not set. A tube-map-style diagram, hand-tuned via the pin editor *(expert style, opt-in per map, and **request-only** while offered — see [OPERATIONS-HANDBOOK §4b](docs/H1-operations-handbook.md))* |
 | **external** | a tube-map of where the buses go (to termini / reachable places) |
 
 > **Status: PILOT — feature-complete against the plan (P0–P7, plus P8a), but not a live service.** There are **no customers**: no organisation has signed up, and every map on the public site is one we made ourselves to build and test the system. Every page carries a pilot banner and every rendered sheet a pilot band; seeded demo organisations are labelled **Sample**. One env var (`PILOT_MODE=0`) switches all of that off — see [`docs/PILOT.md`](docs/PILOT.md).
 >
 > `CLAUDE.md` is the short orientation a new session (or developer) should read first.
 >
-> Feature-wise: This repo contains the public **shopfront** (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant isolation** (P2), **onboarding + governance** (P3), the **publish gate** (P4), and **monthly change acceptance** (P5). An admin reviews applications and approves one into a customer + editor + invite; customers **request maps within a quota**, sign in passwordlessly, see only their own maps, recolour routes / toggle landmarks / choose outputs, and save numbered versions. Each version stays a private **draft** until a platform **approver** reviews it (with a required checklist + a deterministic change summary as evidence); publishing sets the **official public version** and everything is **audited**. Each month the central pipeline stages a **proposed data update** (`scripts/propose-update.mjs`); the customer reviews a change summary + old-vs-new preview and **accepts** (their edits re-applied onto the fresh data as a new major draft) or **declines**. Once a version is reviewed it gets a **public page** anyone can visit — the sheets to view and download, the publishing organisation's branding, and a "something looks wrong" form — listed in a public **gallery** (P6). **All five outputs render** — the octolinear schematic and the tube-map diagram arrived in P7, with an **admin-only pin editor** for the diagram's layout, and the **"where to board" plan** (a place's stops at walking scale, with a destination-keyed index naming the stand, printed from NaPTAN) in 2026-08 — and the service is operable: readiness probe, metrics, backups, a retention job, a container and a deploy runbook (P7). Both **lifecycle seams** are now closed (0.8.1): an approved map request is **built into its own row** by `import-map.mjs --request <id>` (so quota counts it once and no placeholder is left behind), and an approver can **revert a published map** to an earlier reviewed version in one click, with a recorded reason. **P8a** then made a published map worth reading *online* and not only on paper: the sheet is served as its own pan/zoomable vector artwork, every map is also published **as text** at `/m/<slug>/services` (its accessible equivalent), each page states when its information is correct as at and warns when that goes stale, and the `<head>` is completed server-side so links and search engines see a real page. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
+> Feature-wise: This repo contains the public **shopfront** (marketing, examples, "apply to become a customer"), the deterministic **render wrapper** with a **byte-identical reproduction test**, the **safe-subset editor** (P1), **multi-customer auth + tenant isolation** (P2), **onboarding + governance** (P3), the **publish gate** (P4), and **monthly change acceptance** (P5). An admin reviews applications and approves one into a customer + editor + invite; customers **request maps within a quota**, sign in passwordlessly, see only their own maps, recolour routes / toggle landmarks / choose outputs, and save numbered versions. Each version stays a private **draft** until a platform **approver** reviews it (with a required checklist + a deterministic change summary as evidence); publishing sets the **official public version** and everything is **audited**. Each month the central pipeline stages a **proposed data update** (`scripts/propose-update.mjs`); the customer reviews a change summary + old-vs-new preview and **accepts** (their edits re-applied onto the fresh data as a new major draft) or **declines**. Once a version is reviewed it gets a **public page** anyone can visit — the sheets to view and download, the publishing organisation's branding, and a "something looks wrong" form — listed in a public **gallery** (P6). **All five outputs render** — the octolinear schematic and the tube-map diagram arrived in P7, with an **admin-only pin editor** for the diagram's layout, and the **"where to board" plan** (a place's stops at walking scale, with a destination-keyed index naming the stand, printed from NaPTAN) in 2026-08 — and the service is operable: readiness probe, metrics, backups, a retention job, a container and a deploy runbook (P7). Both **lifecycle seams** are now closed (0.8.1): an approved map request is **built into its own row** by `import-map.mjs --request <id>` (so quota counts it once and no placeholder is left behind), and an approver can **revert a published map** to an earlier reviewed version in one click, with a recorded reason. **P8a** then made a published map worth reading *online* and not only on paper: the sheet is served as its own pan/zoomable vector artwork, every map is also published **as text** at `/m/<slug>/services` (its accessible equivalent), each page states when its information is correct as at and warns when that goes stale, and the `<head>` is completed server-side so links and search engines see a real page. See [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.d/`](CHANGELOG.d/README.md), which is the changelog itself — `CHANGELOG.md` is generated from it and gitignored.
 
 ## How it fits together
 
@@ -44,15 +46,15 @@ cp .env.example .env      # then edit if you like
 npm run dev               # serves the shopfront on http://127.0.0.1:5180
 ```
 
-Prove the renderer reproduces a real leaflet byte-for-byte. Run from this repository's root, with the separate `buses-data` repo cloned next to it (or `BUSES_DIR` set in `.env` to wherever it is):
+Prove the renderer reproduces a real leaflet byte-for-byte. Run from this repository's root; nothing else needs to be on the machine:
 
 ```bash
 npm run verify
 ```
 
-Nothing else to configure: the gates read a **committed fixture** — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in `buses-data` — so a fresh clone proves the claim. Set `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` only to point a gate at something else, normally the live render tree.
+Nothing else to configure, and since 2026-09-18 nothing else to clone: the gates read a **committed fixture** this repository holds, at [`gate-fixtures/`](gate-fixtures/README.md), so a clone of the portal alone proves the claim. Set `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` only to point a gate at something else, normally the live render tree.
 
-**With no fixture at all, `verify` FAILS.** It used to print "skipping" and exit 0, which meant a fresh clone, a CI run and a second developer all got a green result from a check that had not executed — the finding [`technical-audit_2026-08-19`](../../u3a%20St%20Ives/Using%20AI/Buses/Development%20Docs/technical-audit_2026-08-19.md) called the single most important structural item in the report (V2), on the grounds that the byte-identical guarantee is what the product is sold on and it could be verified by exactly one person on one machine. `npm run verify -- --allow-skip` is the escape hatch for a clone of the portal alone, and it says out loud that it proved nothing.
+**With no fixture at all, `verify` FAILS.** It used to print "skipping" and exit 0, which meant a fresh clone, a CI run and a second developer all got a green result from a check that had not executed — the finding `Development Docs/technical-audit_2026-08-19.md` in the **buses-data** repository called the single most important structural item in the report (V2), on the grounds that the byte-identical guarantee is what the product is sold on and it could be verified by exactly one person on one machine. `npm run verify -- --allow-skip` is the escape hatch for a clone of the portal alone, and it says out loud that it proved nothing.
 
 The same three gates run in CI on every push and pull request, and nightly — [`.github/workflows/verify.yml`](.github/workflows/verify.yml).
 
@@ -117,12 +119,17 @@ Three conditions make a map public, and they are enforced **in SQL**, not at the
 
 Customers set their public identity at **/app/branding** — public name, one-line blurb, website, badge (emoji or initials) and an accent colour from a fixed list. It is server-validated by a whitelist (`src/branding/index.js`) in the same spirit as the safe subset, and it decorates the public *page*: the printed sheet is untouched. No email or phone is brandable, so a public page never exposes contact details — feedback comes back through our own form (and lands in the admin **Messages** tab against that map).
 
+Run the suite from the repository root (`C:\Claude\community-bus-maps`); it takes no arguments:
+
 ```bash
-npm test          # P6 checks: the branding whitelist, the public SQL gate, slugs, both migration paths
-                  # P8a checks: the facts model (area + place), provenance/staleness, the inline-SVG transform
+npm test
 ```
 
+`scripts/run-tests.mjs` **discovers** every `test-*`/`prove-red-*` file in `scripts/` rather than working from a list, so a new test is in the suite the moment it lands and an excluded one has to name where it does run. Read the file and verdict counts off the run — this paragraph used to enumerate two phases' worth of checks and had been wrong for months. To see the plan without running it: `npm test -- --list`.
+
 ## The expert side (P7)
+
+> **PARKED 2026-09-10 (buses-data OA-297): the tube-map diagram is not offered — `TUBE_DIAGRAM` is off by default and unset on the live host — and everything below about it describes the mechanism kept for the return (buses-data OA-298).**
 
 Two of the four outputs are **expert styles**: the octolinear **schematic** and the tube-map **diagram**. Their engines are portal-owned in [`engine/expert/`](engine/expert/README.md) (a town's render folder never carried them), they are **opt-in per map** — the map's `routes.json` has to carry `internalSchematic` / `internalDiagram` — and they are **off by default**, because a schematic is an editorial choice rather than a free extra. Both are covered by the byte-identical gate, so all **six** outputs (four area + two place) are proved on every release.
 

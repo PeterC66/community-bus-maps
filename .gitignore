@@ -39,3 +39,18 @@ Thumbs.db
 # ---- Impeccable (design-review skill): machine-local state, not shared config ----
 .impeccable/config.local.json
 .impeccable/live/
+
+# ---- Generated documents ----
+# CHANGELOG.md is built from CHANGELOG.head.md + CHANGELOG.d/ by
+#   npm run changelog
+# and is NOT in git (2026-09-03). It was, and every commit regenerated it: 60
+# of the last 60 commits touched it, so two concurrent sessions conflicted on
+# one line of index every time. A derived file in git is a conflict waiting for
+# the next pair of sessions. The changelog itself is CHANGELOG.d/.
+CHANGELOG.md
+
+# git worktrees live here and are whole checkouts of this repository. Untracked
+# and unignored, one `git add -A` would commit two copies of the repo into
+# itself; and until 2026-09-03 they also broke prove-red-portal-lib, which
+# copied the tree and choked on a nested node_modules symlink.
+.claude/worktrees/

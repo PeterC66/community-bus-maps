@@ -30,11 +30,12 @@
 // public/. If a route stops CALLING them, test-p8a and the live page are the
 // backstop; what is protected here is that calling them works.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.join(HERE, '..');
 const PUBLIC_DIR = path.join(HERE, '..', 'public');
 
 let failures = 0;
@@ -117,7 +118,7 @@ check('removeBooleanAttr is a no-op when it is not there',
 console.log('\nthe shells expose the ids the server fills:');
 const mapsShell = shell('maps.html');
 const servicesShell = shell('services.html');
-for (const id of ['grid', 'q']) {
+for (const id of ['grid', 'q', 'directory']) {
   check(`maps.html has #${id}`, new RegExp(`id="${id}"`).test(mapsShell));
 }
 for (const id of ['headline', 'intro', 'pills', 'services', 'staleNote', 'mapLink', 'backToMap']) {
@@ -139,6 +140,28 @@ check('"Loading published maps…" is GONE', !mapsPage.includes('Loading publish
   'the placeholder must be replaced, not appended to');
 check('a demo organisation is labelled Sample', mapsPage.includes('badge sample'));
 check('a stale map says so', mapsPage.includes('may be out of date'));
+
+// --- 3b. …and so does the directory panel (buses-data OA-308 tier 2) --------
+// The panel makes the same promise the grid does — that the answer is in the
+// HTML as delivered — and it makes it to a reader who has just been told we
+// have nothing. If it were client-only, the one page where somebody most needs
+// a second answer would be the one page a crawler and a JS-off reader saw
+// "Loading" on. Same argument as N1 above, one section later.
+console.log('\n/maps carries the directory panel:');
+{
+  const { searchDirectory, directorySize } = await import('../src/search/directory.js');
+  const { directoryBlock } = await import('../public/js/shared/map-card.mjs');
+  const rows = searchDirectory('Essex');
+  const panel = directoryBlock(rows, { query: 'Essex', size: directorySize() });
+  const page = setInner(mapsShell, 'directory', panel);
+  check('the shell accepts the panel', page.includes('Not ours — what the local transport authority publishes'));
+  check('an authority and its date are in the delivered HTML',
+    /Published by Essex County Council, last checked on \d/.test(page));
+  check('the link to their map is in the delivered HTML', /href="https?:\/\/[^"]*travelessex[^"]*"/.test(page),
+    (page.match(/href="https?:\/\/[^"]*essex[^"]*"/i) || [''])[0]);
+  check('a query with no directory answer leaves the container empty',
+    setInner(mapsShell, 'directory', '').includes('id="directory"'));
+}
 check('the grid container keeps its layout class', /id="grid"[^>]*class="grid cols-2"/.test(mapsPage)
   || /class="grid cols-2"[^>]*id="grid"/.test(mapsPage));
 
@@ -152,6 +175,52 @@ check('nothing published at all is its own message',
   grid([]).html.includes('No maps are published yet'));
 check('the search box reads back the query',
   setAttr(mapsShell, 'q', 'value', 'Swavesey').includes('value="Swavesey"'));
+
+// --- 3c. …and the one sentence that says what the search DID ----------------
+// buses-data OA-380 (e). The sentence was written in public/js/public-maps.js
+// and nowhere else, and that file does no first render — so /maps?q=Eynesbury
+// arrived with #searchMeta still `hidden` and empty. A reader who followed that
+// link got a Buckinghamshire map for a Cambridgeshire village with nothing on
+// the page to say the spelling had been corrected to "Aylesbury". Exactly the
+// N1 argument above, left undone for the line above the grid.
+console.log('\n/maps says what the search did:');
+{
+  const { searchMeta } = await import('../public/js/shared/map-card.mjs');
+  const { escapeHtml } = await import('../src/html.js');
+
+  check('maps.html has #searchMeta', /id="searchMeta"/.test(mapsShell));
+
+  // The four things it can say. Written out rather than looped, because the
+  // wording IS the behaviour here.
+  check('a corrected spelling is NAMED, both the query and what was found',
+    searchMeta('Eynesbury', { results: [{}], corrected: 'Aylesbury' })
+      === 'No exact match for “Eynesbury” — showing results for “Aylesbury”.');
+  check('one hit reads as singular, verb and all',
+    searchMeta('Hilton', { results: [{}] }) === '1 map matches “Hilton”.',
+    searchMeta('Hilton', { results: [{}] }));
+  check('two hits read as plural', /^2 maps match/.test(searchMeta('St Neots', { results: [{}, {}] })));
+  check('a miss WITH a directory answer does not say "no matches"',
+    /but see what the local transport authority publishes/.test(searchMeta('Tilbrook', { directory: [{}] })));
+  check('a miss with nothing at all says so plainly',
+    searchMeta('Nowhereton', {}) === 'No matches for “Nowhereton”.');
+  check('no query, no sentence', searchMeta('', { results: [{}] }) === '');
+
+  // The whole point: it must be in the HTML as delivered, and visible.
+  const sentence = searchMeta('Eynesbury', { results: [{}], corrected: 'Aylesbury' });
+  let page = setInner(mapsShell, 'searchMeta', escapeHtml(sentence));
+  page = removeBooleanAttr(page, 'searchMeta', 'hidden');
+  check('the sentence is in the delivered HTML', page.includes('showing results for'));
+  check('…and the element is no longer hidden', !/id="searchMeta"[^>]*\shidden/.test(page));
+  check('…and the curly quotes survive rather than arriving as entities',
+    page.includes('“Eynesbury”'), (page.match(/id="searchMeta"[^>]*>[^<]*/) || [''])[0]);
+
+  // THE CONTROL, which is the state main was in: fill nothing, and the reader
+  // gets a page that explains nothing. Without this the checks above would pass
+  // on a shell that had never been hidden in the first place.
+  check('CONTROL — unfilled, the element is present, empty and hidden',
+    /<p[^>]*id="searchMeta"[^>]*\shidden[^>]*><\/p>/.test(mapsShell),
+    (mapsShell.match(/<p[^>]*id="searchMeta"[^>]*>[^<]*<\/p>/) || [''])[0]);
+}
 
 // --- 4. /m/<slug>/services carries the services -----------------------------
 console.log('\n/m/<slug>/services carries the text alternative:');
@@ -204,6 +273,75 @@ check('whenGB is UTC-anchored and en-GB', whenGB('2026-08-19T23:30:00Z') === '19
   'a local-time render would say 20 August in BST and rewrite the page on hydration');
 check('whenGB tolerates a SQLite datetime', whenGB('2026-08-19 10:24:13') === '19 August 2026');
 check('whenGB is empty for nothing', whenGB(null) === '' && whenGB('') === '');
+
+// --- 7. the census: one server-side HTML escaper, and an allowlist with reasons
+//
+// WHY A CENSUS AND NOT ANOTHER UNIT CHECK. `src/html.js` landed on 2026-09-02 as
+// "the one escaper for server-built markup" with a test of ITSELF and none of its
+// callers, and a day later it had two importers while `server.js` still carried
+// two private copies and `src/public/shell.js` a third (the 2026-09-03 review,
+// portal-src F26). That is the shape the review found in eight helpers at once:
+// an extraction is the module PLUS a check that the callers use it, and the two
+// Tier 3 helpers that ARE fully adopted are exactly the two whose arrival came
+// with an identity test.
+//
+// The allowlist is the honest part. Not every escaper under src/ is a copy of
+// this one: three write SVG text where the HTML entity set is wrong, and one
+// uses `&apos;` because the same function also writes sitemap.xml. Each is
+// named with its reason, so a file NOT on the list that
+// grows an escaper is red -- which is the only question worth asking. A blanket
+// rule would have been red on day one over five legitimate sites, and a check
+// that is red on day one is muted inside a week.
+//
+// The last case is why the list is not just a list: it insists every entry is
+// still a file that still carries an escaper. It went red the first time it ran,
+// on `src/maps/engine.js`, which I had listed as a DEcoder -- true, and exactly
+// why the pattern never matched it, so the entry was silently widening the
+// allowlist for nothing.
+console.log('\nthe census -- one server-side HTML escaper:');
+{
+  const SRC = path.join(ROOT, 'src');
+  const walk = (dir, out = []) => {
+    for (const e of readdirSync(dir)) {
+      const f = path.join(dir, e);
+      if (statSync(f).isDirectory()) walk(f, out);
+      else if (e.endsWith('.js')) out.push(f);
+    }
+    return out;
+  };
+  // Any body mapping `&` to `&amp;`, in both spellings this codebase uses: the
+  // chained `.replace(/&/g, ...)` and the character-class-plus-lookup form.
+  const ESCAPER = /'&':\s*'&amp;'|replace\(\/&\/g,\s*'&amp;'\)/;
+  const ALLOWED = new Map([
+    ['src/html.js', 'the definition'],
+    ['src/http/helpers.js', 'xmlEscape -- also writes sitemap.xml, so &apos; not &#39;'],
+    ['src/public/inlineSvg.js', 'escText -- SVG text nodes, three characters on purpose'],
+    ['src/render/draftStamp.js', 'SVG text'],
+    ['src/render/pilotStamp.js', 'SVG text'],
+    ['src/render/watermark.js', 'SVG text'],
+  ]);
+  const offenders = [];
+  let scanned = 0;
+  for (const f of walk(SRC)) {
+    const rel = path.relative(ROOT, f).split(path.sep).join('/');
+    scanned++;
+    if (ALLOWED.has(rel)) continue;
+    if (ESCAPER.test(readFileSync(f, 'utf8'))) offenders.push(rel);
+  }
+  check('the census read the whole of src/', scanned > 30);
+  check(`no file under src/ defines its own HTML escaper (${scanned} files)`,
+    offenders.length === 0, offenders.join(', '));
+  // The control. Without it every case above passes for a regex matching nothing.
+  check('CONTROL: the pattern does match src/html.js',
+    ESCAPER.test(readFileSync(path.join(ROOT, 'src/html.js'), 'utf8')));
+  // And an allowlist entry must still be a real file that still has one, or the
+  // list becomes the place a name goes to be forgotten.
+  const stale = [...ALLOWED.keys()].filter((rel) => {
+    const f = path.join(ROOT, rel);
+    return !existsSync(f) || !ESCAPER.test(readFileSync(f, 'utf8'));
+  });
+  check('every allowlist entry is a file that still carries one', stale.length === 0, stale.join(', '));
+}
 
 if (failures) {
   console.error(`\n✗ ${failures} SSR check(s) failed`);

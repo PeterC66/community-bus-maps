@@ -1,0 +1,776 @@
+// The admin console (P3), as a Fastify plugin (OA-231, codebase review Tier 4.4).
+//
+// Application review, the map-request lifecycle, customers, users, messages,
+// the monthly-refresh queue, live sessions, the published-batch digest, ops and
+// the audit trail, and the local advisers a map has been shown to: 26 routes,
+// registered under the prefix /api/admin by
+// src/server.js. The handlers are the ones server.js carried until 2026-09-02,
+// moved verbatim -- the only edit inside them is that each no longer opens with
+// its own requireAdmin() call.
+//
+// ONE GUARD, NOT 26. Every route here is admin-only, and until this file
+// existed each said so for itself: one call each, and a new route that forgot the
+// line was refused by nothing (portal-src F8). The preHandler below runs before
+// every handler registered in this plugin, so a route cannot be added here
+// without it. The single exception is declared as route config rather than as
+// a second call site: GET /worklist admits the read-only OPERATOR_TOKEN
+// (OA-203), and the guard reads that flag itself. scripts/test-admin-plugin.mjs
+// enumerates the live route table and asserts the door on every one.
+//
+// POST /api/admin/status is NOT here on purpose. It is a STATUS_TOKEN drop-box
+// for the operator's laptop that 404s to a session, the opposite of this guard,
+// and it stays in server.js with the other token-authorised ops routes.
+import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getCustomerByName, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin, withTransaction } from '../db/index.js';
+import { USER_ROLES } from '../db/enums.js';
+import { buildWorklist } from '../worklist/index.js';
+import { orgPageUrl } from '../public/index.js';
+import { opsSnapshot } from '../ops/index.js';
+import { SESSION_DAYS, STEP_UP_MINUTES, clearCookie, handleFromHash, requestMagicLink, sessionTokenHash } from '../auth/index.js';
+import { logAudit } from '../audit/index.js';
+import { bumpSearchIndex } from '../search/index.js';
+import { APP_VERSION } from '../version.js';
+import { sendMagicLink } from '../email/index.js';
+import { notify } from '../email/notify.js';
+import { dbDateMs } from '../db/dates.js';
+// PILOT: both lines. Remove with docs/PILOT.md.
+import { isSampleCustomer } from '../render/pilotStamp.js';
+import { reconcileMapRenders } from '../render/pilotReconcile.js';
+import { DEV_LINKS, MSG_STATUSES, ORG_TYPES, authLink, baseUrl, isEmail, isHttps, operatorRead, parseJson, requireAdmin, requireStepUp, str } from '../http/helpers.js';
+
+export default async function adminRoutes(app) {
+  app.addHook('preHandler', async (req, reply) => {
+    if (req.routeOptions.config.operatorRead && operatorRead(req)) return;
+    if (!requireAdmin(req, reply)) return reply;
+  });
+
+  app.get('/summary', async (req, reply) => {
+    return { ok: true, summary: { ...adminSummary(), ...publicCounts() } };
+  });
+
+  // The To-do list: every queue above, ranked by who is blocked, in one response.
+  // The admin console's landing tab renders this, and the operator's bus-work
+  // skill consumes the same shape (importing src/worklist/index.js directly when
+  // it runs beside the portal, GETting this when the portal is remote) — so the
+  // console and the laptop can never show two different lists.
+  //
+  // Links are absolute against the request's own origin so they stay clickable
+  // when the caller is a terminal on another machine.
+  app.get('/worklist', { config: { operatorRead: true } }, async (req, reply) => {
+    // OPERATOR_TOKEN reads this too (OA-203) — it is the list bus-work prints in
+    // the terminal, and the same one the To-do tab shows. Declared as route config
+    // so the plugin's guard admits it; the guard is the only reader of that flag.
+    // Through the shared baseUrl(), which prefers PUBLIC_BASE_URL and only falls
+    // back to the request's own Host. This route is admin-only so the header was
+    // never a takeover risk here, but it was the last hand-built absolute URL in
+    // the file, and leaving one behind is how the pattern comes back (N5).
+    return { ok: true, worklist: buildWorklist({ baseUrl: baseUrl(req) }) };
+  });
+
+  app.get('/applications', async (req, reply) => {
+    const status = ['pending', 'approved', 'rejected'].includes((req.query || {}).status) ? req.query.status : undefined;
+    return { ok: true, applications: listApplications({ status }) };
+  });
+
+  // Approve an application: create the customer, its first editor user, and issue
+  // a passwordless invite (printed to the server console; surfaced to the admin in
+  // dev so the loop is demoable without email).
+  app.post('/applications/:id/approve', async (req, reply) => {
+    const appn = getApplication(Number(req.params.id));
+    if (!appn) return reply.code(404).send({ ok: false, error: 'No such application.' });
+    if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
+
+    const email = str(appn.email, 200).toLowerCase();
+    if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'The application has no valid contact email.' });
+
+    // THE ORGANISATION IS ASKED BEFORE THE PERSON, and the order is the fix
+    // (OA-367 faces 1 and 2). Until 2026-09-18 this route asked only whether the
+    // email had an account and answered "Approve this organisation manually or
+    // ask them to sign in." The refusal was correct and everything it said was
+    // not: there is no POST /api/admin/customers and no create-customer control
+    // anywhere, so "manually" named a screen that has never existed. Worse, it
+    // reported the person when the fault was the ORGANISATION — Peter met it on
+    // the first real registration, on a SECOND application row for a customer
+    // registered the night before, and was sent looking at a user.
+    //
+    // A duplicate is a REJECT, not an approve. Approving would have written a
+    // second customer row for one organisation, each with its own quota, and
+    // left the map handover ambiguous about which of them owns the sheet.
+    const already = getCustomerByName(appn.org_name);
+    if (already) {
+      return reply.code(409).send({
+        ok: false,
+        error: `“${appn.org_name}” is already registered — customer #${already.id} — so this application is a duplicate. Reject it. If their contact cannot get in, they can request a sign-in link themselves at /login.html.`,
+      });
+    }
+    // The genuine collision, and it is NOT approvable here by any wording.
+    // `user.email` is UNIQUE and a user row carries ONE customer_id, so a person
+    // who already holds an account cannot also be the first editor of a second
+    // organisation — the data model has no way to say it. That is why this names
+    // no script and no screen: OA-367 asked for either a route or an honest
+    // sentence, and there is no route to name that does not need a schema change
+    // first. It names the two things an operator can actually do instead.
+    if (getUserByEmail(email)) {
+      return reply.code(409).send({
+        ok: false,
+        error: `${email} already has an account with another organisation, and one account can hold only one. “${appn.org_name}” is not registered, so this is a new organisation applying with a person the system already knows — there is no screen that approves it. Ask them to apply again with a contact address that has no account, or reject this application.`,
+      });
+    }
+
+    const b = req.body || {};
+    const type = ORG_TYPES.includes(appn.org_type) ? appn.org_type : 'other';
+    const quota_areas = b.quotaAreas != null ? Math.max(0, Number(b.quotaAreas) | 0) : 1;
+    const quota_places = b.quotaPlaces != null ? Math.max(0, Number(b.quotaPlaces) | 0) : 3;
+
+    // ONE TRANSACTION OVER THE THREE WRITES (OA-367 face 3). They ran in bare
+    // sequence, so a throw between the first and the third — a UNIQUE collision
+    // from a second admin approving the same row, a disk error — left a customer
+    // with no users and the application still pending. scripts/delete-map.mjs in
+    // the next folder has had BEGIN/COMMIT/ROLLBACK since it was written; the
+    // habit existed in this codebase and had not reached here.
+    //
+    // The email is deliberately OUTSIDE it: sending is not rollback-able, and a
+    // link issued for a customer row that never committed is worse than a link
+    // that arrives a moment late.
+    const customerId = withTransaction(() => {
+      const id = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
+      insertUser({ customer_id: id, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
+      setApplicationReviewed(appn.id, 'approved', id);
+      return id;
+    });
+
+    // THE SEND RESULT IS REPORTED, NOT SWALLOWED (OA-362). Until 2026-09-19 this
+    // block computed `r.sent`, wrote it to a server console nobody reads, and
+    // returned `ok: true` either way — so the admin screen said "The invite has
+    // been emailed" whether or not one had been. That is the same defect
+    // src/email/health.js was written for, surviving in a third route: the
+    // `catch` arm names a configured provider that threw, and it read identically
+    // to success. The adviser route below already answers this question with
+    // `emailed` and `emailError`; this is that shape, not a second one.
+    //
+    // The link travels back in the NOT-emailed case even outside DEV_LINKS,
+    // because an admin holding a customer who cannot sign in and no link has
+    // nothing to act on. It is not returned when the email DID go: there the
+    // customer has it, and a second copy on an admin screen is a credential
+    // lying around for no reason.
+    const token = requestMagicLink(email);
+    const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
+    if (link) {
+      try {
+        // THE ORGANISATION'S NAME TRAVELS WITH THE INVITE (OA-365). Until
+        // 2026-09-19 it did not, and the letter that reached the first person
+        // this project ever invited named nobody — not him, not his
+        // organisation, not the sender. `appn.org_name` was three lines above
+        // the call the whole time; the email module simply had no parameter to
+        // put it in. It is the same name written onto the customer row in the
+        // transaction just above, so the letter cannot disagree with the record.
+        const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: appn.org_name });
+        emailed = !!r.sent;
+        if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+      } catch (e) {
+        emailError = e.message;
+        req.log.error({ email, err: e.message }, 'invite email failed to send');
+      }
+    }
+    req.log.info({ applicationId: appn.id, customerId, email, emailed }, 'application approved → customer + editor created');
+    logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places, emailed } });
+
+    return {
+      ok: true,
+      customer: { id: customerId, name: appn.org_name, type, quotaAreas: quota_areas, quotaPlaces: quota_places },
+      user: { email },
+      emailed,
+      emailError,
+      inviteLink: DEV_LINKS || !emailed ? link : undefined,
+    };
+  });
+
+  app.post('/applications/:id/reject', async (req, reply) => {
+    const appn = getApplication(Number(req.params.id));
+    if (!appn) return reply.code(404).send({ ok: false, error: 'No such application.' });
+    if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
+    setApplicationReviewed(appn.id, 'rejected', null);
+    req.log.info({ applicationId: appn.id }, 'application rejected');
+    logAudit(req, 'application.reject', { detail: { applicationId: appn.id, org: appn.org_name } });
+    return { ok: true };
+  });
+
+  // Map-request queue + lifecycle. Approving accepts the request (the central
+  // pipeline builds the data later); rejecting archives it and frees the quota slot.
+  //
+  // `awaitingBuild` is the other half of that lifecycle: approved requests the
+  // pipeline has yet to build. The importer fulfils one IN PLACE
+  // (`import-map.mjs --request <id>`), so the placeholder row becomes the built map
+  // — no duplicate row to archive, and quota counts the map once. Each row carries
+  // the exact command, so the admin console is the single place the build starts.
+  app.get('/map-requests', async (req, reply) => {
+    const shape = (m) => ({
+      id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject, requestNote: m.request_note,
+      customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
+      requestedBy: m.requested_by_email || null, createdAt: m.created_at, status: m.status,
+    });
+    return {
+      ok: true,
+      requests: listMapsByStatus(['requested']).map(shape),
+      awaitingBuild: listAwaitingBuild().map((m) => ({
+        ...shape(m),
+        importCommand: `node scripts/import-map.mjs --request ${m.id} --src "<S5-render dir>"`,
+      })),
+    };
+  });
+
+  app.post('/maps/:id/approve', async (req, reply) => {
+    const m = getMap(Number(req.params.id));
+    if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
+    setMapStatus(m.id, 'approved');
+    req.log.info({ mapId: m.id }, 'map request approved');
+    logAudit(req, 'maprequest.approve', { mapId: m.id, detail: { name: m.name, kind: m.kind } });
+    return { ok: true, status: 'approved' };
+  });
+
+  // Archive a request. Valid for a request still pending AND for one already
+  // approved but never built (plans change) — either way the quota slot is freed.
+  // Once a map has been built it has renders and possibly a public page, so it
+  // leaves this lifecycle: archiving it is not a request decision.
+  app.post('/maps/:id/reject', async (req, reply) => {
+    const m = getMap(Number(req.params.id));
+    if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const unbuiltApproved = m.status === 'approved' && !m.current_version_id;
+    if (m.status !== 'requested' && !unbuiltApproved) {
+      return reply.code(409).send({
+        ok: false,
+        error: m.current_version_id
+          ? `"${m.name}" has already been built (${m.cur_key}) — it is no longer a request.`
+          : `This map is "${m.status}", not a pending or awaiting-build request.`,
+      });
+    }
+    setMapStatus(m.id, 'archived');
+    req.log.info({ mapId: m.id, from: m.status }, 'map request archived');
+    logAudit(req, 'maprequest.reject', { mapId: m.id, detail: { name: m.name, kind: m.kind, from: m.status } });
+    return { ok: true, status: 'archived' };
+  });
+
+  // WHO OWNS THIS MAP (OA-008, 2026-08-30).
+  //
+  // An unowned map is not a cosmetic gap: listPublicMaps and getPublicMapBySlug
+  // both JOIN customer, deliberately — that is what makes a suspended
+  // organisation's maps disappear — and the same join drops a map whose
+  // customer_id is NULL however published it is. St Ives Bus Station was imported
+  // without --customer, went right through submit → review → publish to v2.0,
+  // reported status=published, public_listed=1, and served a 404.
+  //
+  // Until this route existed the repair was a hand-written UPDATE against the live
+  // database. `user.reassign` had had an HTTP equivalent since P2; the map did
+  // not. Step-up is required for the same reason it is on the user's role: this
+  // moves an asset between tenants, and a stale cookie must not be enough.
+  app.post('/maps/:id/owner', async (req, reply) => {
+    const m = getMap(Number(req.params.id));
+    if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const b = req.body || {};
+    if (!('customerId' in b)) return reply.code(400).send({ ok: false, error: 'customerId is required (null to un-own).' });
+    if (!requireStepUp(req, reply, "changing which organisation owns a map")) return;
+
+    let toId = null, to = null;
+    if (b.customerId != null && b.customerId !== '') {
+      to = getCustomer(Number(b.customerId));
+      if (!to) return reply.code(404).send({ ok: false, error: 'No such organisation.' });
+      toId = to.id;
+    }
+    if (toId === (m.customer_id ?? null)) {
+      return reply.code(409).send({ ok: false, error: to ? `That map already belongs to "${to.name}".` : 'That map is already unowned.' });
+    }
+
+    // Quota is counted per organisation, so moving a map INTO one spends a slot
+    // there. Refused rather than silently overspent — the same rule the map
+    // request queue applies, applied at the other door into the same count.
+    if (to) {
+      const used = quotaUsage(to.id);
+      const cap = m.kind === 'place' ? to.quota_places : to.quota_areas;
+      const held = m.kind === 'place' ? used.place : used.area;
+      if (cap != null && held >= cap) {
+        return reply.code(409).send({
+          ok: false, code: 'quota',
+          error: `"${to.name}" already holds ${held} of ${cap} ${m.kind} maps. Raise their quota first.`,
+        });
+      }
+    }
+
+    const from = m.customer_id ? getCustomer(m.customer_id) : null;
+    if (!setMapCustomer(m.id, toId)) return reply.code(500).send({ ok: false, error: 'The owner could not be set.' });
+    bumpSearchIndex(); // the public queries' answer just changed in both directions
+    req.log.info({ mapId: m.id, from: m.customer_id, to: toId }, 'map owner changed by admin');
+    logAudit(req, 'map.reassign', {
+      mapId: m.id,
+      detail: {
+        mapId: m.id, slug: m.slug, name: m.name, kind: m.kind,
+        fromCustomerId: m.customer_id ?? null, fromCustomerName: from ? from.name : null,
+        toCustomerId: toId, toCustomerName: to ? to.name : null,
+      },
+    });
+    // PILOT: reconcile this map's STORED sheets with its new owner. Delete
+    // with docs/PILOT.md.
+    //
+    // This is the one event that can make a stored band untrue, and it is the
+    // exact action a real organisation taking over one of our pilot maps needs
+    // (buses-data OA-320). The reassignment is already committed above, so a
+    // failure here must be REPORTED rather than swallowed: a map that quietly
+    // keeps "Not published by any organisation" over its new owner's badge is
+    // the fault this whole change exists to remove, and it would look identical
+    // to a success.
+    let restamped = null;
+    try {
+      const r = await reconcileMapRenders(m.id, isSampleCustomer(to), { apply: true, log: (l) => req.log.info(l) });
+      // `seen` as well as `changed`: without it a caller cannot tell "no sheet
+      // needed changing" from "this map has no stored sheets at all", and the
+      // screen that reports this must not guess between the two (OA-364).
+      restamped = { seen: r.seen, changed: r.changed, band: r.want };
+      if (r.changed) req.log.info({ mapId: m.id, ...restamped }, 'restamped stored renders after reassignment');
+    } catch (e) {
+      req.log.error(e, 'restamping stored renders after reassignment FAILED — run scripts/restamp-renders.mjs --apply');
+      restamped = { error: true };
+    }
+    return { ok: true, map: { id: m.id, slug: m.slug, name: m.name }, customer: to ? { id: to.id, name: to.name } : null, restamped };
+  });
+
+  app.get('/customers', async (req, reply) => {
+    const rows = listCustomersAdmin().map((c) => ({
+      id: c.id, name: c.name, type: c.type, status: c.status, plan: c.plan,
+      quotaAreas: c.quota_areas, quotaPlaces: c.quota_places,
+      usedAreas: c.area_used, usedPlaces: c.place_used, users: c.users, createdAt: c.created_at,
+      // P6 — where the organisation appears publicly, and how it has branded itself.
+      slug: c.slug || null, publicUrl: c.slug ? orgPageUrl(c.slug) : null,
+      branding: parseJson(c.branding_json),
+      hideOperatorsEnabled: !!c.hide_operators_enabled,
+      watermarkEnabled: !!c.watermark_enabled,
+      isSample: !!c.is_sample, // PILOT: remove with docs/PILOT.md
+    }));
+    return { ok: true, customers: rows };
+  });
+
+  app.patch('/customers/:id', async (req, reply) => {
+    const cust = getCustomer(Number(req.params.id));
+    if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
+    const b = req.body || {};
+    // Quota and status are the two that decide how much of the service an
+    // organisation gets and whether its maps stay public, so the whole route is
+    // step-up gated rather than picking fields out of the body.
+    if (!requireStepUp(req, reply, "changing an organisation's settings")) return;
+    const ok = updateCustomerAdmin(cust.id, {
+      quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
+      hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
+      is_sample: b.isSample, // PILOT: remove with docs/PILOT.md
+    });
+    if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
+    if (b.status !== undefined) bumpSearchIndex(); // P9 — a suspended org's maps must stop being searchable
+    req.log.info({ customerId: cust.id }, 'customer updated by admin');
+    const c = getCustomer(cust.id);
+    logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled, isSample: !!c.is_sample } });
+    return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled, isSample: !!c.is_sample } };
+  });
+
+  // User CRUD (admin-only). Invite adds another person to an existing customer
+  // (or, with no customerId, a platform admin); update/disable are the same
+  // PATCH — status:'disabled' is how an account is switched off, mirroring the
+  // customer status pattern above. No delete: disabling is the reversible,
+  // audit-preserving equivalent (history keeps referencing the row).
+  //
+  // Disabling REVOKES the account's live sessions, in the same request (OA-183).
+  // It did not until 2026-08-30, and the console's own copy — "disabling is the
+  // reversible, audit-preserving equivalent" of a delete — was true about the
+  // record and silent about the credential.
+  const userShape = (u) => ({
+    id: u.id, email: u.email, name: u.name, role: u.role, status: u.status,
+    customerId: u.customer_id, customerName: u.customer_name || null, createdAt: u.created_at,
+  });
+
+  app.get('/users', async (req, reply) => {
+    const q = req.query || {};
+    const customerId = q.customerId != null && q.customerId !== '' ? Number(q.customerId) : undefined;
+    return { ok: true, users: listUsersAdmin(customerId).map(userShape) };
+  });
+
+  app.post('/users', async (req, reply) => {
+    const b = req.body || {};
+    const email = str(b.email, 200).toLowerCase();
+    if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'A valid email is required.' });
+    if (getUserByEmail(email)) return reply.code(409).send({ ok: false, error: `${email} already has an account.` });
+
+    let customerId = null;
+    // The NAME is hoisted beside the id because the invite letter is written
+    // about the organisation (OA-365) and `cust` used to die with this block.
+    let customerName = null;
+    if (b.customerId != null && b.customerId !== '') {
+      const cust = getCustomer(Number(b.customerId));
+      if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
+      customerId = cust.id;
+      customerName = cust.name || null;
+    }
+    const role = USER_ROLES.includes(b.role) ? b.role : 'editor';
+    // An adviser belongs to no organisation (buses-data OA-154 D1), and the whole
+    // access model rests on it: loadOwnedMap() grants EDIT to any non-admin whose
+    // customer_id matches a map's and never consults role, so an adviser carrying
+    // one would be an editor of that organisation's entire estate. REFUSED rather
+    // than silently NULLed — a form that asked for both is a form somebody has
+    // misunderstood, and quietly dropping half of it teaches nobody. The database
+    // refuses it too (src/db/guards.js); this is the message a human reads.
+    if (role === 'adviser' && customerId != null) {
+      return reply.code(400).send({ ok: false, error: 'A local adviser belongs to no organisation — leave the organisation blank.' });
+    }
+
+    const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
+    // Same treatment as the approve route above, and for the same reason
+    // (OA-362). This is the route that adds a customer's SECOND user, so the
+    // unconditional "The invite has been emailed" fired twice on the first real
+    // customer — once here and once at approval.
+    const token = requestMagicLink(email);
+    const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
+    if (link) {
+      try {
+        // ORGANISATION AND ROLE BOTH TRAVEL (OA-365). The organisation for the
+        // same reason as the approve route above; the ROLE because this is the
+        // one place that issues this letter to somebody who is not an editor,
+        // and two of its sentences are only true of an editor — "an editor's
+        // account", and the promise that nothing they do goes public without a
+        // review. An approver publishes. Passing the role is what stops the fix
+        // for one reader becoming a false sentence to another.
+        const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: customerName, role });
+        emailed = !!r.sent;
+        if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+      } catch (e) {
+        emailError = e.message;
+        req.log.error({ email, err: e.message }, 'invite email failed to send');
+      }
+    }
+    req.log.info({ userId, customerId, email, role, emailed }, 'user invited by admin');
+    logAudit(req, 'user.invite', { detail: { userId, customerId, email, role, emailed } });
+    return { ok: true, user: userShape(getUser(userId)), emailed, emailError, inviteLink: DEV_LINKS || !emailed ? link : undefined };
+  });
+
+  app.patch('/users/:id', async (req, reply) => {
+    const u = getUser(Number(req.params.id));
+    if (!u) return reply.code(404).send({ ok: false, error: 'No such user.' });
+    const b = req.body || {};
+    if (b.status === 'disabled' && u.id === req.user.id) {
+      return reply.code(400).send({ ok: false, error: 'You cannot disable your own account.' });
+    }
+    // Role is the privilege escalation path — `role: 'admin'` on this route is the
+    // whole of it — so a stale cookie must not be enough to travel it.
+    if (('role' in b || 'status' in b || 'customerId' in b) && !requireStepUp(req, reply, "changing a user's role or organisation")) return;
+    let customerId; // undefined = leave alone
+    if ('customerId' in b) {
+      if (b.customerId == null || b.customerId === '') {
+        customerId = null;
+      } else {
+        const cust = getCustomer(Number(b.customerId));
+        if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
+        customerId = cust.id;
+      }
+    }
+    // The same rule as the invite above, and this is the path that would actually
+    // have been travelled: the dangerous edit is not "create an adviser with an
+    // organisation", it is "give this existing adviser one" or "make this editor
+    // an adviser and leave the organisation where it was". Both are refused here,
+    // and both are refused by the database if they ever reach it another way.
+    const nextRole = b.role || u.role;
+    const nextCustomer = customerId === undefined ? u.customer_id : customerId;
+    if (nextRole === 'adviser' && nextCustomer != null) {
+      return reply.code(400).send({ ok: false, error: 'A local adviser belongs to no organisation — clear the organisation first.' });
+    }
+    const fromCustomer = u.customer_id ? getCustomer(u.customer_id) : null;
+    const ok = updateUserAdmin(u.id, { name: b.name, role: b.role, status: b.status, customerId });
+    if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
+    const updated = getUser(u.id);
+    req.log.info({ userId: u.id }, 'user updated by admin');
+    logAudit(req, 'user.update', { detail: { userId: u.id, email: updated.email, role: updated.role, status: updated.status, customerId: updated.customer_id } });
+
+    // Switching an account off ends the sessions it is holding, here rather than
+    // in a second step somebody has to remember on the day a person leaves a
+    // customer badly (OA-183). The preHandler above would refuse each of those
+    // sessions on its next use anyway; this closes the window now, and — the
+    // reason it is worth both — it is what makes the count reportable, so the
+    // admin sees "3 sessions signed out" instead of trusting that they will be.
+    let revokedSessions = 0;
+    if (updated.status !== 'active' && u.status === 'active') {
+      revokedSessions = deleteSessionsForUser(u.id);
+      req.log.info({ userId: u.id, revoked: revokedSessions }, 'sessions revoked because the account was switched off');
+      logAudit(req, 'session.revoke-all', { detail: { userId: u.id, email: updated.email, revoked: revokedSessions, reason: `status set to ${updated.status}` } });
+    }
+    if (customerId !== undefined && customerId !== u.customer_id) {
+      const toCustomer = customerId ? getCustomer(customerId) : null;
+      req.log.info({ userId: u.id, from: u.customer_id, to: customerId }, 'user reassigned to another organisation by admin');
+      logAudit(req, 'user.reassign', {
+        detail: {
+          userId: u.id, email: updated.email,
+          fromCustomerId: u.customer_id, fromCustomerName: fromCustomer ? fromCustomer.name : null,
+          toCustomerId: customerId, toCustomerName: toCustomer ? toCustomer.name : null,
+        },
+      });
+    }
+    return { ok: true, user: userShape(updated), revokedSessions };
+  });
+
+  // -------------------------------------------------------------------------
+  // LOCAL ADVISERS (buses-data OA-154 Phase D1). Who has been asked for a view on
+  // which map's drafts, and the two acts that change it.
+  //
+  // ASKING SOMEBODY IS ONE ACTION, not two. The four candidates in the backlog
+  // are members of the public who wrote in: there is no account waiting to be
+  // granted anything, and an admin who had to create a user, remember to leave the
+  // organisation blank, remember to set the role, and then find the map again
+  // would get it wrong the first time. So POST /maps/:id/advisers takes an email,
+  // creates the account if it is new, grants the map and sends the sign-in link in
+  // one request — and refuses outright if that email already belongs to somebody
+  // who is not an adviser, because turning a customer's editor into an adviser is
+  // never what was meant.
+  //
+  // REVOKING IS A REVOKE, NOT A DELETE, for the same reason disabling a user is
+  // not one: "who was shown this draft, and when" is asked months later. The row
+  // stays and the list below keeps showing it.
+  // -------------------------------------------------------------------------
+  const grantShape = (g) => ({
+    userId: g.user_id, email: g.email, name: g.user_name || null, userStatus: g.user_status,
+    askedAt: g.created_at, note: g.note || null, revokedAt: g.revoked_at || null,
+  });
+
+  app.get('/advisers', async (req, reply) => {
+    return {
+      ok: true,
+      advisers: listAdvisers().map((u) => ({
+        id: u.id, email: u.email, name: u.name, status: u.status, createdAt: u.created_at,
+        liveGrants: u.live_grants,
+        // The maps each one can currently see, in the same response. An adviser
+        // account holding no grant reaches nothing at all, so a list of accounts
+        // without their grants would be a list of names against nothing.
+        maps: listAdviserGrantsForUser(u.id).map((g) => ({ id: g.map_id, name: g.map_name, askedAt: g.created_at })),
+      })),
+    };
+  });
+
+  app.get('/maps/:id/advisers', async (req, reply) => {
+    const map = getMap(Number(req.params.id));
+    if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    return { ok: true, mapId: map.id, mapName: map.name, advisers: listAdviserGrantsForMapIncludingRevoked(map.id).map(grantShape) };
+  });
+
+  app.post('/maps/:id/advisers', async (req, reply) => {
+    const map = getMap(Number(req.params.id));
+    if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const b = req.body || {};
+    const email = str(b.email, 200).toLowerCase();
+    if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'A valid email is required.' });
+
+    let user = getUserByEmail(email);
+    let created = false;
+    if (user) {
+      if (user.role !== 'adviser') {
+        return reply.code(409).send({ ok: false, error: `${email} already has a ${user.role} account — a local adviser must be a separate person.` });
+      }
+      // A DISABLED ACCOUNT IS REFUSED RATHER THAN GRANTED (2026-09-12). Peter hit
+      // this cleaning up a test: he disabled the account, asked them again, and
+      // the console said it had worked. It had not — requestMagicLink() returns
+      // null for any account that is not `active`, so no link was issued and no
+      // email was sent, while the grant row was written and the response said
+      // `ok`. The admin believed they had invited somebody who could not sign in.
+      //
+      // REFUSED, NOT SILENTLY RE-ENABLED. Disabling is a deliberate act and may
+      // have been for cause; turning it back on through a side door is a
+      // privilege change nobody asked for. So this names the remedy instead and
+      // leaves the decision where it was made.
+      if (user.status !== 'active') {
+        return reply.code(409).send({
+          ok: false,
+          error: `${email} has an account that is switched off, so no sign-in link can be sent. Set it back to active on the Users tab, then ask them again.`,
+        });
+      }
+    } else {
+      const userId = insertUser({ customer_id: null, email, name: str(b.name, 120) || null, role: 'adviser' });
+      user = getUser(userId);
+      created = true;
+    }
+
+    grantAdviser({ mapId: map.id, userId: user.id, grantedBy: req.user.id, note: str(b.note, 500) || null });
+
+    // The sign-in link goes with the grant, because the grant is the invitation.
+    // A new adviser has no password and no other way in; an existing one may have
+    // let a seven-day session lapse between one draft and the next, which is the
+    // normal case for somebody we write to every few weeks.
+    //
+    // `kind: 'adviser'` AND NOT `'invite'`, since 2026-09-12. The invite wording
+    // is written for a customer's first editor, who is expecting it because their
+    // organisation applied yesterday; sent to a member of the public it is an
+    // unsolicited bare link that names neither the map nor a reason. The map's
+    // name travels with it because it is the only thing that makes the email
+    // recognisable as part of a conversation they are already having.
+    // AND THE ANSWER IS REPORTED RATHER THAN SWALLOWED. Every outcome below used
+    // to end in the same `ok: true`: a provider that threw was logged and
+    // forgotten, and an instance with no provider configured printed the link to
+    // a console the admin is not watching. `emailed` is what the console now says
+    // out loud — the same lesson as the Sign-out button that navigated away
+    // without reading its own response.
+    const token = requestMagicLink(email);
+    const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
+    if (link) {
+      try {
+        const r = await sendMagicLink({ to: email, link, kind: 'adviser', mapName: map.name });
+        emailed = !!r.sent;
+        if (!r.sent) console.log(`\n🔗  Adviser sign-in link for ${email}:\n    ${link}\n`);
+      } catch (e) {
+        emailError = e.message;
+        req.log.error({ email, err: e.message }, 'adviser invite email failed to send');
+      }
+    }
+    req.log.info({ mapId: map.id, userId: user.id, email, created, emailed }, 'local adviser granted a map');
+    logAudit(req, 'adviser.grant', { mapId: map.id, detail: { userId: user.id, email, created, emailed, note: str(b.note, 500) || null } });
+    return { ok: true, created, emailed, emailError, adviser: { userId: user.id, email, name: user.name }, inviteLink: DEV_LINKS ? link : undefined };
+  });
+
+  app.delete('/maps/:id/advisers/:userId', async (req, reply) => {
+    const map = getMap(Number(req.params.id));
+    if (!map) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const user = getUser(Number(req.params.userId));
+    if (!user) return reply.code(404).send({ ok: false, error: 'No such user.' });
+    const revoked = revokeAdviserGrant(map.id, user.id);
+    if (!revoked) return reply.code(404).send({ ok: false, error: 'They do not hold a live grant on this map.' });
+    req.log.info({ mapId: map.id, userId: user.id }, 'local adviser grant revoked');
+    logAudit(req, 'adviser.revoke', { mapId: map.id, detail: { userId: user.id, email: user.email } });
+    return { ok: true, revoked: true };
+  });
+
+  app.get('/messages', async (req, reply) => {
+    return { ok: true, messages: listMessages() };
+  });
+
+  app.post('/messages/:id/status', async (req, reply) => {
+    const msg = getMessage(Number(req.params.id));
+    if (!msg) return reply.code(404).send({ ok: false, error: 'No such message.' });
+    const status = String((req.body || {}).status || '');
+    if (!MSG_STATUSES.includes(status)) return reply.code(400).send({ ok: false, error: 'Unknown status.' });
+    setMessageStatus(msg.id, status);
+    req.log.info({ messageId: msg.id, status }, 'message status set');
+    logAudit(req, 'message.status', { detail: { messageId: msg.id, status } });
+    return { ok: true };
+  });
+
+  // Read-only view of the monthly-refresh queue (P5) — proposed updates awaiting a
+  // customer's accept/decline. Staged by the central pipeline (propose-update.mjs).
+  app.get('/proposed-updates', async (req, reply) => {
+    const updates = listPendingProposedUpdates().map((pu) => ({
+      id: pu.id, createdAt: pu.created_at, sourceNote: pu.source_note || '',
+      summary: parseJson(pu.summary_json),
+      map: { id: pu.map_id, name: pu.map_name, kind: pu.map_kind, subject: pu.map_subject },
+      customer: pu.customer_name || null,
+    }));
+    return { ok: true, updates };
+  });
+
+  // One grouped "N maps published" email per customer, for a scripted batch that
+  // published several maps with suppressNotify:true on each individual approve
+  // (see the comment on /api/review/:id/approve). Never called by the UI — the
+  // review screen always sends its own single notify('published', ...) inline.
+  // Grouping happens HERE, server-side, so the digest wording and the recipient
+  // lookup stay in one tested place (src/email/notify.js) rather than being
+  // duplicated in a laptop script that has no access to EMAIL_PROVIDER anyway.
+  // ---------------------------------------------------------------------------
+  // Active sessions (technical-audit_2026-08-19 S5)
+  //
+  // There was no way to see who was signed in, and no way to end a session short
+  // of waiting a month for it to expire — `purgeExpiredSessions` removes only the
+  // already-dead. So a session token that escaped (a laptop, a backup, a file left
+  // on disk) was a valid admin credential until its own clock ran out, and nobody
+  // could do anything about it.
+  //
+  // Sessions are named by a HANDLE — the first 12 hex of the token's SHA-256 —
+  // never by the token. See sessionHandle() in src/auth/index.js for why: a list of
+  // live tokens is a list of accounts whoever holds it can become, and an admin
+  // console is not a place to put those.
+  // ---------------------------------------------------------------------------
+  app.get('/sessions', async (req, reply) => {
+    // The stored hash of MY session. The list holds hashes now (N3), so "current"
+    // is a hash-to-hash comparison and no raw token is involved on either side.
+    const mine = sessionTokenHash(req.user.sessionToken);
+    return {
+      ok: true,
+      stepUpMinutes: STEP_UP_MINUTES,
+      sessionDays: SESSION_DAYS,
+      sessions: listSessions().map((r) => ({
+        handle: handleFromHash(r.token_hash),
+        current: r.token_hash === mine,
+        user: { id: r.user_id, email: r.email, name: r.name, role: r.role, status: r.status },
+        customer: r.customer_id ? { id: r.customer_id, name: r.customer_name } : null,
+        signedInAt: r.created_at,
+        expiresAt: r.expires_at,
+        // expires_at is always exactly SESSION_DAYS after the last use, so it is
+        // also the record of when that was — no extra column needed.
+        lastSeenAt: new Date(dbDateMs(r.expires_at) - SESSION_DAYS * 86_400_000)
+          .toISOString().slice(0, 19).replace('T', ' '),
+      })),
+    };
+  });
+
+  app.post('/sessions/:handle/revoke', async (req, reply) => {
+    const handle = str(req.params.handle, 64);
+    const row = listSessions().find((r) => handleFromHash(r.token_hash) === handle);
+    if (!row) return reply.code(404).send({ ok: false, error: 'No such live session (it may already have expired).' });
+    const self = row.token_hash === sessionTokenHash(req.user.sessionToken);
+    deleteSessionByHash(row.token_hash);
+    req.log.info({ handle, userId: row.user_id, self }, 'session revoked by admin');
+    logAudit(req, 'session.revoke', { detail: { handle, userId: row.user_id, email: row.email, self } });
+    // Revoking your own session really does sign you out — clear the cookie so
+    // the browser stops presenting a token the server has already forgotten.
+    if (self) reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
+    return { ok: true, self };
+  });
+
+  // The one to reach for when a credential has leaked rather than when a laptop
+  // has been lost: every session that user holds, everywhere, gone at once.
+  app.post('/users/:id/revoke-sessions', async (req, reply) => {
+    const u = getUser(Number(req.params.id));
+    if (!u) return reply.code(404).send({ ok: false, error: 'No such user.' });
+    const n = deleteSessionsForUser(u.id);
+    req.log.info({ userId: u.id, revoked: n }, 'all sessions revoked for user by admin');
+    logAudit(req, 'session.revoke-all', { detail: { userId: u.id, email: u.email, revoked: n } });
+    const self = u.id === req.user.id;
+    if (self) reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
+    return { ok: true, revoked: n, self };
+  });
+
+  app.post('/notify-published-batch', async (req, reply) => {
+    const items = Array.isArray((req.body || {}).items) ? (req.body || {}).items : [];
+    const byCustomer = new Map();
+    for (const it of items) {
+      if (it == null || it.customerId == null || !it.mapName || !it.mapUrl) continue;
+      if (!byCustomer.has(it.customerId)) byCustomer.set(it.customerId, []);
+      byCustomer.get(it.customerId).push({ mapName: it.mapName, versionKey: it.versionKey, mapUrl: it.mapUrl });
+    }
+    const results = [];
+    for (const [customerId, maps] of byCustomer) {
+      const r = await notify('published-batch', { customerId, maps, log: req.log });
+      results.push({ customerId, maps: maps.length, ...r });
+    }
+    req.log.info({ customers: results.length, items: items.length }, 'published-batch digest sent');
+    return { ok: true, results };
+  });
+
+  // Operational snapshot (P7): readiness, disk usage per map, and the counts an
+  // operator watches. Same numbers as /metrics, shaped for the admin console.
+  app.get('/ops', async (req, reply) => {
+    return { ok: true, ops: await opsSnapshot(APP_VERSION) };
+  });
+
+  // Append-only governance audit trail (publish reviews + P3 actions).
+  app.get('/audit', async (req, reply) => {
+    const limit = Math.max(1, Math.min(1000, Number((req.query || {}).limit) || 200));
+    const rows = listAudit({ limit }).map((a) => ({
+      id: a.id, at: a.created_at, actor: a.actor_email || 'system', action: a.action,
+      mapId: a.map_id, mapName: a.map_name || null, versionId: a.version_id,
+      detail: parseJson(a.detail_json),
+    }));
+    return { ok: true, audit: rows };
+  });
+}

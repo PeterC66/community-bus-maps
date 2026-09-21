@@ -17,6 +17,12 @@ import { existsSync, cpSync } from 'node:fs';
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-test-p7-'));
 process.env.DATA_DIR = scratch;
+// The tube-map diagram is PARKED (buses-data OA-297, 2026-09-10): its catalogue
+// row reads TUBE_DIAGRAM at each use and is not offered unless it is '1'. This
+// file is the MECHANISM's test — the request-only lock, the grant, the wrapper —
+// so it runs with the flag ON, before the first import. The parked state itself
+// is asserted, flag off, in scripts/test-parked-diagram.mjs.
+process.env.TUBE_DIAGRAM = '1';
 
 let failures = 0;
 const check = (name, cond, extra) => {
@@ -354,12 +360,20 @@ check('server.js still sanitises pins before they are stored', /function sanitiz
 check('the pin sanitiser bounds the coordinates', /num\(p\.x, 1000\)/.test(serverSrc));
 
 // The rules above only bind if the route actually runs them, and refuses rather
-// than quietly dropping the change.
-check('the outputs route decides through chooseOutputs', /chooseOutputs\(\(req\.body \|\| \{\}\)\.outputs/.test(serverSrc));
-check('…passing the caller\'s admin-ness, not the client\'s word for it', /isAdmin: user\.role === 'admin'/.test(serverSrc));
-check('a refused output change is a 403', /if \(refused\.length\)[\s\S]{0,400}reply\.code\(403\)/.test(serverSrc));
+// than quietly dropping the change. THE FOUR CHECKS BELOW FOLLOWED THE CODE
+// (OA-231, 2026-09-02): the outputs and diagram-request routes moved out of
+// server.js into the editor plugin, unchanged, so the assertions read that file
+// instead. The path one is the interesting half -- inside a plugin the route
+// declares only `/:id/diagram-request` and the prefix lives at the registration,
+// so this text can no longer see the whole URL. What can is
+// scripts/route-table.json, recorded from the UNSPLIT server and asserted by
+// test-admin-plugin.mjs; the two together say what the one regex used to.
+const editorSrc = await import('node:fs').then((fs) => fs.readFileSync(new URL('../src/routes/editor.js', import.meta.url), 'utf8'));
+check('the outputs route decides through chooseOutputs', /chooseOutputs\(\(req\.body \|\| \{\}\)\.outputs/.test(editorSrc));
+check('…passing the caller\'s admin-ness, not the client\'s word for it', /isAdmin: user\.role === 'admin'/.test(editorSrc));
+check('a refused output change is a 403', /if \(refused\.length\)[\s\S]{0,400}reply\.code\(403\)/.test(editorSrc));
 check('asking for the diagram raises a message the admin console can see',
-  /app\.post\('\/api\/maps\/:id\/diagram-request'/.test(serverSrc) && /kind: 'diagram-request'/.test(serverSrc));
+  /app\.post\('\/:id\/diagram-request'/.test(editorSrc) && /kind: 'diagram-request'/.test(editorSrc));
 
 // --- 3b. badge legibility after a recolour ----------------------------------
 // A route's label ink comes from the imported data and does not follow a

@@ -1,18 +1,23 @@
-﻿// SQLite via Node's built-in node:sqlite (no native build step).
+// SQLite via Node's built-in node:sqlite (no native build step).
 // The DB file lives under DATA_DIR (git-ignored) — never in the repo.
 
 import { DatabaseSync } from 'node:sqlite';
-import { createHash } from 'node:crypto';
+import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
+import { ENUMS, USER_ROLES, allEnumGuardSql } from './enums.js';   // the three state enums (OA-224 Tier 4.5)
+import { adviserGuardSql } from './guards.js';   // an adviser holds no customer_id (OA-154 D1)
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '../..'); // repo root — keeps data location cwd-independent
-export const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(ROOT, 'data');
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'portal.sqlite');
+// DATA_DIR and DB_PATH are resolved in paths.js, which imports nothing but
+// node:path and node:url (OA-224 Tier 3.3). Importing THIS module opens the
+// database and runs every migration, so a script that only wants to know where
+// the store is should import `./paths.js` and never this file. Re-exported here
+// so existing importers keep working.
+export { DATA_DIR, DB_PATH, MAPS_DIR } from './paths.js';
+import { DATA_DIR, DB_PATH } from './paths.js';
+import { NOW_SQL } from './dates.js';   // the ONE spelling of a write clock (OA-232 Tier 2.1)
 
 mkdirSync(DATA_DIR, { recursive: true });
 
@@ -30,6 +35,49 @@ db.exec('PRAGMA foreign_keys = ON;');
 // connection: wait for the lock rather than throwing SQLITE_BUSY immediately.
 db.exec('PRAGMA busy_timeout = 5000;');
 db.exec(readFileSync(path.join(HERE, 'schema.sql'), 'utf8'));
+
+/**
+ * Run `fn` inside one SQLite transaction, rolling back if it throws.
+ *
+ * node:sqlite's DatabaseSync has no `.transaction()` helper (that is a
+ * better-sqlite3-ism), so the shape is the explicit BEGIN/COMMIT/ROLLBACK that
+ * scripts/delete-map.mjs already uses. THIS EXISTS SO THE HABIT IS IMPORTABLE.
+ * It was in that one script and had not reached the route in the file next
+ * door: POST /api/admin/applications/:id/approve ran insertCustomer →
+ * insertUser → setApplicationReviewed in sequence, and a failure between the
+ * first and the third left an orphan customer with no users and the
+ * application still pending — recoverable only by hand, and invisible until
+ * somebody counted customers (OA-367 face 3).
+ *
+ * NESTING JOINS THE OUTER TRANSACTION rather than throwing. SQLite has no
+ * nested BEGIN, and a helper that refused one would make a caller's safety
+ * depend on who called it. `db.isTransaction` is the runtime's own answer to
+ * "am I in one already", so an inner call runs fn and leaves COMMIT or
+ * ROLLBACK to the outermost frame.
+ *
+ * SYNCHRONOUS ONLY, AND IT SAYS SO OUT LOUD. Every write in this module is
+ * synchronous; handing this an async fn would COMMIT at the first await with
+ * the work still outstanding, which is a rollback that silently protects
+ * nothing. A thenable is refused rather than mis-wrapped.
+ */
+export function withTransaction(fn) {
+  if (db.isTransaction) return refuseThenable(fn());
+  db.exec('BEGIN');
+  try {
+    const out = refuseThenable(fn());
+    db.exec('COMMIT');
+    return out;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+function refuseThenable(out) {
+  if (out && typeof out.then === 'function') {
+    throw new TypeError('withTransaction() takes a synchronous function — an async one commits at the first await.');
+  }
+  return out;
+}
 
 // Lightweight migrations for DBs created before a column existed. (schema.sql is
 // CREATE TABLE IF NOT EXISTS, so an existing table won't pick up new columns.)
@@ -66,8 +114,34 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  * outage, which is the opposite of what a rollback is for.
  *
  * 1 = the schema as it stood on 2026-08-25, after the N3 token-hash migration.
+ * 2 = 2026-09-03, OA-224 Tier 4.5: the two state enums are enforced by triggers
+ *     and two measured indexes exist. Both are ADDITIVE — no column changed type,
+ *     no value was rewritten, no table was rebuilt — so the rollback promise above
+ *     is unaffected and a v1 release opens a v2 database exactly as before.
+ * 3 = 2026-09-11, OA-308 tier 4: two new tables, `search_demand` and
+ *     `search_demand_skipped`, holding the tally of place names people searched
+ *     for and found no map of. NEW TABLES rather than new columns, which is
+ *     additive in the strongest sense the rollback promise has: a v2 release
+ *     opens a v3 database and simply never selects from them, and nothing in
+ *     them is read by any route. Deleting both by hand loses a count and breaks
+ *     nothing — see src/search/demand.js for why they are shaped as a tally and
+ *     not as a log.
+ * 4 = 2026-09-12, buses-data OA-154 Phase D1: one new table,
+ *     `map_adviser_grant`, and two new triggers — `user.role` joins the enum
+ *     guards (gaining the value `adviser`), and src/db/guards.js refuses an
+ *     adviser a `customer_id`. Additive in the same strong sense as v3: a v3
+ *     release opens a v4 database, never selects from the new table, and writes
+ *     only the three roles it knows, every one of which the new trigger allows.
+ * 5 = 2026-09-12, buses-data OA-320: one new column, `customer.is_sample`,
+ *     defaulting to 1. PILOT — it goes with docs/PILOT.md. Additive, and the
+ *     rollback direction is the honest one rather than merely survivable: a v4
+ *     release opens a v5 database, `SELECT *` hands it a column it has never
+ *     heard of and it ignores it, and its generateSvg() has no `sample` option
+ *     at all — so it bands every sheet, which is exactly the behaviour this
+ *     version replaced. A rollback therefore over-labels rather than publishing
+ *     a real organisation's sheet as nobody's.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 5;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
@@ -125,6 +199,31 @@ export function recordedSchemaVersion() {
   // turns it off per customer, same pattern as hide_operators_enabled above.
   if (!custCols.includes('watermark_enabled')) db.exec('ALTER TABLE customer ADD COLUMN watermark_enabled INTEGER NOT NULL DEFAULT 1');
 
+  // PILOT: this column, and every reader of it. Delete with docs/PILOT.md.
+  //
+  // Opt-out per-customer toggle: are this customer's maps SAMPLE maps — ours,
+  // made to show what the system produces — rather than sheets a real
+  // organisation has published for its community? On for everyone by default,
+  // same pattern and same direction as watermark_enabled above, and an admin
+  // turns it off at the same moment: when an organisation stops being ours and
+  // starts being theirs.
+  //
+  // WHY IT HAS TO EXIST (buses-data OA-320). The band src/render/pilotStamp.js
+  // draws says "Not published by any organisation. Do not rely on it for
+  // travel." That is a claim about the MAP — who published it — and until this
+  // column the only thing gating it was the site-wide PILOT_MODE, so there was
+  // no value anybody could set, on any customer, that stopped that sentence
+  // printing above a real organisation's own badge. It was true of every map on
+  // the site the day it was written and false the moment the first external
+  // registration lands, with no code change in between.
+  //
+  // DEFAULT 1 IS LOAD-BEARING, and it points the way config.js already argues
+  // PILOT itself must point: forgetting to set it fails towards the honest
+  // state, not the confident one. An ALTER with this default also gives every
+  // customer that already exists the sheet it already has, so landing this
+  // moves nothing — see the acceptance test in OA-320.
+  if (!custCols.includes('is_sample')) db.exec('ALTER TABLE customer ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 1');
+
   // P8: "changes coming" banner shown above the public map image. auto-suggested
   // from the GTFS upcoming-changes scan; admin/customer may overwrite the wording.
   if (!mapCols.includes('banner_note')) db.exec('ALTER TABLE map ADD COLUMN banner_note TEXT');
@@ -148,11 +247,72 @@ export function recordedSchemaVersion() {
 
   hashStoredTokens();
 
+  // -------------------------------------------------------------------------
+  // OA-224 Tier 4.5 — the schema says what its comments said.
+  //
+  // The two state enums existed only as a `--` comment beside the column, so a
+  // handler writing 'Published' or 'pubished' was accepted by the database, broke
+  // no test, and took the map off the public site, because every public query
+  // filters on that exact string. src/db/enums.js holds the lists, the reasoning
+  // for triggers rather than CHECK, and the SQL; scripts/test-db-constraints.mjs
+  // holds schema.sql's comments to it.
+  //
+  // Reinstalled on every boot rather than created once: the trigger body carries
+  // the value list, so a list that gains a value has to reach the database.
+  for (const stmt of allEnumGuardSql()) db.exec(stmt);
+
+  // OA-154 D1 — and an adviser holds no customer_id. Not an enum (it is a rule
+  // ABOUT two columns rather than a list of values for one), so it lives in
+  // ./guards.js and is installed the same way and for the same reasons.
+  for (const stmt of adviserGuardSql()) db.exec(stmt);
+
+  // A trigger only sees a write. It says nothing about the rows already there —
+  // which a rebuild's CHECK would have refused outright — so that question is
+  // asked separately, once, and answered out loud. A WARNING and not a throw, on
+  // the same argument as the schema-version notice below: a value this code does
+  // not recognise is a reason to look, not a reason for the site to be down.
+  for (const [qualified, values] of Object.entries(ENUMS)) {
+    const [table, column] = qualified.split('.');
+    const list = values.map((v) => `'${v}'`).join(', ');
+    const bad = db.prepare(
+      `SELECT ${column} AS v, COUNT(*) AS c FROM ${table} WHERE ${column} NOT IN (${list}) GROUP BY ${column}`,
+    ).all();
+    for (const row of bad) {
+      console.warn(`[migrate] ${qualified} holds ${row.c} row(s) with the unrecognised value `
+        + `${JSON.stringify(row.v)}. The new guard rejects it on the next write to those rows; `
+        + `existing rows are left alone. Legal values: ${values.join(', ')}.`);
+    }
+  }
+
+  // Two indexes, and only two, because each one was MEASURED with EXPLAIN QUERY
+  // PLAN against the real database rather than reasoned about:
+  //
+  //   map(customer_id)          SCAN map -> SEARCH USING COVERING INDEX. Every
+  //                             authenticated page starts from "this customer's
+  //                             maps", and the public list JOINs on it.
+  //   map(published_version_id) SCAN m -> SEARCH, on the public listing — the
+  //                             hottest anonymous path, and the one whose cost
+  //                             grows with every map ever published. PARTIAL,
+  //                             because the only rows it is ever asked about are
+  //                             the ones where it is NOT NULL.
+  //
+  // TWO THINGS THE REVIEW ASKED FOR ARE DELIBERATELY ABSENT, both because the
+  // measurement disagreed with the finding. `map_version(map_id)` is ALREADY an
+  // index: the `UNIQUE (map_id, major, minor)` constraint gives SQLite
+  // `sqlite_autoindex_map_version_1`, and every per-map version query already
+  // reports SEARCH ... USING COVERING INDEX. And `audit_log(map_id)` indexes a
+  // query nobody runs — `listAudit()` orders by `a.id DESC LIMIT ?` and takes the
+  // primary key. An index with no reader costs write time for ever and hides the
+  // ones that earn their place.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_map_customer ON map(customer_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_map_published ON map(published_version_id) '
+        + 'WHERE published_version_id IS NOT NULL');
+
   // Last, so the stamp means "every migration above ran", not "we got here".
   db.exec(`CREATE TABLE IF NOT EXISTS schema_version (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
     version     INTEGER NOT NULL,
-    applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    applied_at  TEXT NOT NULL DEFAULT (${NOW_SQL})
   )`);
   const seen = recordedSchemaVersion();
   if (seen !== null && seen > SCHEMA_VERSION) {
@@ -162,7 +322,7 @@ export function recordedSchemaVersion() {
       + ' Reading a newer database with older code is supported (additive columns only) but is'
       + ' the state a rollback leaves behind — see docs/DEPLOY.md and scripts/test-schema-compat.mjs.');
   } else if (seen !== SCHEMA_VERSION) {
-    db.prepare(`INSERT INTO schema_version (id, version, applied_at) VALUES (1, ?, datetime('now'))
+    db.prepare(`INSERT INTO schema_version (id, version, applied_at) VALUES (1, ?, ${NOW_SQL})
                 ON CONFLICT(id) DO UPDATE SET version = excluded.version, applied_at = excluded.applied_at`)
       .run(SCHEMA_VERSION);
   }
@@ -197,7 +357,7 @@ export function hashStoredTokens() {
       // stored twice — but a migration that throws mid-way through boot takes
       // the service down, so one bad row is skipped and reported rather than
       // being allowed to stop the other rows migrating.
-      try { upd.run(createHash('sha256').update(String(r.token)).digest('hex'), r.token); }
+      try { upd.run(tokenHash(r.token), r.token); }
       catch (e) { console.error(`[migrate] ${table}: could not hash one row — ${e.message}`); }
     }
     console.log(`[migrate] ${table}: hashed ${stale.length} stored token(s) (technical-audit_2026-08-25 N3)`);
@@ -274,7 +434,7 @@ export function getApplication(id) {
   return db.prepare('SELECT * FROM application WHERE id = ?').get(Number(id));
 }
 export function setApplicationReviewed(id, status, customerId = null) {
-  db.prepare("UPDATE application SET status = ?, reviewed_at = datetime('now'), customer_id = ? WHERE id = ?")
+  db.prepare(`UPDATE application SET status = ?, reviewed_at = ${NOW_SQL}, customer_id = ? WHERE id = ?`)
     .run(status, customerId != null ? Number(customerId) : null, Number(id));
 }
 
@@ -317,6 +477,7 @@ export function listMaps({ customerId } = {}) {
   return db
     .prepare(
       `SELECT m.*, c.name AS customer_name,
+              c.is_demo, c.is_sample,   -- PILOT: delete with docs/PILOT.md
               v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key,
               pv.storage_key AS pub_key,
               (SELECT COUNT(*) FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending') AS pending_reviews,
@@ -335,6 +496,12 @@ export function getMap(id) {
   return db
     .prepare(
       `SELECT m.*, c.name AS customer_name,
+              -- PILOT: the two sample columns. Delete with docs/PILOT.md.
+              -- Joined here so that every route holding a map row can answer
+              -- isSampleCustomer() without a second query — the render call
+              -- sites are in four files and a lookup apiece is four chances to
+              -- forget one (buses-data OA-320).
+              c.is_demo, c.is_sample,
               v.major AS cur_major, v.minor AS cur_minor,
               v.storage_key AS cur_key, v.overrides_json AS cur_overrides,
               v.review_state AS cur_state,
@@ -472,7 +639,7 @@ export function setMapOutputs(mapId, outputs) {
  */
 export function setMapBannerNote(mapId, note, source = 'manual') {
   db.prepare(
-    "UPDATE map SET banner_note = ?, banner_note_source = ?, banner_note_set_at = datetime('now') WHERE id = ?",
+    `UPDATE map SET banner_note = ?, banner_note_source = ?, banner_note_set_at = ${NOW_SQL} WHERE id = ?`,
   ).run(note ? String(note) : null, source === 'auto' ? 'auto' : 'manual', Number(mapId));
 }
 
@@ -655,7 +822,7 @@ export function listPendingPublishRequests() {
 export function decidePublishRequest(id, { status, reviewedBy, decisionNote, evidence }) {
   db.prepare(
     `UPDATE publish_request
-        SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'),
+        SET status = ?, reviewed_by = ?, reviewed_at = ${NOW_SQL},
             decision_note = ?, evidence_json = ?
       WHERE id = ?`,
   ).run(
@@ -668,7 +835,7 @@ export function decidePublishRequest(id, { status, reviewedBy, decisionNote, evi
 }
 
 export function withdrawPublishRequest(id) {
-  db.prepare("UPDATE publish_request SET status = 'withdrawn', reviewed_at = datetime('now') WHERE id = ? AND status = 'pending'").run(Number(id));
+  db.prepare(`UPDATE publish_request SET status = 'withdrawn', reviewed_at = ${NOW_SQL} WHERE id = ? AND status = 'pending'`).run(Number(id));
 }
 
 /** Publish-request history for one map (newest first). */
@@ -783,7 +950,7 @@ export function getOpenProposedForMap(mapId) {
 
 /** Mark every still-pending proposed update for a map as superseded (a newer refresh arrived). */
 export function supersedePendingProposed(mapId) {
-  db.prepare("UPDATE proposed_update SET status = 'superseded', reviewed_at = datetime('now') WHERE map_id = ? AND status = 'pending'")
+  db.prepare(`UPDATE proposed_update SET status = 'superseded', reviewed_at = ${NOW_SQL} WHERE map_id = ? AND status = 'pending'`)
     .run(Number(mapId));
 }
 
@@ -798,7 +965,7 @@ export function setProposedSummary(id, summary) {
 export function decideProposedUpdate(id, { status, reviewedBy, decisionNote, acceptedVersionId = null }) {
   db.prepare(
     `UPDATE proposed_update
-        SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'),
+        SET status = ?, reviewed_by = ?, reviewed_at = ${NOW_SQL},
             decision_note = ?, accepted_version_id = ?
       WHERE id = ?`,
   ).run(
@@ -838,6 +1005,13 @@ export function listProposedForMap(mapId) {
  * `since` is the draft's own creation time, so the item can age like the rest.
  * Maps not yet built (no current version) are excluded — they are the build
  * queue's business, and archived maps are nobody's.
+ *
+ * `public_listed` and the customer's status are selected because the ROW this
+ * feeds makes a claim about the public site, and `published_version_id` alone
+ * does not support one: PUBLIC_WHERE below wants four clauses, and reading the
+ * first as though it were all four told Peter for a day that Ramsey's public
+ * had v7.0 while /m/ramsey was a 404 (OA-295). The one state where the
+ * sentence is most reassuring — a map taken down — is the one where it lied.
  */
 export function listUnsubmittedDrafts() {
   return db
@@ -845,7 +1019,8 @@ export function listUnsubmittedDrafts() {
       `SELECT m.id, m.name, m.slug, m.kind, m.status,
               c.name AS customer_name,
               v.storage_key AS draft_key, v.created_at AS draft_at, v.review_state AS draft_state,
-              pv.storage_key AS published_key
+              pv.storage_key AS published_key,
+              m.public_listed, c.status AS customer_status
          FROM map m
          JOIN map_version v ON v.id = m.current_version_id
          LEFT JOIN map_version pv ON pv.id = m.published_version_id
@@ -930,6 +1105,9 @@ export function updateCustomerAdmin(id, f) {
   if (f.plan) { sets.push('plan = ?'); args.push(String(f.plan).slice(0, 40)); }
   if (f.hide_operators_enabled != null) { sets.push('hide_operators_enabled = ?'); args.push(f.hide_operators_enabled ? 1 : 0); }
   if (f.watermark_enabled != null) { sets.push('watermark_enabled = ?'); args.push(f.watermark_enabled ? 1 : 0); }
+  // PILOT: delete with docs/PILOT.md. Turning this OFF is what makes an
+  // organisation's sheets real, and it is the same click as the line above.
+  if (f.is_sample != null) { sets.push('is_sample = ?'); args.push(f.is_sample ? 1 : 0); }
   if (!sets.length) return false;
   args.push(Number(id));
   db.prepare(`UPDATE customer SET ${sets.join(', ')} WHERE id = ?`).run(...args);
@@ -980,7 +1158,9 @@ export function listUsersAdmin(customerId) {
   }
   return listUsers();
 }
-const USER_ROLES = ['editor', 'approver', 'admin'];
+// The list is ./enums.js's, imported rather than repeated: the database now
+// refuses anything outside it, so a second copy here could only ever disagree
+// with the trigger — and would do it by rejecting a legal role, silently.
 const USER_STATUSES = ['active', 'disabled'];
 /** Whitelisted admin update of a user's name / role / status. */
 export function updateUserAdmin(id, f) {
@@ -995,6 +1175,74 @@ export function updateUserAdmin(id, f) {
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// OA-154 Phase D1 — adviser grants. One row per (map, person); see the block
+// comment on `map_adviser_grant` in schema.sql for why the reach is a grant and
+// not a customer_id.
+//
+// EVERY READ HERE FILTERS `revoked_at IS NULL`, and the one that does not says so
+// in its name. That is the whole of the access rule, so it is spelled out once
+// per query rather than left to a caller: a revoked grant is a row we keep in
+// order to answer "who saw this, and when" — it is not a lesser kind of access.
+// ---------------------------------------------------------------------------
+
+/** Grant (or re-grant) one adviser access to one map. Returns the grant row. */
+export function grantAdviser({ mapId, userId, grantedBy = null, note = null }) {
+  db.prepare(`INSERT INTO map_adviser_grant (map_id, user_id, granted_by, note) VALUES (?, ?, ?, ?)
+              ON CONFLICT(map_id, user_id) DO UPDATE SET
+                revoked_at = NULL, granted_by = excluded.granted_by, note = excluded.note`)
+    .run(Number(mapId), Number(userId), grantedBy == null ? null : Number(grantedBy), note);
+  return getAdviserGrant(mapId, userId);
+}
+
+/** End a grant. The row stays; `revoked_at` is stamped. True if one was live. */
+export function revokeAdviserGrant(mapId, userId) {
+  const r = db.prepare(`UPDATE map_adviser_grant SET revoked_at = ${NOW_SQL}
+                        WHERE map_id = ? AND user_id = ? AND revoked_at IS NULL`)
+    .run(Number(mapId), Number(userId));
+  return r.changes > 0;
+}
+
+/** The LIVE grant for this pair, or undefined. The whole of the adviser's reach. */
+export function getAdviserGrant(mapId, userId) {
+  return db.prepare('SELECT * FROM map_adviser_grant WHERE map_id = ? AND user_id = ? AND revoked_at IS NULL')
+    .get(Number(mapId), Number(userId));
+}
+
+/** Every map this person may advise on, newest grant first. */
+export function listAdviserGrantsForUser(userId) {
+  return db.prepare(`SELECT g.*, m.name AS map_name, m.slug AS map_slug, m.kind AS map_kind, m.subject AS map_subject
+                     FROM map_adviser_grant g JOIN map m ON m.id = g.map_id
+                     WHERE g.user_id = ? AND g.revoked_at IS NULL
+                     ORDER BY g.created_at DESC, g.id DESC`).all(Number(userId));
+}
+
+/** Every adviser on one map, for the admin console. Revoked rows INCLUDED — this
+ *  is the "who has seen this map's drafts" question, which the live list cannot
+ *  answer. The caller shows `revoked_at` rather than filtering on it. */
+export function listAdviserGrantsForMapIncludingRevoked(mapId) {
+  return db.prepare(`SELECT g.*, u.email, u.name AS user_name, u.status AS user_status
+                     FROM map_adviser_grant g JOIN user u ON u.id = g.user_id
+                     WHERE g.map_id = ? ORDER BY g.revoked_at IS NOT NULL, u.email`).all(Number(mapId));
+}
+
+/** Every map somebody is currently advising on, with how many advisers each has.
+ *  Shaped like listAdviserGrantsForUser()'s rows (`map_id`, `map_name`, …) so the
+ *  one route that serves both audiences does not need two shapes. */
+export function listMapsWithLiveAdviserGrants() {
+  return db.prepare(`SELECT m.id AS map_id, m.name AS map_name, m.slug AS map_slug, m.kind AS map_kind,
+                            m.subject AS map_subject, COUNT(*) AS advisers, MIN(g.created_at) AS created_at
+                     FROM map_adviser_grant g JOIN map m ON m.id = g.map_id
+                     WHERE g.revoked_at IS NULL GROUP BY m.id ORDER BY m.name`).all();
+}
+
+/** Every adviser account, with how many live grants each holds. */
+export function listAdvisers() {
+  return db.prepare(`SELECT u.*, (SELECT COUNT(*) FROM map_adviser_grant g
+                                  WHERE g.user_id = u.id AND g.revoked_at IS NULL) AS live_grants
+                     FROM user u WHERE u.role = 'adviser' ORDER BY u.email`).all();
+}
+
 /**
  * SHA-256 of a bearer token, lowercase hex — what `session.token` and
  * `magic_link.token` actually hold since 2026-08-25 (technical-audit_2026-08-25
@@ -1007,8 +1255,6 @@ export function updateUserAdmin(id, f) {
  * displayed handle and never holds a raw token at all — hence
  * deleteSessionByHash, which is the only function here taking a hash.
  */
-const tokenHash = (token) => createHash('sha256').update(String(token)).digest('hex');
-
 export function insertSession(token, userId, expiresAt) {
   db.prepare('INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)').run(tokenHash(token), Number(userId), expiresAt);
 }
@@ -1023,7 +1269,7 @@ export function getSession(token) {
       `SELECT s.token AS token_hash, s.created_at, s.expires_at,
               u.id AS user_id, u.email, u.name, u.role, u.status, u.customer_id
          FROM session s JOIN user u ON u.id = s.user_id
-        WHERE s.token = ? AND s.expires_at > datetime('now')`,
+        WHERE s.token = ? AND s.expires_at > ${NOW_SQL}`,
     )
     .get(tokenHash(token));
 }
@@ -1035,7 +1281,7 @@ export function deleteSessionByHash(hash) {
   return db.prepare('DELETE FROM session WHERE token = ?').run(String(hash)).changes;
 }
 export function purgeExpiredSessions() {
-  db.prepare("DELETE FROM session WHERE expires_at <= datetime('now')").run();
+  db.prepare(`DELETE FROM session WHERE expires_at <= ${NOW_SQL}`).run();
 }
 
 /**
@@ -1044,7 +1290,7 @@ export function purgeExpiredSessions() {
  */
 export function touchSession(token, expiresAt) {
   const r = db
-    .prepare("UPDATE session SET expires_at = ? WHERE token = ? AND expires_at > datetime('now')")
+    .prepare(`UPDATE session SET expires_at = ? WHERE token = ? AND expires_at > ${NOW_SQL}`)
     .run(expiresAt, tokenHash(token));
   return r.changes > 0;
 }
@@ -1067,7 +1313,7 @@ export function listSessions() {
          FROM session s
          JOIN user u ON u.id = s.user_id
          LEFT JOIN customer c ON c.id = u.customer_id
-        WHERE s.expires_at > datetime('now')
+        WHERE s.expires_at > ${NOW_SQL}
         ORDER BY s.created_at DESC`,
     )
     .all();
@@ -1091,17 +1337,17 @@ export function insertMagicLink(token, email, expiresAt) {
  */
 export function peekMagicLink(token) {
   return db
-    .prepare("SELECT email, expires_at FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
+    .prepare(`SELECT email, expires_at FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > ${NOW_SQL}`)
     .get(tokenHash(token));
 }
 export function consumeMagicLink(token) {
   // atomically mark a valid, unused, unexpired token as used; return its row or undefined
   const hash = tokenHash(token);
   const row = db
-    .prepare("SELECT * FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')")
+    .prepare(`SELECT * FROM magic_link WHERE token = ? AND used_at IS NULL AND expires_at > ${NOW_SQL}`)
     .get(hash);
   if (!row) return undefined;
-  db.prepare("UPDATE magic_link SET used_at = datetime('now') WHERE token = ?").run(hash);
+  db.prepare(`UPDATE magic_link SET used_at = ${NOW_SQL} WHERE token = ?`).run(hash);
   return row;
 }
 

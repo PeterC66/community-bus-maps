@@ -34,6 +34,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { warnIfBehindCommitted } from './fixture-freshness.mjs';
+import { advanceToNewestRender } from './newest-render.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -41,15 +42,37 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = path.resolve(HERE, '..', '..');
 
 /**
- * Candidate locations for the buses-data checkout, in order.
- *
- * BUSES_DIR is the explicit answer and comes first. The two relative guesses
- * cover the layouts that actually exist: CI checks the repos out side by side
- * into one workspace, and a developer cloning both into one folder gets the
- * same shape for free.
+ * The folder in THIS repository that carries the vendored fixtures, relative to
+ * the repository root. Named once, because three scripts and a workflow have to
+ * agree about it. `fixtures/` was not available: `.gitignore` has reserved that
+ * name since long before this, for fixtures pulled down locally.
  */
-function busesDirCandidates() {
-  const out = [];
+export const VENDORED_FIXTURE_ROOT = 'gate-fixtures';
+
+/**
+ * Candidate locations for a tree holding `Areas/_portal-fixture` and
+ * `Places/_portal-fixture`, in order.
+ *
+ * THIS REPOSITORY COMES FIRST, SINCE 2026-09-18 (buses-data OA-398, R5). The
+ * fixtures are vendored under `gate-fixtures/` and are what these gates are
+ * about: a public repository gates fixtures it holds, so `verify` needs no
+ * credential, no second checkout, and no opinion about what somebody else pushed
+ * a minute ago. Putting it first — rather than last, as a fallback — is what
+ * makes the laptop and CI gate the SAME bytes; a fallback would have left the
+ * laptop gating buses-data and CI gating the copy, which is one command giving
+ * two answers, and this file already carries one scar of exactly that shape
+ * (OA-180, the `warnIfBehindCommitted` paragraph below).
+ *
+ * Whether the copy is still in step with buses-data is a different question, and
+ * it is asked by `npm run fixtures:vendor -- --check` from the laptop and from
+ * buses-data's own `gates.yml`, which can read this public repository for free.
+ *
+ * BUSES_DIR and the two relative guesses are kept: they are what
+ * `vendor-fixtures.mjs` resolves its SOURCE with, and they still answer for a
+ * checkout laid out the way CI used to lay one out.
+ */
+export function busesDirCandidates() {
+  const out = [path.resolve(PORTAL_ROOT, VENDORED_FIXTURE_ROOT)];
   if (process.env.BUSES_DIR) out.push(process.env.BUSES_DIR);
   out.push(path.resolve(PORTAL_ROOT, '..', 'buses-data'));
   out.push(path.resolve(PORTAL_ROOT, '..', 'Buses'));
@@ -100,8 +123,19 @@ export function resolveFixtures(kind) {
     .map((f) => f.trim())
     .filter((f) => f && existsSync(f));
   if (fromEnv.length) {
-    warnIfBehindCommitted(kind, fromEnv);
-    return { fixtures: fromEnv, source: 'env' };
+    /* AND SINCE 2026-09-01 IT REMOVES THE STALENESS CLASS RATHER THAN NAGGING
+     * ABOUT IT (OA-211). The warning below was accurate, prominent and
+     * ignorable, and the run still went red afterwards — a false DIFFERS on the
+     * one gate whose whole job is to be believed. An entry shaped
+     * `Areas/<Town>/S5-render/<version>` names the TOWN; this advances it to
+     * that town's current render, read from its `manifest.json`, and prints the
+     * substitution. It runs BEFORE the warning on purpose, so the two machines
+     * are usually gating the same pack and the warning is left to say something
+     * that is still true. Anything it cannot resolve is passed through
+     * untouched, so the warning still covers every case it used to. */
+    const advanced = advanceToNewestRender(fromEnv);
+    warnIfBehindCommitted(kind, advanced);
+    return { fixtures: advanced, source: 'env' };
   }
 
   const committed = committedFixtures(kind === 'place' ? 'Places' : 'Areas');

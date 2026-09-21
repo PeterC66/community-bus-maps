@@ -13,8 +13,10 @@
 import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, unlinkSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createRequire } from 'node:module';
 import { ENGINE_DIR, generateSvg, rasterise } from '../render/renderMap.js';
-import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, versionNumber, outputHint, readSheetDeclaration } from './store.js';
+import { mergeGenWarnings } from '../render/genWarnings.js';
+import { mapDataDir, overridesPath, versionDir, proposedDataDir, archiveRoot, OUTPUTS, OUTPUT_FILES, BASE_OVERRIDES, DIAGRAM_LAYOUT, ENGINE_SOURCE, versionNumber, outputHint, readSheetDeclaration } from './store.js';
 import { APP_VERSION, GIT_SHA } from '../version.js';
 import { buildFacts, FACTS_FILE } from './facts.js';
 
@@ -30,6 +32,12 @@ export const EXPERT_DIR = path.join(ENGINE_DIR, 'expert');
  * Returns null if none is present (output not renderable for this map).
  */
 export function resolveGen(meta, dataDir) {
+  // An output the portal does not OFFER resolves nothing, whatever the payload
+  // carries. This is the one choke point the pin editor's diagramAvailable()
+  // and outputsForClient()'s `available` both pass through, which is what makes
+  // a parked output (store.js, OA-297) unreachable rather than merely hidden.
+  if (!meta.portal) return null;
+
   // A candidate is either a filename or `{ file, requiresConfig, requiresFiles }`.
   // The object form exists because a requirement can belong to ONE generator
   // rather than to the output — see the `external` entry in store.js.
@@ -296,6 +304,147 @@ export function readRoutesMeta(id) {
   return readRoutesMetaFromDir(mapDataDir(id));
 }
 
+// ---------------------------------------------------------------------------
+// CANDIDATE POIs — what COULD be drawn, which is not what IS drawn (OA-212).
+//
+// `enumeratePoisFromDir()` below answers "what is on the sheet", by rendering it
+// and reading the data-key tags back out. That is the right answer for a control
+// that adjusts a POI already on the page, and it is the WRONG answer for a
+// control that decides whether a POI is on the page at all:
+//
+//   a POI classified `miss` is dropped by poi_select.js at SELECTION time, so
+//   it never reaches the generator and never gets a data-key. Offer the chooser
+//   that list and a missed POI cannot be shown as missed or turned back on;
+//   worse, sanitizeOverrides() validates keys against the same list, so the next
+//   save would reject the key that was keeping it off and the POI would quietly
+//   return.
+//
+//   MEASURED, and narrower than it first looks. That render is built from BASE
+//   overrides, so it never sees the CUSTOMER's layer — a miss a customer sets in
+//   their own overrides is still drawn by it and still enumerated. The case that
+//   bites is a miss carried in the MAP PACK'S OWN routes.json, which is the
+//   state every map reaches the moment a town's answer is exported back into its
+//   source data. That is half of what this feature is for, so it is not an edge
+//   case; it is the destination.
+//
+// So this asks the selector directly instead. Same module the generator uses,
+// same tidy rules, same de-duplication, same file order (osm.json then osm2.json
+// — that order decides which of two duplicates survives, so it is load-bearing
+// and not an implementation detail). It runs no generator, writes nothing, and
+// touches no run folder.
+const poiSelectRequire = createRequire(import.meta.url);
+
+/**
+ * The twelve POI pictograms, exactly as the sheet draws them (OA-220).
+ *
+ * FROM THE MODULE EVERY RENDER ACTUALLY LOADS, which is a stronger claim than
+ * "a copy of it". Generators are vendored per map, so `engine/` normally means
+ * nothing to an existing map — but no map vendors a sibling `icons.js`, so
+ * `gen_internal.js`'s own `_dep()` fallback resolves it through SKILL_ASSETS,
+ * and `renderMap.js` always sets SKILL_ASSETS to ENGINE_DIR. One file, so a
+ * chooser showing a symbol the paper does not use is not a state this can reach.
+ * Checked, not assumed: no map data folder holds an icons.js of its own.
+ *
+ * Drawn with the sheet's own arguments — `charcoal` ink, `grid` set — because a
+ * chooser that taught a different vocabulary from the paper would be worse than
+ * the circles it replaces. `s = 10` maps the glyph's 20-unit live area to
+ * -10..10, which is the viewBox the client gives each <symbol>.
+ *
+ * The category set is closed: `classify()` in poi_select.js returns these twelve
+ * and null, so this can be complete rather than defensive, and GRID_COL's keys
+ * are that list. Deterministic and map-independent, so it is built once.
+ *
+ * @returns {Record<string,string>|null} cat -> SVG fragment, or null if the
+ *          module cannot be read — the chooser falls back to plain dots.
+ */
+let GLYPH_CACHE;
+export function poiGlyphs() {
+  if (GLYPH_CACHE !== undefined) return GLYPH_CACHE;
+  try {
+    const { icon, GRID_COL } = poiSelectRequire(path.join(ENGINE_DIR, 'icons.js'));
+    const out = {};
+    for (const cat of Object.keys(GRID_COL)) out[cat] = icon(cat, 0, 0, 10, 'charcoal', 'grid');
+    GLYPH_CACHE = out;
+  } catch { GLYPH_CACHE = null; }
+  return GLYPH_CACHE;
+}
+
+/**
+ * Every POI this map could draw, with the tier it currently carries.
+ *
+ * @param {string} dataDir  a map data folder (osm.json + routes.json)
+ * @param {object} tiersOverlay  overrides.internal.poiTiers, merged over
+ *        routes.json's poi.tiers exactly as gen_internal.js merges it, so the
+ *        tier reported here is the tier the sheet would actually be drawn with.
+ * @returns {{ key:string, cat:string, name:string, ll:number[], tier:string,
+ *             as:string|null, printsName:boolean }[]}
+ */
+export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null) {
+  const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
+  let selectPois;
+  try {
+    ({ selectPois } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
+  } catch { return []; }
+
+  // osm2.json is optional — some payloads carry only the first sweep.
+  const sets = [];
+  for (const f of ['osm.json', 'osm2.json']) {
+    const j = readJson(path.join(dataDir, f), null);
+    if (j && Array.isArray(j.elements)) sets.push(j.elements);
+  }
+  if (!sets.length) return [];
+
+  const base = routes.poi || {};
+  const poiCfg = (tiersOverlay && Object.keys(tiersOverlay).length)
+    ? { ...base, tiers: { ...(base.tiers || {}), ...tiersOverlay } }
+    : base;
+
+  const report = {};
+  try { selectPois(sets, poiCfg, report); } catch { return []; }
+  return report.candidates || [];
+}
+
+/**
+ * The tiers a map's own pack carries in routes.json — a town's answer as it was
+ * exported back into its source data, as opposed to the customer's live layer.
+ *
+ * The chooser needs both to say whether a row has been ANSWERED, and the merged
+ * tier alone cannot tell it: an explicit "show if there is room" and a row
+ * nobody has reached both arrive as `may` (OA-215).
+ */
+export function packPoiTiers(dataDir) {
+  const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
+  return (routes.poi && routes.poi.tiers) || {};
+}
+
+/**
+ * The POI keys a customer's saved overrides may legitimately name: the UNION of
+ * what is drawn and what could be drawn.
+ *
+ * This is what every sanitizeOverrides() call site must validate against, and
+ * the union rather than either half on purpose:
+ *
+ *  • A key only in CANDIDATES is one already classified `miss` in the map
+ *    pack's own routes.json — off the sheet, and so absent from the drawn
+ *    enumeration entirely. Validate against that set alone and the next save
+ *    rejects the key that is keeping it off, drops the classification, and the
+ *    POI comes back. The re-apply during a monthly proposed update is the worst
+ *    place for it: the customer's answer would be silently undone by a refresh
+ *    they only clicked Accept on.
+ *  • A key only in DRAWN is one the map's own generator produced but the
+ *    vendored selector did not. That should be impossible — drawn is candidates
+ *    minus the missed ones — but a map pack that has not yet been brought
+ *    forward by track-engine.mjs runs the generator it was IMPORTED with, so
+ *    the two really can disagree. Losing a customer's existing edit to that is
+ *    not a trade worth making, and the union costs nothing.
+ */
+export function editablePoiKeysFromDir(dataDir, tiersOverlay = null) {
+  const keys = new Set();
+  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);
+  for (const p of enumeratePoisFromDir(dataDir)) keys.add(p.key);
+  return [...keys];
+}
+
 // The drawn-POI universe is static for an imported map (it only changes if the
 // underlying data is re-imported), and enumerating runs a generator — so memoise
 // it for the process lifetime. Import runs in a separate process, so a freshly
@@ -369,15 +518,26 @@ export function readOverrides(id) {
  * WITHOUT persisting anything. Returns SVG strings keyed by artefact base name.
  * Works for any map data dir — the live one (preview) or a staged proposed one
  * (the "after" side of a P5 old-vs-new comparison).
+ *
+ * `collect`, if given, is an array this pushes each run's generator warnings
+ * onto (OA-216). AN OUT-PARAMETER RATHER THAN A CHANGED RETURN SHAPE, on
+ * purpose: this returns a bare `{ base: svg }` map that four callers destructure
+ * by artefact name, and wrapping it would have meant changing the P5 old-vs-new
+ * comparison and the editor's live preview for the sake of a caller neither of
+ * them is. The routes that want the warnings ask for them; the rest are
+ * untouched.
  */
-export function previewFrom(dataDir, overrides, outputsConfig) {
+export function previewFrom(dataDir, overrides, outputsConfig, collect, { sample = true } = {}) {
   const tmp = path.join(os.tmpdir(), `cbm-preview-${process.pid}-${Date.now()}.json`);
   writeFileSync(tmp, JSON.stringify(mergeOverrides(readBaseOverrides(dataDir), overrides || {})));
   const result = {};
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
-      const { svgPath } = generateSvg({
+      const { svgPath, warnings } = generateSvg({
         dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
+        // PILOT: a preview must show the customer the sheet they will get, band
+        // and all — or not, if their maps are not samples. Delete with PILOT.md.
+        sample,
         // A preview is of no version at all — it is the customer's unsaved edits.
         // Without this it would fall back to routes.json, which on a map delivered
         // from the skill carries a `build 6.54 · 19 Aug 2026` development stamp:
@@ -385,6 +545,7 @@ export function previewFrom(dataDir, overrides, outputsConfig) {
         // customer editing their own map.
         sheetVersion: 'Preview \u2014 unsaved',
       });
+      if (collect) collect.push(warnings);
       result[o.base] = readFileSync(svgPath, 'utf8');
     }
   } finally {
@@ -394,8 +555,8 @@ export function previewFrom(dataDir, overrides, outputsConfig) {
 }
 
 /** Preview a map's LIVE data with candidate overrides (the editor's live preview). */
-export function preview(id, overrides, outputsConfig) {
-  return previewFrom(mapDataDir(id), overrides, outputsConfig);
+export function preview(id, overrides, outputsConfig, collect, opts) {
+  return previewFrom(mapDataDir(id), overrides, outputsConfig, collect, opts);
 }
 
 /**
@@ -408,7 +569,7 @@ export function preview(id, overrides, outputsConfig) {
  * live map completely untouched.
  * @returns {{ storageKey:string, files: Record<string,number>, log: string[] }}
  */
-export async function renderVersion(id, overrides, storageKey, outputsConfig, srcDataDir = mapDataDir(id)) {
+export async function renderVersion(id, overrides, storageKey, outputsConfig, srcDataDir = mapDataDir(id), { sample = true } = {}) {
   const dataDir = srcDataDir;
   const outDir = versionDir(id, storageKey);
   mkdirSync(outDir, { recursive: true });
@@ -421,10 +582,23 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
 
   const files = {};
   const log = [];
+  // OA-216 — what each generator said on its way to a SUCCESSFUL render. Until
+  // 2026-09-01 this was thrown away, so a customer could mark twenty places
+  // *Must show*, be told "the map has been redrawn with your choices", and have
+  // three of them silently not happen.
+  const runs = [];
   try {
     for (const o of effectiveOutputs(outputsConfig, dataDir)) {
-      const { svgPath, log: genLog } = generateSvg({
+      const { svgPath, log: genLog, warnings } = generateSvg({
         dataDir, generator: o.gen, iconsDir: ENGINE_DIR, overridesFile: tmp,
+        // PILOT: whether these bytes carry the sample band. Unlike the version
+        // STATE two comments down, this one is baked in deliberately. A version's
+        // state changes every time somebody publishes, which is why the DRAFT
+        // marking had to move to the way out; a map's publishing organisation
+        // changes only when an admin reassigns it, which is a single audited
+        // event that scripts/restamp-renders.mjs reconciles. Serve-time would
+        // mean the watermark's caching duplicated across four more surfaces.
+        sample,
         // The PLAIN number, and deliberately nothing about the version's state.
         //
         // A version is always a draft at the moment it is rendered, and publishing
@@ -444,6 +618,11 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
         sheetVersion: versionNumber(storageKey),
       });
       if (genLog) log.push(`${o.gen}: ${genLog}`);
+      runs.push(warnings);
+      // The whole stream goes in the server log, editor-facing or not: the lines
+      // this does NOT show a customer are exactly the ones an operator wants
+      // when a sheet comes out wrong, and until now nobody could see any of them.
+      for (const line of warnings.all) log.push(`${o.gen}: ${line}`);
       const svgOut = path.join(outDir, `${o.base}.svg`);
       const jpgOut = path.join(outDir, `${o.base}.jpg`);
       cpSync(svgPath, svgOut);
@@ -483,7 +662,7 @@ export async function renderVersion(id, overrides, storageKey, outputsConfig, sr
     const facts = buildFacts(dataDir);
     if (facts) writeFileSync(path.join(outDir, FACTS_FILE), JSON.stringify(facts, null, 2));
   } catch { /* versions rendered without a snapshot fall back to live data */ }
-  return { storageKey, files, log };
+  return { storageKey, files, log, warnings: mergeGenWarnings(runs) };
 }
 
 /**
@@ -506,6 +685,58 @@ export function carryExpertTuning(id, stagedDir) {
     if (existsSync(from) && !existsSync(to)) { cpSync(from, to); carried.push(f); }
   }
   return carried;
+}
+
+/* Which of the two vendored external generators a file IS, read off the file
+ * itself. This is signal 2 of the pair `backfill-engine-source.mjs` uses, and it is
+ * deliberately the same expression: the busway generator dereferences `D.busway[`,
+ * the radial one never mentions `.busway` at all. */
+const externalKind = (src) => (/D\.busway\[/.test(src) ? 'busway' : 'radial');
+
+/**
+ * OA-199 - should a pack's archived `engine-source.json` be carried onto the data
+ * that has just replaced it?
+ *
+ * WHY IT HAS TO BE CARRIED AT ALL. The file records which vendored external
+ * generator a pack's `gen_external.js` is a copy of (OA-143), because an AREA pack
+ * stores both candidates under that one name and the name cannot say. Only
+ * `import-map.mjs` and `backfill-engine-source.mjs` write it, and neither runs on
+ * the accept path - so before this it died with the archived data directory every
+ * time an update was accepted. Eight of eighteen live maps went back to `skipped`
+ * on `track-engine.mjs` the day after they were recorded, and a skip is not a
+ * failure, so the summary line still read `0 BEHIND`.
+ *
+ * WHY IT MUST NOT BE CARRIED BLINDLY, which is the half the row that raised this
+ * did not have. A refresh is exactly the moment a town's layout can change. Carry a
+ * `radial` declaration onto a pack that now holds the BUSWAY generator and the
+ * tracker - which trusts a declaration precisely so that it never guesses - will
+ * overwrite that generator with the radial file at the next re-vendor. That is the
+ * silent corruption the whole design exists to refuse, and the fix would have been
+ * what introduced it. So the declaration is checked against the generator it
+ * describes, and one that has stopped being true is dropped rather than kept:
+ * absent means "nobody has answered", which is a state the tracker already handles
+ * correctly, and it is recoverable by re-running the backfill.
+ *
+ * An entry naming a file the new pack does not have is moot rather than wrong, and
+ * is left alone - the declaration is dropped only on a genuine disagreement.
+ */
+export function engineSourceVerdict(declPath, liveDir) {
+  let decl;
+  try { decl = JSON.parse(readFileSync(declPath, 'utf8')); }
+  catch { return { keep: false, why: 'the archived declaration will not parse' }; }
+  const gens = decl && typeof decl.generators === 'object' && decl.generators;
+  if (!gens || !Object.keys(gens).length) return { keep: false, why: 'the archived declaration names no generator' };
+  for (const [packFile, rel] of Object.entries(gens)) {
+    if (typeof rel !== 'string' || !rel) return { keep: false, why: packFile + ' is declared as something that is not a path' };
+    const onDisk = path.join(liveDir, packFile);
+    if (!existsSync(onDisk)) continue;                 // moot, not wrong
+    const declared = /busway/i.test(rel) ? 'busway' : 'radial';
+    const actual = externalKind(readFileSync(onDisk, 'utf8'));
+    if (declared !== actual) {
+      return { keep: false, why: packFile + ' is declared ' + declared + ' (' + rel + ') and the refreshed pack holds the ' + actual + ' generator' };
+    }
+  }
+  return { keep: true, why: 'the declaration still describes the refreshed pack' };
 }
 
 /**
@@ -538,8 +769,19 @@ export function swapInProposedData(id, pid) {
       carried.push(f);
     }
   }
+  // The engine-source declaration is the second entry this list has ever had, and it
+  // does NOT get the same unconditional carry - see engineSourceVerdict() for why a
+  // stale one is worse than an absent one. `dropped` names what was deliberately not
+  // carried, so a refusal is something the caller can log rather than a silence.
+  const dropped = [];
+  const declFrom = path.join(archived, ENGINE_SOURCE);
+  if (existsSync(declFrom) && !existsSync(path.join(live, ENGINE_SOURCE))) {
+    const verdict = engineSourceVerdict(declFrom, live);
+    if (verdict.keep) { cpSync(declFrom, path.join(live, ENGINE_SOURCE)); carried.push(ENGINE_SOURCE); }
+    else dropped.push({ file: ENGINE_SOURCE, why: verdict.why });
+  }
   invalidatePoiCache(id);                              // drawn-POI universe may have changed
-  return { archived, carried };
+  return { archived, carried, dropped };
 }
 
 export { OUTPUT_FILES };

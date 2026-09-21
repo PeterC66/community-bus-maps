@@ -1,6 +1,6 @@
 // Open the FAQ entry a link points at.
 //
-// Answers are <details>, so /faq.html#diagram lands a reader on a page of
+// Answers are <details>, so /faq.html#boarding lands a reader on a page of
 // collapsed questions unless the targeted one is opened for them. Browsers are
 // starting to do this themselves for fragment navigation, but not all of them and
 // not reliably, and the pricing page links straight into an answer — so do it here

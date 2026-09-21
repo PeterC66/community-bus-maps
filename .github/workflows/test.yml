@@ -14,6 +14,28 @@
 
 name: tests
 
+# ONE RUN PER REF (OA-232 Tier 2.3, the 2026-09-03 review's portal-ops W2).
+# None of the four workflows had a concurrency group, so a second push to a PR
+# left the first run going: two runs of the byte gates against the same branch,
+# competing for the same self-hosted-shaped work, and a stale run able to finish
+# AFTER the new one and be the last verdict a reader sees. `cancel-in-progress`
+# is safe for every job here because none of them writes anything outside its own
+# runner -- these are checks, not deploys.
+#
+# THE GROUP INCLUDES THE EVENT NAME (2026-09-04, OA-242), and that is
+# load-bearing rather than tidy. On `main` the events `push`, `schedule` and
+# `workflow_dispatch` all resolve `github.ref` to `refs/heads/main`, so without
+# the event name they share one group and a push CANCELS a scheduled run --
+# and `verify.yml` (daily) and `audit.yml` (Mondays) are scheduled precisely
+# because they can break with nobody touching this repository. A push must not
+# be able to cancel the run that carries a guarantee. The full reasoning is in
+# buses-data `.github/workflows/gates.yml`, whose group has had this form since
+# 2026-09-03; these four were written first and were never backported.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+
 on:
   push:
     branches: [main]
@@ -45,5 +67,167 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # FALSIFY THE RUNNER FIRST. `npm test` is no longer a chain of commands
+      # this file can read - it is one script that DISCOVERS the tests, so a bug
+      # in it does not make one test wrong, it makes the whole verdict wrong in
+      # the reassuring direction. Six cases on scratch repositories under the
+      # temp dir, plus two controls; ~3 s, no database, no fixture repository.
+      - name: prove the test runner can go red
+        run: npm run test:prove-red-run-tests
+
       - name: npm test
         run: npm test
+
+      # FILE HYGIENE — a byte-order mark, trailing whitespace, a missing final
+      # newline (buses-data OA-241). This repository was carrying 46 BOMs when the
+      # checker was first pointed at it, among them CLAUDE.md, README.md, twelve
+      # docs/*.md, twelve views/app/*.html and src/server.js. A BOM sits invisibly
+      # before the first character, so it breaks any edit matching the start of a
+      # file while appearing in no diff, no review and no test.
+      #
+      # THE CHECKOUT TAKES NO TOKEN, and that is the whole point of where the
+      # checker lives. It was written in buses-data, which is PRIVATE, so a step
+      # here would have needed CROSS_REPO_PAT2 — and hanging a hygiene check off
+      # that token is exactly what buses-data's own `docs` job was split out to
+      # avoid. Moved to claude-skills, which is public, this workflow stays in the
+      # secret-free tier it is already in. sparse-checkout because only `tools/`
+      # is wanted; claude-skills carries every generator and none of it is read.
+      - name: Checkout the hygiene checker from claude-skills
+        uses: actions/checkout@v7
+        with:
+          repository: PeterC66/claude-skills
+          path: claude-skills
+          sparse-checkout: tools
+
+      # Falsify it first — 24 cases, each exemption class broken in BOTH
+      # directions, because widening an exemption produces a false PASS rather
+      # than a false finding.
+      - name: prove the file-hygiene checker can go red
+        run: node claude-skills/tools/prove-red-file-hygiene.mjs
+
+      # NOT the mixed-line-ending half, which cannot fire here and is not meant
+      # to: actions/checkout builds a uniform tree by construction, so mixed EOL
+      # is a property of a WORKING TREE that only .githooks/pre-commit can ask
+      # about. This step is genuinely narrower than the checker it runs — do not
+      # remove the working-tree half on noticing CI never reports it.
+      #
+      # This repository declares no `.file-hygiene.json` and needs none: it has no
+      # generated corpus and no verbatim records, so the bare rules are right.
+      - name: files carry no BOM, no trailing whitespace, no missing newline
+        run: node claude-skills/tools/check-file-hygiene.mjs --root .
+
+  # NOTHING HAD EVER READ THIS REPOSITORY'S DOCUMENTS (buses-data OA-227,
+  # 2026-09-04). `check-tables.mjs` and `check-doc-links.mjs` were widened eight
+  # times between 2026-08-27 and 2026-09-02 and every widening was within one of
+  # the other two repositories: buses-data's own folders, then claude-skills
+  # (OA-222). This is the third document set of three -- the runbooks R1-R6,
+  # DEPLOY.md, DEVELOPING.md, H1-operations-handbook.md, PRODUCT.md and 96
+  # changelog fragments -- and it is the set a session reads BEFORE touching the
+  # live site.
+  #
+  # WHY IT RUNS HERE AND NOT IN BUSES-DATA, which is where the checkers live. A
+  # check belongs in the suite that fires when its SUBJECT changes -- the rule
+  # OA-218 settled for the falsification harnesses and OA-222 applied one
+  # repository along. Run only over there, a glued row committed here would land
+  # green here and redden buses-data's next unrelated run.
+  #
+  # IT DID NOT LAND RED, and that was measured rather than hoped for. Pointed at
+  # this tree, `check-doc-links.mjs` reported 49 findings; 30 were the checker's
+  # own and are fixed in it (a declaration form that read a location statement as
+  # an instruction, a leading-slash site path read as a dead file, and the
+  # assembled changelog fragments read from the wrong base). The remaining 19 were
+  # real and were fixed here first: two runbooks renamed to R3/R6 whose links were
+  # never repointed, two links to `CHANGELOG.md` which became a generated,
+  # gitignored page on 2026-09-03, three links into the private ops folder that
+  # resolve on one laptop and nowhere else, and eleven command blocks that never
+  # said which folder they run from.
+  #
+  # THE TOKEN IS GONE, and that was the whole of buses-data OA-246 (2026-09-04).
+  # Until that day the checkers lived in buses-data, which is PRIVATE, so this job
+  # checked that repository out with CROSS_REPO_PAT2 and would have died with the
+  # token on 22 November 2026. They moved into `claude-skills/tools/`, beside
+  # `check-file-hygiene.mjs`, which is public -- so the checkout below carries no
+  # secret and this job is now in the same secret-free tier as `test`.
+  #
+  # WHY IT IS STILL A JOB OF ITS OWN, which OA-246 predicted it would not be. The
+  # row expected these steps to fold into `test`, since `test` already checks
+  # `claude-skills` out for the hygiene checker. They cannot, and the reason is a
+  # property of this workflow rather than of the checkers: `test` checks THIS
+  # repository out at the workspace ROOT, so the sibling `claude-skills/` checkout
+  # lands INSIDE the tree. `check-file-hygiene.mjs` is unaffected because it asks
+  # git which files are tracked and the sibling is not; these two WALK THE DISK,
+  # so a `--tree .` there would read another repository's documents into this
+  # repository's totals. Folding them in would mean moving the portal checkout
+  # into a subdirectory, which every other step's paths depend on. A separate job
+  # costs nothing here -- Actions bills only PRIVATE repositories and this one is
+  # public -- and it keeps what a separate job is actually for: a failure in
+  # `test` cannot hide a documentation finding.
+  docs:
+    runs-on: ubuntu-latest
+    # These take about two seconds. Five minutes is a hang, and the gates job in
+    # buses-data explains at length why a job with no timeout is worse than one
+    # that fails.
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the portal (the documents under test)
+        uses: actions/checkout@v7
+        with:
+          path: community-bus-maps
+
+      # NO TOKEN, which is the point of the move. sparse-checkout because only
+      # `tools/` is wanted; claude-skills carries every generator and none of it
+      # is read here. The same checkout `test` above makes for the hygiene checker.
+      - name: Checkout the checkers from claude-skills
+        uses: actions/checkout@v7
+        with:
+          repository: PeterC66/claude-skills
+          path: claude-skills
+          sparse-checkout: tools
+
+      # Both checkers are dependency-free ESM reading only node:fs and node:path,
+      # so there is nothing to install. 24 to match the `test` job and the
+      # Dockerfile's base image.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # FALSIFY BOTH BEFORE TRUSTING EITHER. They are being pointed at a new
+      # corpus, which is exactly when a checker that has quietly stopped objecting
+      # looks identical to a clean tree. The link harness carries eight cases
+      # written for this widening, each of the four changes asserted in BOTH
+      # directions -- because a narrowed declaration form produces visible false
+      # findings while a widened one silences a C1 that should have fired.
+      - name: Prove the table checker can go red
+        working-directory: claude-skills
+        run: node tools/prove-red-tables.mjs
+
+      - name: Prove the link checker can go red
+        working-directory: claude-skills
+        run: node tools/prove-red-doc-links.mjs
+
+      # --tree, not --root: --root is flat by contract (prove-red-tables.mjs
+      # drives it and asserts an exact row count), and this repository nests its
+      # documents under docs/, docs/_archive/ and engine/.
+      - name: Tables are still tables
+        working-directory: community-bus-maps
+        run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-tables.mjs" --tree .
+
+      # NO FLAG AT ALL SINCE OA-246. This checker resolves its corpus from the
+      # repository it is RUN FROM -- `working-directory` above -- and reads that
+      # repository's `.doc-links.json`, which is where this one declares that
+      # `CHANGELOG.d/` renders from the repository root. Declaring no `dirs` means
+      # the widest scope, its whole tree, which is exactly what `--root .` gave it
+      # before the move: 128 documents plus 4 archived, measured identical on the
+      # day rather than assumed from a green run.
+      - name: Links, anchors, section citations and documented commands
+        working-directory: community-bus-maps
+        run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-links.mjs"
+
+      # `check-doc-coverage.mjs` deliberately does NOT run here, and that was
+      # measured rather than assumed. It asks whether every working document is
+      # still reachable from a live action, and its seeds are buses-data's
+      # `open-actions/OA-*.md` -- a backlog graph this repository does not have.
+      # Asked by hand of all 19 `docs/*.md` on 2026-09-04, every one is named by
+      # another document, and there is no "a document leaves docs/ when..." rule
+      # here for the check to enforce. A check with no rule behind it is one that
+      # cannot go red. Revisit if this repository grows a plans folder.

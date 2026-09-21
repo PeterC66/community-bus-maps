@@ -1,0 +1,239 @@
+#!/usr/bin/env node
+// prove-red-directory.mjs — falsify test-directory.mjs (buses-data OA-308 tier 2).
+//
+//   node scripts/prove-red-directory.mjs     (or: npm run test:prove-red-directory)
+//
+// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags and
+// no placeholders.
+//
+// A test written the same hour as its subject and green on its first run has
+// been seen to do nothing at all. Each arm below breaks ONE thing the directory
+// panel promises a reader and requires the named check to go red; the control
+// requires the unmutated copy to stay green, and it is the arm that has caught a
+// harness bug before anywhere else could.
+//
+//   0  control — an untouched copy of the tree                -> exit 0
+//   1  an `unknown` status put back into a row                -> the shape check
+//   2  the "Not ours" badge and the "Published by …" label
+//        taken off the card                                   -> the three promises
+//   3  substring matching switched on in the matcher          -> "ton" hits
+//   4  rows that publish nothing filtered out of the results  -> an absence is a result
+//   5  the checked date taken from the clock instead of the
+//        data — the clock-dependent-artefact shape            -> the date check
+//
+// IT MUTATES A COPY AND NEVER THE REPOSITORY: each arm copies src/, public/ and
+// scripts/ into a scratch tree, edits the copy, and runs the test from there.
+// The test resolves the vendored file from its own module path, so a copy is a
+// complete and isolated subject — no node_modules, no database, no network.
+
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+let failures = 0;
+const fail = (m) => { console.error(`  ✗ ${m}`); failures++; };
+const ok = (m) => console.log(`  ✓ ${m}`);
+const scratches = [];
+
+/** A throwaway copy of everything the test touches. */
+function makeCopy() {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cbm-prove-directory-'));
+  scratches.push(dir);
+  for (const sub of ['src', 'scripts', path.join('public', 'js'), path.join('public', 'data')]) {
+    cpSync(path.join(ROOT, sub), path.join(dir, sub), { recursive: true });
+  }
+  // public/contact.html joined the copy on 2026-09-16 (OA-380 (c)): the test now
+  // checks that the "ask for one" link names a `kind` the form really offers, so
+  // the form is part of its subject and arm 18 mutates it.
+  cpSync(path.join(ROOT, 'public', 'contact.html'), path.join(dir, 'public', 'contact.html'));
+  return dir;
+}
+
+function runIn(dir) {
+  const res = spawnSync(process.execPath, [path.join(dir, 'scripts', 'test-directory.mjs')],
+    { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return { out: (res.stdout || '') + (res.stderr || ''), code: res.status };
+}
+const reds = (out) => out.split('\n').filter((l) => l.includes('✗')).map((l) => l.trim());
+
+/** Rewrite one file in the copy. `edit` gets the text and returns the new text. */
+function patch(dir, rel, edit) {
+  const p = path.join(dir, rel);
+  const before = readFileSync(p, 'utf8');
+  const after = edit(before);
+  if (after === before) {
+    fail(`the patch to ${rel} changed nothing — this harness is testing the wrong text`);
+    return false;
+  }
+  writeFileSync(p, after);
+  return true;
+}
+
+/** An arm: mutate, run, and require a check whose line contains `phrase` to be red. */
+function arm(title, mutate, wants) {
+  console.log(`\n${title}`);
+  const dir = makeCopy();
+  if (!mutate(dir)) return;
+  const { out, code } = runIn(dir);
+  if (code === 0) {
+    fail('exit 0 — the break was not noticed, so that check proves nothing');
+    return;
+  }
+  ok(`exit ${code}`);
+  const r = reds(out);
+  for (const [phrase, what] of wants) {
+    if (r.some((l) => l.includes(phrase))) ok(`${what} went red`);
+    else fail(`${what} stayed green ("${phrase}") — it does not check what its name says\n      red lines were: ${r.join(' | ') || '(none)'}`);
+  }
+}
+
+console.log('\n0  the control — an untouched copy');
+{
+  const dir = makeCopy();
+  const { out, code } = runIn(dir);
+  if (code !== 0) fail(`the shipped test exits ${code} on a clean copy; nothing below can be trusted:\n${reds(out).join('\n')}`);
+  else ok('exit 0');
+}
+
+arm('1  an `unknown` status put back into one row',
+  (dir) => patch(dir, path.join('public', 'data', 'bus-map-directory.json'), (s) => {
+    const doc = JSON.parse(s);
+    doc.rows[0].networkMap.status = 'unknown';
+    return JSON.stringify(doc, null, 2) + '\n';
+  }),
+  [['no row still says unknown', 'the shape check']]);
+
+arm('2  the "Not ours" badge and the "Published by …" label taken off the card',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('<span class="badge notours">Not ours</span> ', '')
+    .replace('Published by ${esc(d.authority)}, last checked on ${esc(whenGB(d.checked))}', 'Updated recently')),
+  [
+    ['carries the "Not ours" badge', 'the badge check'],
+    ['last checked on', 'the "Published by …, last checked on …" check'],
+  ]);
+
+arm('3  substring matching switched on in the matcher',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace('  if (norm.startsWith(qn)) return 2;\n  return -1;', '  if (norm.startsWith(qn)) return 2;\n  if (norm.includes(qn)) return 3;\n  return -1;')),
+  [['a bare substring of a name does not match', 'the substring check']]);
+
+// The mutation appends a filter after the .map(...) that builds the results. It
+// is anchored on the CLOSING line of that map rather than on the whole call,
+// because OA-308 tier 3 added a `matched` field inside it and this arm went
+// "changed nothing" the moment it did — which is the harness's own guard working
+// and worth leaving anchored somewhere that will not move again for a field.
+arm('4  rows that publish nothing filtered out of the results',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    // Re-anchored on 2026-09-16 when the authority branch moved two spaces right
+    // to sit inside `if (best.size)` (buses-data OA-312) — the "changed nothing"
+    // guard caught it, as it did for the `matched` field before.
+    .replace('        matched: { kind: term.kind, text: term.text },\n      }));',
+      '        matched: { kind: term.kind, text: term.text },\n      }))\n      .filter((r) => r.offer.status !== \'none\');')),
+  [['still RETURNED by a search', 'the absence-is-a-result check']]);
+
+arm('4b  a survey note copied into the public vendored file',
+  (dir) => patch(dir, path.join('public', 'data', 'bus-map-directory.json'), (s) => {
+    const doc = JSON.parse(s);
+    doc.rows[0].networkMap.note = 'Their website is a mess and the map is four years old.';
+    return JSON.stringify(doc, null, 2) + '\n';
+  }),
+  [['no survey note reached this public repository', 'the projection check']]);
+
+arm('5a  covers[] ignored, so an area inside a differently-named authority matches nothing',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace("    for (const area of row.covers || []) add(area, 'area');\n", '')),
+  [
+    ['"Derbyshire" reaches the East Midlands Combined Authority', 'the covers check'],
+    ['"Allerdale" reaches Cumberland', 'the abolished-district check'],
+  ]);
+
+arm('5b  the "But: somebody else publishes one" block dropped from the card',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('        ${also}\n', '')),
+  [['does NOT leave a York reader with "no bus map"', 'the York check']]);
+
+arm('6  the checked date taken from the clock instead of the data',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace('checked: row.checked || \'\',', 'checked: new Date().toISOString().slice(0, 10),')),
+  [["the date rendered is the row's own, not today's", 'the clock-independence check']]);
+
+// buses-data OA-312 round 1 — the place stage. Each arm breaks one of the four
+// rules in src/search/places.js's header, or the order of the two stages.
+arm('7  the place stage removed — every village is an honest miss again',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace('const found = places ? resolvePlace(q, places) : resolvePlace(q);', "const found = { kind: 'none' };")),
+  [['"Harrogate" resolves', 'the Harrogate check'], ['"Lancaster" — a shire district', 'the Lancaster check']]);
+
+arm('8  guessing switched on — a name nobody holds is handed the first directory row',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace("if (found.kind === 'none') return { rows: [], place: { kind: 'none', source } };",
+      "if (found.kind === 'none') return { rows: [{ offer: offerOf(allRows[0]), reason: 'nearest', matched: { kind: 'place', text: q } }], place: null };")),
+  [['a name in neither the directory nor the Index is a MISS, not a guess', 'the no-guessing check']]);
+
+arm('9  Scotland and Wales resolved as if they were English districts',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace("if (first.country !== 'England') {", 'if (false) {')),
+  [['"Kirkwall" is placed in Scotland and resolved to NO authority', 'the England-only check']]);
+
+arm('10 the prefix cap removed — "Whit" returns hundreds of places',
+  (dir) => patch(dir, path.join('src', 'search', 'places.js'), (s) => s
+    .replace("  if (near.length > PREFIX_MAX_HITS) return { kind: 'short', count: near.length };\n", '')),
+  [['"Whit" is too short to place', 'the prefix-cap check']]);
+
+arm('11 the place stage pre-empting the authority stage whenever the Index knows the name',
+  (dir) => patch(dir, path.join('src', 'search', 'directory.js'), (s) => s
+    .replace('  if (best.size) {', "  if (best.size && resolvePlace(q).kind !== 'found') {")),
+  [['CONTROL — "Cambridge" is still answered by covers[]', 'the stage-order control']]);
+
+arm('12 the honest-miss sentence reworded',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('and nothing in it matches <strong>', 'and there is no match for <strong>')),
+  [['the panel says so in the words it always used', 'the word-for-word check']]);
+
+arm('13 the "other places called X" links dropped',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('      ${ask}\n      ${others}\n', '      ${ask}\n')),
+  [['lists the other Burfords as links', 'the decision-5 check']]);
+
+// buses-data OA-380 — the five things Peter found reading the live page. Each
+// arm puts the page back the way it was on the morning of 2026-09-16.
+arm('14 the new tab taken off the links that leave this site',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace(' target="_blank" rel="nofollow noopener"', ' rel="nofollow noopener"')),
+  [['an external link opens in a new tab', 'the new-tab check']]);
+
+arm('15 the link labelled "Open their map" again, which it usually cannot deliver',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace("ext(d.url, 'Open their map page')", "ext(d.url, 'Open their map')")),
+  [['labelled as the PAGE', 'the honest-label check']]);
+
+arm('16 the word "yet" taken out of the directory branch',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace('covers <strong>${esc(q)}</strong> yet — but somebody else', 'covers <strong>${esc(q)}</strong> — but somebody else')),
+  [['both branches say "yet"', 'the "yet" check']]);
+
+arm('17 the "ask for one" door pointed back at the organisation form',
+  (dir) => patch(dir, path.join('public', 'js', 'shared', 'map-card.mjs'), (s) => s
+    .replace(/export function askForOneHref\(place\) \{[\s\S]*?\n\}/, 'export function askForOneHref() {\n  return \'/apply.html\';\n}')),
+  [
+    ['the first door is one a resident can walk through', 'the resident-door check'],
+    ['it goes to the contact form, not the organisation form', 'the join check'],
+  ]);
+
+arm('18 the form stops offering the kind the link names',
+  (dir) => patch(dir, path.join('public', 'contact.html'), (s) => s
+    .replace('<option value="map-request">Ask for a map of my area</option>\n            ', '')),
+  [['the form offers that kind as an option', 'the option check']]);
+
+arm('19 the server stops accepting that kind, so the ask is filed as an enquiry',
+  (dir) => patch(dir, path.join('src', 'http', 'helpers.js'), (s) => s
+    .replace("'feedback', 'map-request', 'issue'", "'feedback', 'issue'")),
+  [['the server accepts it rather than filing it', 'the whitelist check']]);
+
+for (const dir of scratches) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* windows file locks */ } }
+
+console.log(failures ? `\n✗ ${failures} falsification(s) failed` : '\n✓ every arm went red on purpose, and the control stayed green');
+process.exit(failures ? 1 : 0);

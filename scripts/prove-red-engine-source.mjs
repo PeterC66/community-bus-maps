@@ -117,13 +117,23 @@ const MUTATIONS = [
     to: '    if (false) generators[as] = rel;',
     expect: 'importing a generator-free area payload records the external generator it staged',
   },
+  // REPLACED 2026-09-02, and the reason matters more than the replacement. This was
+  // 'the importer records the style it was NOT asked for' -- it hardcoded `rel` to
+  // the radial file and expected '--external-style busway is recorded as busway'.
+  // With one area external template that mutation became an EQUIVALENT MUTANT: the
+  // hardcoded value is the only value, so the mutated importer computes the same
+  // answer and nothing can go red. A mutation with nothing to break is not evidence
+  // of coverage, it is a suite quietly agreeing with itself. What replaces it is the
+  // property that IS now load-bearing -- that the flag is refused rather than read as
+  // the default -- because that refusal is all that stands between a runbook still
+  // saying `--external-style busway` and a pack imported under the wrong intention.
   {
-    what: 'the importer records the style it was NOT asked for',
-    why: 'a field that is always radial is decorative on a board where every town is radial',
+    what: 'the importer accepts --external-style busway again and quietly stages the radial generator',
+    why: 'the flag is kept ONLY to refuse it by name; an accepted busway flag imports a radial pack under a busway intention',
     file: 'scripts/import-map.mjs',
-    find: "    const rel = path.relative(ENGINE_ROOT, from).split(path.sep).join('/');",
-    to: "    const rel = 'area/gen_external_radial.js';",
-    expect: '--external-style busway is recorded as busway, not as the default',
+    find: "if (STYLE_ARG != null && STYLE_ARG !== 'radial') {",
+    to: "if (false) {",
+    expect: '--external-style busway is REFUSED, not quietly treated as radial',
   },
   {
     what: 'the importer declares a pack that brought its OWN generator',

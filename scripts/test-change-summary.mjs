@@ -88,6 +88,56 @@ console.log('\nan overrides-only change still behaves exactly as before');
   eq('the hidden landmark is listed', s.poisHidden, ['library']);
 }
 
+console.log('\nlandmark answers reach the reviewer (OA-212)');
+{
+  // THE REGRESSION THIS BLOCK EXISTS FOR. The landmark chooser gave a customer
+  // two new powers - decide whether a place is selected at all, and rename it -
+  // and neither reached changeSummary() when it shipped. A version that dropped
+  // one landmark, promoted another and renamed a third reported unchanged:true,
+  // so the review screen told an approver there was nothing to look at, while
+  // "README - How to publish a map to the portal.md" promised that what it shows
+  // is not a summary of the changes but ALL of them.
+  const to = { internal: { poiTiers: {
+    'shop:Aldi': { tier: 'miss' },
+    'school:X': { tier: 'must' },
+    'park:Y': { tier: 'may', as: 'The Rec' },
+  } } };
+  const s = changeSummary(to, {}, opts());
+  check('a version carrying only tier answers is NOT unchanged', s.unchanged === false);
+  check('and its overrides are not unchanged either', s.overridesUnchanged === false);
+  eq('a drop and a promotion are both listed', s.landmarks.map((c) => c.key), ['school:X', 'shop:Aldi']);
+  // The reviewer is shown words, never the engine's must/may/miss.
+  eq('in the reviewer own words', s.landmarks.find((c) => c.key === 'shop:Aldi').to, 'do not show');
+  eq('with what it moved FROM', s.landmarks.find((c) => c.key === 'shop:Aldi').from, 'show if there is room');
+  eq('a rename is reported separately', s.renames.map((r) => r.key), ['park:Y']);
+  eq('naming the new name', s.renames[0].to, 'The Rec');
+
+  // A rename WITHOUT a tier change must still be reported: it alters what the
+  // sheet says rather than what it contains, and folding the two together is
+  // exactly how a rename would have gone unseen.
+  const renameOnly = changeSummary({ internal: { poiTiers: { 'park:Y': { tier: 'may', as: 'The Rec' } } } }, {}, opts());
+  check('a rename alone is a change', renameOnly.unchanged === false);
+  eq('and no tier move is claimed', renameOnly.landmarks, []);
+
+  // The control: a version compared with itself is clean. Without it, "not
+  // unchanged" could be satisfied by a diff that always reports something.
+  const same = changeSummary(to, to, opts());
+  check('a version against itself is unchanged', same.unchanged === true);
+
+  // Undoing a classification is a change too, and reads the other way round.
+  const undone = changeSummary({}, to, opts());
+  eq('reverting reports the reverse move', undone.landmarks.find((c) => c.key === 'shop:Aldi').to, 'show if there is room');
+  eq('and the rename being taken off', undone.renames[0].to, null);
+
+  // The older render-time hide still works and is still reported on its own,
+  // because a hide and a tier say different things to a reviewer.
+  const both = changeSummary(
+    { internal: { pois: { library: { hide: true } }, poiTiers: { 'shop:Aldi': { tier: 'miss' } } } }, {}, opts(),
+  );
+  eq('a hide is still listed as a hide', both.poisHidden, ['library']);
+  eq('and the tier beside it as a tier', both.landmarks.map((c) => c.key), ['shop:Aldi']);
+}
+
 console.log('\nmultiple accepted refreshes since the published version');
 {
   const second = { ...realRefresh, version: 'v3.0', summary: { ...realRefresh.summary, routesAdded: ['46'] } };

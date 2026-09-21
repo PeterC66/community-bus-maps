@@ -1,10 +1,11 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Take this on — BusMaps.uk</title>
   <meta name="description" content="A working bus-mapping system looking for someone to run it as a Community Interest Company: what the asset is, why a CIC, who would suit it, and what is not yet resolved.">
+  <link rel="canonical" href="https://busmaps.uk/opportunity.html">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
@@ -37,10 +38,11 @@
       <div class="card" style="max-width:760px">
         <h3 class="mt-0">Co-founder opportunity — transit mapping CIC</h3>
         <p>We have built a system that produces clear, accurate bus maps for a town or a single
-          place, for print and for the web, at a small fraction of what a design agency charges —
-          and, more to the point, keeps them right as services change. That combination is what is
-          missing: most small towns have no single sheet showing every operator's buses, and the few
-          that do have one that is out of date.</p>
+          place, for print and for the web — and, more to the point, keeps them right as services
+          change. A design agency can draw the first edition for a few hundred pounds; what it
+          charges by the hour for every edition after is the thing this takes out. That second half
+          is what is missing: most small towns have no single map showing every operator's buses,
+          and the few that do have one that is out of date.</p>
         <p>We are looking for an entrepreneurial individual or a small team to take it on and run it
           as a standalone <strong>Community Interest Company</strong>.</p>
         <p>What comes with it: the whole working system, source-available and converting to fully
@@ -56,6 +58,15 @@
           retainer arguable in a way it was not; and the Bus Services Act 2025 brought franchising
           within reach of every authority and let councils run buses again, which sharpens the case
           for independent operators to look professional.</p>
+        <p><strong>Why now.</strong> Two statutory deliverables fall due for all 79 English local
+          transport authorities on the same day, <strong>31 March 2027</strong>: each must have
+          consulted on and published its first bus network accessibility plan, which assesses bus
+          stop infrastructure and explicitly includes rural stops; and every Enhanced Partnership
+          plan must be updated to reflect the new measures. Separately, the Enhanced Partnership
+          statutory guidance republished on 1 April 2026 lets a scheme require <em>a single set of
+          multi-operator information available across all operators</em>. One clear map showing
+          every operator's buses for a place is among the few things that answers both — and
+          nothing in national policy says whose job it is to make them.</p>
         <p style="margin-bottom:0">Interested in closing the transport-information gap?
           <strong><a href="mailto:info@busmaps.uk">info@busmaps.uk</a></strong>.</p>
       </div>
@@ -69,11 +80,12 @@
         <div class="card">
           <div class="ico">🗺️</div>
           <h3>A working engine</h3>
-          <p><strong>Seven towns and five places</strong> have been built with it, from a small
-            market town to High Wycombe, with an eighth town drafted and going through verification
-            before it joins them. It is deterministic: the same data always produces the same
-            sheet, byte for byte, with no network and no AI at drawing time — which is what makes a
-            print file reproducible a year later.</p>
+          <p><strong>Eight towns and twelve individual places</strong> have been built with it,
+            from a small market town to High Wycombe — twenty maps, of which eighteen are
+            <a href="/maps">published on this site</a>; the other two are boarding plans for a
+            single stop, which we build to order rather than publish. It is deterministic: the same
+            data always produces the same map, byte for byte, with no network and no AI at
+            drawing time — which is what makes a print file reproducible a year later.</p>
         </div>
         <div class="card">
           <div class="ico">🚦</div>
@@ -90,7 +102,7 @@
           <p>Self-serve editing inside a safe subset, <strong>three approval gates</strong>
             (organisation, map request, publication review) and a monthly maintenance cycle where
             the customer sees the change, previews it and accepts it. The recurring half is the
-            product; the one-off sheet is what everyone else sells.</p>
+            product; the one-off map is what everyone else sells.</p>
         </div>
         <div class="card">
           <div class="ico">📖</div>
@@ -113,7 +125,7 @@
           <div class="ico">📶</div>
           <h3>Built on open data</h3>
           <p>Bus services from the UK Bus Open Data Service (Open Government Licence); streets and
-            landmarks from OpenStreetMap (ODbL, attributed on every sheet). No licensed dataset to
+            landmarks from OpenStreetMap (ODbL, attributed on every map). No licensed dataset to
             re-negotiate, and no supplier who can switch the input off.</p>
         </div>
       </div>
@@ -186,6 +198,29 @@
           organisation and map on this site is our own, labelled as such. What is proven is that the
           thing works and can be run; what is not proven is that anyone will pay for it.</p>
       </div>
+      <div class="card" id="who-else" style="max-width:760px; margin-top:16px">
+        <h3 class="mt-0">Who else does this</h3>
+        <p>There is a trade that draws bus maps, and it is good at it. Cartography firms draw
+          whole-network maps by hand for transport authorities, in programmes whose contract
+          ceilings run from about £50,000 to £100,000: West Yorkshire's bus-map tool in 2017 was
+          £52,000, West Northamptonshire's customer-information programme in 2024 was £70,000, and
+          Transport for Wales's schematic maps in 2026 were £79,680, all on the public record. Inside
+          the West Northamptonshire programme the supplier's own itemised estimate prices a schematic
+          map of a market town at <strong>£970</strong>, and updating at £6,600 for two weeks of
+          work, about £88 an hour. So the map is not expensive; keeping it right is. Nobody in
+          that trade generates the map from the open-data feed, and nobody sells to a parish or a
+          bus users' group: the customer is the authority and the product is an edition. Closer to
+          home, the Cambridgeshire &amp; Peterborough Combined Authority commissioned a hand-drawn
+          whole-network poster in early 2025, on which each town is a node. A pitch to an authority
+          has to say what a town map adds to the map it already paid for.</p>
+        <p class="small muted" style="margin:0">Sources:
+          <a href="https://www.contractsfinder.service.gov.uk/Notice/3f8c057c-512a-4a19-83db-1d6a2d9b5589" target="_blank" rel="noopener">West Yorkshire Combined Authority, Bus Map Tool, Contracts Finder, 2017</a>;
+          <a href="https://www.contractsfinder.service.gov.uk/Notice/de4372c2-4fa6-4bae-a06e-176c0e1d8586" target="_blank" rel="noopener">West Northamptonshire Council, improvements to customer information, Contracts Finder, 2024</a>
+          (the itemised estimate is the notice's attachment);
+          <a href="https://www.find-tender.service.gov.uk/Notice/014576-2026" target="_blank" rel="noopener">Transport for Wales, Welsh Bus Network Plan schematic maps, Find a Tender, 2026</a>;
+          <a href="https://humantransit.org/2025/06/bus-service-in-england-the-need-for-clearer-maps.html" target="_blank" rel="noopener">Human Transit, June 2025</a>
+          for the county poster. All open in a new tab.</p>
+      </div>
     </div></section>
 
     <section class="alt"><div class="container">
@@ -212,7 +247,7 @@
       Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a>, stop and stand data via <a href="https://www.gov.uk/government/publications/national-public-transport-access-node-schema">NaPTAN</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>). Always check live times with the operator or at bustimes.org.
     </div>
     <div>
-      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a> · <a href="/changelog.html">What's new</a><br>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/background.html">Background</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a> · <a href="/changelog.html">What's new</a><br>
       <span class="muted">© BusMaps.uk</span>
     </div>
   </div></div></footer>

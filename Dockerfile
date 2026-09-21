@@ -17,7 +17,7 @@
 # guarantee. That reasoning does not survive contact with a real customer: a
 # re-baseline is a normal, announced, recoverable event, and an unpatched image
 # parser in production is not. If a rasteriser upgrade moves the bytes, take the
-# upgrade, re-baseline, and say so in CHANGELOG.md.
+# upgrade, re-baseline, and say so in a CHANGELOG.d/ fragment.
 #
 # What that looks like in practice, in order:
 #   1. bump sharp; `npm run verify` (SVG gates — unaffected by the rasteriser,
@@ -56,7 +56,7 @@
 # TO BUMP: take the new digest from Dependabot's PR (.github/dependabot.yml has
 # a `docker` ecosystem entry for exactly this, monthly), or by hand with
 #   docker buildx imagetools inspect node:24-slim
-# run from anywhere. Record the new digest in CHANGELOG.md on each bump, and
+# run from anywhere. Record the new digest in a CHANGELOG.d/ fragment on each bump, and
 # re-run `npm run verify` before deploying -- a base-image change is a
 # rasteriser change until proved otherwise.
 FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
@@ -127,7 +127,13 @@ COPY public ./public
 # 404s while the public site looks fine.
 COPY views ./views
 COPY scripts ./scripts
-COPY LICENSE NOTICE README.md CHANGELOG.md ./
+# CHANGELOG.md is NOT here: it is generated from CHANGELOG.head.md plus
+# CHANGELOG.d/ and is gitignored (2026-09-03), so a fresh clone does not have
+# one and a COPY naming it would fail the build on any machine that had not
+# run `npm run changelog` first. The admin /changelog route builds its list
+# from the fragments below on every request instead.
+COPY LICENSE NOTICE README.md CHANGELOG.head.md ./
+COPY CHANGELOG.d ./CHANGELOG.d
 COPY docs ./docs
 
 # The object store + SQLite live in the volume, never in the image.

@@ -1,4 +1,4 @@
-﻿// BusMaps.uk — portal server.
+// BusMaps.uk — portal server.
 //   P0: public shopfront (apply / contact / health).
 //   P1: safe-subset editor (object store, versioned save→render→download).
 //   P2: passwordless auth, multi-customer tenant isolation, per-map output toggles.
@@ -17,144 +17,51 @@
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import crypto from 'node:crypto';
-import path from 'node:path';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
-import { fileURLToPath } from 'node:url';
-import {
-  insertApplication, insertMessage, counts, authCounts, listMaps, getMap, getMapBySlug, insertMap, nextVersion, insertVersion, setCurrentVersion, listVersions, dataChangesSince, setMapOutputs, setMapStatus, listMapsByStatus, listAwaitingBuild, quotaUsage, getCustomer, purgeExpiredSessions, listPublishedHistory, listPublishedMaps, listApplications, getApplication, setApplicationReviewed, listMessages, getMessage, setMessageStatus, insertCustomer, insertUser, getUserByEmail, getUser, listUsersAdmin, updateUserAdmin, listCustomersAdmin, updateCustomerAdmin, adminSummary, getVersionById, setVersionState, setPublishedVersion, insertPublishRequest, getOpenRequestForMap, getPublishRequest, listPendingPublishRequests, decidePublishRequest, withdrawPublishRequest, listPublishRequestsForMap, listAudit, nextMajorVersion, getOpenProposedForMap, getProposedUpdate, decideProposedUpdate, listProposedForMap, listPendingProposedUpdates, listPublicMaps, getPublicMapBySlug, listPublicOrgs, getCustomerBySlug, setCustomerBranding, setMapPublicListed, publicCounts, setMapBannerNote, clearMapBannerNote, getVersion, listSessions, deleteSession, deleteSessionByHash, deleteSessionsForUser, setMapCustomer, purgeExpiredPersonalData, retentionDue, peekMagicLink,
-} from './db/index.js';
-import { buildWorklist } from './worklist/index.js';
+import { counts, authCounts, getMap, nextVersion, insertVersion, setCurrentVersion, setMapOutputs, quotaUsage, getCustomer, purgeExpiredSessions, updateCustomerAdmin, getOpenRequestForMap, listPublicMaps, setCustomerBranding, publicCounts, deleteSession, purgeExpiredPersonalData, peekMagicLink } from './db/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
-import {
-  publicMap, publicMaps, publicOrg, publicOutputs, mapPageUrl, orgPageUrl, webPreviewPath, PUBLIC_BASES,
-} from './public/index.js';
-import { factsForPublicMap, publicServices, servicesPageUrl } from './public/services.js';
-import { setInner, setAttr, setClass, removeBooleanAttr } from './public/shell.js';
-// The two public pages' markup, shared with the browser rather than written
-// twice (technical-audit_2026-08-25 N1). These live under public/ because they
-// are ALSO served to browsers as static assets; importing them from here is what
-// keeps the server's HTML and the client's HTML the same HTML.
-import { grid } from '../public/js/shared/map-card.mjs';
-import { servicesView } from '../public/js/shared/services-view.mjs';
-import { readFactsSnapshot, buildFacts } from './maps/facts.js';
-import { inlineSvg } from './public/inlineSvg.js';
-import {
-  readRoutesMeta, readRoutesMetaFromDir, enumeratePois, enumeratePoisFromDir,
-  readOverrides, preview, previewFrom, renderVersion, outputsForClient, chooseOutputs,
-  swapInProposedData, carryExpertTuning, effectiveOutputs, outputsNeedingRender,
-} from './maps/engine.js';
-import { sanitizeOverrides, BOARDING_CONFLICT } from './maps/safeSubset.js';
-import { versionDir, mapDataDir, proposedDataDir, readBuildWarnings, OUTPUT_FILES, OUTPUTS } from './maps/store.js';
-import { ensureWatermarked } from './render/watermark.js';
-import { ensureDraftMarked, draftLabel } from './render/draftStamp.js';
-import {
-  diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes,
-} from './expert/index.js';
-import { readiness, metricsText, opsSnapshot } from './ops/index.js';
-import {
-  requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie, sessionHandle, handleFromHash, sessionTokenHash, stepUpFresh, STEP_UP_MINUTES, SESSION_DAYS,
-  COOKIE_NAME, CSRF_COOKIE, CSRF_HEADER, newCsrfToken, csrfCookie, csrfOk, sameSiteRequest, parseCookies,
-} from './auth/index.js';
-import { CHECKLIST, CHECKLIST_VERSION, validateChecklist, changeSummary, chooseRevertTarget } from './publish/index.js';
+import { publicMaps, orgPageUrl } from './public/index.js';
+import { escapeHtml } from './html.js';   // the ONE server-side HTML escaper (OA-232 Tier 2.1)
+import { poiGlyphs, readOverrides, preview, renderVersion, outputsForClient } from './maps/engine.js';
+import { isSampleCustomer } from './render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
+import { mapDataDir } from './maps/store.js';
+import { diagramAvailable, readPins, writePins, clearPins, previewDiagram, dropSandbox, pinNotes } from './expert/index.js';
+import { readiness, metricsText } from './ops/index.js';
+import { requestMagicLink, verifyMagicLink, resolveUser, logout, sessionCookie, clearCookie, stepUpFresh, STEP_UP_MINUTES, COOKIE_NAME, CSRF_COOKIE, newCsrfToken, csrfCookie, csrfOk, sameSiteRequest, parseCookies } from './auth/index.js';
 import { logAudit } from './audit/index.js';
-import { writePlacesSidecar } from './search/place-index.js';
-import { searchPlaces, bumpSearchIndex } from './search/index.js';
-import { PILOT, INDEXING, ENVIRONMENT } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md; INDEXING and ENVIRONMENT stay
-import { robotsTxt } from './public/robots.js';
+import { PILOT, listenOn, noListen, statusToken } from './config.js'; // PILOT: remove PILOT with docs/PILOT.md. INDEXING and ENVIRONMENT moved with the public front to src/routes/public.js
+import { loggableReq } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
+import { errorEnvelope, notFoundEnvelope, wantsJson } from './http/errors.js';
+import { str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited } from './http/helpers.js';
+import { withMapLock, downloadsForVersion } from './maps/detail.js';
+import adminRoutes from './routes/admin.js';
+import adviserRoutes from './routes/adviser.js';
+import reviewRoutes from './routes/review.js';
+import proposedRoutes from './routes/proposed.js';
+import editorRoutes from './routes/editor.js';
+import pageRoutes from './routes/pages.js';
+import publicRoutes from './routes/public.js';
+// The repository, public-asset and view roots (OA-231): a route file may not
+// reach into server.js, so they live in a module with no side effects.
+import { PUBLIC_DIR } from './paths.js';
+import { TRUST_PROXY } from './http/trustProxy.js';
 import { sendMagicLink } from './email/index.js';
 import { signInSendable } from './email/health.js';
-import { notify, appUrl } from './email/notify.js';
+import { notFoundPage } from './public/notFound.js';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT_DIR = path.resolve(HERE, '..');
-const PUBLIC_DIR = path.resolve(HERE, '../public');
-// The signed-in app's HTML shells. OUTSIDE public/ on purpose
-// (technical-audit_2026-08-19 S7): @fastify/static serves the whole of
-// PUBLIC_DIR, so while these lived at public/app/*.html the guarded route
-// `/app/admin` correctly 302'd an anonymous visitor to the login page and
-// `/app/admin.html` handed the same file to anybody who asked. No data leaked —
-// every API behind those shells returns 401, checked at the time across
-// /api/maps, /api/me, /api/admin/* and /api/review/pending — but a role check on
-// the pretty URL that reads like an access control and is not one is exactly the
-// thing a reviewer tests. Now the only way to a shell is through its route.
-//
-// The app's .js and .css stay under public/app/ and stay public: the browser has
-// to be able to fetch them, they are the same code every signed-in user runs,
-// and nothing in them is a secret. It is the shells that carried the false
-// promise, not the assets.
-const VIEWS_DIR = path.resolve(HERE, '../views');
-const PORT = Number(process.env.PORT || 5180);
-const HOST = process.env.HOST || '127.0.0.1';
+const { port: PORT, host: HOST } = listenOn();
 const VERSION = APP_VERSION; // GO-LIVE.md §5: package.json is the one source of truth
 
-// The five pain-point classes the shopfront is organised around, plus 'other'.
-// The trailing seven are the original organisation-type values: no longer offered
-// on the form, still accepted so that stored applications and seeded demo rows
-// keep validating (customer.type is copied straight from here on approval).
-const ORG_TYPES = [
-  'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
-  'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
-];
-// What the PUBLIC contact form may set. 'diagram-request' is a fourth kind in the
-// message table, but only the server writes it (see /api/maps/:id/diagram-request),
-// so it is deliberately not in this list.
-const MSG_KINDS = ['enquiry', 'question', 'feedback', 'issue'];
-// The admin-settable states for a message (schema default is 'new' on insert).
-const MSG_STATUSES = ['new', 'read', 'answered'];
-const MAP_KINDS = ['area', 'place'];
-// In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
-// so the whole apply→approve→sign-in loop is demoable without a mailbox.
-const DEV_LINKS = !process.env.EMAIL_PROVIDER;
-
-const str = (v, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-const isEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
-const isHttps = (req) => req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
-const parseOutputs = (json) => { try { return JSON.parse(json || '{}') || {}; } catch { return {}; } };
-const slugify = (s) => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-// THE ABSOLUTE BASE FOR EVERY LINK THIS SERVER BUILDS.
-//
-// Configured first, request header only as a fallback. It used to be the other
-// way round for the auth links, and the difference is an account-takeover class
-// (technical-audit_2026-08-25 N5): `req.headers.host` is a value the CALLER
-// chooses. A request to POST /api/auth/request carrying `Host: attacker.example`
-// produced a genuine, valid sign-in email whose link handed the single-use token
-// to the attacker's server — the victim clicks a real link from a real address
-// and is phished with this system's own credential.
-//
-// It did not land in production, and it is worth being precise about WHY,
-// because the reason was not the application: Caddy's site block matches only
-// busmaps.uk and www.busmaps.uk, so a spoofed Host never reached this process at
-// all (verified — `curl -H 'Host: evil.example.com' https://busmaps.uk/` returns
-// Caddy's own empty 200, not ours). That is a real mitigation and it was also
-// the ENTIRE mitigation: an implicit property of a reverse-proxy config,
-// asserted by no test, mentioned in no comment, that disappears the moment
-// anyone adds a wildcard site, a staging hostname, or exposes 127.0.0.1:5180 to
-// debug something.
-//
-// So the app defends itself now. PUBLIC_BASE_URL is already set in production
-// (compose.yaml passes it; robots.txt and sitemap.xml have always used it) and
-// baseUrl() already preferred it — the auth links simply were not going through
-// baseUrl(). They do now, and every absolute URL this file builds comes from one
-// function.
-const BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-const baseUrl = (req) => BASE_URL || `${req.protocol}://${req.headers.host}`;
-const authLink = (req, token) => `${baseUrl(req)}/auth/verify?token=${token}`;
-
 // trustProxy: behind Caddy (or any reverse proxy) req.protocol and req.ip are
-// otherwise the proxy's, not the client's — breaking authLink()'s https URLs
-// (GO-LIVE.md §2.4) and letting every visitor share one rate-limit bucket.
+// otherwise the proxy's, not the client's — letting every visitor share one
+// rate-limit bucket.
 //
-// `1`, not `true`: `true` trusts the WHOLE X-Forwarded-For chain and takes the
-// leftmost entry, which is the value the client sent. Caddy appends the real
-// peer address rather than replacing the header, so under `true` anyone could
-// pick their own req.ip with a header and rotate it to defeat every rate limit
-// below (technical-audit_2026-08-19 S3). `1` trusts exactly one hop — the
-// local Caddy — so req.ip is the address Caddy actually saw.
+// THE VALUE AND THE WHOLE ARGUMENT FOR IT ARE IN src/http/trustProxy.js. It
+// said `1` here until 2026-09-19, with a comment claiming that `1` trusts one
+// hop; in Fastify a numeric trustProxy trusts NOTHING, and had been yielding
+// the Docker bridge gateway for every visitor on the live host (buses-data
+// OA-256). The value is a module now so the suite can probe the real one.
 const app = Fastify({
   // P9 B8 — search queries are never logged, and an access log counts as a
   // log: the default request serializer logs req.url including its query
@@ -168,23 +75,101 @@ const app = Fastify({
   // for> a first-class URL, and the B8 rule has to follow the feature rather
   // than the route it first appeared on.
   //
+  // /auth/verify JOINED THAT LIST on 2026-08-31, and it is the more serious of
+  // the two. `?token=` there is a magic link: a live credential that opens a
+  // session, single-use with a 15-minute TTL — and a CROSS-SITE arrival only
+  // peeks at it and shows a confirmation page, so the token in the log line can
+  // still be spendable when somebody reads it. It is the one credential on this
+  // site that cannot be moved into a header, because it arrives as a link in an
+  // email; the two OPS tokens that used to accept `?token=` were deleted outright
+  // in the 2026-08-25 audit (N7) precisely because they could be. This one is
+  // stripped instead. It was found on 2026-08-31 while doing the Caddy half
+  // below, which is the argument for doing both halves of a leak in one go.
+  //
   // WHAT THIS DOES NOT COVER, said plainly rather than left to be discovered:
-  // Caddy keeps its own access log (see the Caddyfile) and records the full URI,
-  // which this serialiser cannot touch. So a JS-off search still leaves the term
-  // in /var/log/caddy/busmaps.access.log. Closing that means a `log { }` filter
-  // in the Caddyfile; it is logged as a follow-on rather than done here, because
-  // it is a change to the proxy's config and belongs in its own deploy.
+  // Caddy keeps its own access log and records the full URI, which this
+  // serialiser cannot touch. That is now closed at the other end — the Caddyfile
+  // redacts `q` and `token` by name in a `format filter` block, deployed by
+  // `npm run deploy:caddy` and by nothing else. THE TWO LISTS ARE SEPARATE AND
+  // MUST BE KEPT TOGETHER: this one is by ROUTE PREFIX because Fastify sees the
+  // route, Caddy's is by PARAMETER NAME because a proxy does not. Adding a
+  // sensitive parameter to a new route means editing both. The route list and
+  // the stripping are src/public/logRedaction.js, so a test can drive what a log
+  // line actually says rather than read the code back.
+  //
+  // AND THE VISITOR'S ADDRESS IS MASKED BEFORE IT IS WRITTEN (buses-data OA-086
+  // phase 1, 2026-09-06). `remoteAddress` was `req.ip` in full until then. It is
+  // now the /24 (or IPv6 /32), because an embedded map means a council's
+  // visitors reach this server without ever choosing to, and a bus map should
+  // not accumulate their addresses. Caddy's own access log is masked in the same
+  // change and for the same reason — that is a THIRD thing the two lists have to
+  // agree about, and Caddy logs the address under TWO field names, `remote_ip`
+  // and `client_ip`, so masking one of them there leaves the other in full.
+  //
+  // `rateLimited()` still reads req.ip UNMASKED, deliberately: masking is a
+  // property of the log, not of the decision. See src/public/logRedaction.js.
   logger: {
     serializers: {
-      req(req) {
-        const bare = req.url && (req.url.startsWith('/api/public/search') || req.url.startsWith('/maps?'));
-        const url = bare ? req.url.split('?')[0] : req.url;
-        return { method: req.method, url, host: req.host, remoteAddress: req.ip, remotePort: req.socket ? req.socket.remotePort : undefined };
-      },
+      // The whole serialiser is loggableReq() rather than a body written here,
+      // so a test can call the same function the logger calls. It was inline
+      // until 2026-09-06, which meant every assertion stopped one call short of
+      // the object that actually reaches the log.
+      req: loggableReq,
     },
   },
   bodyLimit: 256 * 1024,
-  trustProxy: 1,
+  trustProxy: TRUST_PROXY,
+});
+
+// THE ROUTE TABLE, recorded as it is built (OA-231, 2026-09-02). scripts/test-admin-plugin.mjs
+// asserts it against scripts/route-table.json, the table this file registered on the
+// day before the admin console moved into src/routes/admin.js -- so a route that moves
+// between files is invisible to the check and a route that is gained or lost is not.
+// onRoute has to be added before the first route, and the app is built on import, so
+// the observer lives here rather than in the test.
+export const ROUTE_TABLE = [];
+app.addHook('onRoute', (r) => { for (const m of [].concat(r.method)) ROUTE_TABLE.push(`${m} ${r.url}`); });
+
+/* ONE SHAPE FOR AN UNEXPECTED FAILURE, AND ONE FOR A PATH THAT IS NOT ROUTED
+ * (OA-224 Tier 5, portal-src F4).
+ *
+ * 24 `try` blocks and 11 explicit `.code(500)` cover the failures this code
+ * knows about, and every one of them answers `{ok:false,error}` — the envelope
+ * the client reads in 128 places. Anything ELSE fell through to Fastify's
+ * default, which is `{statusCode,error,message}`: a different shape, carrying a
+ * different key, for exactly the cases nobody anticipated. A client that reads
+ * `error` got Fastify's short name ("Internal Server Error") where it expected a
+ * sentence, and `ok` was absent, so `if (!r.ok)` — the standard test in this
+ * app's JavaScript — read undefined and took the success branch.
+ *
+ * The handlers are HTML-aware, because this server answers two audiences: an
+ * `/api/` caller gets the envelope, a browser navigating to a dead URL gets the
+ * same not-found page the public map routes already serve.
+ *
+ * THE 404 BODY IS LOAD-BEARING AND THAT IS WHY IT CARRIES A CODE.
+ * `scripts/check-live-routes.mjs` asks a deployed site whether every route in
+ * the snapshot still answers, and it has to tell a ROUTER 404 (the route is
+ * gone) from a HANDLER 404 (the route is there and the thing behind it is not,
+ * which is what /m/:slug must do for an unpublished slug). It used to do that by
+ * matching Fastify's default message string — a discriminator nobody had
+ * declared and anybody could have broken by adding the handler below. It now
+ * keys on `code: 'route_not_found'`, which is stated here, asserted by
+ * scripts/test-error-envelope.mjs, and cannot be changed silently — and the body
+ * ALSO repeats Fastify's old message, so that checker and this handler can land
+ * in either order without a day of false alarms. */
+app.setNotFoundHandler((req, reply) => {
+  if (wantsJson(req)) return reply.code(404).send(notFoundEnvelope(req.method, req.url));
+  return reply.code(404).type('text/html').send(notFoundPage('page'));
+});
+
+app.setErrorHandler((err, req, reply) => {
+  const { status, body } = errorEnvelope(err);
+  // A 5xx is ours and is logged with the stack; a 4xx Fastify raised is the
+  // caller's and is not an incident.
+  if (status >= 500) req.log.error({ err }, 'unhandled error');
+  else req.log.warn({ err: err.message }, 'request refused');
+  if (wantsJson(req)) return reply.code(status).send(body);
+  return reply.code(status).type('text/html').send(notFoundPage('page'));
 });
 
 await app.register(fastifyStatic, { root: PUBLIC_DIR, index: ['index.html'] });
@@ -335,113 +320,6 @@ app.addHook('onSend', async (req, reply) => {
   reply.header('X-App-Version', APP_BUILD);
 });
 
-// STEP-UP AUTHENTICATION for the three actions the audit named: publishing a
-// version, changing an organisation's quota, and changing a user's role
-// (technical-audit_2026-08-19 S5).
-//
-// The check is "did THIS session prove control of the mailbox in the last
-// STEP_UP_MINUTES", anchored on the session's creation — the moment a magic link
-// was consumed. Staying signed in never re-earns it. Since the magic link is the
-// only credential this system has, re-authenticating IS re-requesting one, which
-// is what the audit's remedy asked for; the difference is that the user is sent
-// to do it rather than being interrupted mid-action by an email round-trip
-// wedged into a POST handler.
-//
-// 403 rather than 401 on purpose: the caller IS authenticated, and an app that
-// treats 401 as "signed out" would otherwise throw them back to the login page
-// having lost whatever they had typed. `code: 'step-up-required'` is what the
-// UI keys on.
-// When this session's step-up freshness runs out, as an absolute ISO time, or null
-// if it cannot be worked out. Mirrors stepUpFresh()'s anchor (session creation) so
-// the two can never disagree about the same session.
-function stepUpDeadline(user) {
-  if (!user || !user.sessionCreatedAt) return null;
-  const t = new Date(`${String(user.sessionCreatedAt).replace(' ', 'T')}Z`).getTime();
-  if (!Number.isFinite(t)) return null;
-  return new Date(t + STEP_UP_MINUTES * 60_000).toISOString();
-}
-
-function requireStepUp(req, reply, what) {
-  if (stepUpFresh(req.user)) return true;
-  req.log.warn({ userId: req.user && req.user.id, what }, 'step-up required');
-  reply.code(403).send({
-    ok: false,
-    code: 'step-up-required',
-    error: `For security, ${what} needs a sign-in from the last ${STEP_UP_MINUTES} minutes. Sign out and follow a fresh sign-in link, then try again.`,
-  });
-  return false;
-}
-
-// --- tiny in-memory per-IP rate limit for public POSTs ---
-const hits = new Map();
-// Nothing evicted from this map until 2026-08-19, so it grew one entry per
-// distinct client address for the life of the process — slow memory exhaustion
-// (technical-audit_2026-08-19 S3). Two bounds now, belt and braces: a periodic
-// sweep of entries whose window has closed, and a hard cap that clears the lot
-// the way inlineCache already does. Clearing wholesale only forgives in-flight
-// counts, so the failure mode is a moment's extra leniency, never a lockout.
-const HITS_MAX = 20_000;
-function sweepHits(windowMs = 60_000) {
-  const now = Date.now();
-  if (hits.size > HITS_MAX) { hits.clear(); return; }
-  for (const [ip, rec] of hits) if (now - rec.t > windowMs) hits.delete(ip);
-}
-function rateLimited(ip, max = 20, windowMs = 60_000) {
-  const now = Date.now();
-  const rec = hits.get(ip) || { n: 0, t: now };
-  if (now - rec.t > windowMs) { rec.n = 0; rec.t = now; }
-  rec.n += 1;
-  hits.set(ip, rec);
-  if (hits.size > HITS_MAX) sweepHits(windowMs);
-  return rec.n > max;
-}
-
-// A CREDENTIAL BELONGS IN A HEADER, NEVER IN A URL (technical-audit_2026-08-25 N7).
-//
-// Both ops tokens used to be accepted as `?token=...` as well as a Bearer header.
-// The Caddyfile turns on an access log, and Caddy's request line records the
-// FULL URI including its query string — so every use of the query form wrote a
-// live credential, in clear, into /var/log/caddy/busmaps.access.log: a file in
-// no backup, rotated by nothing here, and covered by no retention rule. Query
-// strings also reach Referer headers, browser history and shell history.
-//
-// This project had already reasoned it through correctly for a LESS sensitive
-// value: the custom log serialiser at the top of this file strips `q` off
-// /api/public/search because "search queries are never logged, and an access log
-// counts as a log". A token deserves the argument more — and the app's own
-// serialiser could not have helped anyway, because the leak was in Caddy's log,
-// not Fastify's.
-//
-// The query form is GONE rather than deprecated. Its only caller was
-// scripts/deploy.mjs, changed in the same commit; bus-work's push-status.mjs has
-// always sent an Authorization header.
-//
-// Constant-time comparison while we are here. Over a network the timing signal
-// is mostly noise, but `===` on a secret is a two-line fix and there is no
-// argument for keeping it. timingSafeEqual throws on unequal lengths, so the
-// length check comes first; that is not itself a leak worth minding, because the
-// token's length is fixed by us and not by the attacker's guess.
-function tokenMatches(supplied, expected) {
-  if (!expected || !supplied) return false;
-  const a = Buffer.from(String(supplied), 'utf8');
-  const b = Buffer.from(String(expected), 'utf8');
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
-
-/** The Bearer token on this request, or ''. */
-const bearerToken = (req) => String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-
-// Is the caller allowed to see operational DETAIL? Same gate as /metrics: a
-// METRICS_TOKEN Bearer header, or a signed-in admin. Factored out because
-// /health and /metrics want the same answer, and two hand-rolled copies of one
-// authorisation rule are two chances to drift apart.
-function opsAuthorised(req) {
-  const viaToken = tokenMatches(bearerToken(req), process.env.METRICS_TOKEN);
-  const viaAdmin = Boolean(req.user) && req.user.role === 'admin';
-  return viaToken || viaAdmin;
-}
-
 // The readiness probe writes a file and rasterises an 8x8 JPEG on every call, so
 // a short cache stands between it and anyone who decides to hold down F5. Ten
 // seconds is far below the five-minute monitor interval, so neither the monitor
@@ -535,7 +413,7 @@ app.post('/api/admin/status', async (req, reply) => {
   // Bearer header only, constant-time, since 2026-08-25 — same change and same
   // reasoning as opsAuthorised() above (N7). This one never had a caller using
   // the query form: bus-work's push-status.mjs has always sent a header.
-  const viaToken = tokenMatches(bearerToken(req), process.env.STATUS_TOKEN);
+  const viaToken = tokenMatches(bearerToken(req), statusToken());
   const viaAdmin = req.user && req.user.role === 'admin';
   if (!viaToken && !viaAdmin) return reply.code(404).send({ ok: false });
 
@@ -551,605 +429,24 @@ app.post('/api/admin/status', async (req, reply) => {
 });
 
 // ===========================================================================
-// Public shopfront (P0)
+// Public shopfront (P0) and public front (P6) -- src/routes/public.js, one
+// plugin with NO prefix (OA-232 Tier 3.2). Nineteen routes: the two shopfront
+// POSTs, the four rendered public pages, eleven /api/public reads, the generated
+// banner script, robots.txt and sitemap.xml.
+//
+// NO PREFIX AND NO GUARD, and those are the same fact. Every other plugin
+// registered below carries one preHandler because everything under its prefix is
+// refused to the same people; everything in this one is unauthenticated and
+// read-only by design, and what stands in for a guard is the P6 SQL in
+// src/db/index.js, which cannot reach a map that is not published, listed and
+// owned by an active customer.
+//
+// It is registered HERE, in the position the block occupied, so the order routes
+// enter the router is unchanged from before the cut.
 // ===========================================================================
 
-app.post('/api/apply', async (req, reply) => {
-  if (rateLimited(req.ip)) return reply.code(429).send({ ok: false, error: 'Too many requests — please try again shortly.' });
-  const b = req.body || {};
-  if (str(b.website_hp)) return { ok: true, id: 0 }; // honeypot
+await app.register(publicRoutes);
 
-  const org_name = str(b.org_name, 200);
-  const org_type = ORG_TYPES.includes(b.org_type) ? b.org_type : '';
-  const contact_name = str(b.contact_name, 120);
-  const email = str(b.email, 200);
-
-  const fields = [];
-  if (!org_name) fields.push('org_name');
-  if (!org_type) fields.push('org_type');
-  if (!contact_name) fields.push('contact_name');
-  if (!isEmail(email)) fields.push('email');
-  if (fields.length) return reply.code(400).send({ ok: false, error: 'Please check the highlighted fields.', fields });
-
-  const id = insertApplication({
-    org_name, org_type, contact_name, email,
-    phone: str(b.phone, 60), website: str(b.website, 200),
-    wants: str(b.wants, 2000), message: str(b.message, 4000),
-  });
-  req.log.info({ applicationId: id, org_name, org_type }, 'new application');
-  return { ok: true, id };
-});
-
-app.post('/api/contact', async (req, reply) => {
-  if (rateLimited(req.ip)) return reply.code(429).send({ ok: false, error: 'Too many requests — please try again shortly.' });
-  const b = req.body || {};
-  if (str(b.website_hp)) return { ok: true, id: 0 };
-
-  const body = str(b.body, 4000);
-  const kind = MSG_KINDS.includes(b.kind) ? b.kind : 'enquiry';
-  const email = str(b.email, 200);
-  if (!body) return reply.code(400).send({ ok: false, error: 'Please enter a message.', fields: ['body'] });
-  if (email && !isEmail(email)) return reply.code(400).send({ ok: false, error: 'That email address looks wrong.', fields: ['email'] });
-
-  const id = insertMessage({ kind, name: str(b.name, 120), email, body });
-  req.log.info({ messageId: id, kind }, 'new message');
-  return { ok: true, id };
-});
-
-// ===========================================================================
-// Public front (P6) — the marketing site's live half.
-//
-// Everything below is UNAUTHENTICATED and read-only, and it can only ever reach
-// a map that (a) has a published version, (b) belongs to an active customer and
-// (c) the customer has left listed — enforced in the SQL (src/db/index.js), not
-// here. The files served are the very bytes an approver reviewed, because
-// publishing never re-renders (P4).
-// ===========================================================================
-
-// BASE_URL / baseUrl() used to be declared here, beside their first public-page
-// caller. They moved to the top of this file on 2026-08-25 so that the AUTH
-// links could go through them too — see the note there
-// (technical-audit_2026-08-25 N5).
-
-// Pretty public URLs. The HTML is a static shell; it fetches the JSON below.
-// Unknown/unpublished slugs 404 with the same shell (so a link that stops being
-// public does not silently render an empty page or leak that a draft exists).
-// THE PUBLISHED-MAPS CATALOGUE, RENDERED HERE (technical-audit_2026-08-25 N1).
-//
-// This route was `reply.sendFile('maps.html')` until 2026-08-25 and the grid was
-// filled entirely by public/js/public-maps.js. So the page a crawler received
-// carried the words "Loading published maps…" and NO link to any map — 4,479
-// bytes of chrome — while /maps sat in sitemap.xml and indexing had just been
-// switched on. Worse, the data it needed came from /api/public/maps, and
-// robots.txt said `Disallow: /api/`: the site was telling compliant crawlers not
-// to fetch its own catalogue.
-//
-// ?q= IS SERVER-SIDE TOO, and that is not a bonus. public-maps.js's own header
-// has claimed since P9 that "the form is a real GET to /maps and works with JS
-// off". It did not, because nothing on the server had ever read `q`. It does
-// now, so the claim is true for the first time. The client still intercepts the
-// submit to avoid a page reload, which is what an enhancement is.
-//
-// The markup comes from public/js/shared/map-card.mjs, imported by this file AND
-// by the browser, so there is exactly one copy of it. See that file's header for
-// why sharing beat writing it twice.
-app.get('/maps', async (req, reply) => {
-  const q = str((req.query || {}).q, 100);
-  let maps = publicMaps(listPublicMaps());
-  let reasons = null;
-  if (q.length >= 2) {
-    const { results } = searchPlaces(q);
-    reasons = new Map(results.map((r) => [r.map.slug, r.reason]));
-    maps = results.map((r) => r.map);
-  }
-  const { className, html } = grid(maps, { reasons, query: q.length >= 2 ? q : '' });
-  let page = setInner(shell('maps.html'), 'grid', html);
-  page = setClass(page, 'grid', className);
-  // Read the query back into the box, so a /maps?q=… link says what it searched
-  // for with or without JavaScript.
-  if (q) page = setAttr(page, 'q', 'value', q);
-  reply.type('text/html; charset=utf-8');
-  return reply.send(page);
-});
-
-// P8a — the per-map pages complete their <head> SERVER-side: real title,
-// description, canonical and Open Graph tags, and a JSON-LD block, because a
-// crawler, a link preview and a screen reader all read the HTML as delivered.
-//
-// Since 2026-08-25 the /services page completes its BODY here as well (N1). The
-// <head> had been doing the right thing for weeks while the body still said
-// "Loading…", which is the more visible half of the same argument.
-const shellCache = new Map();
-function shell(name) {
-  if (!shellCache.has(name)) shellCache.set(name, readFileSync(path.join(PUBLIC_DIR, name), 'utf8'));
-  return shellCache.get(name);
-}
-const htmlAttr = (s) => String(s == null ? '' : s)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-function sendShell(reply, name, head, fillBody = null) {
-  // Drop the shell's own placeholder <title>/description/og tags first, so the
-  // page has exactly one of each and the browser does not just take whichever
-  // came first in the file.
-  let page = shell(name)
-    .replace(/[ \t]*<title>[\s\S]*?<\/title>\r?\n?/i, '')
-    .replace(/[ \t]*<meta\s+name="description"[^>]*>\r?\n?/i, '')
-    .replace(/[ \t]*<meta\s+property="og:(?:title|description|url|image)"[^>]*>\r?\n?/gi, '');
-  page = page.replace('</head>', `${head}\n</head>`);
-  // `fillBody` is where the /services page puts its content (N1). Optional
-  // because /m/:slug still fills its own body in the browser — that page's
-  // content is the SVG sheet itself, which is a 472 KB fetch that would be the
-  // wrong thing to inline into every HTML response.
-  if (fillBody) page = fillBody(page);
-  reply.type('text/html; charset=utf-8');
-  return reply.send(page);
-}
-
-/** The <head> completion for one public map page. */
-function mapHead(req, m, { services = false } = {}) {
-  const base = baseUrl(req);
-  const headline = m.kind === 'place' ? `Buses serving ${m.name}` : `Buses within ${m.name}`;
-  const title = services
-    ? (m.kind === 'place' ? `Bus services serving ${m.name}` : `Bus services in ${m.name}`)
-    : headline;
-  const desc = services
-    ? `Every bus service on the ${m.name} map, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
-    : m.org.isDemo
-      ? `A sample bus map${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
-      : `A bus map published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
-  const canonical = base + (services ? servicesPageUrl(m.slug) : mapPageUrl(m.slug));
-  const card = m.outputs.length && m.outputs[0].previewUrl ? base + m.outputs[0].previewUrl : '';
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Map',
-    name: `${title} — BusMaps.uk`,
-    description: desc,
-    url: canonical,
-    ...(m.org.name ? { publisher: { '@type': 'Organization', name: m.org.name } } : {}),
-    ...(m.provenance && m.provenance.dataAsAtDate ? { datePublished: m.provenance.dataAsAtDate } : {}),
-    isAccessibleForFree: true,
-  };
-  return [
-    `<title>${htmlAttr(title)} — BusMaps.uk</title>`,
-    `<link rel="canonical" href="${htmlAttr(canonical)}">`,
-    `<meta name="description" content="${htmlAttr(desc)}">`,
-    `<meta property="og:title" content="${htmlAttr(title)}">`,
-    `<meta property="og:description" content="${htmlAttr(desc)}">`,
-    `<meta property="og:url" content="${htmlAttr(canonical)}">`,
-    card ? `<meta property="og:image" content="${htmlAttr(card)}">` : '',
-    `<meta name="twitter:card" content="${card ? 'summary_large_image' : 'summary'}">`,
-    `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
-  ].filter(Boolean).map((l) => '  ' + l).join('\n');
-}
-
-app.get('/m/:slug', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));
-  return sendShell(reply, 'map.html', mapHead(req, publicMap(row)));
-});
-
-// The sheet's TEXT ALTERNATIVE. A picture of a bus map has no `alt` that could
-// carry it, so the same facts are published as ordinary HTML: route, operator,
-// days, termini, the stops inside the area and where each service goes. 404s
-// (rather than showing an empty page) when the payload lists no services.
-//
-// FULLY RENDERED HERE since 2026-08-25 (technical-audit_2026-08-25 N1). It was a
-// shell whose body was the word "Loading…" until then — 4,716 bytes — which
-// meant this page, the one the accessibility statement points at, the one a
-// public body relies on to meet its own WCAG 2.2 AA duty, and nineteen of whose
-// URLs are in sitemap.xml, delivered nothing at all to a reader not executing
-// JavaScript. The facts come from exactly the two calls the JSON API makes, so
-// the page and the API can never disagree, and the markup comes from the module
-// the browser imports.
-app.get('/m/:slug/services', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));
-  const m = publicMap(row);
-  if (!m.servicesUrl) return reply.code(404).type('text/html').send(notFoundPage('services list'));
-  const services = publicServices(row, factsForPublicMap(row));
-  // The same condition the API applies: a map with no service list has no text
-  // alternative to show, and an empty page is worse than an honest 404.
-  if (!services || !services.routes.length) {
-    return reply.code(404).type('text/html').send(notFoundPage('services list'));
-  }
-  const v = servicesView(m, services);
-  return sendShell(reply, 'services.html', mapHead(req, m, { services: true }), (page) => {
-    let p = setInner(page, 'headline', v.headline);
-    p = setInner(p, 'intro', v.intro);
-    p = setInner(p, 'pills', v.pills);
-    p = setInner(p, 'services', v.services);
-    if (v.stale) {
-      p = setInner(p, 'staleNote', v.stale);
-      p = setClass(p, 'staleNote', 'notice notice-warn');
-      p = removeBooleanAttr(p, 'staleNote', 'hidden');
-    }
-    p = setAttr(p, 'mapLink', 'href', v.mapUrl);
-    p = setAttr(p, 'backToMap', 'href', v.mapUrl);
-    return p;
-  });
-});
-// An organisation only has a public page while it has a publicly-visible map —
-// the same condition the API applies, so the page and its data never disagree.
-app.get('/o/:slug', async (req, reply) => {
-  const slug = str(req.params.slug, 120);
-  const c = getCustomerBySlug(slug);
-  if (!c || c.status !== 'active' || !listPublicOrgs().some((o) => o.slug === slug)) {
-    return reply.code(404).type('text/html').send(notFoundPage('organisation'));
-  }
-  return reply.sendFile('org.html');
-});
-
-app.get('/api/public/maps', async () => ({ ok: true, maps: publicMaps(listPublicMaps()) }));
-
-// P9 Part B — "does any map cover my village?" See src/search/index.js.
-// Deliberately no per-query logging (B8): nothing here writes q anywhere but
-// the response. Fastify's own request log line is left as-is; it never
-// includes the query string for GET requests on this route.
-app.get('/api/public/search', async (req) => {
-  const q = str((req.query || {}).q, 100);
-  const { results, corrected } = searchPlaces(q);
-  return { ok: true, results, corrected };
-});
-
-app.get('/api/public/maps/:slug', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
-  return { ok: true, map: publicMap(row) };
-});
-
-// P8a — caching for published artefacts. A published version is immutable: its
-// bytes never change, because publishing never re-renders and a new version gets
-// a new storage key. So anything asked for WITH the version (`?v=<pub_key>`, how
-// the page itself links) can be cached hard and for ever; a bare URL follows the
-// published pointer and so may change under a reader, and gets a short life plus
-// an ETag. This is what keeps repeat views — and, later, embeds — off the app.
-function cached(req, reply, pubKey, tag) {
-  const etag = `"${pubKey}-${tag}"`;
-  reply.header('ETag', etag);
-  const versioned = req.query && String(req.query.v || '') === String(pubKey);
-  reply.header('Cache-Control', versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300, stale-while-revalidate=86400');
-  const inm = req.headers['if-none-match'];
-  if (inm && inm.split(',').some((t) => t.trim().replace(/^W\//, '') === etag)) {
-    reply.code(304).send();
-    return true;
-  }
-  return false;
-}
-
-// The published artefacts, straight from the reviewed version's render folder.
-// The version key comes from the DB (never the URL), so there is no version to
-// probe and no path to traverse.
-app.get('/api/public/maps/:slug/:file', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
-  const { file } = req.params;
-  if (!Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
-    return reply.code(400).send({ ok: false, error: 'Bad file.' });
-  }
-  let p = path.join(versionDir(row.id, row.pub_key), file);
-  if (!existsSync(p)) return reply.code(404).send({ ok: false, error: 'Not found.' });
-
-  // Watermark JPGs for anyone who isn't the owning customer or an admin — this
-  // is the one fully public, unauthenticated download route, so it's the path a
-  // forwarded/shared copy would have come through. req.user is already resolved
-  // for every /api/ request (see the preHandler above) from the session cookie,
-  // so an anonymous visitor and a signed-in stranger are both treated as
-  // "not the owner". The owning customer's own downloads, and any admin
-  // download (from either route), are never watermarked.
-  const isOwnerOrAdmin = !!req.user && (req.user.role === 'admin' || req.user.customer_id === row.customer_id);
-  const watermarkable = file.endsWith('.jpg') && !!row.watermark_enabled;
-  const watermarked = !isOwnerOrAdmin && watermarkable;
-  if (watermarked) {
-    try {
-      const wp = await ensureWatermarked(p);
-      if (wp) p = wp;
-    } catch (e) {
-      req.log.error(e, 'watermark generation failed; serving the original file');
-    }
-  }
-
-  reply.header('Content-Type', OUTPUT_FILES[file]);
-  // The watermarked/unwatermarked choice depends on who's asking (session
-  // cookie), so a shared cache must not reuse one visitor's response for
-  // another. P8a's strong immutable caching (cached()) is safe only when the
-  // response can't vary by viewer — i.e. everything except a JPG this map
-  // might watermark; those keep the original short, private cache instead.
-  if (watermarkable) {
-    reply.header('Cache-Control', 'private, max-age=60');
-  } else if (cached(req, reply, row.pub_key, file)) {
-    return reply;
-  }
-  if (req.query && 'download' in req.query) {
-    reply.header('Content-Disposition', `attachment; filename="${row.slug}-${row.pub_key}-${file}"`);
-  }
-  return reply.send(createReadStream(p));
-});
-
-// A screen-sized copy of a published print JPG, derived on first request and
-// cached beside it (see src/public/index.js) — the print bytes stay untouched.
-app.get('/api/public/maps/:slug/preview/:base', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
-  const base = str(req.params.base, 40);
-  if (!PUBLIC_BASES.includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
-  try {
-    const p = await webPreviewPath(row.id, row.pub_key, base);
-    if (!p) return reply.code(404).send({ ok: false, error: 'Not found.' });
-    if (cached(req, reply, row.pub_key, `preview-${base}`)) return reply;
-    reply.header('Content-Type', 'image/jpeg');
-    return reply.send(createReadStream(p));
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Could not prepare the preview image.' });
-  }
-});
-
-// P8a — the same published SVG, prepared for INLINE display (scalable, real
-// text, pan/zoomable). See src/public/inlineSvg.js for exactly what differs from
-// the downloadable bytes. Gzipped here because there is no compression plugin in
-// front of the app and an internal sheet is ~470 KB raw against ~88 KB gzipped.
-const inlineCache = new Map(); // `${id}/${pubKey}/${base}` -> { raw, gz }
-app.get('/api/public/maps/:slug/inline/:base', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
-  const base = str(req.params.base, 40);
-  if (!PUBLIC_BASES.includes(base)) return reply.code(400).send({ ok: false, error: 'Bad output.' });
-  const file = path.join(versionDir(row.id, row.pub_key), `${base}.svg`);
-  if (!existsSync(file)) return reply.code(404).send({ ok: false, error: 'Not found.' });
-  if (cached(req, reply, row.pub_key, `inline-${base}`)) return reply;
-
-  const key = `${row.id}/${row.pub_key}/${base}`;
-  let entry = inlineCache.get(key);
-  if (!entry) {
-    const out = publicOutputs(row).find((o) => o.base === base);
-    try {
-      const raw = Buffer.from(inlineSvg(file, {
-        title: out ? `${row.name} — ${out.label}` : `${row.name} bus map`,
-        desc: 'A bus map drawn from open bus data. Every service shown here is also '
-          + `written out as text at ${servicesPageUrl(row.slug)}.`,
-        // Nothing our engine draws is ever removed — the sanitiser is proved inert
-        // on the whole corpus — so a drop means the vocabulary has moved and this
-        // sheet is now showing LESS on the web than it does in print. Loud, not silent.
-        onDrop: (what) => req.log.warn(`inline SVG sanitiser removed ${what} from ${row.slug}/${base}`),
-      }), 'utf8');
-      entry = { raw, gz: gzipSync(raw, { level: 9 }) };
-    } catch (e) {
-      req.log.error(e);
-      return reply.code(500).send({ ok: false, error: 'Could not prepare that sheet.' });
-    }
-    // One entry per published version per output — bounded by what is published,
-    // and dropped wholesale rather than tracked when it grows.
-    if (inlineCache.size > 64) inlineCache.clear();
-    inlineCache.set(key, entry);
-  }
-  reply.header('Content-Type', 'image/svg+xml; charset=utf-8');
-  reply.header('Vary', 'Accept-Encoding');
-  if (String(req.headers['accept-encoding'] || '').includes('gzip')) {
-    reply.header('Content-Encoding', 'gzip');
-    return reply.send(entry.gz);
-  }
-  return reply.send(entry.raw);
-});
-
-// The facts behind /m/<slug>/services — the map's text alternative as data.
-app.get('/api/public/maps/:slug/services', async (req, reply) => {
-  const row = getPublicMapBySlug(str(req.params.slug, 120));
-  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
-  const facts = factsForPublicMap(row);
-  const services = publicServices(row, facts);
-  if (!services || !services.routes.length) {
-    return reply.code(404).send({ ok: false, error: 'This map has no service list.' });
-  }
-  if (cached(req, reply, row.pub_key, 'services')) return reply;
-  return { ok: true, map: publicMap(row), services };
-});
-
-app.get('/api/public/orgs', async () => ({ ok: true, orgs: listPublicOrgs().map(publicOrg) }));
-
-app.get('/api/public/orgs/:slug', async (req, reply) => {
-  const c = getCustomerBySlug(str(req.params.slug, 120));
-  if (!c || c.status !== 'active') return reply.code(404).send({ ok: false, error: 'No such organisation.' });
-  const maps = publicMaps(listPublicMaps()).filter((m) => m.org.slug === c.slug);
-  if (!maps.length) return reply.code(404).send({ ok: false, error: 'No such organisation.' });
-  return { ok: true, org: publicOrg(c), maps };
-});
-
-// "Something looks wrong with this map" from a public map page → the existing
-// message table, with the map attached so we know what it is about.
-app.post('/api/public/feedback', async (req, reply) => {
-  if (rateLimited(req.ip)) return reply.code(429).send({ ok: false, error: 'Too many requests — please try again shortly.' });
-  const b = req.body || {};
-  if (str(b.website_hp)) return { ok: true, id: 0 }; // honeypot
-  const row = getPublicMapBySlug(str(b.mapSlug, 120));
-  if (!row) return reply.code(404).send({ ok: false, error: 'No published map with that name.' });
-  const body = str(b.body, 4000);
-  const email = str(b.email, 200);
-  if (!body) return reply.code(400).send({ ok: false, error: 'Please tell us what looks wrong.', fields: ['body'] });
-  if (email && !isEmail(email)) return reply.code(400).send({ ok: false, error: 'That email address looks wrong.', fields: ['email'] });
-  const id = insertMessage({ kind: 'feedback', name: str(b.name, 120), email, body, map_id: row.id });
-  req.log.info({ messageId: id, mapId: row.id }, 'map feedback received');
-  return { ok: true, id };
-});
-
-// PILOT: this part of the banner mechanism — delete this const, and the one
-// <script> tag in each public/**/*.html, to remove it. See docs/PILOT.md.
-// NOT pilot-gated: VERSION_BADGE_JS below, appended into the same script, must
-// survive PILOT_MODE=0 — GO-LIVE.md §5 wants the build visible for the life of
-// the site, not just during the pilot.
-//
-// There is no template engine here (every page is a hand-written static file
-// with a copy-pasted header), so both the banner and the version badge are
-// injected client-side from ONE generated script instead of being pasted into
-// seventeen files. When the pilot ends the banner half serves nothing, so
-// PILOT_MODE=0 alone is a complete off switch for it; the leftover <script>
-// tags then cost one empty request each.
-const PILOT_BANNER_JS = !PILOT.on ? '' : `(function () {
-  var d = document;
-  function mount() {
-    if (d.getElementById('pilotBanner')) return;
-    var b = d.createElement('div');
-    b.id = 'pilotBanner';
-    b.className = 'pilot-banner';
-    b.setAttribute('role', 'note');
-    b.innerHTML = '<div class="container pilot-banner-inner">'
-      + '<span class="pilot-badge">${jsStr(PILOT.word)}</span>'
-      + '<span class="pilot-text">${jsStr(PILOT.short)}.'
-      // The full explanation is the point of the banner on a desktop, but it
-      // eats a phone screen — small viewports get the headline and the link,
-      // which lands on the same words at /faq.html#pilot.
-      + ' <span class="pilot-more">${jsStr(PILOT.long)}</span></span>'
-      + '<a class="pilot-link" href="${jsStr(PILOT.href)}">What this means</a>'
-      + '</div>';
-    d.body.insertBefore(b, d.body.firstChild);
-  }
-  // The public map/org pages rewrite document.title after their fetch resolves,
-  // which is long after this script runs — so watch <title> and re-apply the
-  // prefix whenever it changes. Setting it here re-triggers the observer, but
-  // the prefix check makes that converge immediately.
-  var TAG = '[${jsStr(PILOT.word)}] ';
-  function markTitle() {
-    if (d.title.indexOf(TAG) !== 0) d.title = TAG + d.title;
-  }
-  function watchTitle() {
-    if (!window.MutationObserver) return;
-    new MutationObserver(markTitle).observe(d.head, { childList: true, subtree: true, characterData: true });
-  }
-  function go() { mount(); markTitle(); watchTitle(); }
-  if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', go);
-  else go();
-})();
-`;
-
-// Local/dev instance banner — separate from the pilot banner above and NOT
-// removed with it. The pilot banner says "this is a pilot"; this one says
-// "this isn't even the public site", which stays true after the pilot ends.
-// See SITE_BANNER_JS below for why it must be concatenated after PILOT_BANNER_JS.
-const LOCAL_BANNER_JS = ENVIRONMENT.isProduction ? '' : `(function () {
-  var d = document;
-  function mount() {
-    if (d.getElementById('localBanner')) return;
-    var b = d.createElement('div');
-    b.id = 'localBanner';
-    b.className = 'local-banner';
-    b.setAttribute('role', 'note');
-    b.innerHTML = '<div class="container local-banner-inner">'
-      + '<span class="local-badge">Local</span>'
-      + '<span class="local-text">This is a local/dev copy, not the public BusMaps.uk site.</span>'
-      + '</div>';
-    d.body.insertBefore(b, d.body.firstChild);
-  }
-  if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', mount);
-  else mount();
-})();
-`;
-
-// GO-LIVE.md §5, surfaces 3 and 4: a muted footer line and a <meta> tag, both
-// from this one generated script, so a screenshot says which build served it.
-//
-// "or a script run against a deployed page" used to be part of that sentence and
-// was wrong: this IS a script, so only a browser ever sees either surface — and
-// that is exactly how a stale deployment went unnoticed
-// (technical-audit_2026-08-25 N2). The machine-readable answer is now the
-// `X-App-Version` response header set by the onSend hook near the top of this
-// file. These two surfaces are for humans; keep them, do not rely on them.
-const VERSION_BADGE_JS = `(function () {
-  var d = document;
-  function go() {
-    var m = d.createElement('meta');
-    m.name = 'app-version';
-    m.content = '${jsStr(APP_VERSION)}+${jsStr(GIT_SHA)}';
-    d.head.appendChild(m);
-    var footers = d.getElementsByTagName('footer');
-    if (!footers.length) return;
-    var footer = footers[footers.length - 1];
-    // Nest inside .container so the line inherits the same padding as the rest
-    // of the footer, instead of sitting flush against the page edge.
-    var host = footer.querySelector('.container') || footer;
-    var line = d.createElement('div');
-    line.className = 'muted';
-    line.style.marginTop = '4px';
-    line.textContent = 'v${jsStr(APP_VERSION)} \\u00b7 ${jsStr(GIT_SHA)}';
-    host.appendChild(line);
-  }
-  if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', go);
-  else go();
-})();
-`;
-
-// Order matters: each banner's mount() does insertBefore(..., body.firstChild),
-// so whichever script runs LAST ends up visually topmost. LOCAL_BANNER_JS runs
-// last so it sits above the pilot banner when both are present.
-const SITE_BANNER_JS = PILOT_BANNER_JS + LOCAL_BANNER_JS + VERSION_BADGE_JS;
-
-// Single-quoted JS string literal contents (the banner script builds HTML).
-function jsStr(s) {
-  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
-}
-
-app.get('/js/site-banner.js', async (req, reply) => {
-  reply.type('application/javascript; charset=utf-8');
-  reply.header('Cache-Control', 'no-cache'); // the switch must take effect on reload
-  return SITE_BANNER_JS;
-});
-
-// Search engines: only public pages, and only maps that are actually published.
-// The policy is in src/public/robots.js so it can be tested against the real
-// bytes without booting this server — see that file's header and
-// scripts/test-indexing.mjs.
-app.get('/robots.txt', async (req, reply) => {
-  reply.type('text/plain');
-  return robotsTxt({ indexable: INDEXING.allowed, sitemapUrl: `${baseUrl(req)}/sitemap.xml` });
-});
-
-// Every public page that is linked from the footer, so the sitemap and the footer
-// agree. `/opportunity.html` is outreach rather than shopfront, but it is linked
-// from all of them — excluding it would hide it from crawlers while showing it to
-// every visitor, which is not privacy, just inconsistency. (What actually keeps it
-// unindexed is robots.txt saying `Disallow: /`, which it does until ALLOW_INDEXING=1
-// — a decision now independent of PILOT_MODE. See src/config.js §INDEXING.)
-const STATIC_PAGES = ['/', '/maps', '/examples.html', '/pricing.html', '/faq.html', '/apply.html', '/contact.html', '/opportunity.html', '/legal.html', '/terms.html', '/accessibility.html', '/changelog.html'];
-
-app.get('/sitemap.xml', async (req, reply) => {
-  const base = baseUrl(req);
-  const maps = publicMaps(listPublicMaps());
-  const orgs = listPublicOrgs().map(publicOrg).filter((o) => o.url);
-  const url = (loc, lastmod) =>
-    `  <url><loc>${xmlEscape(base + loc)}</loc>${lastmod ? `<lastmod>${xmlEscape(lastmod)}</lastmod>` : ''}</url>`;
-  reply.type('application/xml');
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...STATIC_PAGES.map((p) => url(p)),
-    ...maps.map((m) => url(mapPageUrl(m.slug), (m.publishedAt || '').replace(' ', 'T') + 'Z')),
-    // P8a — the text alternative is a page in its own right, and the one most
-    // worth finding in a search for "buses in <town>".
-    ...maps.filter((m) => m.servicesUrl).map((m) => url(m.servicesUrl, (m.publishedAt || '').replace(' ', 'T') + 'Z')),
-    ...orgs.map((o) => url(orgPageUrl(o.slug))),
-    '</urlset>',
-    '',
-  ].join('\n');
-});
-
-function xmlEscape(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
-}
-
-function notFoundPage(what) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Not found — BusMaps.uk</title><link rel="stylesheet" href="/css/styles.css">
-<script src="/js/site-banner.js" defer></script>
-<script src="/js/nav-current.js" defer></script></head>
-<body><header class="site-header"><div class="container"><nav class="nav">
-<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
-<a class="navlink" href="/maps">Published maps</a></nav></div></header>
-<main><section><div class="container">
-<h2 class="mt-0">We can’t find that ${what}</h2>
-<p class="section-intro">It may never have been published, or it may have been taken down. Every map published through the portal is listed on the published-maps page.</p>
-<div class="lead-cta"><a class="btn btn-primary" href="/maps">Browse published maps</a>
-<a class="btn btn-ghost" href="/contact.html">Ask us about it</a></div>
-</div></section></main></body></html>`;
-}
 
 // ===========================================================================
 // Auth (P2) — passwordless magic links + server-side sessions
@@ -1255,9 +552,10 @@ app.post('/api/auth/request', async (req, reply) => {
 // browser fetch it once.
 // Attribute-safe, because the token goes into a value="" — `escText` in
 // inlineSvg.js is text-node-safe only, and the difference is a quote character.
-const escapeHtml = (v) => String(v == null ? '' : v)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// That is `escapeHtml` from ./html.js, imported at the top of this file since
+// 2026-09-03; this file kept a private copy of it, and a second four-character
+// `htmlAttr`, for a day after html.js landed as "the one escaper" (the
+// 2026-09-03 review, portal-src F26).
 
 const verifyPage = (token, email) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1390,737 +688,71 @@ app.patch('/api/customer/settings', async (req, reply) => {
   return { ok: true, watermarkEnabled: !!fresh.watermark_enabled };
 });
 
+
 // ===========================================================================
-// Authenticated app (P1 editor spine, now tenant-scoped in P2)
+// The signed-in app's HTML SHELLS -- src/routes/pages.js, one plugin under /app
+// (OA-231). Eleven pages, including the P7 diagram editor's shell and the local
+// adviser's one page (OA-154 D1), which is here
+// because this plugin owns the /app subtree. The hook redirects an anonymous
+// caller to the sign-in page (which declares itself the exception); the four
+// ROLE checks stay in the handlers and redirect rather than refuse.
 // ===========================================================================
+await app.register(pageRoutes, { prefix: '/app' });
 
-// Serialise generator runs per map (preview + save write into the map's data/).
-const mapLocks = new Map();
-function withMapLock(id, fn) {
-  const prev = mapLocks.get(id) || Promise.resolve();
-  const next = prev.catch(() => {}).then(fn);
-  mapLocks.set(id, next.finally(() => { if (mapLocks.get(id) === next) mapLocks.delete(id); }));
-  return next;
-}
-
-function requireUser(req, reply) {
-  if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
-  return req.user;
-}
-
-function requireAdmin(req, reply) {
-  if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
-  if (req.user.role !== 'admin') { reply.code(403).send({ ok: false, error: 'Admin access only.' }); return null; }
-  return req.user;
-}
-
-// Publishing is a platform review (separation of duties from the customer who
-// edits): approvers and admins may review + publish; editors may only submit.
-function requireApprover(req, reply) {
-  if (!req.user) { reply.code(401).send({ ok: false, error: 'Please sign in.' }); return null; }
-  if (req.user.role !== 'approver' && req.user.role !== 'admin') {
-    reply.code(403).send({ ok: false, error: 'Approver access only.' }); return null;
-  }
-  return req.user;
-}
-
-// Load a map only if the user may EDIT it. Admins edit all; everyone else is
-// scoped to their own customer. Returns { map } or { code, error }.
-function loadOwnedMap(id, user) {
-  const m = getMap(id);
-  if (!m) return { code: 404, error: 'No such map.' };
-  if (user.role !== 'admin' && (user.customer_id == null || m.customer_id !== user.customer_id)) {
-    return { code: 403, error: 'You do not have access to this map.' };
-  }
-  return { map: m };
-}
-
-// Load a map the user may READ (view detail / download rendered files). Same as
-// edit scope PLUS platform approvers, who must inspect any submitted map's
-// print-ready files to review it — but cannot edit it.
-function loadReadableMap(id, user) {
-  const m = getMap(id);
-  if (!m) return { code: 404, error: 'No such map.' };
-  const owner = user.customer_id != null && m.customer_id === user.customer_id;
-  if (user.role === 'admin' || user.role === 'approver' || owner) return { map: m };
-  return { code: 403, error: 'You do not have access to this map.' };
-}
-
-// Whether this map's owning customer has opted into the hiddenOperators
-// safe-subset key (off by default — most maps/customers never see it).
-function operatorFilterAllow(customerId) {
-  if (customerId == null) return false;
-  const c = getCustomer(customerId);
-  return !!(c && c.hide_operators_enabled);
-}
+// ---------------------------------------------------------------------------
+// The editor spine's API -- src/routes/editor.js, one plugin under /api/maps
+// (OA-231). 14 routes: the map list, a map request, one map's detail, preview,
+// the landmark list and basemap, save, publish-request and its withdrawal, the
+// output toggles, the diagram request, public listing, the banner note and the
+// version file server. The plugin guard is requireUser only; loadOwnedMap() and
+// loadReadableMap() are the decisions that matter and they stay in the handlers,
+// because they need the map. Registered below, after /api/poi-glyphs, which is
+// the same audience behind the same guard but is NOT in this subtree.
+// ---------------------------------------------------------------------------
 
 /**
- * Does this map actually RENDER a "Where to board" sheet? (OA-011.)
+ * The sheet's own POI pictograms, for the landmark chooser (OA-220).
  *
- * Read from effectiveOutputs() rather than from the stored config, because the
- * config can say `boarding_plan: true` on a payload that carries no stand
- * register — in which case nothing is rendered and there is nothing to conflict
- * with. Takes an explicit data dir so the staged half of a monthly refresh can
- * be asked the same question about ITS payload.
+ * The chooser drew a coloured circle per place and the sheet draws twelve
+ * pictograms, so a reader was matching a picture against a legend they could
+ * only see by opening "See the real sheet". Map-independent and cached in the
+ * module, so this is a single small response shared by every map.
+ *
+ * Behind requireUser only because every page that asks is: there is nothing
+ * here but our own artwork, and no map data of any kind.
  */
-function boardingPlanActive(map, dataDir = mapDataDir(map.id)) {
-  return effectiveOutputs(parseOutputs(map.outputs), dataDir).some((o) => o.key === 'boarding_plan');
-}
-
-/** The three things sanitizeOverrides() needs to know about a map's customer + payload. */
-function safeSubsetAllow(map, meta, poiKeys, dataDir) {
-  return {
-    palette: meta.palette, poiKeys,
-    operatorNames: meta.operatorNames,
-    operatorFilterEnabled: operatorFilterAllow(map.customer_id),
-    boardingPlanOn: boardingPlanActive(map, dataDir),
-  };
-}
-
-function downloadsForVersion(id, storageKey) {
-  const dir = versionDir(id, storageKey);
-  return Object.keys(OUTPUT_FILES)
-    .filter((f) => existsSync(path.join(dir, f)))
-    .map((f) => ({ file: f, url: `/api/maps/${id}/versions/${storageKey}/${f}` }));
-}
-
-// Customer-facing download list: same as downloadsForVersion() but additionally
-// hides any `buildAlways` output (the schematic) the map hasn't switched on for
-// itself yet. It is rendered into every version regardless (see effectiveOutputs
-// in maps/engine.js), so the raw file list would otherwise leak it before the
-// customer ticks the visibility box. Non-output files (disagreements.pdf) always
-// pass through. Admin-only views (review, revert, the diagram pin editor) use
-// the raw downloadsForVersion() — an admin should see everything that exists.
-function visibleDownloadsForVersion(id, storageKey, outputsConfig) {
-  const visibleBases = new Set(
-    outputsForClient(outputsConfig, id).filter((o) => o.enabled).map((o) => o.base),
-  );
-  return downloadsForVersion(id, storageKey).filter((d) => {
-    const m = d.file.match(/^(.*)\.(svg|jpg)$/);
-    return !m || visibleBases.has(m[1]);
-  });
-}
-
-const parseJson = (s) => { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } };
-
-// Load a map's PENDING proposed update, scoped to that map. Returns { pu } or { code, error }.
-function loadPendingProposed(mapId, pid) {
-  const pu = getProposedUpdate(pid);
-  if (!pu || pu.map_id !== mapId) return { code: 404, error: 'No such update for this map.' };
-  if (pu.status !== 'pending') return { code: 409, error: `This update was already ${pu.status}.` };
-  return { pu };
-}
-
-// A short, human phrase for a data-refresh change summary (goes on the version note).
-function refreshNote(s) {
-  if (!s || s.unchanged) return '';
-  const bits = [];
-  if (s.routesAdded && s.routesAdded.length) bits.push(`routes +${s.routesAdded.join('/')}`);
-  if (s.routesRemoved && s.routesRemoved.length) bits.push(`routes −${s.routesRemoved.join('/')}`);
-  if (s.stopsChanged && s.stopsChanged.length) bits.push(`${s.stopsChanged.length} route stop change${s.stopsChanged.length > 1 ? 's' : ''}`);
-  if (s.descChanged && s.descChanged.length) bits.push(`${s.descChanged.length} description change${s.descChanged.length > 1 ? 's' : ''}`);
-  if (s.validity) bits.push(`validity → ${s.validity.to || '—'}`);
-  return bits.join(' · ');
-}
-
-function mapDetail(m) {
-  const id = m.id;
-  const meta = readRoutesMeta(id);
-  const saved = readOverrides(id);
-  const savedColors = saved.routeColors || {};
-  const savedPois = (saved.internal && saved.internal.pois) || {};
-  const order = (meta.routeOrder && meta.routeOrder.length ? meta.routeOrder : Object.keys(meta.palette));
-  const routes = order
-    .filter((r) => meta.palette[r])
-    .map((r) => ({
-      id: r, defaultColor: meta.palette[r], color: savedColors[r] || meta.palette[r],
-      customised: !!savedColors[r], textOn: meta.textOn[r] || '#111', desc: meta.internalDesc[r] || null,
-    }));
-  const pois = enumeratePois(id).map((p) => ({ ...p, hidden: !!(savedPois[p.key] && savedPois[p.key].hide) }));
-  const hideOperatorsEnabled = operatorFilterAllow(m.customer_id);
-  const savedHiddenOps = new Set(Array.isArray(saved.hiddenOperators) ? saved.hiddenOperators : []);
-  const operators = hideOperatorsEnabled ? meta.operatorNames.map((name) => ({ name, hidden: savedHiddenOps.has(name) })) : [];
-  // The one reason an ENABLED operator filter is still refused (OA-011). The
-  // sentence is the safe subset's own, so the control and the rejection cannot
-  // drift apart, and the editor shows it beside the disabled boxes rather than
-  // letting the customer discover it at save time.
-  const hideOperatorsBlocked = hideOperatorsEnabled && boardingPlanActive(m) ? BOARDING_CONFLICT : null;
-
-  // Publish gate (P4): the pending request (if any) locks editing; the published
-  // pointer + a diff of "what publishing the current head would change".
-  const open = getOpenRequestForMap(id);
-  const pendingVer = open ? getVersionById(open.version_id) : null;
-  const pending = open ? {
-    id: open.id, versionKey: pendingVer ? pendingVer.storage_key : null,
-    note: open.note || '', createdAt: open.created_at,
-  } : null;
-  // The diff must count the DATA refreshes this head carries as well as the
-  // customer's own overrides — see changeSummary()'s note and findings A1.
-  const summary = m.cur_key
-    ? changeSummary(saved, parseJson(m.pub_overrides), {
-      palette: meta.palette,
-      hasBaseline: !!m.pub_key,
-      dataChanges: dataChangesSince(id, m.published_version_id, m.current_version_id),
-    })
-    : null;
-
-  // Monthly change acceptance (P5): a staged data refresh awaiting accept/decline.
-  const openProposed = getOpenProposedForMap(id);
-  const proposedUpdate = openProposed ? {
-    id: openProposed.id, sourceNote: openProposed.source_note || '',
-    createdAt: openProposed.created_at, summary: parseJson(openProposed.summary_json),
-  } : null;
-
-  return {
-    id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject, status: m.status,
-    customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
-    town: meta.town, currentVersion: m.cur_key || null, overrides: saved,
-    routes, pois, hideOperatorsEnabled, hideOperatorsBlocked, operators, outputs: outputsForClient(parseOutputs(m.outputs), id, m.kind),
-    // Every version, with the files that still exist and the overrides it was
-    // rendered from — the editor lists them, so "earlier versions stay
-    // available" is something the customer can see (findings H8).
-    versions: listVersions(id).map((v) => ({
-      id: v.id, storage_key: v.storage_key, note: v.note, review_state: v.review_state,
-      created_at: v.created_at, overrides: parseJson(v.overrides_json),
-      downloads: visibleDownloadsForVersion(id, v.storage_key, parseOutputs(m.outputs)),
-    })),
-    downloads: m.cur_key ? visibleDownloadsForVersion(id, m.cur_key, parseOutputs(m.outputs)) : [],
-    // --- publish gate ---
-    headState: m.cur_state || null,
-    publishedVersion: m.pub_key || null,
-    publishedDownloads: m.pub_key ? visibleDownloadsForVersion(id, m.pub_key, parseOutputs(m.outputs)) : [],
-    pendingRequest: pending,
-    editable: !pending, // locked while a publish request awaits review
-    changeSummary: summary,
-    publishHistory: listPublishRequestsForMap(id),
-    // --- monthly change acceptance (P5) ---
-    proposedUpdate,
-    refreshHistory: listProposedForMap(id),
-    // --- public page (P6) --- `publicUrl` is set only when the map really is
-    // reachable by the public (asked of the same query the public site uses, so
-    // the editor can never be told "you are live" when a suspension hides it).
-    publicListed: !!m.public_listed,
-    publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
-    org: m.customer_id ? brandingForPublic(getCustomer(m.customer_id)) : null,
-    // --- P8: "changes coming" banner ---
-    bannerNote: m.banner_note || null,
-    bannerNoteSource: m.banner_note_source || 'auto',
-  };
-}
-
-// Anonymous by design — it is the sign-in page. It needs a route only because
-// it is no longer a static file; the URL is unchanged so every existing
-// redirect, bookmark and `location.href` in the app keeps working.
-app.get('/app/login.html', async (req, reply) => reply.sendFile('app/login.html', VIEWS_DIR));
-
-app.get('/app', async (req, reply) => (req.user ? reply.sendFile('app/index.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/maps/:id', async (req, reply) => (req.user ? reply.sendFile('app/editor.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/branding', async (req, reply) => (req.user ? reply.sendFile('app/branding.html', VIEWS_DIR) : reply.redirect('/app/login.html')));
-app.get('/app/admin', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/admin.html', VIEWS_DIR);
-});
-app.get('/app/review', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/review.html', VIEWS_DIR);
-});
-
-// The services-and-stops list a reviewer opens in a second tab from
-// /app/review. It was reachable by anyone until 2026-08-20 because it was a
-// static file with no route of its own — the clearest single case of S7. Same
-// guard as the review page that links to it. The `.html` stays in the URL
-// because review.js links to it by that name.
-app.get('/app/review-services.html', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'approver' && req.user.role !== 'admin') return reply.redirect('/app');
-  return reply.sendFile('app/review-services.html', VIEWS_DIR);
-});
-
-// Admin-only view of the developer CHANGELOG.md. NOT public: entries there
-// name real past security findings (e.g. the S6 self-approval bypass, the S4
-// /health disclosure) in the same detail as the rest of this repo's docs, so
-// publishing it verbatim would hand a visitor a list of things that used to
-// be wrong. Rendered as escaped plain text, not parsed markdown — this is a
-// read-only convenience for Peter, not a document worth a markdown dependency
-// for. The public-facing counterpart is /changelog.html, fed by the small
-// curated file at public/data/whats-new.json instead of this one.
-app.get('/app/changelog', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'admin') return reply.redirect('/app');
-  let body;
-  try {
-    body = readFileSync(path.join(ROOT_DIR, 'CHANGELOG.md'), 'utf8');
-  } catch {
-    body = '(CHANGELOG.md not found on this instance.)';
-  }
-  reply.type('text/html; charset=utf-8');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Changelog (admin) — BusMaps.uk</title>
-<link rel="stylesheet" href="/css/styles.css">
-<link rel="stylesheet" href="/app/app.css">
-<script src="/js/site-banner.js" defer></script></head>
-<body><header class="site-header"><div class="container"><nav class="nav">
-<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
-<a class="navlink" href="/app/admin">Admin</a></nav></div></header>
-<main class="app-main"><div class="app-sub"><h1>Changelog (admin)</h1><span class="spacer"></span></div>
-<p class="hint-line">The raw developer CHANGELOG.md, for reference only — not shown to visitors. The public "What's new" is /changelog.html, edited separately.</p>
-<pre style="white-space:pre-wrap;font-size:.85rem;line-height:1.5;max-width:900px;">${xmlEscape(body)}</pre>
-</main></body></html>`;
-});
-
-app.get('/api/maps', async (req, reply) => {
+app.get('/api/poi-glyphs', async (req, reply) => {
   const user = requireUser(req, reply); if (!user) return;
-  if (user.role !== 'admin' && user.customer_id == null) return { ok: true, isAdmin: false, maps: [] };
-  const scope = user.role === 'admin' ? {} : { customerId: user.customer_id };
-  return {
-    ok: true, isAdmin: user.role === 'admin',
-    maps: listMaps(scope).map((m) => ({
-      id: m.id, slug: m.slug, name: m.name, kind: m.kind, subject: m.subject,
-      status: m.status, currentVersion: m.cur_key || null,
-      publishedVersion: m.pub_key || null, pendingReview: !!m.pending_reviews,
-      pendingUpdate: !!m.pending_updates,
-      // P6 — set only when the map really is on the public site (same query the
-      // public pages use, so a suspension or an un-listing shows through here).
-      publicUrl: m.pub_key && m.public_listed && getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
-      customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
-    })),
-  };
+  const glyphs = poiGlyphs();
+  if (!glyphs) return reply.code(404).send({ ok: false, error: 'No icon set available.' });
+  reply.header('cache-control', 'private, max-age=3600');
+  return { ok: true, glyphs };
 });
 
-// A customer requests a new map (area or place), within quota. It starts in
-// 'requested'; an admin approves it (P3) and the central pipeline builds the
-// data later — so no object store / render exists yet.
-app.post('/api/maps/request', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  if (user.customer_id == null) return reply.code(400).send({ ok: false, error: 'Only a customer account can request maps.' });
-  const cust = getCustomer(user.customer_id);
-  if (!cust) return reply.code(400).send({ ok: false, error: 'Your organisation record is missing — please contact us.' });
+await app.register(editorRoutes, { prefix: '/api/maps' });
 
-  const b = req.body || {};
-  const kind = MAP_KINDS.includes(b.kind) ? b.kind : '';
-  const name = str(b.name, 120);
-  const fields = [];
-  if (!kind) fields.push('kind');
-  if (!name) fields.push('name');
-  if (fields.length) return reply.code(400).send({ ok: false, error: 'Please choose a type and give the map a name.', fields });
+// ===========================================================================
+// Monthly change acceptance (P5) -- src/routes/proposed.js, one plugin under the
+// parametric prefix /api/maps/:id/proposed/:pid. Three routes: preview, accept,
+// decline. The plugin guard is requireUser only; loadOwnedMap() is the decision
+// that matters and it stays in the handlers, because it needs the map.
+// ===========================================================================
+await app.register(proposedRoutes, { prefix: '/api/maps/:id/proposed/:pid' });
 
-  const usage = quotaUsage(cust.id);
-  const limit = kind === 'area' ? cust.quota_areas : cust.quota_places;
-  if (usage[kind] >= limit) {
-    const noun = kind === 'area' ? 'area map' : 'place map';
-    return reply.code(400).send({ ok: false, error: `Your plan includes ${limit} ${noun}${limit === 1 ? '' : 's'} and you already have ${usage[kind]}. Contact us to raise your quota.` });
-  }
-
-  // Unique slug (append a counter if the base is taken).
-  let slug = slugify(name) || kind;
-  for (let n = 2; getMapBySlug(slug); n++) slug = `${slugify(name) || kind}-${n}`;
-
-  const id = insertMap({
-    customer_id: cust.id, slug, name, kind,
-    subject: str(b.subject, 200), request_note: str(b.note, 2000),
-    requested_by: user.id, data_dir: '', status: 'requested',
-  });
-  req.log.info({ mapId: id, kind, by: user.email }, 'map requested');
-  const after = quotaUsage(cust.id);
-  return {
-    ok: true,
-    map: { id, slug, name, kind, subject: str(b.subject, 200), status: 'requested' },
-    usage: { usedAreas: after.area, usedPlaces: after.place, quotaAreas: cust.quota_areas, quotaPlaces: cust.quota_places },
-  };
-});
-
-app.get('/api/maps/:id', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadReadableMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  return { ok: true, map: mapDetail(map) };
-});
-
-app.post('/api/maps/:id/preview', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const meta = readRoutesMeta(id);
-  const poiKeys = enumeratePois(id).map((p) => p.key);
-  const s = sanitizeOverrides((req.body || {}).overrides, safeSubsetAllow(map, meta, poiKeys));
-  try {
-    const svg = await withMapLock(id, () => preview(id, s.overrides, parseOutputs(map.outputs)));
-    return { ok: true, overrides: s.overrides, rejected: s.rejected, svg };
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Preview render failed: ' + e.message });
-  }
-});
-
-app.post('/api/maps/:id/save', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  // Editing is frozen while a version awaits publication review — withdraw the
-  // request first, so the version an approver reviews is always the head.
-  if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw the request to make further changes.' });
-  }
-  const meta = readRoutesMeta(id);
-  const poiKeys = enumeratePois(id).map((p) => p.key);
-  const b = req.body || {};
-  const s = sanitizeOverrides(b.overrides, safeSubsetAllow(map, meta, poiKeys));
-  const { major, minor } = nextVersion(id);
-  const storageKey = `v${major}.${minor}`;
-  try {
-    const r = await withMapLock(id, () => renderVersion(id, s.overrides, storageKey, parseOutputs(map.outputs)));
-    const versionId = insertVersion({ map_id: id, major, minor, note: str(b.note, 500), overrides: s.overrides, storage_key: storageKey });
-    setCurrentVersion(id, versionId);
-    req.log.info({ mapId: id, version: storageKey, by: user.email }, 'saved new map version');
-    logAudit(req, 'version.save', { mapId: id, versionId, detail: { version: storageKey, note: str(b.note, 500) } });
-    return { ok: true, version: storageKey, rejected: s.rejected, files: r.files, downloads: visibleDownloadsForVersion(id, storageKey, parseOutputs(map.outputs)) };
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Render failed: ' + e.message });
-  }
-});
-
-// --- publish gate: the editor submits the current head for review, or
-//     withdraws a pending request to resume editing. Approvers/admins decide
-//     (below, under /api/review). Editors never publish their own maps.
-app.post('/api/maps/:id/publish-request', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  if (!map.current_version_id || !map.cur_key) {
-    return reply.code(400).send({ ok: false, error: 'This map has no rendered version to publish yet.' });
-  }
-  if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is already awaiting publication review.' });
-  }
-  if (map.published_version_id === map.current_version_id) {
-    return reply.code(409).send({ ok: false, error: 'The current version is already the published one.' });
-  }
-  const note = str((req.body || {}).note, 1000);
-  const requestId = insertPublishRequest({ map_id: id, version_id: map.current_version_id, requested_by: user.id, note });
-  setVersionState(map.current_version_id, 'pending');
-  req.log.info({ mapId: id, requestId, version: map.cur_key, by: user.email }, 'publication requested');
-  logAudit(req, 'version.submit', { mapId: id, versionId: map.current_version_id, detail: { requestId, version: map.cur_key, note } });
-  return { ok: true, request: { id: requestId, versionKey: map.cur_key, note } };
-});
-
-app.post('/api/maps/:id/publish-request/withdraw', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const open = getOpenRequestForMap(map.id);
-  if (!open) return reply.code(409).send({ ok: false, error: 'There is no pending request to withdraw.' });
-  withdrawPublishRequest(open.id);
-  // Return the version to draft unless it is the currently-published one.
-  if (open.version_id !== map.published_version_id) setVersionState(open.version_id, 'draft');
-  req.log.info({ mapId: map.id, requestId: open.id, by: user.email }, 'publication request withdrawn');
-  logAudit(req, 'version.withdraw', { mapId: map.id, versionId: open.version_id, detail: { requestId: open.id } });
-  return { ok: true };
-});
-
-// Choose which outputs a map produces (P2 output toggles).
+// ===========================================================================
+// The local adviser's seat -- src/routes/adviser.js, one plugin under
+// /api/adviser (buses-data OA-154 Phase D1). Three routes: the maps I have been
+// asked about, one of them, and one sheet of its current draft as marked inline
+// SVG. The plugin guard is requireAdviser; loadAdvisedMap() is the decision that
+// matters, and it admits nothing but a live grant.
 //
-// Expert styles (P7) can only be switched on for a map that carries the config
-// they need, and the tube-map diagram cannot be switched on by a customer at all
-// — it is request-only (see chooseOutputs). The server decides, not the UI.
-app.patch('/api/maps/:id/outputs', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const current = parseOutputs(map.outputs);
-  const available = outputsForClient(current, map.id, map.kind).filter((o) => o.available).map((o) => o.key);
-  const { outputs: clean, refused } = chooseOutputs((req.body || {}).outputs, {
-    current, available, isAdmin: user.role === 'admin',
-  });
-  if (refused.length) {
-    req.log.warn({ mapId: map.id, refused, by: user.email }, 'refused a request-only output change');
-    return reply.code(403).send({
-      ok: false, refused,
-      error: 'The tube-map diagram is hand-finished, so it is not a tick-box — ask us for it and we will quote and set it up.',
-    });
-  }
-  if (!Object.values(clean).some(Boolean)) return reply.code(400).send({ ok: false, error: 'A map must produce at least one output.' });
-
-  // GRANTING AN OUTPUT USED TO RENDER NOTHING (OA-007). Walked for real on the
-  // St Ives Bus Station import, 2026-08-24: `PATCH /api/maps/14/outputs` set
-  // `boarding_plan: true`, returned 200, and produced no file at all —
-  // `renders/v1.0/` still held only the internal and external sheets. The sheet
-  // appeared only after a second delivery of the same S5 was staged as a
-  // proposed update and ACCEPTED, because accept is what renders. So the working
-  // sequence was grant → re-deliver → accept → publish, and two of those four
-  // steps existed purely to make a flag take effect.
-  //
-  // Most flips need none of that: a `buildAlways` output (the schematic) is
-  // already in every version's folder, so enabling it is a pure visibility
-  // change and must stay instant and free. The ones that need a render are
-  // exactly the ones whose FILE IS MISSING from the current version — which is
-  // the condition asked here, rather than "is this output expert" or "is it
-  // request-only". Both of those are proxies; the file is the fact.
-  const grantsNeedingRender = outputsNeedingRender(current, clean, mapDataDir(map.id), map.cur_key ? versionDir(map.id, map.cur_key) : null);
-  if (grantsNeedingRender.length && getOpenRequestForMap(map.id)) {
-    return reply.code(409).send({
-      ok: false,
-      error: 'This map is awaiting publication review, and adding that sheet needs a new version. Withdraw the request first.',
-    });
-  }
-
-  setMapOutputs(map.id, clean);
-  req.log.info({ mapId: map.id, outputs: clean }, 'updated map outputs');
-
-  let added = null;
-  if (grantsNeedingRender.length) {
-    const overrides = readOverrides(map.id);
-    const { major, minor } = nextVersion(map.id);
-    const storageKey = `v${major}.${minor}`;
-    const labels = grantsNeedingRender.map((k) => (map.kind === 'place' && OUTPUTS[k].placeLabel) || OUTPUTS[k].label);
-    try {
-      const r = await withMapLock(map.id, () => renderVersion(map.id, overrides, storageKey, clean));
-      const versionId = insertVersion({
-        map_id: map.id, major, minor,
-        note: `Added ${labels.join(' and ')}`,
-        overrides, storage_key: storageKey,
-      });
-      setCurrentVersion(map.id, versionId);
-      added = { version: storageKey, outputs: grantsNeedingRender, files: r.files };
-      req.log.info({ mapId: map.id, version: storageKey, outputs: grantsNeedingRender, by: user.email }, 'rendered a new version for a granted output');
-      logAudit(req, 'version.save', { mapId: map.id, versionId, detail: { version: storageKey, granted: grantsNeedingRender } });
-    } catch (e) {
-      // The FLAG IS ALREADY SET and that is deliberate: the grant itself is what
-      // was asked for and it succeeded. Report the render failure honestly and
-      // let the next save pick the sheet up, rather than silently reverting a
-      // decision an admin made.
-      req.log.error(e);
-      return reply.code(500).send({
-        ok: false,
-        outputs: outputsForClient(clean, map.id, map.kind),
-        error: `The sheet was granted, but rendering it failed: ${e.message}. The next save will produce it.`,
-      });
-    }
-  }
-  return { ok: true, outputs: outputsForClient(clean, map.id, map.kind), added };
-});
-
-// "Ask us for the diagram" — the customer half of the request-only lock above.
-// It deliberately creates nothing but a MESSAGE (the same table the contact form
-// and public map feedback use, with the map attached), because granting the
-// output is expert work with a price attached, not a state a form can set.
-app.post('/api/maps/:id/diagram-request', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const note = str((req.body || {}).note, 2000);
-  const body = [
-    `Asked for the tube-map diagram on "${map.name}" (map #${map.id}, ${map.kind}).`,
-    note && `They said: ${note}`,
-  ].filter(Boolean).join('\n\n');
-  const id = insertMessage({ kind: 'diagram-request', name: user.name || null, email: user.email, body, map_id: map.id });
-  req.log.info({ messageId: id, mapId: map.id, by: user.email }, 'tube-map diagram requested');
-  logAudit(req, 'diagram.request', { mapId: map.id, detail: { messageId: id, note } });
-  return { ok: true, id };
-});
-
-// Whether the map's PUBLISHED version appears on the public site (P6). This is
-// the customer's own choice and is independent of the publish gate: un-listing
-// takes the page down without touching the reviewed version or its pointer.
-app.patch('/api/maps/:id/public', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const listed = !!(req.body || {}).listed;
-  setMapPublicListed(map.id, listed);
-  bumpSearchIndex(); // P9 — an unlisted map's places must stop being searchable
-  req.log.info({ mapId: map.id, listed }, 'public listing updated');
-  logAudit(req, listed ? 'public.list' : 'public.unlist', { mapId: map.id, detail: { name: map.name } });
-  return { ok: true, publicListed: listed, publicUrl: getPublicMapBySlug(map.slug) ? mapPageUrl(map.slug) : null };
-});
-
-// P8: the "changes coming" banner shown above the public map image. Auto-
-// suggested by scripts/check-upcoming-refreshes.mjs from the GTFS upcoming-
-// changes scan; the owning customer or an admin may overwrite the wording here
-// (marking it 'manual' so the next scan won't clobber it), or clear it entirely.
-app.patch('/api/maps/:id/banner-note', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const note = str((req.body || {}).note, 500);
-  setMapBannerNote(map.id, note || null, 'manual');
-  req.log.info({ mapId: map.id, by: user.email }, 'banner note updated');
-  logAudit(req, 'banner.update', { mapId: map.id, detail: { note } });
-  return { ok: true, bannerNote: note || null };
-});
-
-app.get('/api/maps/:id/versions/:key/:file', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadReadableMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const { key, file } = req.params;
-  if (!/^v\d+\.\d+$/.test(key) || !Object.prototype.hasOwnProperty.call(OUTPUT_FILES, file)) {
-    return reply.code(400).send({ ok: false, error: 'Bad version or file.' });
-  }
-  let p = path.join(versionDir(map.id, key), file);
-  if (!existsSync(p)) return reply.code(404).send({ ok: false, error: 'Not found.' });
-
-  /* Mark a copy that is NOT the published one, so a sheet on someone's desk says
-   * what it is. The render itself carries only "Map version 5.0" — true while the
-   * version is a draft and still true once it is published, which is what lets
-   * publishing stay a pure state flip and leaves the reviewed bytes alone (see
-   * renderVersion in maps/engine.js). This route is the one that serves versions
-   * OTHER than the published one, so it is where the state belongs.
-   *
-   * Derived and cached beside the source, never written over it — the same
-   * contract as the public watermark, and it falls back to the original file on
-   * any error rather than failing a download. A render made before the version
-   * line existed has no line to rewrite and is served untouched.
-   */
-  const ver = getVersion(map.id, key);
-  if (ver && ver.review_state !== 'published') {
-    try {
-      const marked = await ensureDraftMarked(p, draftLabel(ver.review_state, `${ver.major}.${ver.minor}`, ver.created_at));
-      if (marked) p = marked;
-    } catch (e) {
-      req.log.error(e, 'draft marking failed; serving the original file');
-    }
-  }
-
-  reply.header('Content-Type', OUTPUT_FILES[file]);
-  if (req.query && 'download' in req.query) {
-    reply.header('Content-Disposition', `attachment; filename="${map.slug}-${key}-${file}"`);
-  }
-  return reply.send(createReadStream(p));
-});
-
+// It is NOT under /api/maps, and that is the point rather than an accident of
+// naming: everything in that subtree is written for somebody who owns the map,
+// and an adviser owns nothing. The two subtrees refuse each other by name --
+// loadOwnedMap() and loadReadableMap() both turn an adviser away before they look
+// at a customer id at all.
 // ===========================================================================
-// Monthly change acceptance (P5) — the central pipeline stages a data refresh
-// (via scripts/propose-update.mjs); the customer reviews an old-vs-new preview
-// and Accepts (re-applies their overrides as a new MAJOR version, which is a
-// draft that still goes through the P4 publish gate) or Declines. Only the map's
-// own customer (or an admin) may act. The data fetch/judgement stays central.
-// ===========================================================================
-
-// Old-vs-new preview: render the LIVE data (with saved overrides) and the STAGED
-// data (with those overrides re-applied — orphans dropped) so the customer can
-// compare exactly what accepting would produce. Nothing is persisted.
-app.post('/api/maps/:id/proposed/:pid/preview', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
-  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
-  if (!map.cur_key) return reply.code(400).send({ ok: false, error: 'This map has no current version to compare against.' });
-
-  const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
-  const outputs = parseOutputs(map.outputs);
-  const saved = readOverrides(id);
-  try {
-    const result = await withMapLock(id, async () => {
-      // The staged payload comes from central data and carries no expert tuning;
-      // lay the map's own pins on it so the "after" side is what accepting gives.
-      carryExpertTuning(id, stagedDir);
-      const stagedMeta = readRoutesMetaFromDir(stagedDir);
-      const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
-      const after = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir)); // re-apply onto proposed data
-      return {
-        before: previewFrom(mapDataDir(id), saved, outputs),
-        after: previewFrom(stagedDir, after.overrides, outputs),
-        dropped: after.rejected, // overrides the refresh made obsolete
-      };
-    });
-    return { ok: true, ...result, summary: parseJson(pu.summary_json) };
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Preview render failed: ' + e.message });
-  }
-});
-
-// Accept the refresh: render the new major version FROM the staged data first
-// (so a failure leaves the live map untouched), then swap the data in, re-apply
-// the overrides, and record the new draft head + audit. The published pointer is
-// unchanged — the new version must be reviewed (P4) before it goes public.
-app.post('/api/maps/:id/proposed/:pid/accept', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
-  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
-  if (!map.current_version_id || !map.cur_key) {
-    return reply.code(400).send({ ok: false, error: 'This map has no current version to update.' });
-  }
-  // Accepting moves the head — not allowed while a publication awaits review.
-  if (getOpenRequestForMap(id)) {
-    return reply.code(409).send({ ok: false, error: 'This map is awaiting publication review. Withdraw that request before accepting an update.' });
-  }
-
-  const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
-  const outputs = parseOutputs(map.outputs);
-  const saved = readOverrides(id);
-  const { major, minor } = nextMajorVersion(id);
-  const storageKey = `v${major}.${minor}`;
-  const decisionNote = str((req.body || {}).note, 1000);
-  const summary = parseJson(pu.summary_json);
-
-  try {
-    const applied = await withMapLock(id, async () => {
-      // Expert hand-tuning first: the new version is rendered FROM the staged data,
-      // so the pins must be in there before we render, not just after the swap.
-      const carried = carryExpertTuning(id, stagedDir);
-      if (carried.length) req.log.info({ mapId: id, carried }, 'carried expert tuning into the refreshed data');
-      // Re-apply the customer's overrides onto the PROPOSED data (orphans dropped).
-      const stagedMeta = readRoutesMetaFromDir(stagedDir);
-      const poiKeys = enumeratePoisFromDir(stagedDir).map((p) => p.key);
-      const reapplied = sanitizeOverrides(saved, safeSubsetAllow(map, stagedMeta, poiKeys, stagedDir));
-      // Render from the staged data BEFORE committing the swap.
-      const rend = await renderVersion(id, reapplied.overrides, storageKey, outputs, stagedDir);
-      // Render OK → make the staged data the live data (old data archived).
-      swapInProposedData(id, pu.id);
-      return { rend, overrides: reapplied.overrides, dropped: reapplied.rejected };
-    });
-
-    const noteBits = refreshNote(summary);
-    const versionId = insertVersion({
-      map_id: id, major, minor,
-      note: `Accepted update${noteBits ? ' — ' + noteBits : ''}`,
-      overrides: applied.overrides, storage_key: storageKey,
-      // The diff travels WITH the version, so every later screen can say what
-      // this version changed without digging through the audit log (findings A1).
-      data_change: { proposedId: pu.id, sourceNote: pu.source_note || '', summary },
-    });
-    setCurrentVersion(id, versionId);
-    decideProposedUpdate(pu.id, { status: 'accepted', reviewedBy: user.id, decisionNote, acceptedVersionId: versionId });
-    req.log.info({ mapId: id, version: storageKey, proposedId: pu.id, by: user.email }, 'monthly update accepted');
-    logAudit(req, 'refresh.accept', { mapId: id, versionId, detail: { proposedId: pu.id, version: storageKey, changeSummary: summary, droppedOverrides: applied.dropped, note: decisionNote } });
-    return {
-      ok: true, version: storageKey, dropped: applied.dropped,
-      files: applied.rend.files, downloads: visibleDownloadsForVersion(id, storageKey, outputs),
-    };
-  } catch (e) {
-    req.log.error(e);
-    return reply.code(500).send({ ok: false, error: 'Accepting the update failed: ' + e.message });
-  }
-});
-
-// Decline the refresh: keep the current data; mark the proposal declined.
-app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
-  const user = requireUser(req, reply); if (!user) return;
-  const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
-  if (!map) return reply.code(code).send({ ok: false, error });
-  const id = map.id;
-  const { pu, code: pcode, error: perror } = loadPendingProposed(id, Number(req.params.pid));
-  if (!pu) return reply.code(pcode).send({ ok: false, error: perror });
-  const note = str((req.body || {}).note, 1000);
-  decideProposedUpdate(pu.id, { status: 'declined', reviewedBy: user.id, decisionNote: note });
-  req.log.info({ mapId: id, proposedId: pu.id, by: user.email }, 'monthly update declined');
-  logAudit(req, 'refresh.decline', { mapId: id, detail: { proposedId: pu.id, note } });
-  return { ok: true };
-});
+await app.register(adviserRoutes, { prefix: '/api/adviser' });
 
 // ===========================================================================
 // Expert side (P7) — the tube-map DIAGRAM pin editor.
@@ -2132,12 +764,6 @@ app.post('/api/maps/:id/proposed/:pid/decline', async (req, reply) => {
 // `diagram-layout.json` and then goes through the ordinary versioned render, so
 // the result is a draft that still needs an approver's review (P4).
 // ===========================================================================
-
-app.get('/app/maps/:id/diagram', async (req, reply) => {
-  if (!req.user) return reply.redirect('/app/login.html');
-  if (req.user.role !== 'admin') return reply.redirect(`/app/maps/${Number(req.params.id)}`);
-  return reply.sendFile('app/diagram.html', VIEWS_DIR);
-});
 
 // Load a map for expert work: admin-only, must have data + the diagram configured.
 function loadDiagramMap(req, reply) {
@@ -2216,7 +842,7 @@ app.post('/api/expert/maps/:id/diagram/save', async (req, reply) => {
     const r = await withMapLock(id, async () => {
       if (Object.keys(pins).length) writePins(dataDir, pins);
       else clearPins(dataDir);
-      return renderVersion(id, saved, storageKey, outputs);
+      return renderVersion(id, saved, storageKey, outputs, undefined, { sample: isSampleCustomer(map) });
     });
     dropSandbox(id); // the live layout moved on; next preview starts from it
     const n = Object.keys(pins).length;
@@ -2264,860 +890,18 @@ function sanitizePins(input) {
 }
 
 // ===========================================================================
-// Review & publish gate (P4) — approvers/admins review a submitted version.
-// The customer who edits never publishes (separation of duties). Publishing
-// requires a completed review checklist, records the change-summary evidence,
-// advances the map's public-current pointer, and writes the audit trail.
+// Review & publish gate (P4) -- src/routes/review.js, one plugin under
+// /api/review with ONE approver guard (OA-231). Eight routes: the queue, one
+// version, its services, approve, reject, the published list, a map history and
+// a revert.
 // ===========================================================================
-
-app.get('/api/review/queue', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  return { ok: true, requests: listPendingPublishRequests(), checklist: CHECKLIST };
-});
-
-app.get('/api/review/:id', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const pr = getPublishRequest(Number(req.params.id));
-  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
-  const meta = readRoutesMeta(pr.map_id);
-  const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
-  const summary = changeSummary(
-    parseJson(pr.version_overrides), parseJson(pub ? pub.overrides_json : '{}'),
-    {
-      palette: meta.palette, hasBaseline: !!pub,
-      // Bounded at the SUBMITTED version, so the reviewer reads what they are
-      // signing off and not anything saved after it (findings A1).
-      dataChanges: dataChangesSince(pr.map_id, pr.published_version_id, pr.version_id),
-    },
-  );
-  const decided = pr.status !== 'pending';
-  return {
-    ok: true,
-    request: {
-      id: pr.id, status: pr.status, createdAt: pr.created_at, note: pr.note || '',
-      map: { id: pr.map_id, name: pr.map_name, slug: pr.map_slug, kind: pr.map_kind, subject: pr.map_subject },
-      customer: pr.customer_id ? { id: pr.customer_id, name: pr.customer_name } : null,
-      version: pr.version_key, versionNote: pr.version_note || '',
-      publishedVersion: pub ? pub.storage_key : null,
-      requestedBy: pr.requested_by_email || null,
-      // Told to the review screen so an approver sees, BEFORE ticking anything,
-      // that they are about to sign off their own submission — and whether the
-      // server will let them (technical-audit_2026-08-19 S6). Sending both flags
-      // rather than one lets the UI say which of the two situations it is.
-      selfReview: pr.requested_by != null && Number(pr.requested_by) === Number(user.id),
-      selfApprovalAllowed: ALLOW_SELF_APPROVAL,
-      // Step-up belongs in that same "before ticking anything" set, and was missing
-      // from it. Publishing needs a sign-in from the last STEP_UP_MINUTES, and the
-      // only thing that ever said so was the 403 from the Publish button — raised
-      // after the approver had opened every sheet and ticked the checklist, which is
-      // the entire cost of a review. Reported from the operator's seat 2026-08-22.
-      // A DEADLINE rather than a boolean, deliberately: step-up is anchored on the
-      // session's CREATION and the sliding window never moves it, so the freshness
-      // can expire *during* a review. A flag captured at page load would go quietly
-      // stale exactly when it mattered; an absolute time stays true.
-      stepUpFresh: stepUpFresh(user),
-      stepUpExpiresAt: stepUpDeadline(user),
-      stepUpMinutes: STEP_UP_MINUTES,
-      reviewedBy: pr.reviewed_by_email || null, reviewedAt: pr.reviewed_at || null,
-      decisionNote: pr.decision_note || '',
-      evidence: decided ? parseJson(pr.evidence_json) : null,
-    },
-    changeSummary: summary,
-    checklist: CHECKLIST,
-    // Files to eyeball before signing off (approver read-access is enforced above).
-    inspect: downloadsForVersion(pr.map_id, pr.version_key),
-    // WHAT THE ENGINE THOUGHT OF THIS BUILD (OA-046).
-    //
-    // The bus skill writes build-warnings.txt beside every run and, until
-    // 2026-08-30, nothing downstream read it: 161 of them on the map tree, zero
-    // mentions of the name anywhere in this repository. So the one place a
-    // human has already agreed to look at a sheet — this screen — was the one
-    // place the engine’s own verdict on it never reached.
-    //
-    // It is carried with the delivery rather than re-derived. Re-running the
-    // guards here would give TODAY’S engine’s opinion of an older pack, and the
-    // severity contract itself widened on 2026-08-28; what an approver needs is
-    // the verdict the sheet actually shipped under. A pack that carries no file
-    // reports null, never a zero — see readBuildWarnings().
-    buildWarnings: readBuildWarnings(mapDataDir(pr.map_id)),
-    town: meta.town,
-  };
-});
-
-// Checklist item `alternative` asks the approver to open the map's text
-// alternative and check it — but the map may not be published yet (a first
-// submission has no public page at all), and even when it is, the PUBLIC
-// /m/:slug/services route serves the PUBLISHED version's facts, not the one
-// under review. So this builds the SUBMITTED version's own facts straight
-// from its render folder, same read as factsForPublicMap() but keyed off the
-// pending version rather than the published pointer — the approver always
-// previews exactly what they are about to sign off, whether or not anything
-// has ever been published before.
-app.get('/api/review/:id/services', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const pr = getPublishRequest(Number(req.params.id));
-  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
-  const dir = versionDir(pr.map_id, pr.version_key);
-  const facts = readFactsSnapshot(dir) || buildFacts(mapDataDir(pr.map_id), { kind: pr.map_kind });
-  const services = publicServices({ subject: pr.map_subject, name: pr.map_name }, facts);
-  if (!services) return reply.code(404).send({ ok: false, error: 'This version has no service list.' });
-  return {
-    ok: true,
-    map: { name: pr.map_name, kind: pr.map_kind, version: pr.version_key },
-    services,
-  };
-});
-
-// SEPARATION OF DUTIES, ENFORCED (technical-audit_2026-08-19 S6).
-//
-// README.md and src/publish/index.js have said since P4 that "the editor who
-// makes a change never publishes it — that's a deliberate separation of
-// duties". Until 2026-08-20 the code did not implement it: approve checked the
-// role, the request's existence, its pending status and the checklist, and
-// never once compared pr.requested_by to the approving user. Every one of the
-// 41 publications to date was self-approved, on a deployment with two users.
-// That is fine for a pilot; documenting a control that does not exist is not,
-// and it is precisely what a reviewer tests.
-//
-// So: refuse a self-approval, unless ALLOW_SELF_APPROVAL is explicitly set, and
-// when it is, RECORD that the publication was self-approved in the decision
-// evidence, the audit row and the API response. The override is not a way of
-// switching the rule off quietly; it is a way of being honest that a
-// one-operator pilot has no second pair of eyes, in a form that shows up
-// afterwards in the audit trail rather than only in someone's memory.
-//
-// WHEN TO TURN IT OFF: as soon as a second person holds `approver`. Until then
-// leaving it unset would simply stop Peter publishing anything, which is a
-// worse outcome than a recorded self-approval — see docs/R3-review-and-publish.md.
-const ALLOW_SELF_APPROVAL = process.env.ALLOW_SELF_APPROVAL === '1';
-
-app.post('/api/review/:id/approve', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const pr = getPublishRequest(Number(req.params.id));
-  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
-  if (pr.status !== 'pending') return reply.code(409).send({ ok: false, error: `This request was already ${pr.status}.` });
-
-  // Self-approval BEFORE step-up, deliberately. Step-up says "not right now";
-  // self-approval says "not by you, ever, on this request". Telling someone to
-  // go and re-authenticate before telling them the action was never theirs to
-  // take wastes a round trip and teaches the wrong lesson.
-  const selfApproval = pr.requested_by != null && Number(pr.requested_by) === Number(user.id);
-  if (selfApproval && !ALLOW_SELF_APPROVAL) {
-    req.log.warn({ requestId: pr.id, mapId: pr.map_id, by: user.email }, 'self-approval refused');
-    return reply.code(409).send({
-      ok: false,
-      error: 'You submitted this version, so you cannot approve it. Ask another approver to review it.',
-      code: 'self-approval',
-    });
-  }
-
-  if (!requireStepUp(req, reply, 'publishing a version')) return;
-
-  // The review gate: every checklist item must be confirmed. No exceptions —
-  // it is public transit information people rely on.
-  const { ok, missing, checklist } = validateChecklist((req.body || {}).checklist);
-  if (!ok) return reply.code(400).send({ ok: false, error: 'Please confirm every item on the review checklist before publishing.', missing });
-
-  const meta = readRoutesMeta(pr.map_id);
-  const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
-  const summary = changeSummary(
-    parseJson(pr.version_overrides), parseJson(pub ? pub.overrides_json : '{}'),
-    {
-      palette: meta.palette, hasBaseline: !!pub,
-      // Bounded at the SUBMITTED version, so the reviewer reads what they are
-      // signing off and not anything saved after it (findings A1).
-      dataChanges: dataChangesSince(pr.map_id, pr.published_version_id, pr.version_id),
-    },
-  );
-  const decisionNote = str((req.body || {}).note, 2000);
-  const evidence = {
-    checklistVersion: CHECKLIST_VERSION, checklist, changeSummary: summary, decidedAt: new Date().toISOString(),
-    // Present and true only when the approver is the submitter and the operator
-    // override allowed it. Absent on a genuine two-person review, so a later
-    // reader can tell the two apart without inferring it from user ids.
-    ...(selfApproval ? { selfApproved: true } : {}),
-  };
-
-  decidePublishRequest(pr.id, { status: 'approved', reviewedBy: user.id, decisionNote, evidence });
-  // Advance the public-current pointer; retire the previous published version.
-  if (pr.published_version_id && pr.published_version_id !== pr.version_id) setVersionState(pr.published_version_id, 'superseded');
-  setVersionState(pr.version_id, 'published');
-  setPublishedVersion(pr.map_id, pr.version_id);
-  setMapStatus(pr.map_id, 'published');
-  // The newly-published data is presumed to reflect any change the banner warned
-  // about — clear it. (If it still applies, the GTFS scan or an admin re-sets it.)
-  clearMapBannerNote(pr.map_id);
-  // P9 — index the place names this version actually shows, from the live data
-  // dir at this exact moment (never re-read later, so it can't drift ahead of
-  // what was reviewed). See src/search/place-index.js.
-  const mapRow = getMap(pr.map_id);
-  writePlacesSidecar(pr.map_id, pr.version_key, { kind: mapRow.kind, subject: mapRow.subject });
-  bumpSearchIndex();
-
-  req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
-  logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote, ...(selfApproval ? { selfApproved: true } : {}) } });
-  // Tell the people whose map it is (findings B2). Deliberately after every
-  // state change and the audit row: the publication has happened whether or not
-  // the email does, and notify() never throws.
-  //
-  // suppressNotify: true skips this one call — the ONLY caller is the laptop
-  // batch script (scripts/accept-publish-batch.mjs), which collects every map
-  // it publishes in a run and asks for one grouped digest per customer via
-  // POST /api/admin/notify-published-batch instead, so a 12-map round sends
-  // one email per customer, not twelve. The interactive review screen never
-  // sends this flag, so a human approving one map through the UI is unaffected.
-  if ((req.body || {}).suppressNotify !== true) {
-    notify('published', {
-      customerId: pr.customer_id, log: req.log,
-      mapName: pr.map_name, versionKey: pr.version_key,
-      mapUrl: appUrl(`/app/maps/${pr.map_id}`),
-      publicUrl: mapRow.public_listed && getPublicMapBySlug(mapRow.slug) ? appUrl(mapPageUrl(mapRow.slug)) : null,
-    });
-  }
-  return {
-    ok: true, publishedVersion: pr.version_key, downloads: downloadsForVersion(pr.map_id, pr.version_key),
-    customerId: pr.customer_id,
-    publicUrl: mapRow.public_listed && getPublicMapBySlug(mapRow.slug) ? appUrl(mapPageUrl(mapRow.slug)) : null,
-    ...(selfApproval ? { selfApproved: true } : {}),
-  };
-});
-
-app.post('/api/review/:id/reject', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const pr = getPublishRequest(Number(req.params.id));
-  if (!pr) return reply.code(404).send({ ok: false, error: 'No such publish request.' });
-  if (pr.status !== 'pending') return reply.code(409).send({ ok: false, error: `This request was already ${pr.status}.` });
-  const note = str((req.body || {}).note, 2000);
-  if (!note) return reply.code(400).send({ ok: false, error: 'Please give a reason so the editor knows what to change.', fields: ['note'] });
-
-  decidePublishRequest(pr.id, { status: 'rejected', reviewedBy: user.id, decisionNote: note, evidence: {} });
-  // Return the version to draft (unless it somehow is the published one) so the editor can revise + resubmit.
-  if (pr.version_id !== pr.published_version_id) setVersionState(pr.version_id, 'rejected');
-  req.log.info({ mapId: pr.map_id, requestId: pr.id, by: user.email }, 'publication rejected');
-  logAudit(req, 'version.reject', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, note } });
-  // The one state change the customer has no other way of learning about: their
-  // map simply becomes editable again (findings B2).
-  const publishedNow = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
-  notify('sent-back', {
-    customerId: pr.customer_id, log: req.log,
-    mapName: pr.map_name, versionKey: pr.version_key, reason: note,
-    publishedVersion: publishedNow ? publishedNow.storage_key : null,
-    mapUrl: appUrl(`/app/maps/${pr.map_id}`),
-  });
-  return { ok: true };
-});
-
-// ---------------------------------------------------------------------------
-// Rollback (incident response). When a published version turns out to be wrong,
-// the fast mitigation is un-listing it, but the FIX is serving a known-good
-// version again. These two routes make that one click for an approver instead of
-// a re-run through the whole gate:
-//
-//   GET  /api/review/published                → maps with a published version
-//   GET  /api/review/maps/:id/published-history → the versions ever published
-//   POST /api/review/maps/:id/revert           → move the pointer back to one
-//
-// It is deliberately NOT a general "publish anything" button: the only versions
-// on offer are ones an approver already reviewed (they have an approved
-// publish_request), and whose rendered files are still on disk. So reverting can
-// never serve bytes that never passed the gate. A reason is required and the whole
-// thing is audited.
-// ---------------------------------------------------------------------------
-
-app.get('/api/review/published', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const maps = listPublishedMaps().map((m) => ({
-    id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject,
-    customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
-    customerSuspended: m.customer_status === 'suspended',
-    publishedVersion: m.pub_key, publishedVersions: m.published_versions,
-    // A revert needs somewhere to go back TO — flag the maps where one is possible.
-    canRevert: m.published_versions > 1,
-    publicListed: !!m.public_listed,
-    publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
-  }));
-  return { ok: true, maps };
-});
-
-/** Publication history for one map: which versions were published, when, by whom. */
-function publishedHistoryFor(map) {
-  return listPublishedHistory(map.id).map((h) => {
-    const files = downloadsForVersion(map.id, h.storage_key);
-    return {
-      versionId: h.version_id, version: h.storage_key,
-      publishedAt: h.published_at, approver: h.approver_email || null,
-      decisionNote: h.decision_note || '',
-      isCurrent: !!h.is_current,
-      files,
-      // No rendered files (pruned/lost) ⇒ nothing to serve ⇒ not revertable.
-      revertable: !h.is_current && files.length > 0,
-    };
-  });
-}
-
-app.get('/api/review/maps/:id/published-history', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const m = getMap(Number(req.params.id));
-  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
-  const history = publishedHistoryFor(m);
-  return {
-    ok: true,
-    map: {
-      id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject,
-      customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
-      publishedVersion: m.pub_key || null, currentVersion: m.cur_key || null,
-      publicListed: !!m.public_listed,
-      publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
-    },
-    history,
-  };
-});
-
-app.post('/api/review/maps/:id/revert', async (req, reply) => {
-  const user = requireApprover(req, reply); if (!user) return;
-  const m = getMap(Number(req.params.id));
-  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
-  if (!m.published_version_id) {
-    return reply.code(409).send({ ok: false, error: 'This map has no published version, so there is nothing to revert.' });
-  }
-  const b = req.body || {};
-  const reason = str(b.reason, 2000);
-  if (!reason) {
-    return reply.code(400).send({ ok: false, error: 'Please record why you are reverting — it goes in the audit trail and the incident log.', fields: ['reason'] });
-  }
-  // An open publish request would leave an approver reviewing a version while the
-  // pointer moves under them; make the order explicit rather than racing it.
-  const open = getOpenRequestForMap(m.id);
-  if (open) {
-    return reply.code(409).send({ ok: false, error: 'A version of this map is awaiting review. Decide that request first, then revert.' });
-  }
-
-  // Which version to serve again (default: the one published before this). The
-  // rules live in src/publish so they are unit-tested away from HTTP.
-  const chosen = chooseRevertTarget(publishedHistoryFor(m), b.versionId != null ? Number(b.versionId) : null);
-  if (chosen.error) return reply.code(chosen.code).send({ ok: false, error: chosen.error });
-  const target = chosen.target;
-
-  const from = getVersionById(m.published_version_id);
-  // Move the public-current pointer back. The editor's working head is untouched:
-  // reverting is about what the public is served, not about undoing their edits.
-  setVersionState(m.published_version_id, 'superseded');
-  setVersionState(target.versionId, 'published');
-  setPublishedVersion(m.id, target.versionId);
-  setMapStatus(m.id, 'published');
-  bumpSearchIndex(); // P9 — the reverted-to version has its own places.json from when it was published
-
-  req.log.warn({ mapId: m.id, from: from ? from.storage_key : null, to: target.version, by: user.email }, 'published version reverted');
-  logAudit(req, 'version.revert', {
-    mapId: m.id, versionId: target.versionId,
-    detail: {
-      from: from ? from.storage_key : null, to: target.version,
-      reason, publishedAt: target.publishedAt, approver: target.approver,
-      stillListed: !!m.public_listed,
-    },
-  });
-  return {
-    ok: true,
-    publishedVersion: target.version,
-    revertedFrom: from ? from.storage_key : null,
-    downloads: downloadsForVersion(m.id, target.version),
-    publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
-    publicListed: !!m.public_listed,
-  };
-});
+await app.register(reviewRoutes, { prefix: '/api/review' });
 
 // ===========================================================================
-// Admin console (P3) — application review, map-request lifecycle, customers.
-// Every route is admin-only (403 for signed-in non-admins, 401 for anon).
+// Admin console (P3) -- src/routes/admin.js, one plugin under /api/admin with one
+// guard (OA-231). POST /api/admin/status above is deliberately not in it.
 // ===========================================================================
-
-app.get('/api/admin/summary', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  return { ok: true, summary: { ...adminSummary(), ...publicCounts() } };
-});
-
-// The To-do list: every queue above, ranked by who is blocked, in one response.
-// The admin console's landing tab renders this, and the operator's bus-work
-// skill consumes the same shape (importing src/worklist/index.js directly when
-// it runs beside the portal, GETting this when the portal is remote) — so the
-// console and the laptop can never show two different lists.
-//
-// Links are absolute against the request's own origin so they stay clickable
-// when the caller is a terminal on another machine.
-app.get('/api/admin/worklist', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  // Through the shared baseUrl(), which prefers PUBLIC_BASE_URL and only falls
-  // back to the request's own Host. This route is admin-only so the header was
-  // never a takeover risk here, but it was the last hand-built absolute URL in
-  // the file, and leaving one behind is how the pattern comes back (N5).
-  return { ok: true, worklist: buildWorklist({ baseUrl: baseUrl(req) }) };
-});
-
-app.get('/api/admin/applications', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const status = ['pending', 'approved', 'rejected'].includes((req.query || {}).status) ? req.query.status : undefined;
-  return { ok: true, applications: listApplications({ status }) };
-});
-
-// Approve an application: create the customer, its first editor user, and issue
-// a passwordless invite (printed to the server console; surfaced to the admin in
-// dev so the loop is demoable without email).
-app.post('/api/admin/applications/:id/approve', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const appn = getApplication(Number(req.params.id));
-  if (!appn) return reply.code(404).send({ ok: false, error: 'No such application.' });
-  if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
-
-  const email = str(appn.email, 200).toLowerCase();
-  if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'The application has no valid contact email.' });
-  if (getUserByEmail(email)) {
-    return reply.code(409).send({ ok: false, error: `${email} already has an account. Approve this organisation manually or ask them to sign in.` });
-  }
-
-  const b = req.body || {};
-  const type = ORG_TYPES.includes(appn.org_type) ? appn.org_type : 'other';
-  const quota_areas = b.quotaAreas != null ? Math.max(0, Number(b.quotaAreas) | 0) : 1;
-  const quota_places = b.quotaPlaces != null ? Math.max(0, Number(b.quotaPlaces) | 0) : 3;
-
-  const customerId = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
-  insertUser({ customer_id: customerId, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
-  setApplicationReviewed(appn.id, 'approved', customerId);
-
-  const token = requestMagicLink(email);
-  const link = token ? authLink(req, token) : null;
-  if (link) {
-    try {
-      const r = await sendMagicLink({ to: email, link, kind: 'invite' });
-      if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
-    } catch (e) {
-      req.log.error({ email, err: e.message }, 'invite email failed to send');
-    }
-  }
-  req.log.info({ applicationId: appn.id, customerId, email }, 'application approved → customer + editor created');
-  logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places } });
-
-  return {
-    ok: true,
-    customer: { id: customerId, name: appn.org_name, type, quotaAreas: quota_areas, quotaPlaces: quota_places },
-    user: { email },
-    inviteLink: DEV_LINKS ? link : undefined,
-  };
-});
-
-app.post('/api/admin/applications/:id/reject', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const appn = getApplication(Number(req.params.id));
-  if (!appn) return reply.code(404).send({ ok: false, error: 'No such application.' });
-  if (appn.status !== 'pending') return reply.code(409).send({ ok: false, error: `Already ${appn.status}.` });
-  setApplicationReviewed(appn.id, 'rejected', null);
-  req.log.info({ applicationId: appn.id }, 'application rejected');
-  logAudit(req, 'application.reject', { detail: { applicationId: appn.id, org: appn.org_name } });
-  return { ok: true };
-});
-
-// Map-request queue + lifecycle. Approving accepts the request (the central
-// pipeline builds the data later); rejecting archives it and frees the quota slot.
-//
-// `awaitingBuild` is the other half of that lifecycle: approved requests the
-// pipeline has yet to build. The importer fulfils one IN PLACE
-// (`import-map.mjs --request <id>`), so the placeholder row becomes the built map
-// — no duplicate row to archive, and quota counts the map once. Each row carries
-// the exact command, so the admin console is the single place the build starts.
-app.get('/api/admin/map-requests', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const shape = (m) => ({
-    id: m.id, name: m.name, slug: m.slug, kind: m.kind, subject: m.subject, requestNote: m.request_note,
-    customer: m.customer_id ? { id: m.customer_id, name: m.customer_name } : null,
-    requestedBy: m.requested_by_email || null, createdAt: m.created_at, status: m.status,
-  });
-  return {
-    ok: true,
-    requests: listMapsByStatus(['requested']).map(shape),
-    awaitingBuild: listAwaitingBuild().map((m) => ({
-      ...shape(m),
-      importCommand: `node scripts/import-map.mjs --request ${m.id} --src "<S5-render dir>"`,
-    })),
-  };
-});
-
-app.post('/api/admin/maps/:id/approve', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const m = getMap(Number(req.params.id));
-  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
-  if (m.status !== 'requested') return reply.code(409).send({ ok: false, error: `This map is "${m.status}", not a pending request.` });
-  setMapStatus(m.id, 'approved');
-  req.log.info({ mapId: m.id }, 'map request approved');
-  logAudit(req, 'maprequest.approve', { mapId: m.id, detail: { name: m.name, kind: m.kind } });
-  return { ok: true, status: 'approved' };
-});
-
-// Archive a request. Valid for a request still pending AND for one already
-// approved but never built (plans change) — either way the quota slot is freed.
-// Once a map has been built it has renders and possibly a public page, so it
-// leaves this lifecycle: archiving it is not a request decision.
-app.post('/api/admin/maps/:id/reject', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const m = getMap(Number(req.params.id));
-  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
-  const unbuiltApproved = m.status === 'approved' && !m.current_version_id;
-  if (m.status !== 'requested' && !unbuiltApproved) {
-    return reply.code(409).send({
-      ok: false,
-      error: m.current_version_id
-        ? `"${m.name}" has already been built (${m.cur_key}) — it is no longer a request.`
-        : `This map is "${m.status}", not a pending or awaiting-build request.`,
-    });
-  }
-  setMapStatus(m.id, 'archived');
-  req.log.info({ mapId: m.id, from: m.status }, 'map request archived');
-  logAudit(req, 'maprequest.reject', { mapId: m.id, detail: { name: m.name, kind: m.kind, from: m.status } });
-  return { ok: true, status: 'archived' };
-});
-
-// WHO OWNS THIS MAP (OA-008, 2026-08-30).
-//
-// An unowned map is not a cosmetic gap: listPublicMaps and getPublicMapBySlug
-// both JOIN customer, deliberately — that is what makes a suspended
-// organisation's maps disappear — and the same join drops a map whose
-// customer_id is NULL however published it is. St Ives Bus Station was imported
-// without --customer, went right through submit → review → publish to v2.0,
-// reported status=published, public_listed=1, and served a 404.
-//
-// Until this route existed the repair was a hand-written UPDATE against the live
-// database. `user.reassign` had had an HTTP equivalent since P2; the map did
-// not. Step-up is required for the same reason it is on the user's role: this
-// moves an asset between tenants, and a stale cookie must not be enough.
-app.post('/api/admin/maps/:id/owner', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const m = getMap(Number(req.params.id));
-  if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
-  const b = req.body || {};
-  if (!('customerId' in b)) return reply.code(400).send({ ok: false, error: 'customerId is required (null to un-own).' });
-  if (!requireStepUp(req, reply, "changing which organisation owns a map")) return;
-
-  let toId = null, to = null;
-  if (b.customerId != null && b.customerId !== '') {
-    to = getCustomer(Number(b.customerId));
-    if (!to) return reply.code(404).send({ ok: false, error: 'No such organisation.' });
-    toId = to.id;
-  }
-  if (toId === (m.customer_id ?? null)) {
-    return reply.code(409).send({ ok: false, error: to ? `That map already belongs to "${to.name}".` : 'That map is already unowned.' });
-  }
-
-  // Quota is counted per organisation, so moving a map INTO one spends a slot
-  // there. Refused rather than silently overspent — the same rule the map
-  // request queue applies, applied at the other door into the same count.
-  if (to) {
-    const used = quotaUsage(to.id);
-    const cap = m.kind === 'place' ? to.quota_places : to.quota_areas;
-    const held = m.kind === 'place' ? used.place : used.area;
-    if (cap != null && held >= cap) {
-      return reply.code(409).send({
-        ok: false, code: 'quota',
-        error: `"${to.name}" already holds ${held} of ${cap} ${m.kind} maps. Raise their quota first.`,
-      });
-    }
-  }
-
-  const from = m.customer_id ? getCustomer(m.customer_id) : null;
-  if (!setMapCustomer(m.id, toId)) return reply.code(500).send({ ok: false, error: 'The owner could not be set.' });
-  bumpSearchIndex(); // the public queries' answer just changed in both directions
-  req.log.info({ mapId: m.id, from: m.customer_id, to: toId }, 'map owner changed by admin');
-  logAudit(req, 'map.reassign', {
-    mapId: m.id,
-    detail: {
-      mapId: m.id, slug: m.slug, name: m.name, kind: m.kind,
-      fromCustomerId: m.customer_id ?? null, fromCustomerName: from ? from.name : null,
-      toCustomerId: toId, toCustomerName: to ? to.name : null,
-    },
-  });
-  return { ok: true, map: { id: m.id, slug: m.slug, name: m.name }, customer: to ? { id: to.id, name: to.name } : null };
-});
-
-app.get('/api/admin/customers', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const rows = listCustomersAdmin().map((c) => ({
-    id: c.id, name: c.name, type: c.type, status: c.status, plan: c.plan,
-    quotaAreas: c.quota_areas, quotaPlaces: c.quota_places,
-    usedAreas: c.area_used, usedPlaces: c.place_used, users: c.users, createdAt: c.created_at,
-    // P6 — where the organisation appears publicly, and how it has branded itself.
-    slug: c.slug || null, publicUrl: c.slug ? orgPageUrl(c.slug) : null,
-    branding: parseJson(c.branding_json),
-    hideOperatorsEnabled: !!c.hide_operators_enabled,
-    watermarkEnabled: !!c.watermark_enabled,
-  }));
-  return { ok: true, customers: rows };
-});
-
-app.patch('/api/admin/customers/:id', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const cust = getCustomer(Number(req.params.id));
-  if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
-  const b = req.body || {};
-  // Quota and status are the two that decide how much of the service an
-  // organisation gets and whether its maps stay public, so the whole route is
-  // step-up gated rather than picking fields out of the body.
-  if (!requireStepUp(req, reply, "changing an organisation's settings")) return;
-  const ok = updateCustomerAdmin(cust.id, {
-    quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
-    hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
-  });
-  if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
-  if (b.status !== undefined) bumpSearchIndex(); // P9 — a suspended org's maps must stop being searchable
-  req.log.info({ customerId: cust.id }, 'customer updated by admin');
-  const c = getCustomer(cust.id);
-  logAudit(req, 'customer.update', { detail: { customerId: c.id, name: c.name, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, status: c.status, plan: c.plan, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } });
-  return { ok: true, customer: { id: c.id, name: c.name, status: c.status, plan: c.plan, quotaAreas: c.quota_areas, quotaPlaces: c.quota_places, hideOperatorsEnabled: !!c.hide_operators_enabled, watermarkEnabled: !!c.watermark_enabled } };
-});
-
-// User CRUD (admin-only). Invite adds another person to an existing customer
-// (or, with no customerId, a platform admin); update/disable are the same
-// PATCH — status:'disabled' is how an account is switched off, mirroring the
-// customer status pattern above. No delete: disabling is the reversible,
-// audit-preserving equivalent (history keeps referencing the row).
-//
-// Disabling REVOKES the account's live sessions, in the same request (OA-183).
-// It did not until 2026-08-30, and the console's own copy — "disabling is the
-// reversible, audit-preserving equivalent" of a delete — was true about the
-// record and silent about the credential.
-const userShape = (u) => ({
-  id: u.id, email: u.email, name: u.name, role: u.role, status: u.status,
-  customerId: u.customer_id, customerName: u.customer_name || null, createdAt: u.created_at,
-});
-
-app.get('/api/admin/users', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const q = req.query || {};
-  const customerId = q.customerId != null && q.customerId !== '' ? Number(q.customerId) : undefined;
-  return { ok: true, users: listUsersAdmin(customerId).map(userShape) };
-});
-
-app.post('/api/admin/users', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const b = req.body || {};
-  const email = str(b.email, 200).toLowerCase();
-  if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'A valid email is required.' });
-  if (getUserByEmail(email)) return reply.code(409).send({ ok: false, error: `${email} already has an account.` });
-
-  let customerId = null;
-  if (b.customerId != null && b.customerId !== '') {
-    const cust = getCustomer(Number(b.customerId));
-    if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
-    customerId = cust.id;
-  }
-  const role = ['editor', 'approver', 'admin'].includes(b.role) ? b.role : 'editor';
-
-  const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
-  const token = requestMagicLink(email);
-  const link = token ? authLink(req, token) : null;
-  if (link) {
-    try {
-      const r = await sendMagicLink({ to: email, link, kind: 'invite' });
-      if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
-    } catch (e) {
-      req.log.error({ email, err: e.message }, 'invite email failed to send');
-    }
-  }
-  req.log.info({ userId, customerId, email, role }, 'user invited by admin');
-  logAudit(req, 'user.invite', { detail: { userId, customerId, email, role } });
-  return { ok: true, user: userShape(getUser(userId)), inviteLink: DEV_LINKS ? link : undefined };
-});
-
-app.patch('/api/admin/users/:id', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const u = getUser(Number(req.params.id));
-  if (!u) return reply.code(404).send({ ok: false, error: 'No such user.' });
-  const b = req.body || {};
-  if (b.status === 'disabled' && u.id === req.user.id) {
-    return reply.code(400).send({ ok: false, error: 'You cannot disable your own account.' });
-  }
-  // Role is the privilege escalation path — `role: 'admin'` on this route is the
-  // whole of it — so a stale cookie must not be enough to travel it.
-  if (('role' in b || 'status' in b || 'customerId' in b) && !requireStepUp(req, reply, "changing a user's role or organisation")) return;
-  let customerId; // undefined = leave alone
-  if ('customerId' in b) {
-    if (b.customerId == null || b.customerId === '') {
-      customerId = null;
-    } else {
-      const cust = getCustomer(Number(b.customerId));
-      if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
-      customerId = cust.id;
-    }
-  }
-  const fromCustomer = u.customer_id ? getCustomer(u.customer_id) : null;
-  const ok = updateUserAdmin(u.id, { name: b.name, role: b.role, status: b.status, customerId });
-  if (!ok) return reply.code(400).send({ ok: false, error: 'Nothing valid to update.' });
-  const updated = getUser(u.id);
-  req.log.info({ userId: u.id }, 'user updated by admin');
-  logAudit(req, 'user.update', { detail: { userId: u.id, email: updated.email, role: updated.role, status: updated.status, customerId: updated.customer_id } });
-
-  // Switching an account off ends the sessions it is holding, here rather than
-  // in a second step somebody has to remember on the day a person leaves a
-  // customer badly (OA-183). The preHandler above would refuse each of those
-  // sessions on its next use anyway; this closes the window now, and — the
-  // reason it is worth both — it is what makes the count reportable, so the
-  // admin sees "3 sessions signed out" instead of trusting that they will be.
-  let revokedSessions = 0;
-  if (updated.status !== 'active' && u.status === 'active') {
-    revokedSessions = deleteSessionsForUser(u.id);
-    req.log.info({ userId: u.id, revoked: revokedSessions }, 'sessions revoked because the account was switched off');
-    logAudit(req, 'session.revoke-all', { detail: { userId: u.id, email: updated.email, revoked: revokedSessions, reason: `status set to ${updated.status}` } });
-  }
-  if (customerId !== undefined && customerId !== u.customer_id) {
-    const toCustomer = customerId ? getCustomer(customerId) : null;
-    req.log.info({ userId: u.id, from: u.customer_id, to: customerId }, 'user reassigned to another organisation by admin');
-    logAudit(req, 'user.reassign', {
-      detail: {
-        userId: u.id, email: updated.email,
-        fromCustomerId: u.customer_id, fromCustomerName: fromCustomer ? fromCustomer.name : null,
-        toCustomerId: customerId, toCustomerName: toCustomer ? toCustomer.name : null,
-      },
-    });
-  }
-  return { ok: true, user: userShape(updated), revokedSessions };
-});
-
-app.get('/api/admin/messages', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  return { ok: true, messages: listMessages() };
-});
-
-app.post('/api/admin/messages/:id/status', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const msg = getMessage(Number(req.params.id));
-  if (!msg) return reply.code(404).send({ ok: false, error: 'No such message.' });
-  const status = String((req.body || {}).status || '');
-  if (!MSG_STATUSES.includes(status)) return reply.code(400).send({ ok: false, error: 'Unknown status.' });
-  setMessageStatus(msg.id, status);
-  req.log.info({ messageId: msg.id, status }, 'message status set');
-  logAudit(req, 'message.status', { detail: { messageId: msg.id, status } });
-  return { ok: true };
-});
-
-// Read-only view of the monthly-refresh queue (P5) — proposed updates awaiting a
-// customer's accept/decline. Staged by the central pipeline (propose-update.mjs).
-app.get('/api/admin/proposed-updates', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const updates = listPendingProposedUpdates().map((pu) => ({
-    id: pu.id, createdAt: pu.created_at, sourceNote: pu.source_note || '',
-    summary: parseJson(pu.summary_json),
-    map: { id: pu.map_id, name: pu.map_name, kind: pu.map_kind, subject: pu.map_subject },
-    customer: pu.customer_name || null,
-  }));
-  return { ok: true, updates };
-});
-
-// One grouped "N maps published" email per customer, for a scripted batch that
-// published several maps with suppressNotify:true on each individual approve
-// (see the comment on /api/review/:id/approve). Never called by the UI — the
-// review screen always sends its own single notify('published', ...) inline.
-// Grouping happens HERE, server-side, so the digest wording and the recipient
-// lookup stay in one tested place (src/email/notify.js) rather than being
-// duplicated in a laptop script that has no access to EMAIL_PROVIDER anyway.
-// ---------------------------------------------------------------------------
-// Active sessions (technical-audit_2026-08-19 S5)
-//
-// There was no way to see who was signed in, and no way to end a session short
-// of waiting a month for it to expire — `purgeExpiredSessions` removes only the
-// already-dead. So a session token that escaped (a laptop, a backup, a file left
-// on disk) was a valid admin credential until its own clock ran out, and nobody
-// could do anything about it.
-//
-// Sessions are named by a HANDLE — the first 12 hex of the token's SHA-256 —
-// never by the token. See sessionHandle() in src/auth/index.js for why: a list of
-// live tokens is a list of accounts whoever holds it can become, and an admin
-// console is not a place to put those.
-// ---------------------------------------------------------------------------
-app.get('/api/admin/sessions', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  // The stored hash of MY session. The list holds hashes now (N3), so "current"
-  // is a hash-to-hash comparison and no raw token is involved on either side.
-  const mine = sessionTokenHash(req.user.sessionToken);
-  return {
-    ok: true,
-    stepUpMinutes: STEP_UP_MINUTES,
-    sessionDays: SESSION_DAYS,
-    sessions: listSessions().map((r) => ({
-      handle: handleFromHash(r.token_hash),
-      current: r.token_hash === mine,
-      user: { id: r.user_id, email: r.email, name: r.name, role: r.role, status: r.status },
-      customer: r.customer_id ? { id: r.customer_id, name: r.customer_name } : null,
-      signedInAt: r.created_at,
-      expiresAt: r.expires_at,
-      // expires_at is always exactly SESSION_DAYS after the last use, so it is
-      // also the record of when that was — no extra column needed.
-      lastSeenAt: new Date(new Date(`${String(r.expires_at).replace(' ', 'T')}Z`).getTime() - SESSION_DAYS * 86_400_000)
-        .toISOString().slice(0, 19).replace('T', ' '),
-    })),
-  };
-});
-
-app.post('/api/admin/sessions/:handle/revoke', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const handle = str(req.params.handle, 64);
-  const row = listSessions().find((r) => handleFromHash(r.token_hash) === handle);
-  if (!row) return reply.code(404).send({ ok: false, error: 'No such live session (it may already have expired).' });
-  const self = row.token_hash === sessionTokenHash(req.user.sessionToken);
-  deleteSessionByHash(row.token_hash);
-  req.log.info({ handle, userId: row.user_id, self }, 'session revoked by admin');
-  logAudit(req, 'session.revoke', { detail: { handle, userId: row.user_id, email: row.email, self } });
-  // Revoking your own session really does sign you out — clear the cookie so
-  // the browser stops presenting a token the server has already forgotten.
-  if (self) reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
-  return { ok: true, self };
-});
-
-// The one to reach for when a credential has leaked rather than when a laptop
-// has been lost: every session that user holds, everywhere, gone at once.
-app.post('/api/admin/users/:id/revoke-sessions', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const u = getUser(Number(req.params.id));
-  if (!u) return reply.code(404).send({ ok: false, error: 'No such user.' });
-  const n = deleteSessionsForUser(u.id);
-  req.log.info({ userId: u.id, revoked: n }, 'all sessions revoked for user by admin');
-  logAudit(req, 'session.revoke-all', { detail: { userId: u.id, email: u.email, revoked: n } });
-  const self = u.id === req.user.id;
-  if (self) reply.header('Set-Cookie', clearCookie({ secure: isHttps(req) }));
-  return { ok: true, revoked: n, self };
-});
-
-app.post('/api/admin/notify-published-batch', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const items = Array.isArray((req.body || {}).items) ? (req.body || {}).items : [];
-  const byCustomer = new Map();
-  for (const it of items) {
-    if (it == null || it.customerId == null || !it.mapName || !it.mapUrl) continue;
-    if (!byCustomer.has(it.customerId)) byCustomer.set(it.customerId, []);
-    byCustomer.get(it.customerId).push({ mapName: it.mapName, versionKey: it.versionKey, mapUrl: it.mapUrl });
-  }
-  const results = [];
-  for (const [customerId, maps] of byCustomer) {
-    const r = await notify('published-batch', { customerId, maps, log: req.log });
-    results.push({ customerId, maps: maps.length, ...r });
-  }
-  req.log.info({ customers: results.length, items: items.length }, 'published-batch digest sent');
-  return { ok: true, results };
-});
-
-// Operational snapshot (P7): readiness, disk usage per map, and the counts an
-// operator watches. Same numbers as /metrics, shaped for the admin console.
-app.get('/api/admin/ops', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  return { ok: true, ops: await opsSnapshot(VERSION) };
-});
-
-// Append-only governance audit trail (publish reviews + P3 actions).
-app.get('/api/admin/audit', async (req, reply) => {
-  if (!requireAdmin(req, reply)) return;
-  const limit = Math.max(1, Math.min(1000, Number((req.query || {}).limit) || 200));
-  const rows = listAudit({ limit }).map((a) => ({
-    id: a.id, at: a.created_at, actor: a.actor_email || 'system', action: a.action,
-    mapId: a.map_id, mapName: a.map_name || null, versionId: a.version_id,
-    detail: parseJson(a.detail_json),
-  }));
-  return { ok: true, audit: rows };
-});
+await app.register(adminRoutes, { prefix: '/api/admin' });
 
 // Exported so scripts/test-audit-p1.mjs can drive real requests through
 // `app.inject()` instead of asserting about the source. It still listens below
@@ -3131,7 +915,7 @@ export { app };
 // exactly as before. It exists so the test suite cannot fail in CI over a port
 // that happened to be busy -- a test that is flaky for a reason unrelated to
 // what it asserts is a test people learn to re-run rather than read.
-if (process.env.CBM_NO_LISTEN === '1') {
+if (noListen()) {
   await app.ready();
   app.log.info(`BusMaps.uk portal (${VERSION}) built, not listening (CBM_NO_LISTEN=1)`);
 } else {

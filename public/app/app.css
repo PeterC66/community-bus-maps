@@ -483,3 +483,254 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .todo-detail { margin: 8px 0 0; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; font-size: .78rem; white-space: pre-wrap; word-break: break-word; color: var(--muted); }
 .todo-step { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: .86rem; }
 .todo-step .sub { margin: 0; }
+
+/* ---------- the landmark chooser (OA-212) ---------- */
+/* Three answers per place, the town's streets underneath, and a category that
+   can be answered in one go. It replaces a 171-row markdown worksheet: the
+   arithmetic was the problem, so the layout's whole job is to make a category
+   answerable at a stroke and an individual answerable without leaving the map. */
+
+.lm-intro { margin-bottom: 16px; }
+.lm-legend { display: grid; gap: 6px; font-size: .84rem; color: var(--muted); }
+.lm-legend b { color: var(--text); }
+
+/* One colour vocabulary for the three answers, used by the legend, the radio
+   pills, the tally and the dots on the map. A reader should be able to glance
+   from a row to the map and back without re-learning what orange means. */
+.lm-key { font-weight: 700; }
+.lm-key.must, .lm-opt.must.on { color: var(--primary); }
+.lm-key.miss, .lm-opt.miss.on { color: var(--err); }
+.lm-key.may { color: var(--muted); }
+/* An explicitly chosen "Show if there is room" is a decision, not an absence,
+   so the pill stops looking greyed out once it is the one that is on. */
+.lm-opt.may.on { color: var(--text); }
+
+.lm-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 480px; gap: 22px; align-items: start; }
+@media (max-width: 1100px) { .lm-wrap { grid-template-columns: 1fr; } }
+
+.lm-mapcard { position: sticky; top: 12px; }
+.lm-maphead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.lm-maphead .spacer { flex: 1; }
+.lm-stage {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden; min-height: 320px;
+}
+/* NOTHING IN THE STAGE IS TEXT TO BE SELECTED (Peter, 2026-09-05). Double-click
+   is a zoom here, and a double-click on a road name was selecting the word
+   underneath it — highlighted on the first, unhighlighted on the second, which
+   is a browser's word-select answering a gesture this page had spent two rounds
+   giving another meaning to. The `e.preventDefault()` on the dblclick handler in
+   landmarks.js does NOT stop it and never could: Chrome makes the word selection
+   on the second mousedown, before any dblclick event exists. Measured in a
+   throwaway page holding two identical SVGs, one with this line and one without,
+   double-clicked by the browser itself rather than by a synthetic event: without
+   it `getSelection()` read "Needingworth ", with it "". The same probe found the
+   half nobody had reported — a PAN DRAG selected "amsey Road\nNeedingworth Road",
+   so the primary gesture on this map was painting the streets blue as well. */
+.lm-stage svg {
+  width: 100%; height: 46vh; display: block; touch-action: none; cursor: grab;
+  -webkit-user-select: none; user-select: none;
+}
+.lm-stage svg:active { cursor: grabbing; }
+/* The stage takes focus so + / - / 0 reach it; say so visibly. */
+.lm-stage svg:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.lm-zoombtn { min-width: 2.4em; font-weight: 700; }
+.lm-stage .placeholder { padding: 60px 20px; text-align: center; color: var(--muted); }
+.lm-mapnote { margin-top: 8px; max-width: 70ch; }
+
+/* Strokes are scaled by --lm-s (the current zoom as a fraction of the whole
+   town) so a road stays the same width on screen at every zoom. Without it the
+   network turns into a solid block the moment you zoom in. */
+.lm-road { fill: none; vector-effect: non-scaling-stroke; }
+.lm-road.minor { stroke: var(--muted); stroke-width: .8; opacity: .38; }
+.lm-road.major { stroke: var(--muted); stroke-width: 1.7; opacity: .85; }
+
+/* A mark is a group: the tier's disc, and — past the zoom threshold — the
+   sheet's own pictogram on top of it. The tier class sits on the GROUP, so one
+   rule set colours both halves. */
+.lm-mark { cursor: pointer; }
+/* The mark you SEE and the target you HIT are different sizes on purpose: a
+   12 px dot stops a town's worth of them covering the streets, and a 24 px
+   invisible disc underneath keeps them easy to click. It is fill:transparent
+   and NOT fill:none — none is not a hit target, it is a hole. */
+.lm-hit { fill: transparent; }
+/* No r here: the radius is written as an attribute by scaleMarks(), in pixels,
+   off the same scale as the pictogram it has to hug. A CSS calc in MAP units
+   held steady while you zoomed but not between one town and the next. */
+.lm-pt { vector-effect: non-scaling-stroke; }
+.lm-mark.may .lm-pt { fill: var(--surface); stroke: var(--muted); stroke-width: 1.4; }
+.lm-mark.must .lm-pt { fill: var(--primary); stroke: var(--primary); stroke-width: 1.4; }
+.lm-mark.miss .lm-pt { fill: none; stroke: var(--err); stroke-width: 1.2; opacity: .5; }
+.lm-mark.sel .lm-pt { stroke: var(--accent); stroke-width: 3; }
+
+/* --- the sheet's own pictograms (OA-220) -----------------------------------
+   The same twelve glyphs the paper prints, from the same engine/icons.js the
+   render loads, so the chooser teaches the vocabulary the reader will meet on
+   the sheet instead of a second one made of coloured dots.
+
+   They are OFF at the fitted view and on past GLYPH_AT, and that is a measured
+   limit rather than a preference: a glyph needs about 19 px where a dot needs
+   3, and a town's worth of them at the whole-town view overlap into porridge.
+   When they come on, the disc stops being the mark and becomes the RING around
+   the pictogram — which is how the ANSWER stays readable once the mark is a
+   picture rather than a colour. */
+.lm-glyph { display: none; pointer-events: none; }
+.lm-stage svg.glyphs .lm-glyph { display: block; }
+.lm-stage svg.glyphs .lm-pt { fill: var(--surface); }
+.lm-stage svg.glyphs .lm-mark.must .lm-pt { stroke-width: 3; }
+.lm-stage svg.glyphs .lm-mark.miss .lm-pt,
+.lm-stage svg.glyphs .lm-mark.miss .lm-glyph { opacity: .4; }
+
+.lm-icon { display: block; width: 20px; height: 20px; flex: none; align-self: center; }
+.lm-icon svg { width: 100%; height: 100%; display: block; }
+.lm-cathead .lm-icon { width: 17px; height: 17px; display: inline-block; }
+
+/* --- road names (OA-220) ---------------------------------------------------
+   Enough to orient by and no more. The halo is painted UNDER the letterform by
+   paint-order, and both it and the size are held constant on screen, because a
+   label that grows with the zoom stops being a label. */
+.lm-roadname {
+  fill: var(--muted); text-anchor: middle; dominant-baseline: middle;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px;
+  vector-effect: non-scaling-stroke; pointer-events: none;
+  font-weight: 600; letter-spacing: .02em;
+}
+#namesBtn[aria-pressed="false"] { opacity: .5; }
+
+.lm-actions { margin-top: 10px; }
+/* The export block, when the clipboard is not available to put it on. */
+.lm-block { width: 100%; min-height: 9em; font-family: var(--mono, ui-monospace, monospace); font-size: .72rem; }
+.lm-tally { font-size: .9rem; color: var(--muted); margin-bottom: 8px; }
+
+.lm-listcard .body { padding-top: 12px; }
+.lm-showing { margin: -4px 0 10px; }
+.lm-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.lm-chip {
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  border-radius: 999px; padding: 4px 11px; font: inherit; font-size: .78rem; cursor: pointer;
+}
+.lm-chip:hover { border-color: var(--primary); color: var(--primary); }
+.lm-chip.active { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.lm-chip.sm { padding: 2px 8px; font-size: .72rem; }
+/* A COUNT ON THE CHIP, so a filter that is empty says so before it is pressed
+   (Peter, 2026-09-05). "Not looked at yet" is the one chip whose answer becomes
+   permanently zero — once a town has been worked through and the answer exported
+   back into its own routes.json, every candidate key is in one of the two tier
+   layers and the filter is empty for ever after, until OpenStreetMap adds a place
+   the map has not seen. It is not a dead control, it is the map's new-arrivals
+   tray; what it lacked was any way to say which of those two it was without
+   being clicked. The zero is DRAWN rather than hidden, and the chip stays
+   clickable, because the empty state under it is the sentence that explains the
+   filter's second life. */
+.lm-chip .lm-n {
+  display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 999px;
+  background: var(--border); color: var(--muted); font-size: .72em; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lm-chip.active .lm-n { background: var(--primary-ink); color: var(--primary); }
+.lm-chip .lm-n.zero { opacity: .55; font-weight: 400; }
+
+.lm-list { max-height: 68vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.lm-cat { margin-bottom: 14px; }
+.lm-cathead {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 1; background: var(--surface-2);
+  padding: 6px 8px; border-radius: 8px; font-size: .8rem;
+}
+.lm-cathead .spacer { flex: 1; }
+.lm-cathead .count { color: var(--muted); }
+.lm-tagline { color: var(--muted); font-style: italic; }
+.lm-bulk { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .72rem; }
+
+/* THE NAME GETS THE WIDTH, AND THE THREE ANSWERS GET THEIR OWN LINE UNLESS
+   THERE IS ROOM FOR BOTH (Peter, 2026-09-03).
+
+   `auto 1fr auto` is only as good as the space left over, and there is none:
+   the three pills spell out their answers in full — that wording is the whole
+   design of this page — and they measure about 530 px together. The list panel
+   is 480 px in the two-column layout and about 730 px in the one-column one, so
+   the 1fr column was pushed to its MIN-CONTENT width in both, and every row
+   became five lines of one-word-per-line with a name broken across two of them.
+
+   So the row stacks by default and goes back to one line only when its own
+   container is wide enough to hold both. A container query rather than a media
+   query because the deciding width is the PANEL's, not the window's — the same
+   window gives this panel 480 px or 730 px depending on the layout above it. A
+   browser without @container gets the stacked form, which is the one that
+   always fits. */
+.lm-listcard { container-type: inline-size; }
+
+.lm-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px;
+  padding: 8px; border-bottom: 1px solid var(--border); border-left: 3px solid transparent;
+}
+.lm-row:last-child { border-bottom: 0; }
+.lm-row.must { border-left-color: var(--primary); }
+.lm-row.miss { border-left-color: var(--err); }
+/* Answered, and left as it is. Without a mark of its own it looked exactly like
+   a row nobody had reached, which was the OA-215 complaint in one picture. */
+.lm-row.set.may { border-left-color: var(--border); }
+.lm-row.miss .lm-title { color: var(--muted); text-decoration: line-through; }
+.lm-row.sel { background: var(--surface-2); }
+.lm-name { min-width: 0; }
+.lm-title { display: block; font-size: .92rem; font-weight: 600; }
+.lm-was { display: block; color: var(--muted); font-size: .74rem; }
+.lm-sub { display: block; color: var(--muted); font-size: .74rem; }
+/* A title this page supplied because the map's data had none. Italic and muted
+   so it cannot be misread as the place's actual name — the reader is being told
+   what is missing, not what it is called. */
+.lm-noname { font-style: italic; color: var(--muted); font-weight: 500; }
+
+.lm-choices { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; align-self: center; }
+
+@container (min-width: 840px) {
+  .lm-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .lm-choices { grid-column: 3; flex-wrap: nowrap; }
+}
+.lm-opt { position: relative; }
+.lm-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.lm-opt span {
+  display: inline-block; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 999px; padding: 3px 10px; font-size: .74rem; color: var(--muted); cursor: pointer;
+  white-space: nowrap;
+}
+.lm-opt:hover span { border-color: var(--primary); }
+.lm-opt.on span { border-color: currentColor; font-weight: 700; }
+.lm-opt input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.lm-rename { grid-column: 1 / -1; font-size: .8rem; padding: 4px 8px; display: none; }
+.lm-row.sel .lm-rename, .lm-row.renamed .lm-rename { display: block; }
+.lm-row.sel .lm-hint, .lm-row.renamed .lm-hint { display: block; }
+.lm-row { cursor: pointer; }
+.lm-row .lm-choices, .lm-row .lm-rename { cursor: auto; }
+.lm-hint { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; margin-top: 2px; display: none; }
+
+/* The "See the real sheet" dialog. It shares .compare-dialog with the editor's
+   old-vs-new view, which is built for two sheets side by side; here there is
+   one, and the whole point of opening it is to look closely at the paper. */
+#sheetDialog { width: min(96vw, 1500px); max-width: 96vw; }
+#sheetDialog .compare-body { display: block; }
+#sheetDialog .compare-stage { max-height: 78vh; overflow: auto; }
+#sheetDialog .compare-stage svg { width: 100%; height: auto; display: block; }
+
+/* The admin console's Advisers tab, and the local adviser's own page
+   (buses-data OA-154 Phase D1). */
+.ask-adviser { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.ask-adviser label { display: flex; flex-direction: column; gap: 3px; font-size: .82rem; color: var(--muted); }
+.ask-adviser input, .ask-adviser select { min-width: 12rem; }
+.adviser-grant { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+
+/* ---- who owns this map: the admin-only owner picker (buses-data OA-364) ----
+   Full width above the editor grid, because it is a fact about the whole map
+   rather than one of the controls that change what it draws — and because it
+   must survive showPending(), which replaces the grid's contents wholesale for
+   a map that has not been built yet. */
+.owner-panel { margin: 0 0 18px; }
+.owner-panel .owner-field { max-width: 32rem; margin-bottom: 12px; }
+/* The confirmation's list of what this move costs. Roomy on purpose: it is the
+   difference between a picker and a trap, and nobody reads a dense one. */
+/* The list runs to five items for a suspended target, which on a short window
+   puts the outcome message and the buttons below the fold. */
+#ownerDialog { max-height: min(86vh, 760px); overflow: auto; }
+.owner-costs { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 9px; }
+.owner-costs li { font-size: .88rem; line-height: 1.5; }

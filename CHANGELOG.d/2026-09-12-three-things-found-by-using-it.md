@@ -1,0 +1,14 @@
+---
+date: 2026-09-12
+title: "Three more things the adviser seat said that were not true, all found by using it"
+---
+
+Peter granted, revoked, disabled and re-granted his own test account, and read what each step produced. Three findings, and they are one fault wearing three hats: **a page or an email asserting a state it had not checked.**
+
+**The empty page said "nobody has asked you yet."** A revoked adviser signing in was told *Nobody has asked you to look at a map yet* — and somebody had, and then stopped. The page cannot tell the two empty states apart and should not try; it now says *There is no map for you to look at just now. When there is, it will appear here*, which is true either way. It deliberately does not say access was withdrawn: if a grant ends, that is for a person to explain in a letter, not for a page to announce to a volunteer who did us a favour.
+
+**Asking a switched-off adviser reported success and reached nobody.** `requestMagicLink()` returns null for any account that is not `active`, so no link was issued and no email sent — while the grant row was written and the response said `ok`. The admin believed they had invited somebody who could not sign in. It is now refused with `409` and a sentence naming the remedy (*set it back to active on the Users tab*), rather than silently re-enabled: disabling is a deliberate act and may have been for cause, and turning it back on through a side door is a privilege change nobody asked for.
+
+**And the console now says whether the email actually went.** Every outcome used to end in the same "a sign-in link is on its way" — including a provider that threw, which was logged and forgotten, and an instance with no provider at all, where the link goes to a server console nobody is watching. The response carries `emailed`, and the Advisers tab says plainly when nothing was sent. Same lesson as the Sign-out button that navigated away without reading its own answer.
+
+**The email claimed something unpublished was waiting.** *You can now see the Ramsey bus map before it is published*, and *asked to look at it before it goes out* — true of a map with a draft on the bench, false for Ramsey, which went public before anybody showed it to him, and false for every map whose working head is its published version, which is all of them until somebody edits one. The obvious repair is to branch on the version's state; that is the wrong one, because this is the third thing in this feature to assert a state it had not checked, and **a sentence with no state in it cannot go stale.** Subject and first line now say *new versions … before they go out*, which is true whatever is on the bench and says the truer thing anyway: what is being offered is a standing arrangement, not one document. The page still reports what is there today, because the page asks.

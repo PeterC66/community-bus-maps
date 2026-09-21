@@ -1,10 +1,12 @@
 // Thin wrapper over Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email).
 // No SDK dependency — it's one POST with a bearer token, and `fetch` is global in Node 24.
 
+import { resendApiKey } from '../config.js';
+
 const API_URL = 'https://api.resend.com/emails';
 
 export async function sendViaResend({ to, from, subject, text, html }) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = resendApiKey();
   if (!apiKey) throw new Error('EMAIL_PROVIDER=resend but RESEND_API_KEY is not set');
 
   const res = await fetch(API_URL, {

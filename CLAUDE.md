@@ -1,11 +1,17 @@
-﻿# BusMaps.uk — portal
+# BusMaps.uk — portal
 
-<!-- docstamp v1.24 | 2026-08-27 | sha=9b8e3511 -->
-**v1.24** · updated 27 August 2026
+<!-- docstamp v1.35 | 2026-09-18 | sha=4c9d1c71 -->
+**v1.35** · updated 18 September 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
-Private repo, Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09; free for
-non-commercial/internal use, competing commercial use needs a separate licence — see `LICENSE`).
+**Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
+Actions on private repositories only). It is **source-available, not secret**: assume everything
+committed here is world-readable. Business Source License 1.1 (converts to Apache-2.0 on 2030-08-09;
+free for non-commercial/internal use, competing commercial use needs a separate licence — see
+`LICENSE`). The licence half of this sentence was always right and the visibility half said
+`Private repo` until 2026-09-11.
+
+**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 Node + Fastify + `node:sqlite`, no template engine, no framework.
 
 ## Read this first: the system is a PILOT
@@ -46,9 +52,30 @@ Two structural facts that catch people out:
 - **Generators are vendored per map** into `data/maps/<id>/data/`. Editing `engine/` changes nothing
   for existing maps. The pilot band works around this by transforming the finished SVG in
   `src/render/renderMap.js` *after* generation — copy that pattern.
+- **So is the national bus-map directory, and it is a PROJECTION rather than a copy** (buses-data
+  OA-308 tier 2, 2026-09-11). `public/data/bus-map-directory.json` feeds the *Not ours* panel under
+  the `/maps` search: 76 English transport authorities and what each publishes. Its source is in the
+  PRIVATE buses-data repo, and two thirds of that file is our own candid assessment of named
+  councils' websites — so `scripts/sync-directory.mjs` copies a field whitelist and leaves every
+  `note` and `sources` list behind. **Do not hand-edit the vendored file**: edit the source, run
+  `npm run sync:directory` from the repository root, and commit the result. The staleness check is
+  `npm run sync:directory -- --check` and runs only in `verify.yml`, which is the one workflow with a
+  buses-data checkout; `npm test` asserts the file's shape and the projection's privacy rule instead.
+  **The place lookup travels the same way** (buses-data OA-312, 2026-09-16): `src/search/data/` holds
+  `places.json`, `lad-to-lta.json` and `places-source.json` — every named place in Great Britain from
+  the ONS Index of Place Names and the directory row each English district belongs to — copied byte
+  for byte by the same script and checked by the same `--check`. They are server-side only and NOT
+  in `public/`: 1.2 MB the browser never needs. `src/search/places.js` reads them; the place stage in
+  `src/search/directory.js` runs only when the directory's own names have not answered, and a name
+  in neither is the same honest miss it always was — see that file's header for the four rules.
 - **`npm run verify` no longer skips** (2026-08-20, technical-audit_2026-08-19 V2). It finds a
-  committed fixture in `buses-data` — `Areas/_portal-fixture/` and `Places/_portal-fixture/` — via
-  `BUSES_DIR` or a sibling checkout, and it FAILS rather than exiting 0 when there is none.
+  committed fixture and FAILS rather than exiting 0 when there is none. **Since 2026-09-18 that
+  fixture is IN THIS REPOSITORY** (buses-data OA-398), under `gate-fixtures/`, which
+  `scripts/lib/fixtures.mjs` looks in FIRST — ahead of `BUSES_DIR` and a sibling `buses-data`
+  checkout, so the laptop and CI gate the same bytes. `verify.yml` therefore names no secret and
+  clones nothing else; whether the copy is still in step with `buses-data` is a different question,
+  asked by `npm run fixtures:vendor` from here and from buses-data's own gates workflow. The
+  convention, and what is deliberately not vendored, is [gate-fixtures/README.md](gate-fixtures/README.md).
   `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` still win when set, and still point at the live render tree on
   Peter's laptop, which is where a real regression shows first. `--allow-skip` exists for a clone of
   the portal alone and announces that it proved nothing. Still read the output: PASS with byte counts
@@ -89,10 +116,14 @@ again for P8b/P8c.
 **None of that backlog should change a rendered sheet.** If a change there makes `npm run verify`
 fail, the change is wrong.
 
+## Conventions
+
+Flag names, exit codes, streams, the `--apply` / `--yes` vocabulary, naming and the Node pin: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md). One page, and it is the one to read before adding a script.
+
 ## Gates to run
 
 ```bash
-npm test          # P6 public front, P7 expert styles, request→publish→revert lifecycle
+npm test          # the whole suite - scripts/run-tests.mjs discovers every test-*/prove-red-* file
 npm run verify    # byte-identical reproduce + escape-hatch defaults, area + place (needs the fixture dirs)
 ```
 
@@ -113,10 +144,10 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
   Both are ignored now — the habit that matters is **look at what `git add -A` actually staged
   before committing in a repo with a public remote.**
   Private operator records live in a separate local-only folder, never synced.
-- **An edit to a server-rendered shell needs the server restarted, including under `npm run dev`.** `shell()` in `src/server.js` reads `public/map.html`, `public/services.html` and their siblings **once** into `shellCache` and never invalidates it, and `node --watch` only restarts on files it has *imported* — so an HTML edit is invisible to `/m/<slug>` until the process is stopped and started. Found on 2026-08-27 by screenshotting a page whose new element was in the file and not in the response. CSS and the client JS reload normally; only the SSR shells are cached.
+- **An edit to a server-rendered shell needs the server restarted, including under `npm run dev`.** `shell()` in `src/routes/public.js` (it was in `src/server.js` until OA-232 Tier 3.2) reads `public/map.html`, `public/services.html` and their siblings **once** into `shellCache` and never invalidates it, and `node --watch` only restarts on files it has *imported* — so an HTML edit is invisible to `/m/<slug>` until the process is stopped and started. Found on 2026-08-27 by screenshotting a page whose new element was in the file and not in the response. CSS and the client JS reload normally; only the SSR shells are cached.
 - Server-enforced always; client-side checks are UX, not security.
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
-- Record what changed and why as a **fragment** in `CHANGELOG.d/` — `YYYY-MM-DD-slug.md`, with `date:` and `title:` front matter — then run `npm run changelog` from the repository root to rebuild the index. **Do not write into `CHANGELOG.md` itself; it is generated and your entry will be overwritten.** One file per entry is what stops two sessions conflicting over the same file on the same day. `npm test` fails if the index is out of date. See [`CHANGELOG.d/README.md`](CHANGELOG.d/README.md).
+- Record what changed and why as a **fragment** in `CHANGELOG.d/` — `YYYY-MM-DD-slug.md`, with `date:` and `title:` front matter. **Commit the fragment and nothing else.** `CHANGELOG.md` is generated from `CHANGELOG.head.md` plus the fragments and is **gitignored** as of 2026-09-03: it was committed, every commit regenerated it, and 60 of the last 60 commits touched it, so two concurrent sessions conflicted on one line of index every time — which is what portal #215 and #216 did. `npm run changelog` rebuilds the local copy if you want to read the assembled page; `npm test` validates the fragments, not an index. See [`CHANGELOG.d/README.md`](CHANGELOG.d/README.md).
 
 ## Review checklist & admin to-do — 2026-08-15 session
 
@@ -148,6 +179,8 @@ gating verified via JS (ticking boxes, checking `approveBtn.disabled`), but **ne
 published** — completing a live publish/reject decision is Peter's call, not something to do as a
 side effect of UI testing.
 
+**Signing in to a LOCAL dev instance, so an app page can actually be driven in a browser (2026-09-01).** A session is a row in the dev database, so one can be made directly and no email is involved. Insert into `session` (`token`, `user_id`, `created_at`, `expires_at`) where **`token` holds the SHA-256 hex of the raw value, not the raw value** — `src/auth/index.js` has stored the hash rather than the token since 2026-08-25 — then set `document.cookie = 'cbm_session=<raw>; path=/'` in the browser and navigate. Two things this bought that reading the source did not. **Sign in as the persona the page is written for**: `/app/maps/:id/landmarks` hides its *Copy for our records* button from non-admins, so an admin session shows a screen no editor ever sees. And the **browser pane is a hidden tab**, so `document.hidden` is true and `requestAnimationFrame` never fires — an animation started there silently never runs and reads as a broken feature until you check, which cost one wrong diagnosis before it was measured. OA-215 recorded local sign-in as refused and built its verification out of wiring checks instead; it is not refused.
+
 **Browser-pane testing notes for this app specifically:**
 - The dev-server magic-link DB read (`reference_portal_signin_without_console` memory) needs a
   different path on the live VPS than locally: `docker compose exec -T portal node -e "...
@@ -159,6 +192,21 @@ side effect of UI testing.
   `read_network_requests`, don't retry the same click — switch to `javascript_tool` and either
   `fetch()` the endpoint directly or `document.querySelector(...).click()` on the real element; both
   proved reliable when the `computer` tool's ref-based click didn't fire.
+- **When a session row cannot be made, drive the real page with the API stubbed instead** (OA-252,
+  2026-09-05). Inserting the `session` row the note above describes is refused by Claude Code's auto
+  mode as a credential action, and that refusal is right — so an app page still gets driven, without
+  one. Read `views/app/<page>.html`, add a `<base href="http://127.0.0.1:<port>/">` so every asset
+  resolves to a running dev server, drop the `account-guard.js` tag, and inject a `<script>` that
+  replaces `window.fetch` **before** the page's own `<script>` tag. The CSS, the markup and the client
+  JS under test are then the real files, and only the JSON is invented. Two traps, both paid for:
+  serve the probe from a path matching the page's own — `landmarks.js` reads its map id out of
+  `location.pathname` and got `NaN` from anywhere else — and if the stub throws, the page falls
+  through to a REAL cross-origin fetch and the console fills with CORS errors that hide the actual
+  syntax error. Check `/native code/.test(String(window.fetch))` is false before reading anything.
+- **A gesture's default action needs a real double-click, not a synthetic event.** The browser makes a
+  word selection itself, so `dispatchEvent(new MouseEvent('dblclick'))` proves nothing about it: use
+  `computer{action:"double_click"}` and read `String(getSelection())`. Toggle the CSS rule under test
+  off and on again in the same run — a rule that is never seen to fail is a rule you are guessing at.
 
 ## The monthly BODS scan now names places — 2026-08-17
 

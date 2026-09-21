@@ -1,4 +1,4 @@
-﻿// Admin console (P3): review applications, run the map-request lifecycle, and
+// Admin console (P3): review applications, run the map-request lifecycle, and
 // manage customers/quotas. Admin-only — the page redirects non-admins; the API
 // independently enforces the admin role on every route.
 
@@ -79,14 +79,20 @@ async function jsend(url, method, data) {
 }
 
 let banished = null;
+// `<kind>-sticky` stays on screen; anything else clears itself after 8 seconds.
+// STICKINESS USED TO BE SPELT `ok-sticky` AND NOTHING ELSE, so the only banner
+// that could stay was a success one — and a warning carrying a sign-in link the
+// admin has to copy is exactly the banner that must not vanish while they read
+// it (OA-362). The suffix is stripped before the class is set, so the CSS still
+// sees `ok`, `warn` or `err`.
 function banner(kind, html) {
-  const el = $('banner'); el.className = 'notice show ' + kind; el.innerHTML = html;
-  clearTimeout(banished); if (kind !== 'ok-sticky') banished = setTimeout(() => { el.className = 'notice'; }, 8000);
-  if (kind === 'ok-sticky') el.className = 'notice show ok';
+  const sticky = kind.endsWith('-sticky');
+  const el = $('banner'); el.className = 'notice show ' + (sticky ? kind.slice(0, -7) : kind); el.innerHTML = html;
+  clearTimeout(banished); if (!sticky) banished = setTimeout(() => { el.className = 'notice'; }, 8000);
 }
 
 // ---- tabs -------------------------------------------------------------------
-const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'sessions', 'messages', 'refreshes', 'audit', 'ops'];
+const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'advisers', 'sessions', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
 function showTab(name) {
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -223,10 +229,20 @@ $('approveForm').addEventListener('submit', async (e) => {
   btn.disabled = false; btn.textContent = 'Approve & invite';
   if (body.ok) {
     approveDlg.close();
-    const link = body.inviteLink
-      ? `<div class="invite">Invite link (dev — normally emailed): <code id="ilink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyLink" type="button">Copy</button></div>`
-      : ' The invite has been emailed.';
-    banner('ok-sticky', `✓ Approved <strong>${esc(body.customer.name)}</strong> and invited ${esc(body.user.email)}.${link}`);
+    // THREE OUTCOMES, NOT TWO (OA-362). This branched on whether the server had
+    // handed back a dev link, and said "The invite has been emailed" in every
+    // other case — including the two where nothing was sent. It now branches on
+    // `body.emailed`, which is the answer the server actually computed, and the
+    // not-emailed arm shows the link, because otherwise the admin has a customer
+    // who cannot sign in and no way to let them.
+    const inviteBlock = (id, l) => `<div class="invite">Invite link — <b>send this to them by hand</b>: <code id="${id}">${esc(l)}</code> <button class="btn btn-ghost btn-xs" id="copyLink" type="button">Copy</button></div>`;
+    const approved = `✓ Approved <strong>${esc(body.customer.name)}</strong> and created an account for ${esc(body.user.email)}.`;
+    if (body.emailed) {
+      banner(body.inviteLink ? 'ok-sticky' : 'ok', `${approved} The invite has been emailed.${body.inviteLink ? inviteBlock('ilink', body.inviteLink) : ''}`);
+    } else {
+      banner('warn-sticky', `${approved} <b>No invite was emailed</b>${body.emailError ? ` — ${esc(body.emailError)}` : ''}.`
+        + (body.inviteLink ? inviteBlock('ilink', body.inviteLink) : ' No sign-in link could be issued either — check the Ops tab.'));
+    }
     const cp = $('copyLink'); if (cp) cp.addEventListener('click', () => navigator.clipboard.writeText(body.inviteLink).then(() => { cp.textContent = 'Copied'; }));
     LOADERS.applications(); loadSummary();
   } else {
@@ -312,8 +328,10 @@ LOADERS.customers = async () => {
   const box = $('customers');
   const custs = (body && body.customers) || [];
   if (!custs.length) { box.innerHTML = '<div class="empty">No customers yet.</div>'; return; }
-  const columns = [{ label: 'Customer', key: 'name' }, { label: 'Users', key: 'users' }, { label: 'Area maps', key: 'usedAreas' }, { label: 'Place maps', key: 'usedPlaces' }, { label: 'Status', key: 'status' }, { label: 'Plan', key: 'plan' }, { label: 'Operator filter' }, { label: 'Watermark downloads' }, { label: '' }];
-  renderSortable('customers', box, [17, 7, 11, 11, 9, 12, 12, 12, 9], columns, custs, rowCust, (b) => {
+  // PILOT: the 'Sample maps' column. Remove it, and give its width back to the
+  // two beside it, with docs/PILOT.md.
+  const columns = [{ label: 'Customer', key: 'name' }, { label: 'Users', key: 'users' }, { label: 'Area maps', key: 'usedAreas' }, { label: 'Place maps', key: 'usedPlaces' }, { label: 'Status', key: 'status' }, { label: 'Plan', key: 'plan' }, { label: 'Operator filter' }, { label: 'Watermark downloads' }, { label: 'Sample maps' }, { label: '' }];
+  renderSortable('customers', box, [16, 6, 10, 10, 8, 11, 11, 11, 10, 7], columns, custs, rowCust, (b) => {
     b.querySelectorAll('button[data-save]').forEach((b2) => b2.addEventListener('click', () => saveCust(b2.dataset.save)));
   });
 };
@@ -327,14 +345,15 @@ function rowCust(c) {
     <div class="gt-cell" role="cell"><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></div>
     <div class="gt-cell" role="cell"><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></div>
     <div class="gt-cell" role="cell"><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></div>
-    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners"${c.watermarkEnabled ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners. A SEPARATE decision from Sample maps, and it does not move with it: the first real customer asked to keep this on after registering, because it is the only marking that says work in progress without also saying nobody published the sheet. Leave it as the organisation asked."${c.watermarkEnabled ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="isSample" title="Are this organisation's maps OUR samples? While this is on, every sheet carries the red PILOT - SAMPLE MAP band saying nobody published it. Turn it off when a real organisation takes the maps on - and leave Watermark downloads alone, which is a separate decision and theirs rather than ours."${c.isSample ? ' checked' : ''}></div>
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></div>
   </div>`;
 }
 async function saveCust(id) {
   const tr = $('customers').querySelector(`[data-cust="${id}"]`);
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);
-  const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked, watermarkEnabled: g('watermark').checked };
+  const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked, watermarkEnabled: g('watermark').checked, isSample: g('isSample').checked };
   const { body } = await jsend(`/api/admin/customers/${id}`, 'PATCH', data);
   if (body.ok) banner('ok', `Saved changes to ${esc(body.customer.name)}.`);
   else banner('err', body.error || 'Save failed.');
@@ -364,6 +383,10 @@ LOADERS.users = async () => {
     b.querySelectorAll('button[data-signout]').forEach((b2) => b2.addEventListener('click', () => signOutEverywhere(b2.dataset.signout, b2.dataset.who, b2.dataset.self === '1')));
   });
 };
+// `adviser` is in the role picker below so that an adviser account can be READ
+// and corrected on the tab that lists every account. It is mutually exclusive
+// with an organisation and the server says so in a sentence; advisers are
+// normally made on the Advisers tab, which asks and grants in one action.
 function rowUser(u) {
   const self = me && u.id === me.id;
   const custOptions = '<option value="">— platform admin —</option>'
@@ -372,6 +395,7 @@ function rowUser(u) {
     <div class="gt-cell" role="cell"><strong>${esc(u.email)}</strong>${self ? ' <span class="muted">(you)</span>' : ''}<div><input type="text" value="${esc(u.name || '')}" data-q="name" class="planin" maxlength="120" placeholder="name"></div></div>
     <div class="gt-cell" role="cell"><select data-q="customerId">${custOptions}</select></div>
     <div class="gt-cell" role="cell"><select data-q="role">
+        <option value="adviser"${u.role === 'adviser' ? ' selected' : ''}>adviser</option>
         <option value="editor"${u.role === 'editor' ? ' selected' : ''}>editor</option>
         <option value="approver"${u.role === 'approver' ? ' selected' : ''}>approver</option>
         <option value="admin"${u.role === 'admin' ? ' selected' : ''}>admin</option>
@@ -383,6 +407,90 @@ function rowUser(u) {
     <div class="gt-cell" role="cell">${fmtDate(u.createdAt)}</div>
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${u.id}">Save</button> <button class="btn btn-ghost btn-xs" data-signout="${u.id}" data-who="${esc(u.email)}" data-self="${self ? '1' : '0'}" title="End every session this account is holding, everywhere.">Sign out everywhere</button></div>
   </div>`;
+}
+
+// ---- local advisers (buses-data OA-154 Phase D1) -------------------------
+// Its own tab rather than a column on Users, because everybody on that tab works
+// for a customer or for us and everybody here is a member of the public. Asking
+// somebody is ONE action: the account, the grant and the sign-in link go together,
+// because an admin who had to do three things in the right order would get it
+// wrong the first time — and the wrong order is the one that creates an account
+// with an organisation attached.
+let mapsForAdviser = null;
+async function ensureMapList() {
+  if (!mapsForAdviser) {
+    const { body } = await jget('/api/maps');
+    mapsForAdviser = ((body && body.maps) || []).map((m) => ({ id: m.id, name: m.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return mapsForAdviser;
+}
+LOADERS.advisers = async () => {
+  const [{ body }, maps] = await Promise.all([jget('/api/admin/advisers'), ensureMapList()]);
+  $('adviserMap').innerHTML = maps.length
+    ? maps.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')
+    : '<option value="">(no maps yet)</option>';
+  const box = $('advisers');
+  const advisers = (body && body.advisers) || [];
+  if (!advisers.length) {
+    box.innerHTML = '<div class="empty">Nobody has been asked to advise on a map yet.</div>';
+    return;
+  }
+  const columns = [{ label: 'Adviser', key: 'email' }, { label: 'Maps they can see' }, { label: 'Status', key: 'status' }, { label: 'Asked', key: 'createdAt' }];
+  renderSortable('advisers', box, [30, 40, 14, 16], columns, advisers, rowAdviser, (b) => {
+    b.querySelectorAll('button[data-revoke]').forEach((btn) => btn.addEventListener('click', () => revokeAdviser(btn.dataset.revoke, btn.dataset.map, btn.dataset.who, btn.dataset.mapname)));
+  });
+};
+function rowAdviser(a) {
+  const maps = a.maps.length
+    ? a.maps.map((m) => `<div class="adviser-grant">${esc(m.name)}
+        <button class="btn btn-ghost btn-xs" data-revoke="${a.id}" data-map="${m.id}" data-who="${esc(a.email)}" data-mapname="${esc(m.name)}">Stop asking</button></div>`).join('')
+    // An adviser with no live grant reaches NOTHING — they can sign in and are
+    // shown an empty page. Said out loud, because "an account exists" reads as
+    // access and here it is not.
+    : '<span class="muted">none — they can sign in and see nothing</span>';
+  return `<div class="gt-row" role="row">
+    <div class="gt-cell" role="cell"><strong>${esc(a.email)}</strong>${a.name ? `<div class="muted">${esc(a.name)}</div>` : ''}</div>
+    <div class="gt-cell" role="cell">${maps}</div>
+    <div class="gt-cell" role="cell">${esc(a.status)}</div>
+    <div class="gt-cell" role="cell">${fmtDate(a.createdAt)}</div>
+  </div>`;
+}
+async function askAdviser() {
+  const mapId = $('adviserMap').value;
+  const email = $('adviserEmail').value.trim();
+  const msg = $('adviserMsg');
+  if (!mapId || !email) { msg.className = 'notice err show'; msg.textContent = 'A map and an email address, please.'; return; }
+  const btn = $('askAdviserBtn');
+  btn.disabled = true;
+  const { body } = await jsend(`/api/admin/maps/${mapId}/advisers`, 'POST', {
+    email, name: $('adviserName').value.trim(), note: $('adviserNote').value.trim(),
+  });
+  btn.disabled = false;
+  if (body.ok) {
+    // SAY WHETHER THE EMAIL ACTUALLY WENT. This used to promise "a sign-in link
+    // is on its way" whatever happened — including a provider that threw and an
+    // instance with no provider at all, where the link goes to a server console
+    // nobody is watching. A grant without a link reaches nobody.
+    const granted = `${esc(email)} can now see that map.`;
+    msg.className = 'notice ' + (body.emailed ? 'ok' : 'warn') + ' show';
+    msg.innerHTML = body.emailed
+      ? `${granted} A sign-in link has been emailed to them.`
+      : `${granted} <b>No sign-in link was emailed</b>${body.emailError ? ` — ${esc(body.emailError)}` : ''}. `
+        + 'The grant is made, so they will get in once they have a link; check the server log, or ask them to request one from the sign-in page.'
+        + (body.inviteLink ? ` <a href="${esc(body.inviteLink)}">(dev link)</a>` : '');
+    $('adviserEmail').value = ''; $('adviserName').value = ''; $('adviserNote').value = '';
+    LOADERS.advisers();
+  } else {
+    msg.className = 'notice err show';
+    msg.textContent = body.error || 'Could not do that.';
+  }
+}
+async function revokeAdviser(userId, mapId, who, mapName) {
+  if (!confirm(`Stop showing ${mapName} to ${who}?\n\nThey keep their account and the record of having been asked; they simply stop seeing this map.`)) return;
+  const { body } = await jsend(`/api/admin/maps/${mapId}/advisers/${userId}`, 'DELETE');
+  if (body.ok) { banner('ok', `${esc(who)} no longer sees ${esc(mapName)}.`); LOADERS.advisers(); }
+  else banner('err', body.error || 'Could not revoke that.');
 }
 
 // POST /api/admin/users/:id/revoke-sessions has existed since the session work
@@ -499,10 +607,15 @@ $('inviteForm').addEventListener('submit', async (e) => {
   btn.disabled = false; btn.textContent = 'Invite';
   if (body.ok) {
     inviteDlg.close();
-    const link = body.inviteLink
-      ? `<div class="invite">Invite link (dev — normally emailed): <code id="ulink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyULink" type="button">Copy</button></div>`
-      : ' The invite has been emailed.';
-    banner('ok-sticky', `✓ Invited ${esc(body.user.email)} as ${esc(body.user.role)}.${link}`);
+    // Three outcomes here too, for the same reason as the approve banner above
+    // (OA-362) — this is the route that adds a customer's second user.
+    const ulink = body.inviteLink
+      ? `<div class="invite">Invite link — <b>send this to them by hand</b>: <code id="ulink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyULink" type="button">Copy</button></div>`
+      : '';
+    const invited = `✓ Created an account for ${esc(body.user.email)} as ${esc(body.user.role)}.`;
+    if (body.emailed) banner(body.inviteLink ? 'ok-sticky' : 'ok', `${invited} The invite has been emailed.${ulink}`);
+    else banner('warn-sticky', `${invited} <b>No invite was emailed</b>${body.emailError ? ` — ${esc(body.emailError)}` : ''}.`
+      + (ulink || ' No sign-in link could be issued either — check the Ops tab.'));
     const cp = $('copyULink'); if (cp) cp.addEventListener('click', () => navigator.clipboard.writeText(body.inviteLink).then(() => { cp.textContent = 'Copied'; }));
     customersForInvite = null; // customer user-counts changed
     LOADERS.users(); LOADERS.customers();
@@ -549,6 +662,10 @@ function refreshSummaryText(s) {
   if (s.stopsChanged && s.stopsChanged.length) bits.push(s.stopsChanged.length + ' stop change' + (s.stopsChanged.length > 1 ? 's' : ''));
   if (s.descChanged && s.descChanged.length) bits.push(s.descChanged.length + ' reworded');
   if (s.validity) bits.push('validity → ' + esc(s.validity.to || '—'));
+  // OA-253: a refresh whose only change is a landmark arriving or leaving would
+  // otherwise reach the "minor" fallback below with nothing said about it.
+  if (s.landmarksAdded && s.landmarksAdded.length) bits.push(s.landmarksAdded.length + ' new place' + (s.landmarksAdded.length > 1 ? 's' : ''));
+  if (s.landmarksRemoved && s.landmarksRemoved.length) bits.push(s.landmarksRemoved.length + ' place' + (s.landmarksRemoved.length > 1 ? 's' : '') + ' gone');
   return bits.length ? esc(bits.join(' · ')) : '<span class="muted">minor</span>';
 }
 // Plain-text (unescaped) version for the audit table, which esc()s the result.
@@ -560,6 +677,8 @@ function refreshSummaryTextPlain(s) {
   if (s.stopsChanged && s.stopsChanged.length) bits.push(s.stopsChanged.length + ' stop change' + (s.stopsChanged.length > 1 ? 's' : ''));
   if (s.descChanged && s.descChanged.length) bits.push(s.descChanged.length + ' reworded');
   if (s.validity) bits.push('validity → ' + (s.validity.to || '—'));
+  if (s.landmarksAdded && s.landmarksAdded.length) bits.push(s.landmarksAdded.length + ' new place' + (s.landmarksAdded.length > 1 ? 's' : ''));
+  if (s.landmarksRemoved && s.landmarksRemoved.length) bits.push(s.landmarksRemoved.length + ' place' + (s.landmarksRemoved.length > 1 ? 's' : '') + ' gone');
   return bits.join(' · ');
 }
 LOADERS.refreshes = async () => {
@@ -676,6 +795,24 @@ LOADERS.ops = async () => {
     `<span class="status-pill ${c.ok ? 'pub' : 'req'}">${esc(name)}${c.ok ? ' ok' : ' — ' + esc(c.error || (c.missing || []).join(', '))}</span>`).join(' ');
 
   const reclaimable = (s.totals.stagedBytes || 0) + (s.totals.archivedBytes || 0);
+
+  // EMAIL DELIVERY, WHICH THE SERVER HAS ALWAYS COMPUTED AND NO SCREEN SHOWED
+  // (OA-362). `activity.email` is emailHealth() — it has been in the /api/admin/ops
+  // JSON since P7 and a grep of public/ for any of its field names returned
+  // nothing, so answering "did that invite actually go?" meant opening a raw
+  // endpoint nothing links to. The Health chip above is configStatus() — a
+  // provider is NAMED and a key is PRESENT — which a reader takes for an
+  // assurance about delivery and which it is not; these are the counters.
+  //
+  // They are in memory and a restart forgets them, so the card says so rather
+  // than letting a zero read as "nothing has ever failed".
+  const em = a.email || {};
+  const emailCard = `
+      <div class="card"><h3>Email delivery</h3>
+        <p>last sent <strong>${esc(fmtDate(em.lastSentAt) || 'never, since this process started')}</strong></p>
+        <p class="sub">${em.totalSent || 0} sent · ${em.totalFailed || 0} failed · ${em.consecutiveFailures || 0} failure(s) since the last success</p>
+        ${em.lastError ? `<p class="sub"><b>last error</b> ${esc(em.lastError)} (${esc(fmtDate(em.lastErrorAt) || '—')})</p>` : ''}
+        <p class="sub">Counted in memory since start-up — a deploy resets them, and they say nothing about sends before it.</p></div>`;
   box.innerHTML = `
     <div class="ops-grid">
       <div class="card"><h3>Health</h3><div class="pill-row">${checks}</div>
@@ -687,6 +824,7 @@ LOADERS.ops = async () => {
       <div class="card"><h3>Activity</h3>
         <p>${a.publishedMaps} published · ${a.pendingPublishRequests} awaiting review · ${a.pendingProposedUpdates} update(s) pending · ${a.sessions} active session(s)</p>
         <p class="sub">last version ${esc(fmtDate(a.lastVersionAt) || '—')} · last publish ${esc(fmtDate(a.lastPublishAt) || '—')} · ${a.auditEvents} audit event(s)</p></div>
+      ${emailCard}
     </div>
     <div class="table-wrap" style="margin-top:14px" id="opsMapsTable"></div>`;
 
@@ -705,6 +843,7 @@ LOADERS.ops = async () => {
 
 // ---- init -------------------------------------------------------------------
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
+$('askAdviserBtn').addEventListener('click', askAdviser);
 (async () => {
   const { status, body } = await jget('/api/me');
   if (status === 401) { location.href = '/app/login.html'; return; }

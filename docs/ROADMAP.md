@@ -1,7 +1,7 @@
-﻿# Roadmap & architecture
+# Roadmap & architecture
 
-<!-- docstamp v1.15 | 2026-08-28 | sha=40ab6631 -->
-**v1.15** · updated 28 August 2026
+<!-- docstamp v1.19 | 2026-09-11 | sha=c1b629b5 -->
+**v1.19** · updated 11 September 2026
 
 This is the short, self-contained orientation for anyone (or any future session) picking the project up. The full planning documents live in the companion **Buses** working repo (`portal-optionB-revised-plan_2026-07-23.md`, `portal-optionB-architecture_2026-07-14.md`, `portal-options_2026-07-14.md`).
 
@@ -36,7 +36,7 @@ A self-serve portal that lets **approved organisations** (town/parish councils f
 | **P6** | Public front: a public page per **published** map (`/m/:slug`), the published-maps gallery (`/maps`), organisation pages (`/o/:slug`), per-customer branding, map feedback, privacy/licensing page, robots + sitemap. | ✅ **done (2026-07-25)** |
 | **P7** | Expert styles (schematic + tube-map diagram, byte-identical) + the admin-only **diagram pin editor**; ops hardening: readiness, metrics, backups, staged-data retention, container + deploy runbook, licensing review. | ✅ **done (2026-07-25)** |
 | **P8a** | **Maps online, tier 1 — the linkable page done properly.** The sheet served as pan/zoomable inline SVG; a **text alternative** per map at `/m/:slug/services`; provenance + a staleness notice; crawler-visible `<head>`; version-keyed immutable caching; on-screen attribution; `/accessibility.html` + a publish-checklist item. No engine change. | ✅ **done (built 2026-07-26/27, rebuilt against `main` 2026-08-12)** |
-| **P8b** | **Maps online, tier 2 — embedding** on a customer's own site: `/embed/:slug/:output`, a copy-paste snippet, a server-enforced `frame-ancestors` domain allowlist, cookie-free embed routes. Gated on the DPA/processor wording and the bustimes.org sign-off, not on code. | ⏳ planned |
+| **P8b** | **Maps online, tier 2 — embedding** on a customer's own site: `/embed/:slug/:output`, a copy-paste snippet, a server-enforced `frame-ancestors` domain allowlist, cookie-free embed routes. Gated on the **data-protection position, and that is not wording alone** — visitor IPs were logged in full by `src/server.js`'s request serialiser and by Caddy's access log, while `/legal.html` tells the public no other organisation is involved, so the processor paragraph could not be written honestly until those changed. **Phase 1 changed them on 2026-09-06** (#246): both logs now mask the address, and the access log's retention is stated rather than inherited. **The bustimes.org sign-off is not a gate**: it was resolved on 2026-08-07, as the note below this table has said since (`docs/LICENSING.md` §3). Two more things this row did not know, both in `Buses/Development Docs/portal-embed-offer-plan_2026-09-06.md`: `frame-ancestors` cannot be served by the app at all, because the `Caddyfile`'s `header` block replaces it on every response; and P8a above is the cheaper half of the same customer question, shipped and advertised nowhere. | ⏳ planned |
 | **P8c** | **Maps online, tier 3 — interactive.** Generators emit stable `data-route`/`data-stop` hooks + a `map-meta.json` sidecar; highlight a route, tap a stop, search, deep-link. Touches the engine and re-opens the byte-identical gate, so hooks ride behind an off-by-default flag and arrive with each map's next accepted monthly update. | ⏳ planned |
 
 First demo cut = **P0 + P1 + P2**: a real organisation logs in, opens a map, recolours a route, re-renders, and downloads a print-ready sheet — end to end, no AI.
@@ -53,7 +53,7 @@ Enforced **on the server** (`src/maps/safeSubset.js`), not just hidden in the UI
 | Relabel routes/badges, edit the Services panel — *deferred: needs a new no-op override knob in the generators* | River/rail/road geometry |
 | Accept/decline the monthly change — *shipped in P5* | New-map onboarding / bootstrapping a subject |
 | Choose which of the 4 outputs a map produces — *P2 toggles; **all four render as of P7** (the two expert styles are opt-in per map)* | Anything touching upstream (S1/S2) data |
-| — | **Switching the tube-map diagram on.** It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
+| — | **Switching the tube-map diagram on.** *(PARKED 2026-09-10, buses-data OA-297 — the output is not offered at all until `TUBE_DIAGRAM=1`.)* It is `requestOnly`: hand-pinned and re-pinned on every refresh, so it is quoted separately. The editor shows it locked with **Ask us** (which raises a `diagram-request` message); the refusal is enforced in `chooseOutputs()`, not the UI |
 
 The three online tiers are analysed in full — including the data-protection, licensing, ops and
 commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the companion Buses repo.
@@ -62,8 +62,11 @@ commercial consequences — in `portal-online-maps-plan_2026-07-26.md` in the co
 
 - **P8a's open policy decisions.** The staleness threshold is `STALE_AFTER_MONTHS` (default 6) and
   is a policy number, not an engineering one. Still to settle: a licence for the **map content**
-  itself (Apache-2.0 covers the code only — moot in practice while the repo is BUSL-1.1/private, but
-  still unresolved), and whether a self-hosted metric-compatible font (Arimo WOFF2) should ship —
+  itself (Apache-2.0 covers the code only — moot in practice while the repo is BUSL-1.1, but still
+  unresolved; this read `BUSL-1.1/private` until 2026-09-11, and the repo has been **public** since
+  2026-09-03, so it is the licence and not the visibility that holds the question off — the Data
+  hygiene bullet in [Key facts for continuation](#key-facts-for-continuation) already called this a
+  public repo, which is how the contradiction was found), and whether a self-hosted metric-compatible font (Arimo WOFF2) should ship —
   P8a instead widens `font-family` to a stack and falls back to the raster sheet if the browser has
   none of it, which avoids a font binary and a NOTICE change.
 - **Place maps.** ✅ **Done (0.6.0-place, 2026-07-25).** The place engine is vendored in `engine/place/` and copied into each place map's `data/` at import, so **both** kinds render, edit, publish and refresh in the portal. A place's expert framing (river-hide / frozen viewport) rides a `data/base-overrides.json` merged **under** the customer's safe-subset overrides. Proven byte-identical by `npm run verify:place`. See the `[0.6.0-place]` changelog entry and `engine/place/README.md`.

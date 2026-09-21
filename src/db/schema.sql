@@ -1,5 +1,21 @@
 -- Minimal P0 schema: the two things the public shopfront produces.
 -- (Full customer/map/version/approval model arrives with the authenticated app.)
+--
+-- WHAT IS NOT IN THIS FILE. Two kinds of rule are installed by the migration in
+-- src/db/index.js rather than declared here, and both for the same reason: this
+-- file is `CREATE TABLE IF NOT EXISTS`, so it describes a NEW database and says
+-- nothing to one that already exists.
+--
+--   * The two state enums (map.status, map_version.review_state) are enforced by
+--     BEFORE INSERT/UPDATE triggers built from src/db/enums.js. They are triggers
+--     and not CHECK constraints because SQLite cannot add a constraint to an
+--     existing table, and the twelve-step rebuild that would be needed touches the
+--     one pair of tables in this schema with a CIRCULAR foreign key. enums.js
+--     carries the whole argument.
+--   * Two indexes, each measured with EXPLAIN QUERY PLAN before it was added.
+--
+-- So `.schema` on a live database is the authority on what is enforced, and this
+-- file is the authority on what a fresh one starts as.
 
 CREATE TABLE IF NOT EXISTS application (
   id            INTEGER PRIMARY KEY,
@@ -69,7 +85,12 @@ CREATE TABLE IF NOT EXISTS user (
   customer_id   INTEGER REFERENCES customer(id), -- NULL = platform admin (not tied to one customer)
   email         TEXT NOT NULL UNIQUE,
   name          TEXT,
-  role          TEXT NOT NULL DEFAULT 'editor',  -- editor|approver|admin
+  role          TEXT NOT NULL DEFAULT 'editor',  -- adviser|editor|approver|admin
+                                                 -- ENFORCED, since 2026-09-12: src/db/enums.js USER_ROLES installs a
+                                                 -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
+                                                 -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
+                                                 -- An `adviser` may hold no customer_id at all; src/db/guards.js is
+                                                 -- the second trigger that refuses one.
   status        TEXT NOT NULL DEFAULT 'active'   -- active|disabled
 );
 
@@ -144,6 +165,9 @@ CREATE TABLE IF NOT EXISTS map (
   requested_by        INTEGER REFERENCES user(id),   -- the user who requested it (P3)
   outputs             TEXT NOT NULL DEFAULT '{}',    -- JSON: which of the 4 outputs this map produces (P2 toggles)
   status              TEXT NOT NULL DEFAULT 'draft', -- requested|approved|building|draft|published|archived (P1: draft)
+                                                  -- ENFORCED, since 2026-09-03: src/db/enums.js MAP_STATUSES installs a
+                                                  -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
+                                                  -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
   current_version_id  INTEGER REFERENCES map_version(id),  -- latest rendered version (the working head shown in the editor)
   published_version_id INTEGER REFERENCES map_version(id),  -- P4: the public-current pointer (the signed-off version); NULL until first publish
   public_listed       INTEGER NOT NULL DEFAULT 1,    -- P6: show the published version on the public site (customer's choice)
@@ -167,6 +191,9 @@ CREATE TABLE IF NOT EXISTS map_version (
                                             -- unchanged (findings A1).
   storage_key     TEXT NOT NULL,            -- render folder name under maps/<id>/renders/, e.g. 'v1.0'
   review_state    TEXT NOT NULL DEFAULT 'draft', -- P4: draft|pending|published|superseded|rejected
+                                                -- ENFORCED, since 2026-09-03: src/db/enums.js REVIEW_STATES installs a
+                                                -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
+                                                -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
   UNIQUE (map_id, major, minor)
 );
 
@@ -232,4 +259,68 @@ CREATE TABLE IF NOT EXISTS audit_log (
   map_id      INTEGER,                         -- subject map (nullable)
   version_id  INTEGER,                         -- subject version (nullable)
   detail_json TEXT NOT NULL DEFAULT '{}'       -- structured extras (customer, quota, change summary, …)
+);
+
+-- ---------------------------------------------------------------------------
+-- OA-308 tier 4 — the demand signal. A TALLY OF PLACE NAMES, NOT A SEARCH LOG,
+-- and the difference is the whole reason these two tables have the shape they
+-- have. There is no address column, no session column, no user agent, no id and
+-- no timestamp: `first_seen` and `last_seen` are DATES, so nothing here can say
+-- when in the day a search happened or put two searches in order. A row is one
+-- place name and how often anyone has asked for it.
+--
+-- The promise this must not break is P9 B8 — search queries are never logged —
+-- kept by src/public/logRedaction.js and by the Caddyfile's format filter.
+-- Neither is relaxed for these tables and neither should be. src/search/demand.js
+-- carries the shape filter that decides what may be stored at all, and
+-- public/legal.html says out loud that we keep this, because a thing the privacy
+-- page does not mention is a thing we should not be doing.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS search_demand (
+  q          TEXT PRIMARY KEY,                 -- the place name, lower-cased and whitespace-collapsed
+  n          INTEGER NOT NULL DEFAULT 0,       -- how many submitted searches found no map of ours
+  first_seen TEXT NOT NULL DEFAULT (date('now')),
+  last_seen  TEXT NOT NULL DEFAULT (date('now'))
+);
+
+-- Everything the shape filter refused, counted and never quoted. Without it the
+-- tally would understate the misses by however many people typed something that
+-- was not a bare place name, and we would not know by how much.
+CREATE TABLE IF NOT EXISTS search_demand_skipped (
+  id         INTEGER PRIMARY KEY CHECK (id = 1),
+  n          INTEGER NOT NULL DEFAULT 0,
+  last_seen  TEXT
+);
+
+-- ---------------------------------------------------------------------------
+-- OA-154 Phase D1 — THE LOCAL ADVISER'S SEAT.
+--
+-- A local adviser is somebody who knows the ground in a town we draw and is
+-- ASKED for a view on a draft before it is published. They are not a customer,
+-- they do not work for one, and the whole reason this table exists is that the
+-- obvious alternative is unsafe: `loadOwnedMap()` grants EDIT on a map to any
+-- non-admin whose `customer_id` matches it and never consults `role`, so
+-- attaching an adviser to an organisation BY THAT COLUMN would hand a member of
+-- the public that organisation's whole estate, its branding and its map quota.
+--
+-- So an adviser's reach is a GRANT, one row per (map, person), and their
+-- `customer_id` is NULL — refused by a trigger, not merely by a convention (see
+-- src/db/guards.js). Both halves are fail-closed by construction: a grant is the
+-- only thing that admits anybody, and there is no column left for the ownership
+-- rule to match on.
+--
+-- REVOKED, NOT DELETED, for the same reason a user is disabled rather than
+-- removed: who was shown which draft, and when, is the sort of question that is
+-- asked months later. `UNIQUE (map_id, user_id)` means re-granting is an UPDATE
+-- clearing `revoked_at`, so one person's history with one map stays one row.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS map_adviser_grant (
+  id          INTEGER PRIMARY KEY,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  map_id      INTEGER NOT NULL REFERENCES map(id),
+  user_id     INTEGER NOT NULL REFERENCES user(id),
+  granted_by  INTEGER REFERENCES user(id),   -- the admin who asked them; NULL = a script
+  note        TEXT,                           -- why them, in the admin's own words
+  revoked_at  TEXT,                           -- set when the grant ends; the row stays
+  UNIQUE (map_id, user_id)
 );

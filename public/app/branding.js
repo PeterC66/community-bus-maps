@@ -1,4 +1,4 @@
-﻿// Public details (P6): a customer edits its own public identity. The server
+// Public details (P6): a customer edits its own public identity. The server
 // whitelist (src/branding/index.js) is the real gate — it rebuilds the stored
 // object and reports anything it dropped, which we surface here.
 
