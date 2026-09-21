@@ -1,0 +1,152 @@
+{
+  "scoredAt": "2026-09-03 19:30",
+  "dir": "C:\\u3a St Ives\\Using AI\\Buses\\Areas\\Huntingdon\\S2-geometry\\2026-09-03_2027",
+  "geometrySource": "routes_paths.json (road-matched)",
+  "geometryApproximate": false,
+  "metrics": {
+    "R": 11,
+    "S": 75,
+    "K5": 0.12,
+    "D5": 0.65,
+    "P": 64,
+    "poiFramePct": 3.8,
+    "maxRoutesPerCell": 11,
+    "congestedClusters": 1,
+    "largestClusterCells": 10,
+    "routeKm": 55,
+    "extentKm": [
+      3.86,
+      4.26
+    ],
+    "inkDensity": 3.34,
+    "medianBuriedFraction": 0.409,
+    "routesOverHalfBuried": 5
+  },
+  "bands": {
+    "amber": {
+      "R": 12,
+      "S": 120,
+      "K5": 0.5,
+      "D5": 1.6,
+      "P": 42
+    },
+    "red": {
+      "R": 18,
+      "S": 200,
+      "K5": 0.8,
+      "D5": 3.5,
+      "P": 110
+    }
+  },
+  "applied": {
+    "internalCorridors": null,
+    "corridorPalette": null,
+    "coreBox": null,
+    "stopThinning": null
+  },
+  "band": "AMBER",
+  "failedThresholds": [
+    "P=64 > 42"
+  ],
+  "colours": {
+    "routes": 10,
+    "distinct": 10,
+    "ambiguity": 1
+  },
+  "congestionShape": "compact knot (a fisheye lens is the right tool)",
+  "ladder": [
+    {
+      "rung": 1,
+      "action": "bundle 4 co-running route families into single lines (CANDIDATES - confirm each really co-runs)",
+      "detail": "303/305  |  AW1/904  |  X3/X2  |  9/66",
+      "data": {
+        "families": [
+          [
+            "303",
+            "305"
+          ],
+          [
+            "AW1",
+            "904"
+          ],
+          [
+            "X3",
+            "X2"
+          ],
+          [
+            "9",
+            "66"
+          ]
+        ],
+        "overlapMin": 0.6,
+        "internalCorridors": {
+          "9": [
+            "66"
+          ],
+          "303": [
+            "305"
+          ],
+          "AW1": [
+            "904"
+          ],
+          "X3": [
+            "X2"
+          ]
+        }
+      },
+      "after": {
+        "R": 7,
+        "S": 75,
+        "K5": 0.1,
+        "D5": 0.5,
+        "P": 64
+      },
+      "band": "AMBER",
+      "stillFailing": [
+        "P=64 > 42"
+      ]
+    },
+    {
+      "rung": 2,
+      "action": "suppress the core: draw a \"town centre\" box of radius 600 m",
+      "detail": "routes terminate at the box edge instead of crossing the knot",
+      "data": null,
+      "after": {
+        "R": 6,
+        "S": 60,
+        "K5": 0,
+        "D5": 0,
+        "P": 64
+      },
+      "band": "AMBER",
+      "stillFailing": [
+        "P=64 > 42"
+      ]
+    },
+    {
+      "rung": "2c",
+      "action": "classify the POIs with a local: must / may / miss (routes.json \"poi\": {\"tiers\": …})",
+      "detail": "64 POIs reserve 3.8% of the map frame before a route line is drawn, and 12 of them draw a symbol that is never named — node poi_worksheet.js prints the list to ask about",
+      "data": {
+        "poiWorksheet": true,
+        "P": 64,
+        "mute": 12
+      },
+      "after": null,
+      "band": "unknown until a local answers"
+    }
+  ],
+  "perRouteBuried": {
+    "9": 1,
+    "66": 1,
+    "303": 0.06796116504854369,
+    "305": 0.06796116504854369,
+    "401": 0.4090909090909091,
+    "904": 0.14601769911504425,
+    "B": 0.19005847953216373,
+    "T1": 1,
+    "X3": 0.6182965299684543,
+    "X2": 0.6971153846153846,
+    "AW1": 0.16824644549763032
+  }
+}

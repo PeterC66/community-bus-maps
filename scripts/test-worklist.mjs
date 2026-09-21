@@ -36,7 +36,7 @@ const eq = (name, got, want) =>
   check(name, JSON.stringify(got) === JSON.stringify(want), `got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`);
 
 const db = await import('../src/db/index.js');
-const { buildWorklist } = await import('../src/worklist/index.js');
+const { buildWorklist, isUnreachableAddress } = await import('../src/worklist/index.js');
 const { saveStatusSnapshot } = await import('../src/status-snapshot.js');
 
 const keys = () => buildWorklist().items.map((i) => i.key);
@@ -64,8 +64,12 @@ db.insertPublishRequest({ map_id: liveId, version_id: versionId, note: 'recolour
 const buildId = db.insertMap({ customer_id: customerId, slug: 'testbury', name: 'Testbury', kind: 'area', subject: 'Testbury', status: 'approved' });
 // A place request still awaiting an approval decision.
 db.insertMap({ customer_id: customerId, slug: 'testco', name: 'Testco', kind: 'place', subject: 'Testco, Teston', status: 'requested' });
-// An organisation waiting to be vetted.
-db.insertApplication({ org_name: 'Elsewhere Town Council', org_type: 'council', contact_name: 'A Clerk', email: 'clerk@example.invalid' });
+// An organisation waiting to be vetted. The address has to be a REACHABLE one:
+// a pending application on a reserved domain is now seed data by definition and
+// splits into its own demo item, so the old clerk@example.invalid here would
+// have made every assertion below describe the demo path while reading as
+// though it described the real one.
+db.insertApplication({ org_name: 'Elsewhere Town Council', org_type: 'council', contact_name: 'A Clerk', email: 'clerk@elsewhere-tc.gov.uk' });
 
 const all = keys();
 eq('every queue appears exactly once', all.length, 4);
@@ -204,6 +208,88 @@ check('… and says so rather than naming a published version', /never been publ
 // item must not double it up while that decision is outstanding.
 db.insertProposedUpdate({ map_id: neverId, source_note: 'BODS 2026-09 refresh' });
 check('a map with a pending update is not also listed as a draft', !keys().includes(`draft-${neverId}`));
+
+// --- seeded applications never share a row with real ones -------------------
+//
+// The case this exists for: seed-demo.mjs creates a pending application called
+// "Ramsey Town Council" at clerk@ramsey-tc.example, which reads like a real
+// council and is not one. While every pending application shared a single
+// rollup row, that row could only be reported as wholly real or wholly seeded,
+// and on 2026-08-31 it was read as real and an operator was told a council was
+// waiting on him. The name is not the evidence and never was; the address is.
+check('a reserved-domain applicant is not counted as real', isUnreachableAddress('clerk@ramsey-tc.example'));
+check('… nor is the seed data\'s shared address', isUnreachableAddress('t@example.com'));
+check('a real council IS reachable, so it stays real', !isUnreachableAddress('clerk@ramsey-tc.gov.uk'));
+check('a lookalike domain is not reserved', !isUnreachableAddress('clerk@notexample.com'));
+check('… and neither is example.co.uk, which is registrable', !isUnreachableAddress('a@example.co.uk'));
+
+// One real applicant is already staged above (Elsewhere Town Council). Add the
+// exact seeded shape beside it and the two must not merge.
+db.insertApplication({ org_name: 'Ramsey Town Council', org_type: 'council', contact_name: 'Jo Clark', email: 'clerk@ramsey-tc.example' });
+db.insertApplication({ org_name: 'Test council', org_type: 'council', contact_name: 'T', email: 't@example.com' });
+const realApps = byKey('applications');
+const demoApps = byKey('applications-demo');
+check('the real applicant keeps the plain key', !!realApps);
+check('the seeded ones split into their own item', !!demoApps);
+// Optional chaining throughout, deliberately: when the split regresses, one of
+// these items is undefined, and a suite that CRASHES on the next line reports
+// one failure and hides the rest. Breaking the split on purpose is how that was
+// found — it printed a single ✗ and stopped.
+check('… flagged demo, so a reader cannot mistake them', demoApps?.demo === true);
+check('… and the real item is NOT flagged demo', realApps?.demo === false);
+eq('the real row counts only the real applicant', realApps?.count, 1);
+eq('the seeded row counts only the seeded ones', demoApps?.count, 2);
+check('the real row does not name a seeded applicant', !/Ramsey Town Council/.test(realApps?.why || ''), realApps?.why);
+check('the seeded row says why nobody is waiting', /nobody is waiting/.test(demoApps?.why || ''), demoApps?.why);
+
+// And the shape that matters most: with the real one withdrawn, the queue must
+// go QUIET rather than fall back to one mixed row.
+const theRealOne = db.listApplications({ status: 'pending' }).find((a) => a.email === 'clerk@elsewhere-tc.gov.uk');
+check('the real applicant is findable before we reject it', !!theRealOne);
+db.setApplicationReviewed(theRealOne.id, 'rejected');
+check('with no real applicant left, there is no real applications row', !byKey('applications'));
+check('… and the seeded row is still there, still demo', byKey('applications-demo')?.demo === true);
+
+// --- the draft on a map the public cannot see (OA-295) ----------------------
+// "Published" and "public" are different predicates with almost the same name.
+// Ramsey was published, un-listed on 2026-08-28 because faults were reported
+// against it, and for a day this row told Peter "the public still has v7.0"
+// while /m/ramsey returned 404. The fixture below is that state, and the
+// CONTROL is the listed map above it: a check that shouted on every draft
+// would be indistinguishable from one that had learnt the difference.
+const downId = db.insertMap({ customer_id: customerId, slug: 'downton', name: 'Downton', kind: 'area', status: 'published' });
+const downPub = db.insertVersion({ map_id: downId, major: 7, minor: 0, storage_key: 'v7.0' });
+db.setPublishedVersion(downId, downPub);
+const downHead = db.insertVersion({ map_id: downId, major: 8, minor: 0, storage_key: 'v8.0' });
+db.setCurrentVersion(downId, downHead);
+check('a published, listed map still says the public has the old version',
+  /the public still has v7\.0/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+eq('… and is housekeeping while it is listed', byKey(`draft-${downId}`).rank, 9);
+
+db.setMapPublicListed(downId, false);
+check('un-listing it stops the row claiming the public has anything',
+  !/the public still has/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+check('… and says the public sees nothing instead',
+  /NOT LISTED/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+eq('… and leaves the housekeeping band, because it is the tail of an incident', byKey(`draft-${downId}`).rank, 4);
+eq('… into the operator\'s own move', byKey(`draft-${downId}`).band, 'Your move');
+check('… and the do-step says re-listing is a second act publishing does not do',
+  /re-list/.test(byKey(`draft-${downId}`).do[0].what), byKey(`draft-${downId}`).do[0].what);
+
+// A suspended customer is the fourth clause, and it hides the map just as hard.
+db.setMapPublicListed(downId, true);
+check('re-listing restores the ordinary sentence',
+  /the public still has v7\.0/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+db.updateCustomerAdmin(customerId, { status: 'suspended' });
+check('a suspended customer hides the map too, and the row says so',
+  /NOT LISTED/.test(byKey(`draft-${downId}`).title), byKey(`draft-${downId}`).title);
+check('… naming the suspension rather than an un-listing',
+  /suspended/.test(byKey(`draft-${downId}`).why), byKey(`draft-${downId}`).why);
+// A map that has NEVER published keeps its own sentence under a suspension —
+// "not listed" would be wrong there; there is nothing to list.
+check('a never-published map is unaffected by the suspension',
+  /never been published/.test(byKey(`draft-${neverId}`)?.title || 'never been published'));
+db.updateCustomerAdmin(customerId, { status: 'active' });
 
 console.log(`\n${failures ? `✗ ${failures} check(s) failed` : '✓ all worklist checks passed'}\n`);
 process.exit(failures ? 1 : 0);

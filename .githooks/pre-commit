@@ -123,27 +123,16 @@ if [ -n "$conflicts" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# A staged .md whose stamp describes different content.
+# A staged .md whose stamp describes different content -- HISTORY, see the stamp
+# block at the end of this file for what runs now.
 #
-# WHY THIS EXISTS. The docstamp is written by a Stop hook, which by definition runs
-# at the END of a turn -- so a commit made DURING a turn carries the new content and
-# the OLD `sha=`, and the `status` job's "Committed docstamps describe their
-# committed content" step correctly calls it stale. Whether a given commit is red
-# depends only on where the turn boundary happened to fall, which is why it looks
-# intermittent and why it is not.
-#
-# It has already happened here: commit "Docstamp: three committed stamps did not
-# describe their committed content" (#149, 2026-08-29) is exactly this fault, three
-# documents' worth, found by CI after the push rather than before it. In the sibling
-# buses-data repo the same fault took 10 of 15 gates runs red in a day.
-#
-# CI reporting it minutes later is the wrong end of the problem: by then the commit
-# is pushed and somebody has to decide whether a red run matters, which is how a
-# gate gets muted. This refuses the commit instead.
-#
-# SCOPE, deliberately narrow: --staged looks ONLY at the .md files in THIS commit.
-# A document that was already stale is not this commit's fault, and a hook that
-# refuses unrelated work is a hook that gets `--no-verify`'d within a week.
+# Until 2026-09-18 the docstamp was written by a Stop hook at the END of a turn, so
+# a commit made DURING a turn carried the new content and the OLD `sha=`, and the
+# `status` job's "Committed docstamps describe their committed content" step called
+# it stale (#149, 2026-08-29, three documents' worth; in buses-data 10 of 15 gates
+# runs in one day). That Stop hook is gone (buses-data OA-397, portal #315): the
+# stamp is now written by `docstamp.py --staged` in the last block below, and the
+# audit there is a control that should never fire.
 # ---------------------------------------------------------------------------
 # A byte-order mark, or a file carrying two kinds of line ending.
 #
@@ -191,19 +180,66 @@ if [ -f "$HYGIENE" ] && command -v node >/dev/null 2>&1; then
   }
 fi
 
-STAMPER="$HOME/.claude/skills/stamp-docs/scripts/check_committed_stamps.py"
+# ---------------------------------------------------------------------------
+# The document stamp, written HERE, at commit time (buses-data OA-397, R4 of the
+# process review, 2026-09-18). Until this day the stamp was written by a Stop hook
+# AFTER the turn, which is why the block above exists: a commit made mid-turn
+# carried the old stamp and the audit refused it. The pre-commit hook is the one
+# moment at which the index is built and the commit is not yet written, so a stamp
+# written here into the index is the stamp that lands. `docstamp.py --staged`
+# stamps the in-scope documents of THIS commit: the disk copy too when it matches
+# the staged blob, the index alone when they differ, nothing in a repository the
+# stamp policy does not name. The post-commit hook beside this file keeps `git
+# status` truthful afterwards -- read its comment for the pathspec snapshot it
+# corrects.
+#
+# THE AUDIT STAYS, AS THE CONTROL THAT MUST NEVER FIRE. A refusal below now means
+# the stamper did not run -- the WARNING says why -- and never "you forgot to
+# re-stamp", because there is nothing to re-stamp. The wiring is proved in
+# buses-data (.github/scripts/prove-red-stamp-at-commit.mjs, against the same
+# hook text) and the mechanism in claude-skills (stamp-docs/scripts/prove_staged.py).
+#
+# `hooks.stampDocsPath` names the scripts folder and defaults to the skill tree on
+# this machine; `hooks.stampPolicy` names a policy file for a repository the
+# configured roots do not cover. A machine without the scripts skips the block, on
+# the same rule as every block above.
+STAMP_SCRIPTS=$(git config --get hooks.stampDocsPath || echo "$HOME/.claude/skills/stamp-docs/scripts")
+STAMP_POLICY=$(git config --get hooks.stampPolicy || true)
+STAMPER="$STAMP_SCRIPTS/docstamp.py"
+AUDIT="$STAMP_SCRIPTS/check_committed_stamps.py"
+PY=python
+command -v python >/dev/null 2>&1 || PY=python3
 
-# A missing stamper must not block committing. The stamp-docs skill tree is not part
-# of this repository, and a hook that dies on a machine without it would teach
-# whoever hits that to bypass the hook permanently. The conflict check above runs
-# either way, which is why it is above this line and not below it.
-if [ ! -f "$STAMPER" ]; then
+if [ ! -f "$AUDIT" ]; then
   exit 0
 fi
 
-python "$STAMPER" --staged || {
+if [ -f "$STAMPER" ]; then
+  if [ -n "$STAMP_POLICY" ]; then
+    stamp_out=$("$PY" "$STAMPER" --staged --policy "$STAMP_POLICY" 2>&1) || stamp_failed=1
+  else
+    stamp_out=$("$PY" "$STAMPER" --staged 2>&1) || stamp_failed=1
+  fi
+  if [ -n "${stamp_failed:-}" ]; then
+    echo ""
+    echo "pre-commit: WARNING -- docstamp.py --staged did not run cleanly, so nothing was stamped; the audit below decides:"
+    indent "$stamp_out"
+    echo ""
+  else
+    stamped_lines=$(printf '%s\n' "$stamp_out" | grep -E '^(stamped|bumped) ' || true)
+    if [ -n "$stamped_lines" ]; then
+      echo "pre-commit: docstamp wrote the version stamp into this commit:"
+      indent "$stamped_lines"
+    fi
+  fi
+fi
+
+"$PY" "$AUDIT" --staged || {
   echo ""
-  echo "pre-commit: refused. Re-stamp, re-add, and commit again."
+  echo "pre-commit: refused -- a staged stamp does not describe its staged content."
+  echo "  Since OA-397 the stamper above writes the stamp into the commit, so this can only"
+  echo "  fire when it did not run: read the WARNING above, or run it by hand and re-add:"
+  echo "      python \"$STAMPER\" --staged"
   echo "  (bypass with --no-verify only if you mean to commit a stamp that lies)"
   exit 1
 }

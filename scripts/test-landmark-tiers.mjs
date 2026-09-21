@@ -26,6 +26,15 @@
 //    local's answer is exported back into its source data, which is half of
 //    what this whole feature is for.
 //
+//    IT IS ASKED TWICE, AND THAT IS NEW ON 2026-09-14. The version that existed
+//    until then needed a real map pack under data/maps, which is gitignored — so
+//    the whole block, seven assertions and the single prove-red arm standing
+//    under them, had never run in CI once since 2026-09-01. It was green there
+//    for as long as it existed, and what exposed it was the OA-338 engine turning
+//    it RED on the laptop. The half that needs no generator now runs on a fixture
+//    this suite writes itself and is falsifiable anywhere; the pack half stays
+//    for the render side, which no fixture can reach.
+//
 // 3. THE EDITOR MUST NOT EAT THE ANSWER (OA-215). The editor page and the
 //    chooser write the same overrides object through the same endpoint, and
 //    sanitizeOverrides() rebuilds it from scratch — so whatever a page does not
@@ -224,7 +233,105 @@ console.log('\nthe editor carries a landmark answer through untouched');
 }
 
 // ---------------------------------------------------------------------------
-// The key universe. Needs a real map pack, so it is skipped where there is none
+// The key universe, on a pack this suite BUILDS — the half that runs everywhere.
+//
+// The half below needs a real map pack and CI has none, because `data/` is
+// gitignored by construction. That was not merely a weaker place to ask the
+// question: it was a place where the answer was green for ever. On 2026-09-14
+// the whole block had never run in CI in its life — seven assertions and the one
+// prove-red arm that guards them, dark since the day they were written — and the
+// only reason anybody found out is that the OA-338 engine turned it red on the
+// laptop.
+//
+// So the part of the claim that needs no generator is asked HERE, on four
+// synthetic OpenStreetMap nodes and a routes.json written into a temp dir.
+// `enumerateCandidatesFromDir()` reads osm.json + routes.json and runs the real
+// selector; `editablePoiKeysFromDir()` unions that with the drawn enumeration,
+// which returns [] where there is no generator — so on this fixture the universe
+// IS the candidate list, and a change that stops reading candidates empties it.
+// That is exactly the mutation the pack half was the only thing standing under.
+//
+// What this fixture CANNOT ask is the render side: the frame, the placer and
+// everything downstream of selection. That stays with the pack half, and it is
+// why the pack half is still here rather than replaced.
+// ---------------------------------------------------------------------------
+console.log('\nthe editable key universe, on a fixture — the half CI can run');
+{
+  const { enumerateCandidatesFromDir, enumeratePoisFromDir, editablePoiKeysFromDir } = await import('../src/maps/engine.js');
+  const { ENGINE_DIR } = await import('../src/render/renderMap.js');
+  const { createRequire } = await import('node:module');
+  const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs');
+  const os = (await import('node:os')).default;
+  const { selectPois } = createRequire(import.meta.url)(path.join(ENGINE_DIR, 'poi_select.js'));
+
+  const node = (id, lat, lon, tags) => ({ type: 'node', id, lat, lon, tags });
+  // Spread over ~1 km each, so nothing here is a de-duplication question. The
+  // unnamed sports centre is deliberate: `classify()` calls it `Leisure`, and
+  // OA-338 made a category label stop counting as a name — which is the rule
+  // that broke the pack half's old control, so the suite now carries it.
+  const OSM1 = [
+    node(1, 52.500, 0.100, { shop: 'supermarket', name: 'Aldi' }),
+    node(2, 52.510, 0.110, { amenity: 'pharmacy', name: 'Boots' }),
+    node(3, 52.520, 0.120, { amenity: 'library', name: 'Central Library' }),
+    node(4, 52.530, 0.130, { leisure: 'sports_centre', sport: 'swimming' }),
+  ];
+  const OSM2 = [node(5, 52.540, 0.140, { amenity: 'community_centre', name: 'Village Hall' })];
+  const ALL = ['shop:Aldi', 'pharmacy:Boots', 'library:Central Library', 'leisure:Leisure', 'community:Village Hall'];
+
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'cbm-keyfixture-'));
+  const writePack = (tiers) => {
+    writeFileSync(path.join(fixture, 'osm.json'), JSON.stringify({ elements: OSM1 }));
+    writeFileSync(path.join(fixture, 'osm2.json'), JSON.stringify({ elements: OSM2 }));
+    writeFileSync(path.join(fixture, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: tiers ? { tiers } : {} }));
+  };
+  const selected = (tiers) => selectPois([OSM1, OSM2], tiers ? { tiers } : {}, {}).map((p) => p.cat + ':' + p.name);
+
+  try {
+    writePack(null);
+
+    // THE PREMISE, STATED AS AN ASSERTION. There is no generator in this dir, so
+    // the drawn enumeration is empty and the universe comes from candidates
+    // alone. If that ever stops being true the rest of this block is measuring
+    // something else, and nothing about a green run would say so.
+    eq('the fixture has no generator, so nothing is DRAWN here', enumeratePoisFromDir(fixture), []);
+
+    const cand = enumerateCandidatesFromDir(fixture);
+    eq('the selector offers every place the fixture describes', cand.map((c) => c.key).sort(), [...ALL].sort());
+
+    // THE ANTI-"IT JUST RETURNS MORE" CONTROL, and it is the one the old control
+    // was reaching for. Candidates is a SUPERSET of what is drawn, so a selector
+    // that returned junk would satisfy every superset assertion below it. The
+    // exact statement is that candidates minus the misses is precisely what the
+    // selector itself returns — same module, same inputs, no frame in the way.
+    eq('candidates minus the misses is exactly what the selector returns',
+      cand.filter((c) => c.tier !== 'miss').map((c) => c.key).sort(), selected(null).sort());
+
+    // OA-338's rule, at the point it applies.
+    eq('an unnamed sports centre is offered but not selected',
+      (cand.find((c) => c.key === 'leisure:Leisure') || {}).tier, 'miss');
+
+    eq('the editable universe is every one of them', editablePoiKeysFromDir(fixture).sort(), [...ALL].sort());
+    check('and it does not admit a key the fixture never described',
+      !editablePoiKeysFromDir(fixture).includes('shop:Nothing Here'), 'the universe admits invented keys');
+
+    // Now the case the pack half was the only thing asking: the miss is in the
+    // PACK's own routes.json, so the selector drops it at selection.
+    writePack({ 'shop:Aldi': 'miss' });
+    const missed = enumerateCandidatesFromDir(fixture);
+    check('a miss in the pack routes.json leaves the selector output',
+      !selected({ 'shop:Aldi': 'miss' }).includes('shop:Aldi'), 'shop:Aldi is still selected');
+    check('but the fixture selector still offers it', missed.some((c) => c.key === 'shop:Aldi'), 'shop:Aldi is not offered');
+    eq('and reports the fixture tier as miss', (missed.find((c) => c.key === 'shop:Aldi') || {}).tier, 'miss');
+    check('so the fixture universe still contains it, and a save naming it is not rejected',
+      editablePoiKeysFromDir(fixture).includes('shop:Aldi'), 'shop:Aldi has left the universe');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The key universe against a REAL pack — the render side, which the fixture
+// above cannot reach. Needs a map pack, so it is skipped where there is none
 // — and SAYS it skipped, rather than passing quietly.
 // ---------------------------------------------------------------------------
 console.log('\nthe editable key universe — a POI missed AT SOURCE must stay choosable');
@@ -243,14 +350,45 @@ console.log('\nthe editable key universe — a POI missed AT SOURCE must stay ch
   if (!src) {
     console.log('  — no map pack under data/maps, so this half is not exercised here (CI has none; the laptop does)');
   } else {
-    // The control first: with nothing classified anywhere, the selector and the
-    // drawn sheet must name exactly the same places. Without this, "candidates
-    // is a superset" could be satisfied by a selector that simply returns more.
+    /* THE CONTROL, AND IT USED TO ASSERT SOMETHING FALSE (2026-09-14).
+     *
+     * It read: with nothing classified, the selector and the drawn sheet name
+     * exactly the same places. That equality is not a property of this engine
+     * and never was — it held on ONE town, which happened to be the first in id
+     * order. Two legitimate reasons a candidate does not reach the paper:
+     *
+     *   a MISS, applied at selection. OA-338 widened the nameless default to the
+     *     category labels, so March's unnamed sports centre — offered as
+     *     `leisure:Leisure` — became a candidate the sheet does not draw, and the
+     *     old control went red on a working engine. St Ives has the same shape in
+     *     `allotments:Allotments`.
+     *   a FRAME CULL, applied long after selection. High Wycombe's `coreBox`
+     *     blanks the town centre, so four `may` candidates are selected and then
+     *     never requested; St Ives loses one to the frame the same way. Nothing
+     *     in the selector's report can see this — `culledAfterTiers` is OA-250
+     *     item 2 and is not built — so it is REPORTED here and not asserted.
+     *
+     * What is left is the real invariant, in the direction the assertions below
+     * depend on: the sheet can draw nothing the selector did not offer, and a
+     * place the selector missed can never appear on it. The other half of the old
+     * control — stopping "candidates is a superset" being satisfied by a selector
+     * that simply returns more — has moved to the fixture above, where it can be
+     * stated exactly and where CI can run it. */
     const drawn0 = enumeratePoisFromDir(src).map((p) => p.key).sort();
-    const cand0 = enumerateCandidatesFromDir(src).map((p) => p.key).sort();
-    check('with nothing classified, the selector and the drawn sheet agree exactly',
-      JSON.stringify(drawn0) === JSON.stringify(cand0), `drawn ${drawn0.length}, candidates ${cand0.length}`);
+    const cand0 = enumerateCandidatesFromDir(src);
+    const drawnSet = new Set(drawn0);
+    const candSet = new Set(cand0.map((c) => c.key));
+    check('everything the sheet draws is something the selector offered',
+      drawn0.every((k) => candSet.has(k)),
+      `not offered: ${drawn0.filter((k) => !candSet.has(k)).join(', ')}`);
+    check('and nothing the selector MISSED reached the sheet',
+      cand0.filter((c) => c.tier === 'miss').every((c) => !drawnSet.has(c.key)),
+      `drawn anyway: ${cand0.filter((c) => c.tier === 'miss' && drawnSet.has(c.key)).map((c) => c.key).join(', ')}`);
     check('there is something to test with', cand0.length > 0, `${cand0.length} candidates`);
+    const culled = cand0.filter((c) => c.tier !== 'miss' && !drawnSet.has(c.key)).map((c) => c.key);
+    console.log(`    (map ${path.basename(path.dirname(src))}: drawn ${drawn0.length}, candidates ${cand0.length}`
+      + `; ${cand0.filter((c) => c.tier === 'miss').length} missed at selection`
+      + `, ${culled.length} selected and then culled by the frame${culled.length ? ': ' + culled.join(', ') : ''})`);
 
     // Now the case that bites: the tier is in the MAP PACK, the way it arrives
     // when a town's answer has been exported back into its source data. Done on
@@ -261,7 +399,9 @@ console.log('\nthe editable key universe — a POI missed AT SOURCE must stay ch
       cpSync(src, tmp, { recursive: true });
       const rjPath = path.join(tmp, 'routes.json');
       const rj = JSON.parse(readFileSync(rjPath, 'utf8'));
-      const victim = cand0[0];
+      // `cand0` carries the candidate ROWS now, not just their keys — the
+      // control above needs each row's tier to tell a miss from a frame cull.
+      const victim = cand0[0].key;
       rj.poi = { ...(rj.poi || {}), tiers: { ...((rj.poi || {}).tiers || {}), [victim]: 'miss' } };
       writeFileSync(rjPath, JSON.stringify(rj, null, 2));
 
@@ -502,14 +642,14 @@ console.log('\nthe chooser: the pictogram, the name, and whether the page can sp
     } else {
       try {
         api = new Function(`${consts.join('\n')}\n${fns.join('\n')}\n`
-          + 'return { displayName, statusWords, showEl, CAT_ONE };')();
+          + 'return { displayName, statusWords, showEl, CAT_ONE, CAT_LABEL };')();
       } catch (e) { why = e.message; }
     }
   }
   check('the row helpers can be read out of the chooser own source', !!api, why);
 
   if (api) {
-    const { displayName, statusWords, CAT_ONE, showEl } = api;
+    const { displayName, statusWords, CAT_ONE, CAT_LABEL, showEl } = api;
     const P = (o) => ({ key: 'x', cat: 'pharmacy', name: '', printsName: false, ...o });
 
     eq('a place with a name is called by it', displayName(P({ name: 'Boots' }), null), 'Boots');
@@ -533,6 +673,15 @@ console.log('\nthe chooser: the pictogram, the name, and whether the page can sp
     check('classify() still names a plausible number of categories', cats.length >= 10, 'found ' + cats.length);
     eq('and every one of them has a singular for the nameless row',
       [...new Set(cats)].filter((c) => !CAT_ONE[c]), []);
+    // THE OTHER HALF OF THE SAME JOIN, ASSERTED SINCE 2026-09-19 (OA-340). The
+    // comment above has said "would fall back to a lower-cased plural heading"
+    // since it was written, and nothing checked it: only CAT_ONE was joined, so
+    // the thirteenth category arrived, failed the singular arm, and the group
+    // HEADING — the thing the comment is actually about — was never asked.
+    // catLabel() returns the raw engine key when CAT_LABEL has no entry, which
+    // is the exact fault OA-220 removed for "gp" and "townhall".
+    eq('and a plural group heading, which is what a reader meets first',
+      [...new Set(cats)].filter((c) => !CAT_LABEL[c]), []);
 
     // c) the sub-line, and the group heading that had already said it
     eq('in a group where nothing prints its name, the row says nothing extra',

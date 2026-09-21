@@ -47,16 +47,32 @@ const PREFLIGHT = [
   // cannot tell whether the SKILL has moved on. `status.js` on the laptop is
   // what asks that half.
   'check-vendored.mjs --no-skills',
+  // Every path that moves the published pointer writes the place-name sidecar
+  // (buses-data OA-379). A preflight rather than a test because its subject is
+  // the SOURCE — which call sites exist — and a test can only ever exercise the
+  // ones somebody remembered to write a test for, which is how the bug it is
+  // named after survived: scripts/publish-baseline.mjs published the first real
+  // customer's four maps with no sidecar and the suite was green throughout.
+  'check-publish-paths.mjs',
 ];
 
 // A discovered file may be skipped ONLY with a reason that names where it DOES
 // run. An exclusion with no reason is a hole; the runner refuses to start with
 // one rather than printing a green summary that covers less than its name.
+// THE REASONS CHANGED ON 2026-09-18 AND THE EXCLUSIONS DID NOT (buses-data
+// OA-398). Both of these said "needs BUSES_DIR (the buses-data checkout)", which
+// stopped being true when the fixtures were vendored into `gate-fixtures/`: they
+// now run in a clone of this repository alone. They stay out of `npm test`
+// because they rasterise and spawn child processes two deep — about a minute
+// between them, on every push — and they belong beside the other fixture-driven
+// byte gates. A stale reason is worse than a stale exclusion: it tells the next
+// reader the test CANNOT run here, which would have made moving it back look
+// impossible.
 const EXCLUDED = {
   'test-engine-selfsufficient.mjs':
-    'needs BUSES_DIR (the buses-data checkout) — runs in verify.yml, "self-sufficient" step',
+    'slow (rasterises every sheet the fixture declares) — runs in verify.yml, "self-sufficient" step',
   'prove-red-selfsufficient.mjs':
-    'needs BUSES_DIR (the buses-data checkout) — runs in verify.yml, "prove the self-sufficiency gate can go red"',
+    'slow (four scratch portals, each rasterising) — runs in verify.yml, "prove the self-sufficiency gate can go red"',
 };
 
 const args = process.argv.slice(2);
@@ -129,6 +145,37 @@ if (ghosts.length) {
   process.exit(2);
 }
 
+/*
+ * A DISCOVERED TEST WITH NO NPM SCRIPT IS NOW A REFUSAL, not a line of report
+ * (buses-data's 2026-09-14 review, T10, its Tier 1.6).
+ *
+ * This runner already refused an exclusion with no reason and an exclusion naming
+ * a file that does not exist — both exit 2 — and then printed "N file(s) have no
+ * npm script" and carried on with exit 0. So the two halves of the same question
+ * were held to opposite standards: a file somebody deliberately excluded got a
+ * refusal, and a file whose command the runner INVENTED (`node scripts/<file>`)
+ * got a note. The invented one is the weaker of the two, because nothing anywhere
+ * declares it: `gate:wiring` in the engine repository asks of every test script
+ * whether a workflow runs it THROUGH its npm script rather than rebuilding the
+ * command, and a test with no script is outside that join by construction.
+ *
+ * `test-changelog.mjs` sat in that state and was the reason the finding was made.
+ * ITS SCRIPT WAS ADDED FIRST, in the same change: a check that is red on the day
+ * it lands is one somebody mutes inside a week, so the corpus is cleaned before
+ * the gate, never after. Verified at 0 unowned before this block was written.
+ *
+ * The remedy is one line in package.json, which is why this is a refusal and not
+ * a warning — and if a file genuinely should not have one, EXCLUDED is right
+ * there and requires a reason naming where it DOES run.
+ */
+if (unowned.length) {
+  console.error('Discovered with no npm script: ' + unowned.join(', '));
+  console.error('Each would run as an invented `node scripts/<file>`, which no workflow and no');
+  console.error('wiring check can see. Add `"test:<name>": "node scripts/<file>"` to package.json,');
+  console.error('or add an EXCLUDED entry whose reason names where the test DOES run.');
+  process.exit(2);
+}
+
 // --- report the plan ------------------------------------------------------
 
 const skipped = Object.entries(EXCLUDED);
@@ -136,10 +183,8 @@ console.log(`${plan.length} test file(s), ${PREFLIGHT.length} preflight check(s)
   (only ? `, filtered to "${only}"` : '') +
   (skipped.length ? `, ${skipped.length} excluded` : ''));
 for (const [file, why] of skipped) console.log(`  SKIP  ${file}\n        ${why}`);
-if (unowned.length) {
-  console.log(`  ${unowned.length} file(s) have no npm script and run as \`node scripts/<file>\`:`);
-  for (const f of unowned) console.log(`        ${f}`);
-}
+// No unowned report here any more: the invariant above refuses before this runs,
+// so the only reachable value is zero and a line saying so would be furniture.
 console.log('');
 
 if (listOnly) {

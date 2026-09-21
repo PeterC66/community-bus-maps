@@ -58,11 +58,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 24 to match the Dockerfile's base image: node:sqlite is the store, and
-      # it is still flagged experimental, so the runtime is not a free variable.
+      # The Dockerfile's major, read from its FROM line as verify.yml does:
+      # node:sqlite is the store and still flagged experimental, so the runtime
+      # is not a free variable, and one authority means one file to bump.
+      - name: What Node does the deployment image use?
+        id: nodever
+        run: |
+          major=$(sed -n 's/^FROM node:\([0-9][0-9]*\).*/\1/p' Dockerfile | head -1)
+          if [ -z "$major" ]; then
+            echo "::error::could not read a Node major from the Dockerfile FROM line"
+            exit 1
+          fi
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: ${{ steps.nodever.outputs.major }}
 
       - name: Install dependencies
         run: npm ci
@@ -111,8 +122,29 @@ jobs:
       # about. This step is genuinely narrower than the checker it runs — do not
       # remove the working-tree half on noticing CI never reports it.
       #
-      # This repository declares no `.file-hygiene.json` and needs none: it has no
-      # generated corpus and no verbatim records, so the bare rules are right.
+      # THIS REPOSITORY NOW DECLARES A `.file-hygiene.json`, and this comment used
+      # to say it never would — "it has no generated corpus and no verbatim
+      # records, so the bare rules are right". True when written, and falsified
+      # twice within four days by two unrelated corpora, which is why the
+      # declaration carries two entries and not one.
+      #
+      # `gate-fixtures/` came first, with OA-398 on 2026-09-18: byte-identical
+      # copies of files in buses-data, excused with `neverRead` because repairing
+      # a copy would make it differ from its source and turn `npm run
+      # fixtures:vendor` red for ever.
+      #
+      # `scripts/fixtures/` is this change: five `build-warnings.txt` and eight
+      # `complexity.json` copied verbatim off the map tree so that the halves of
+      # test-build-warnings.mjs and test-complexity-band.mjs which need real
+      # engine output can run here rather than on one laptop. Eight of them end
+      # without a final newline because that is how the engine writes them, and
+      # adding one would make them our files rather than its.
+      #
+      # That second entry relaxes TIER 2 ONLY (final newline, trailing whitespace)
+      # and over those two directories only. A BOM and mixed line endings stay
+      # findings in a captured file, which is the right way round: those are the
+      # two faults that would make a fixture differ from what the engine wrote
+      # in a way no diff shows.
       - name: files carry no BOM, no trailing whitespace, no missing newline
         run: node claude-skills/tools/check-file-hygiene.mjs --root .
 
@@ -185,11 +217,22 @@ jobs:
           sparse-checkout: tools
 
       # Both checkers are dependency-free ESM reading only node:fs and node:path,
-      # so there is nothing to install. 24 to match the `test` job and the
-      # Dockerfile's base image.
+      # so there is nothing to install. The Node major is read from the
+      # Dockerfile, as in the `test` job.
+      - name: What Node does the deployment image use?
+        id: nodever
+        working-directory: community-bus-maps
+        run: |
+          major=$(sed -n 's/^FROM node:\([0-9][0-9]*\).*/\1/p' Dockerfile | head -1)
+          if [ -z "$major" ]; then
+            echo "::error::could not read a Node major from the Dockerfile FROM line"
+            exit 1
+          fi
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: ${{ steps.nodever.outputs.major }}
 
       # FALSIFY BOTH BEFORE TRUSTING EITHER. They are being pointed at a new
       # corpus, which is exactly when a checker that has quietly stopped objecting
@@ -204,6 +247,10 @@ jobs:
       - name: Prove the link checker can go red
         working-directory: claude-skills
         run: node tools/prove-red-doc-links.mjs
+
+      - name: Prove the short-form checker can go red
+        working-directory: claude-skills
+        run: node tools/prove-red-doc-acronyms.mjs
 
       # --tree, not --root: --root is flat by contract (prove-red-tables.mjs
       # drives it and asserts an exact row count), and this repository nests its
@@ -222,6 +269,14 @@ jobs:
       - name: Links, anchors, section citations and documented commands
         working-directory: community-bus-maps
         run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-links.mjs"
+
+      # Since 2026-09-21 (buses-data status review, decided by Peter): every short
+      # form a reader meets in a LIVE document can be looked up. The scope is
+      # `.doc-acronyms.json` -- the changelog and docs/_archive/ are dated history
+      # and excluded as folders; ours are defined in docs/SHORT-FORMS.md.
+      - name: Every short form a reader meets can be looked up
+        working-directory: community-bus-maps
+        run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-acronyms.mjs"
 
       # `check-doc-coverage.mjs` deliberately does NOT run here, and that was
       # measured rather than assumed. It asks whether every working document is

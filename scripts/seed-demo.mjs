@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import {
   getUserByEmail, insertUser, getCustomerByName, insertCustomer, setCustomerDemo, getMapBySlug,
   insertApplication, listApplications, insertMap, setMapOutputs,
-  nextVersion, insertVersion, setCurrentVersion, getOpenRequestForMap, getOpenProposedForMap,
+  nextVersion, insertVersion, setCurrentVersion, getVersionById, getOpenRequestForMap, getOpenProposedForMap,
   insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion,
   setMapStatus, recordAudit, getCustomer, setCustomerBranding, insertMessage, listMessages,
 } from '../src/db/index.js';
@@ -26,11 +26,12 @@ import { sanitizeBranding } from '../src/branding/index.js';
 import { renderVersion, defaultOutputs, readRoutesMeta } from '../src/maps/engine.js';
 import { mapDataDir } from '../src/maps/store.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
+import { writePlacesSidecar } from '../src/search/place-index.js';
+import { BUSES_DIR } from './lib/buses-dir.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT = path.join(HERE, 'import-map.mjs');
 const PROPOSE = path.join(HERE, 'propose-update.mjs');
-const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
 
 // Both map kinds now render in the portal: AREA maps carry their generators
@@ -210,6 +211,11 @@ function publishBaseline(slug, editorEmail) {
   setVersionState(m.current_version_id, 'published');
   setPublishedVersion(m.id, m.current_version_id);
   setMapStatus(m.id, 'published');
+  // The place-name sidecar, as the approve handler writes it (OA-379). A seeded
+  // map that is not searchable by the villages on its own sheet is a worse
+  // fixture than no fixture: every search test written against it would pass
+  // while describing a portal nobody runs.
+  writePlacesSidecar(m.id, getVersionById(m.current_version_id).storage_key, { kind: m.kind, subject: m.subject });
   recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: m.id, versionId: m.current_version_id, detail: { version: 'v1.0', changeSummary: summary } });
   console.log(`· published ${slug} v1.0 as its first official version (SAMPLE org — public page now live)`);
 }
@@ -250,6 +256,7 @@ async function publishWithBoardingPlan(slug, editorEmail) {
   setVersionState(vid, 'published');
   setPublishedVersion(m.id, vid);
   setMapStatus(m.id, 'published');
+  writePlacesSidecar(m.id, key, { kind: m.kind, subject: m.subject }); // OA-379, as above
   recordAudit({ actorId: approverId, actorEmail: APPROVER_EMAIL, action: 'version.publish', mapId: m.id, versionId: vid, detail: { version: key, changeSummary: summary } });
   console.log(`· published ${slug} ${key} with the boarding plan output on (SAMPLE org — public page + home strip can show it)`);
 }

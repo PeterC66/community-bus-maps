@@ -51,7 +51,7 @@ function badPoiName(t) {
  * and two copies of the sentence would drift.
  */
 export const BOARDING_CONFLICT =
-  'this map has a "Where to board" sheet, and the stop each destination is boarded at was worked out across every route serving it — '
+  'this place has a "Where to board" map, and the stop each destination is boarded at was worked out across every route serving it — '
   + 'hiding one operator would drop destinations you can still get to';
 
 export function isHexColor(v) {

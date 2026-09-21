@@ -74,9 +74,11 @@ eq('a clean build reports its warning count', cw && cw.total, 1);
 eq('…and zero blocking', cw && cw.blocking, 0);
 eq('…and lists no blocking lines', cw && cw.blockingLines, []);
 
-// 3. A blocking build. No real one exists on the map tree — the rollout STOPS on
-//    a blocking warning, which is the plan's step 3 and works — so this is the
-//    case the screen must handle and the corpus cannot supply.
+// 3. A blocking build. This comment used to say no real one existed on the map
+//    tree, because the rollout STOPS on a blocking warning; the sweep of
+//    2026-09-14 found two, and `fixtures/build-warnings/blocking/` is one of
+//    them. The synthetic case stays — it carries TWO blocking lines and a WARN
+//    section under them, which no real file does.
 const bad = write(path.join(scratch, 'bad'), [
   '4 warnings, 2 blocking.',
   '',
@@ -104,30 +106,88 @@ check('…and only the BLOCKING ones, not the WARN section beneath it',
 eq('an unrecognised file reports null rather than guessing',
   readBuildWarnings(write(path.join(scratch, 'garbage'), 'something else entirely\n')), null);
 
-// 5. Against the REAL corpus when it is present. CI checks out only this
-//    repository, so this is skipped there rather than failed — a check that
-//    cannot run must not report a pass it did not make.
+// 5. AGAINST CAPTURED REAL OUTPUT, WHICH RUNS EVERYWHERE. Cases 1-4 are files
+//    this test wrote, so between them they can only confirm what whoever wrote
+//    the parser believed the engine emits — and on 2026-09-14 that belief was
+//    fifteen days out of date. `build_log.js` gained `, and K measurement(s).`
+//    on 2026-08-30 (buses-data OA-118) and the old regex required the full stop
+//    straight after "blocking", so 595 of the 900 real files parsed as null,
+//    including both of the only two in the estate's history that report a
+//    BLOCKING warning. The arm that would have caught it is case 6 below, which
+//    has never run in CI and which sampled three copies of one place's sheet on
+//    the laptop. These five are verbatim engine output, committed — one per
+//    shape the sweep found. See scripts/fixtures/README.md.
+const FIXTURES = path.join(ROOT, 'scripts', 'fixtures', 'build-warnings');
+console.log('');
+{
+  const f = (name) => path.join(FIXTURES, name);
+
+  const plain = readBuildWarnings(f('counted-plain'));
+  eq('a real pre-measurement summary parses', plain && [plain.total, plain.blocking], [1, 0]);
+
+  // THE ONE THAT WAS BROKEN. Every current town render carries this shape.
+  const measured = readBuildWarnings(f('counted-with-measurements'));
+  check('a real summary with a measurement clause parses at all', measured !== null,
+    'null — the parser cannot read what the engine writes today');
+  eq('…and counts the warnings apart from the measurements', measured && [measured.total, measured.blocking], [10, 0]);
+
+  const blocked = readBuildWarnings(f('blocking'));
+  check('a real BLOCKING build is readable', blocked !== null, 'null — the approver would see nothing');
+  eq('…and reports the blocking count', blocked && blocked.blocking, 1);
+  eq('…and names the one blocking line', blocked && blocked.blockingLines.length, 1);
+  check('…and takes it from the BLOCKING section, not the 22 WARN lines under it',
+    blocked && /Chiltern Main Line/.test(blocked.blockingLines[0] || ''), JSON.stringify(blocked && blocked.blockingLines));
+
+  // A file that SAYS zero is a zero. Distinct from the absent file in case 1,
+  // which is the one case that must stay null.
+  const none = readBuildWarnings(f('no-warnings'));
+  check('the zero-warning line is read as zero rather than as unreadable', none !== null, 'null');
+  eq('…as a real zero, and no blocking lines', none && [none.total, none.blocking, none.blockingLines.length], [0, 0, 0]);
+
+  // Five real files on the tree are raw entries with no summary at all. This is
+  // case 4's assertion made against something the engine really wrote, rather
+  // than against a string invented to be unrecognisable.
+  eq('a real file with no summary line reports null, like the invented garbage above',
+    readBuildWarnings(f('no-summary-line')), null);
+}
+
+// 6. Against the LIVE corpus when it is present. Only this arm can notice the
+//    engine changing its format, which is exactly the change case 5 failed to
+//    notice for fifteen days — a capture is frozen by construction. CI checks
+//    out only this repository, so it skips there rather than failing.
+//
+//    ONE PER TOWN, NOT THE FIRST THREE IT MEETS. Until 2026-09-14 this walked
+//    depth-first and stopped at three, which on this tree meant three versions
+//    of ONE place's sheet, all three in the one shape that still parsed. A
+//    sample that stops at the first branch is an anecdote; spread it across the
+//    top-level folders so the shapes differ.
+console.log('');
 const TREE = path.join(BUSES_DIR, 'Areas');   // env first, one named default (OA-232 Tier 1.6)
 if (existsSync(TREE)) {
-  const found = [];
-  (function walk(d, depth) {
-    if (depth > 6 || found.length >= 3) return;
-    let entries; try { entries = readdirSync(d, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      if (found.length >= 3) return;
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) walk(p, depth + 1);
-      else if (e.name === BUILD_WARNINGS) found.push(d);
-    }
-  })(TREE, 0);
-  check(`the real map tree supplied ${found.length} build report(s) to parse`, found.length > 0);
-  for (const d of found) {
+  const newestIn = (town) => {
+    let best = null;
+    (function walk(d, depth) {
+      if (depth > 5) return;
+      let entries; try { entries = readdirSync(d, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walk(p, depth + 1);
+        else if (e.name === BUILD_WARNINGS && (best === null || p > best)) best = p;
+      }
+    })(path.join(TREE, town), 0);
+    return best && path.dirname(best);
+  };
+  const towns = readdirSync(TREE, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  const found = towns.map((t) => [t, newestIn(t)]).filter(([, d]) => d);
+  check(`the real map tree supplied ${found.length} build report(s) to parse, one per town`, found.length > 0);
+  for (const [town, d] of found) {
     const r = readBuildWarnings(d);
-    check(`parses a real one: ${path.basename(d)}`, r !== null && Number.isFinite(r.total) && Number.isFinite(r.blocking),
-      `${JSON.stringify(r)} from ${readFileSync(path.join(d, BUILD_WARNINGS), 'utf8').split('\n')[0]}`);
+    check(`parses a real one: ${town} — ${readFileSync(path.join(d, BUILD_WARNINGS), 'utf8').split('\n')[0]}`,
+      r !== null && Number.isFinite(r.total) && Number.isFinite(r.blocking), JSON.stringify(r));
   }
 } else {
-  console.log('  · the Buses map tree is not on this machine — the real-corpus arm is SKIPPED, not passed');
+  console.log('  · the Buses map tree is not on this machine — the live-corpus arm is SKIPPED, not passed');
+  console.log('    (the CAPTURED corpus above still ran; it is frozen, so only this arm sees a format change.)');
 }
 
 // ===========================================================================

@@ -20,7 +20,7 @@
 // POST /api/admin/status is NOT here on purpose. It is a STATUS_TOKEN drop-box
 // for the operator's laptop that 404s to a session, the opposite of this guard,
 // and it stays in server.js with the other token-authorised ops routes.
-import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin } from '../db/index.js';
+import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getCustomerByName, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin, withTransaction } from '../db/index.js';
 import { USER_ROLES } from '../db/enums.js';
 import { buildWorklist } from '../worklist/index.js';
 import { orgPageUrl } from '../public/index.js';
@@ -81,8 +81,39 @@ export default async function adminRoutes(app) {
 
     const email = str(appn.email, 200).toLowerCase();
     if (!isEmail(email)) return reply.code(400).send({ ok: false, error: 'The application has no valid contact email.' });
+
+    // THE ORGANISATION IS ASKED BEFORE THE PERSON, and the order is the fix
+    // (OA-367 faces 1 and 2). Until 2026-09-18 this route asked only whether the
+    // email had an account and answered "Approve this organisation manually or
+    // ask them to sign in." The refusal was correct and everything it said was
+    // not: there is no POST /api/admin/customers and no create-customer control
+    // anywhere, so "manually" named a screen that has never existed. Worse, it
+    // reported the person when the fault was the ORGANISATION — Peter met it on
+    // the first real registration, on a SECOND application row for a customer
+    // registered the night before, and was sent looking at a user.
+    //
+    // A duplicate is a REJECT, not an approve. Approving would have written a
+    // second customer row for one organisation, each with its own quota, and
+    // left the map handover ambiguous about which of them owns the sheet.
+    const already = getCustomerByName(appn.org_name);
+    if (already) {
+      return reply.code(409).send({
+        ok: false,
+        error: `“${appn.org_name}” is already registered — customer #${already.id} — so this application is a duplicate. Reject it. If their contact cannot get in, they can request a sign-in link themselves at /login.html.`,
+      });
+    }
+    // The genuine collision, and it is NOT approvable here by any wording.
+    // `user.email` is UNIQUE and a user row carries ONE customer_id, so a person
+    // who already holds an account cannot also be the first editor of a second
+    // organisation — the data model has no way to say it. That is why this names
+    // no script and no screen: OA-367 asked for either a route or an honest
+    // sentence, and there is no route to name that does not need a schema change
+    // first. It names the two things an operator can actually do instead.
     if (getUserByEmail(email)) {
-      return reply.code(409).send({ ok: false, error: `${email} already has an account. Approve this organisation manually or ask them to sign in.` });
+      return reply.code(409).send({
+        ok: false,
+        error: `${email} already has an account with another organisation, and one account can hold only one. “${appn.org_name}” is not registered, so this is a new organisation applying with a person the system already knows — there is no screen that approves it. Ask them to apply again with a contact address that has no account, or reject this application.`,
+      });
     }
 
     const b = req.body || {};
@@ -90,28 +121,68 @@ export default async function adminRoutes(app) {
     const quota_areas = b.quotaAreas != null ? Math.max(0, Number(b.quotaAreas) | 0) : 1;
     const quota_places = b.quotaPlaces != null ? Math.max(0, Number(b.quotaPlaces) | 0) : 3;
 
-    const customerId = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
-    insertUser({ customer_id: customerId, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
-    setApplicationReviewed(appn.id, 'approved', customerId);
+    // ONE TRANSACTION OVER THE THREE WRITES (OA-367 face 3). They ran in bare
+    // sequence, so a throw between the first and the third — a UNIQUE collision
+    // from a second admin approving the same row, a disk error — left a customer
+    // with no users and the application still pending. scripts/delete-map.mjs in
+    // the next folder has had BEGIN/COMMIT/ROLLBACK since it was written; the
+    // habit existed in this codebase and had not reached here.
+    //
+    // The email is deliberately OUTSIDE it: sending is not rollback-able, and a
+    // link issued for a customer row that never committed is worse than a link
+    // that arrives a moment late.
+    const customerId = withTransaction(() => {
+      const id = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
+      insertUser({ customer_id: id, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
+      setApplicationReviewed(appn.id, 'approved', id);
+      return id;
+    });
 
+    // THE SEND RESULT IS REPORTED, NOT SWALLOWED (OA-362). Until 2026-09-19 this
+    // block computed `r.sent`, wrote it to a server console nobody reads, and
+    // returned `ok: true` either way — so the admin screen said "The invite has
+    // been emailed" whether or not one had been. That is the same defect
+    // src/email/health.js was written for, surviving in a third route: the
+    // `catch` arm names a configured provider that threw, and it read identically
+    // to success. The adviser route below already answers this question with
+    // `emailed` and `emailError`; this is that shape, not a second one.
+    //
+    // The link travels back in the NOT-emailed case even outside DEV_LINKS,
+    // because an admin holding a customer who cannot sign in and no link has
+    // nothing to act on. It is not returned when the email DID go: there the
+    // customer has it, and a second copy on an admin screen is a credential
+    // lying around for no reason.
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
     if (link) {
       try {
-        const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        // THE ORGANISATION'S NAME TRAVELS WITH THE INVITE (OA-365). Until
+        // 2026-09-19 it did not, and the letter that reached the first person
+        // this project ever invited named nobody — not him, not his
+        // organisation, not the sender. `appn.org_name` was three lines above
+        // the call the whole time; the email module simply had no parameter to
+        // put it in. It is the same name written onto the customer row in the
+        // transaction just above, so the letter cannot disagree with the record.
+        const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: appn.org_name });
+        emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
+        emailError = e.message;
         req.log.error({ email, err: e.message }, 'invite email failed to send');
       }
     }
-    req.log.info({ applicationId: appn.id, customerId, email }, 'application approved → customer + editor created');
-    logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places } });
+    req.log.info({ applicationId: appn.id, customerId, email, emailed }, 'application approved → customer + editor created');
+    logAudit(req, 'application.approve', { detail: { applicationId: appn.id, customerId, org: appn.org_name, email, quotaAreas: quota_areas, quotaPlaces: quota_places, emailed } });
 
     return {
       ok: true,
       customer: { id: customerId, name: appn.org_name, type, quotaAreas: quota_areas, quotaPlaces: quota_places },
       user: { email },
-      inviteLink: DEV_LINKS ? link : undefined,
+      emailed,
+      emailError,
+      inviteLink: DEV_LINKS || !emailed ? link : undefined,
     };
   });
 
@@ -251,7 +322,10 @@ export default async function adminRoutes(app) {
     let restamped = null;
     try {
       const r = await reconcileMapRenders(m.id, isSampleCustomer(to), { apply: true, log: (l) => req.log.info(l) });
-      restamped = { changed: r.changed, band: r.want };
+      // `seen` as well as `changed`: without it a caller cannot tell "no sheet
+      // needed changing" from "this map has no stored sheets at all", and the
+      // screen that reports this must not guess between the two (OA-364).
+      restamped = { seen: r.seen, changed: r.changed, band: r.want };
       if (r.changed) req.log.info({ mapId: m.id, ...restamped }, 'restamped stored renders after reassignment');
     } catch (e) {
       req.log.error(e, 'restamping stored renders after reassignment FAILED — run scripts/restamp-renders.mjs --apply');
@@ -324,10 +398,14 @@ export default async function adminRoutes(app) {
     if (getUserByEmail(email)) return reply.code(409).send({ ok: false, error: `${email} already has an account.` });
 
     let customerId = null;
+    // The NAME is hoisted beside the id because the invite letter is written
+    // about the organisation (OA-365) and `cust` used to die with this block.
+    let customerName = null;
     if (b.customerId != null && b.customerId !== '') {
       const cust = getCustomer(Number(b.customerId));
       if (!cust) return reply.code(404).send({ ok: false, error: 'No such customer.' });
       customerId = cust.id;
+      customerName = cust.name || null;
     }
     const role = USER_ROLES.includes(b.role) ? b.role : 'editor';
     // An adviser belongs to no organisation (buses-data OA-154 D1), and the whole
@@ -342,19 +420,34 @@ export default async function adminRoutes(app) {
     }
 
     const userId = insertUser({ customer_id: customerId, email, name: str(b.name, 120) || null, role });
+    // Same treatment as the approve route above, and for the same reason
+    // (OA-362). This is the route that adds a customer's SECOND user, so the
+    // unconditional "The invite has been emailed" fired twice on the first real
+    // customer — once here and once at approval.
     const token = requestMagicLink(email);
     const link = token ? authLink(req, token) : null;
+    let emailed = false;
+    let emailError = null;
     if (link) {
       try {
-        const r = await sendMagicLink({ to: email, link, kind: 'invite' });
+        // ORGANISATION AND ROLE BOTH TRAVEL (OA-365). The organisation for the
+        // same reason as the approve route above; the ROLE because this is the
+        // one place that issues this letter to somebody who is not an editor,
+        // and two of its sentences are only true of an editor — "an editor's
+        // account", and the promise that nothing they do goes public without a
+        // review. An approver publishes. Passing the role is what stops the fix
+        // for one reader becoming a false sentence to another.
+        const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: customerName, role });
+        emailed = !!r.sent;
         if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
+        emailError = e.message;
         req.log.error({ email, err: e.message }, 'invite email failed to send');
       }
     }
-    req.log.info({ userId, customerId, email, role }, 'user invited by admin');
-    logAudit(req, 'user.invite', { detail: { userId, customerId, email, role } });
-    return { ok: true, user: userShape(getUser(userId)), inviteLink: DEV_LINKS ? link : undefined };
+    req.log.info({ userId, customerId, email, role, emailed }, 'user invited by admin');
+    logAudit(req, 'user.invite', { detail: { userId, customerId, email, role, emailed } });
+    return { ok: true, user: userShape(getUser(userId)), emailed, emailError, inviteLink: DEV_LINKS || !emailed ? link : undefined };
   });
 
   app.patch('/users/:id', async (req, reply) => {

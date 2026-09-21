@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.14 | 2026-09-10 | sha=0e5af459 -->
-**v1.14** · updated 10 September 2026
+<!-- docstamp v1.20 | 2026-09-21 | sha=0a592e3e -->
+**v1.20** · updated 21 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -31,6 +31,22 @@ The S5-render folder contains the generators + JSON inputs + the rendered SVG/JP
 - **Place** dir carries `routes.json` + `place.json` (+ inputs). Its generators are **vendored in the portal** (`engine/place/`) and copied in at import — they need not be in the src.
 
 Keep the skill's verification `.docx` with the job — it's your red-team evidence.
+
+### Which render folder — and never `ls | tail -1`
+
+Every `<S5-render dir>` placeholder below names a folder like `Areas/St Neots/Places/St Neots Co-op/S5-render/v1.19_2026-09-13_2027`, and **the answer to which one comes from the map, not from a directory listing.** A listing sorted as text puts `v1.9` after `v1.19` and `v2.9` after `v2.32`, which on 2026-09-15 delivered three of one customer's four maps from renders 10, 10 and 23 builds old; the byte gate caught one of the three and passed the other two, because a stale render that still reproduces looks exactly like a current one to it. Two of those sheets are publicly live and a fortnight stale (buses-data OA-368).
+
+Ask a tool that knows. The board prints the current build for every map — run it from the engine's own folder, `C:\u3a St Ives\.claude\skills\make-bus-leaflet`, where both arguments are real paths on this machine rather than placeholders:
+
+```bash
+node assets/status.js --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claude/community-bus-maps"
+```
+
+The map's own `manifest.json` carries the same answer in `stages.S5.latest`, and since 2026-09-20 `deliver-map.mjs` asks it: step 0b refuses a `--src` the manifest does not call current, before anything leaves the laptop. `--render-superseded "<reason>"` is the escape hatch for a deliberate older delivery.
+
+**Run `npm run deliver -- --dry-run …` before the delete, whatever you are doing.** It runs both local gates and prints the exact `import-map.mjs` argument vector without an `scp`, an `ssh` or a write of any kind, so a refusal that would otherwise land *after* a row has been deleted costs nothing to buy in advance. It also shows how a customer name with an apostrophe survives the shell, which is worth reading rather than hoping about.
+
+**The board command above is the one exception on this page**, and everything from here on returns to the repository root (`C:\Claude\community-bus-maps`), as the note at the top of this page says.
 
 ## Step 2 — Import into the portal (deterministic)
 
@@ -69,13 +85,13 @@ The whole system rests on v1.0 == the shipped leaflet. Confirm it:
 $env:FIXTURE_DIR = "<the S5-render dir>"; npm run verify:area   # or PLACE_FIXTURE_DIR + verify:place
 ```
 
-**The shell matters here.** This was written as bash (`FIXTURE_DIR="…" npm run …`) until 2026-08-07, and PowerShell has no inline env-var prefix: run that way on Windows the variable is never set, and the run **silently gates something else** — until 2026-08-20 that was nothing at all ("skipping", exit 0), and since then it is the committed fixture at `Areas/_portal-fixture/`, which is a real gate but not the map you are onboarding. In bash the original form is still correct. Either way, read the `fixture :` line the gate prints back and check it names the folder you meant; and if it prints a `⚠ … BEHIND the committed fixture` block, the `.env` entry it names is older than the committed pack and wants repointing ([DEVELOPING.md](DEVELOPING.md#which-pack-verify-gates-and-the-per-machine-env-keys-that-change-it)).
+**The shell matters here.** This was written as bash (`FIXTURE_DIR="…" npm run …`) until 2026-08-07, and PowerShell has no inline env-var prefix: run that way on Windows the variable is never set, and the run **silently gates something else** — until 2026-08-20 that was nothing at all ("skipping", exit 0), and since then it is the committed fixture — which since 2026-09-18 is this repository's own copy at `gate-fixtures/Areas/_portal-fixture/` — a real gate, but not the map you are onboarding. In bash the original form is still correct. Either way, read the `fixture :` line the gate prints back and check it names the folder you meant; and if it prints a `⚠ … BEHIND the committed fixture` block, the `.env` entry it names is older than the committed pack and wants repointing ([DEVELOPING.md](DEVELOPING.md#which-pack-verify-gates-and-the-per-machine-env-keys-that-change-it)).
 
 Green = the portal reproduces the desktop bytes exactly — insist on **PASS with byte counts**, not merely a zero exit. **If it fails, stop** — check the `sharp`/libvips version against the desktop pipeline before anything else (see [DEPLOY.md §7](DEPLOY.md)).
 
 ## Step 4 — Choose outputs, then hand to review
 
-- Sign in as admin, open `/app/maps/<id>`, set which of the four **outputs** this map offers (v1.0 renders internal-geographic + external by default; the two expert styles are opt-in).
+- Sign in as admin, open `/app/maps/<id>`, set which of the five **outputs** this map offers (internal-geographic + external by default; the schematic is opt-in, the tube-map diagram is parked since 2026-09-10, and the "where to board" plan is on request).
 - The map is a **draft**. It only reaches the public through the publish gate (**R3**): the customer edits + submits, an approver reviews.
 
 ## Demo and example maps (for demos, docs and screenshots)
@@ -168,5 +184,15 @@ Fulfilment is written to the audit log as `maprequest.fulfil` (who/when/which ve
 ## What-if / rollback
 
 - **Slug already exists** → pick another `--slug`, or retire the existing map first: `node scripts/delete-map.mjs --slug <slug> --yes` (dry run without `--yes`). If the slug belongs to an approved request, build *that* row instead: `--request <id>`. If it belongs to a demo map a real customer is taking over, see *Taking over a demo-held town* above.
-- **Wrong customer** → set the right owner in place: `POST /api/admin/maps/<id>/owner` with `{"customerId": <id>}` (admin, needs a sign-in from the last 30 minutes, refuses a move that would overspend the receiving organisation's quota, and writes a `map.reassign` audit row). Added 2026-08-30; before that the only repair was a re-import plus an archive, or a hand-written `UPDATE` against the live database. Pass `null` to un-own it deliberately.
+- **Wrong customer** → the owner was recorded wrongly and the map is otherwise theirs. Repair it in place: sign in as an admin, open `/app/maps/<id>`, and use the **Who owns this map** picker. It confirms first, naming what that particular move costs — the badge on the public sheet, a quota slot, who can sign in and edit it, and where notifications and *Spotted a problem?* reports go. The route under it is `POST /api/admin/maps/<id>/owner` with `{"customerId": <id>}` (admin, needs a sign-in from the last 30 minutes, refuses a move that would overspend the receiving organisation's quota, writes a `map.reassign` audit row, and re-stamps the stored sheets for the new owner's sample band). Pass `null`, or pick “nobody”, to un-own it deliberately — which takes it off the public site at once, because both public queries JOIN the owning organisation.
+  Use this when the map has history worth keeping: published versions the customer made, adviser grants, feedback. It keeps the map id, the slug and the whole version series.
+  The route was added 2026-08-30, before which the only repair was a re-import plus an archive or a hand-written `UPDATE` against the live database; **the picker was added 2026-09-14, before which the route had no caller anywhere in the client** (buses-data OA-364).
+- **A REAL CUSTOMER TAKING OVER ONE OF OUR SAMPLES** → a different job, and **not** the picker. Delete the sample row and re-import it owned by them: `node scripts/delete-map.mjs --slug <slug>` to see what goes (it is a dry run by default), then the same with `--yes`, then `node scripts/import-map.mjs --src "<S5-render dir>" --name "<Name>" --slug <slug> --customer "<Organisation>"`. Both from the repository root (`C:\Claude\community-bus-maps`); `<slug>` is the map's slug, `<S5-render dir>` the staged run folder in the Buses repo, `<Organisation>` the customer's name as the `customer` table holds it.
+  **Peter's decision, 2026-09-14.** This is cheaper than the picker for this case and it is the only one that answers the version number. A sample we have rebuilt eight times reads **“Version 8.0”** on the sheet and on its public page, because `major` counts accepted data refreshes — our development history, presented to a reader who reads it as an edition. A fresh import renders **v1.0** with empty overrides and, because `import-map.mjs` passes `sample: isSampleCustomer(<the new owner>)`, the sheet comes out **without the pilot band from the first byte** rather than being re-stamped afterwards. The councillor in the St Neots reel had already written *“Bus Map 1.0”* on her own poster; this is what lets the sheet agree with her. Renumbering in place is not available: `UNIQUE (map_id, major, minor)` and every map already owns a v1.0.
+  **A RE-IMPORTED MAP IS A DRAFT, AND A DRAFT IS A 404. This is the largest cost and it is not obvious.** `import-map.mjs` sets `current_version_id` and **never** `published_version_id`; `PUBLIC_WHERE` requires the latter. So the map leaves every public query the moment the old row is deleted and does **not** come back when the import succeeds — it comes back when somebody publishes v1.0. The tool is `scripts/publish-baseline.mjs --actor <an admin or approver email> --slug <the map's slug>`, a real trip through submit → review → publish pointer → audit rather than a shortcut round it, run like every other writer: in a throwaway container with the portal stopped. Learned on 2026-09-15, from the first customer's first map answering 404 after a delivery that had reported success at every step (buses-data OA-358 and OA-368).
+  **So the sequence is SIX steps per map, not five**, and the last one is a question rather than a command: dry-run the delete (service up, changes nothing) → stop → delete `--yes` → start → `npm run deliver … --customer "<exact org name>"` → stop → `publish-baseline` → start → **check the public page answers `200` before looking at anything else**. Check the status code FIRST: grepping the sheet for the pilot band returns nothing when the sheet is a 404, and that empty result reads exactly like success.
+  **Take `--src` from the board, never from `ls`.** `status.js` prints the current build number for every map; a directory listing sorts `v2.9` after `v2.32` and `v1.9` after `v1.19`, and on 2026-09-15 that delivered three of one customer's four maps from renders a fortnight old. The byte gate refused one of the three and passed the other two, because a stale render that still reproduces is indistinguishable from a current one to a gate that only asks whether it reproduces.
+  **`--customer` matches by exact bytes and a miss cannot be undone.** `getCustomerByName` is a plain SQL `=`; one wrong character creates a SECOND organisation, and **no tool in this repository can delete a customer row**. Copy the name out of Admin → Customers rather than typing it, and confirm the importer printed `· owner: existing customer` and not `· owner: created customer`.
+  **What else it costs, all of it deliberate.** The map id changes. Portal overrides — route colours, hidden POIs, landmark tier answers — are **not** carried over; the import renders from the staged data with empty overrides. Old feedback survives with `map_id` nulled, so it is unattributed rather than dangling. Audit rows stay, by design, with a dangling `map_id`. **Adviser grants go with the map and the script names every adviser on the way out** — re-grant them on the new row, because nothing else will remind you.
+  **And there is no laptop command for the delete half.** `deliver-map.mjs` carries the import (scp, pre-flight verify, stop, import, start, health check) and knows nothing about `delete-map.mjs`, so the delete is `npm run ssh -- "docker compose run --rm portal node scripts/delete-map.mjs --slug <slug> --yes"` with the portal stopped around it. Two stop/start cycles per map. A `--replace` that did both inside one cycle would remove the second window; it has not been built because one customer did not justify it.
 - **Bad build** → pre-publish, the object store + v1.0 are disposable: `node scripts/delete-map.mjs --map <id> --yes` (removes the row, its versions, and `maps/<id>/`), then re-import. **Never** hand-edit a rendered file — always go through a version. A **fulfilled request** is a normal map by then, so re-doing it means deleting that row too: the request itself is gone (it *is* the map), so re-import as a fresh map with `--customer`.

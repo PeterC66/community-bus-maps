@@ -26,6 +26,14 @@
 // that enumeration uses is built from BASE overrides and never sees the customer
 // layer. Both halves were checked on a real map pack before this was written.
 //
+// AND FROM 2026-09-01 TO 2026-09-14 THAT ARM NEVER RAN IN CI. It carries `needsPack`,
+// `data/` is gitignored by construction, and so the mutation described above was
+// watched go red on one laptop and nowhere else — a falsification harness with
+// the same shape as the fault it guards against. Since 2026-09-14 the suite
+// builds its own fixture pack and the same damage is caught by a second arm with
+// no `needsPack` at all. The pack arm stays: it is the only one that exercises
+// the DRAWN half of the union, which a fixture with no generator cannot reach.
+//
 // AND THE OPPOSITE DIRECTION IS HERE TOO. "the universe admits every key"
 // exists because a suite made only of refusals would pass with the whole
 // key-validation switched off. Without that arm the harness would be proving
@@ -59,10 +67,12 @@ function scratch() {
   // harness exists to protect. Anything needing mutation must be under
   // scripts/ or src/, which are real copies.
   //
-  // `data` is linked for a second reason: the key-universe half of the suite
-  // needs a real map pack, and without one it SKIPS — which would report three
-  // of these mutations as SURVIVED for a reason that is not the guard's fault.
-  // The suite copies the pack again before touching it, so this stays read-only.
+  // `data` is linked for a second reason: the pack half of the key universe
+  // needs a real map pack, and without one it SKIPS — which would report the
+  // mutation only it can catch as SURVIVED for a reason that is not the guard's
+  // fault. The suite copies the pack again before touching it, so this stays
+  // read-only. The fixture half needs none of this: it writes its own osm.json
+  // and routes.json into the temp dir and runs everywhere.
   for (const dir of ['node_modules', 'engine', 'data']) {
     const from = path.join(ROOT, dir); const to = path.join(tmp, dir);
     // A link to something that is not there is WORSE than no link: src/db/index.js
@@ -144,7 +154,7 @@ const say = (row) => {
       problems++;
       say(['✗ CONTROL', 'a map pack is present but the key-universe half still skipped', packRoot]);
     } else if (half) {
-      say(['ok CONTROL', 'an intact copy passes; no map pack on this machine, so the key-universe half is not exercised', 'expected on CI, where data/ is gitignored']);
+      say(['ok CONTROL', 'an intact copy passes; no map pack on this machine, so the PACK half of the key universe is not exercised — the fixture half is', 'expected on CI, where data/ is gitignored']);
     } else say(['ok CONTROL', 'an intact copy passes, both halves exercised', '']);
   }
   rmSync(tmp, { recursive: true, force: true });
@@ -219,6 +229,50 @@ const MUTATIONS = [
     expect: 'so the editable universe contains it, and a save naming it is not rejected',
     needsPack: true,
   },
+  {
+    // THE SAME DAMAGE, CAUGHT WITHOUT A PACK — added 2026-09-14, and the reason
+    // is the arm above. It was the ONLY thing standing under the key universe,
+    // it carries `needsPack`, `data/` is gitignored, and so it had never once
+    // run in CI: the guard that stops a customer's answer being refused on the
+    // next save was proved on one laptop and nowhere else. The suite now builds
+    // its own fixture pack — osm.json and routes.json, no generator — so the
+    // candidates half of the union can be falsified anywhere. The pack arm above
+    // stays, because only a real pack exercises the DRAWN half of that union.
+    what: 'the key universe shrinks back to what is DRAWN (no pack needed)',
+    why: 'the same one-way control as the arm above, falsified where CI can watch it. On the fixture the drawn enumeration is empty by construction, so dropping the candidates half empties the universe outright and every key a save could name is refused',
+    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n', '']],
+    expect: 'so the fixture universe still contains it, and a save naming it is not rejected',
+  },
+  {
+    // The other half of the old pack control, which asserted that the selector
+    // and the drawn sheet agree EXACTLY. That equality was false — a miss and a
+    // frame cull both break it, and OA-338 made the first one real on March —
+    // but the thing it was reaching for was true and worth keeping: candidates
+    // is a superset, so nothing below it can tell a correct selector from one
+    // that simply returns more. On the fixture the statement can be exact.
+    what: 'the candidate list gains a row nothing selected',
+    why: 'every other assertion about the universe is a SUPERSET claim, and a superset claim is satisfied by a list with junk in it. Without this arm, enumerateCandidatesFromDir could offer the chooser places no sheet can ever draw and the whole block would stay green',
+    edits: [[ENGINE, '  try { selectPois(sets, poiCfg, report); } catch { return []; }\n  return report.candidates || [];',
+      '  try { selectPois(sets, poiCfg, report); } catch { return []; }\n  return [...(report.candidates || []), { key: \'shop:Phantom\', cat: \'shop\', name: \'Phantom\', ll: [0, 0], tier: \'may\', as: null, printsName: true }];']],
+    expect: 'candidates minus the misses is exactly what the selector returns',
+  },
+  // The pack half's control was rewritten on 2026-09-14 and its two assertions
+  // are new, so each gets an arm. Both need a pack, because both are statements
+  // about the RENDER — which is the half a fixture with no generator cannot ask.
+  {
+    what: 'the drawn sheet names a place the selector never offered',
+    why: 'the direction the whole block leans on. Every assertion under it treats candidates as a superset of what is drawn; if the sheet can carry a key the selector does not know about, that key is outside the editable universe, a save naming it is refused, and the customer cannot touch a symbol they can see',
+    edits: [[ENGINE, 'const key = decodeEntities(m[1]);', "const key = decodeEntities(m[1]) + '!';"]],
+    expect: 'everything the sheet draws is something the selector offered',
+    needsPack: true,
+  },
+  {
+    what: 'a place the selector MISSED is drawn anyway',
+    why: 'a miss is applied at selection, so it must leave no trace on the paper — that timing is the whole saving, and it is what distinguishes a tier from the portal render-time hide. The old control asserted the selector and the sheet agree EXACTLY, which is false on this engine (a miss and a frame cull each break it); this is the half of it that is true',
+    edits: [[ENGINE, 'return report.candidates || [];', "return (report.candidates || []).map((c) => ({ ...c, tier: 'miss' }));"]],
+    expect: 'and nothing the selector MISSED reached the sheet',
+    needsPack: true,
+  },
   // ---- OA-220. The chooser's own pure pieces, and the join to the icon set.
   {
     what: 'the road-name declutter stops testing for overlap',
@@ -272,9 +326,15 @@ const MUTATIONS = [
   },
   {
     what: 'a category loses its singular',
-    why: 'the other half of the same fault: a thirteenth category added to classify() would fall through to a lower-cased PLURAL heading, so the row would read "Unnamed parks and recreation grounds". It is the join between two files and only the join can check it',
+    why: 'the other half of the same fault: a category added to classify() would fall through to a lower-cased PLURAL heading, so the row would read "Unnamed parks and recreation grounds". It is the join between two files and only the join can check it',
     edits: [[CHOOSER, " museum: 'museum',", '']],
     expect: 'and every one of them has a singular for the nameless row',
+  },
+  {
+    what: 'a category loses its plural group heading',
+    why: 'until 2026-09-19 (OA-340) only the SINGULAR arm of this join was asserted, so a category the engine can emit and the chooser cannot name printed its raw engine key as the group heading — "pub", "gp", "townhall" — which is the exact fault OA-220 was written to remove. The heading is what a reader meets first, before any row',
+    edits: [[CHOOSER, " museum: 'Museums',", '']],
+    expect: 'and a plural group heading, which is what a reader meets first',
   },
   {
     what: 'the row prints the group heading own words again',

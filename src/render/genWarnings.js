@@ -52,10 +52,10 @@ const EDITOR_FACING = [
      * so a reader is not told "a key did nothing" about a placement failure. */
     heading: (line) =>
       /must" POI|must POI|"must"/.test(line)
-        ? 'Some places you marked Must show could not be fitted on the sheet'
+        ? 'Some places you marked Must show could not be fitted on the map'
         : /rename has collided/.test(line)
           ? 'Two places now share one name, so they share one entry'
-          : 'Part of your answer named nothing on this sheet and did nothing',
+          : 'Part of your answer named nothing on this map and did nothing',
   },
 ];
 

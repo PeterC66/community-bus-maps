@@ -23,6 +23,16 @@
  * repo can answer — `status.js` gates it there, on the fixtures as well as on the
  * places, and this line is the pointer to it.
  *
+ * IT WRITES INTO buses-data, AND THAT IS STILL STEP TWO OF THREE (OA-398,
+ * 2026-09-18). This script recuts the fixture where it is PRODUCED — the pack under
+ * `Places/_portal-fixture/` in buses-data, beside the render it came from. Since
+ * 2026-09-18 the gates in this repository read a VENDORED COPY of that pack, at
+ * `gate-fixtures/`, so recutting here changes nothing the gates see until the copy
+ * is refreshed. From this repository's root, with no placeholders:
+ *     npm run fixtures:vendor -- --apply
+ * `gate-fixtures/README.md` states the whole chain, and buses-data's own gates
+ * workflow is what notices if the copy is left behind.
+ *
  * Run from the portal root, with no placeholders:
  *     node scripts/refresh-place-fixture.mjs "<absolute path to the fixture folder>"
  * Add --apply to write; without it nothing is touched.
