@@ -19,7 +19,8 @@
 // by reading one file:
 //
 //   1. `engines.node` names the SAME major the Dockerfile builds on.
-//   2. Every workflow that pins `node-version:` literally pins that major.
+//   2. Every workflow's `node-version:` is derived from the Dockerfile, or — if a
+//      literal ever returns — pins that major.
 //   3. The Dockerfile FROM line is still in the shape verify.yml's `sed` reads,
 //      because that step's failure mode is silent for everything except itself.
 //
@@ -63,21 +64,37 @@ check(enginesMajor === MAJOR,
   `engines says ${engines} and the image is node:${MAJOR} — a floor nothing has ever run`);
 
 // ---- 3. the workflows --------------------------------------------------------
-// Only the LITERAL pins. verify.yml derives its version from the Dockerfile on
-// purpose and must not be forced to repeat it — a check that demanded the literal
-// there would push the one workflow that got this right into getting it wrong.
+// EVERY `node-version:` line, in one of two accepted forms. Since 2026-09-21 every
+// workflow DERIVES its major from the Dockerfile, as verify.yml always did, so a
+// Node bump is the Dockerfile and `engines` and nothing else (buses-data OA-016,
+// after Dependabot's node:26 PR #64 could not go green on a one-file change). A
+// derived pin must come from a `nodever` step in the SAME file that reads the
+// FROM line; a literal pin, if one ever comes back, must name the image's major.
+// Anything else — a bare 'lts/*', a matrix, a typo'd step id — is a failure,
+// because an unrecognised form is exactly how the five pins drifted before.
 const wfDir = join(ROOT, '.github', 'workflows');
-const literals = [];
+const DERIVED = /^\$\{\{\s*steps\.nodever\.outputs\.major\s*\}\}$/;
+const READS_FROM = /sed -n 's\/\^FROM node:/;
+let pins = 0;
 for (const f of readdirSync(wfDir).filter((n) => n.endsWith('.yml'))) {
   const src = readFileSync(join(wfDir, f), 'utf8');
-  for (const m of src.matchAll(/node-version:\s*'?"?(\d+)['"]?\s*$/gm)) literals.push({ f, v: m[1] });
+  for (const m of src.matchAll(/node-version:\s*(.+?)\s*$/gm)) {
+    pins++;
+    const v = m[1].replace(/^['"]|['"]$/g, '');
+    if (DERIVED.test(v)) {
+      check(READS_FROM.test(src) && /id:\s*nodever\b/.test(src),
+        `${f} derives Node from the Dockerfile`,
+        'it names steps.nodever but the file has no nodever step reading the FROM line');
+    } else if (/^\d+$/.test(v)) {
+      check(v === MAJOR, `${f} installs Node ${v}`, `the image is node:${MAJOR}`);
+    } else {
+      check(false, `${f} node-version is a recognised form`, `"${v}" is neither the Dockerfile's major nor derived from it`);
+    }
+  }
 }
-check(literals.length > 0, 'at least one workflow pins a literal node-version',
+check(pins > 0, 'at least one workflow sets node-version',
   'none found — either the workflows changed shape or this regex has gone blind');
-for (const { f, v } of literals) {
-  check(v === MAJOR, `${f} installs Node ${v}`, `the image is node:${MAJOR}`);
-}
-console.log(`        (${literals.length} literal workflow pin(s) checked; verify.yml derives its own from the Dockerfile)`);
+console.log(`        (${pins} workflow pin(s) checked)`);
 
 console.log('');
 if (failures) {

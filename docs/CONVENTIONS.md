@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.14 | 2026-09-18 | sha=362b4418 -->
-**v1.14** · updated 18 September 2026
+<!-- docstamp v1.15 | 2026-09-21 | sha=212dcb38 -->
+**v1.15** · updated 21 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -74,7 +74,7 @@ A section of `src/server.js` that is one audience behind one guard is a Fastify 
 
 ## Node
 
-**Node 24, and the Dockerfile is the authority.** The base image is `node:24-slim`, pinned by digest; `verify.yml` derives its `setup-node` version from that `FROM` line rather than repeating it, three other workflows pin `24` literally, and `package.json`'s `engines` says `>=24`. `node:sqlite` is the store and is still flagged experimental, so the runtime is not a free variable.
+**Node 24, and the Dockerfile is the authority.** The base image is `node:24-slim`, pinned by digest; every workflow derives its `setup-node` version from that `FROM` line rather than repeating it (all of them since 2026-09-21; `verify.yml` always did), and `package.json`'s `engines` says `>=24` — so a Node bump is two files, the Dockerfile and `engines`, and `npm run test:node-pin` fails if they disagree. `node:sqlite` is the store and is still flagged experimental, so the runtime is not a free variable.
 
 **`engines` said `>=22` until 2026-09-03** (OA-224 Tier 5, cross-repo F15) — a floor no build, no workflow and no container had ever used, and the only one of these five pins a person reads before installing a toolchain. `scripts/test-node-pin.mjs` now joins them: it reads the major out of the Dockerfile and requires `engines` and every literal workflow pin to name it, and it deliberately does NOT require `verify.yml` to spell the number out, because that workflow is the one that already got this right. It was watched go red on the real `>=22` before the fix went in.
 

@@ -73,9 +73,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: What Node does the deployment image use?
+        id: nodever
+        run: |
+          major=$(sed -n 's/^FROM node:\([0-9][0-9]*\).*/\1/p' Dockerfile | head -1)
+          if [ -z "$major" ]; then
+            echo "::error::could not read a Node major from the Dockerfile FROM line"
+            exit 1
+          fi
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: ${{ steps.nodever.outputs.major }}
 
       # `npm ci` so the audit reads the committed lockfile, not a fresh resolve.
       - name: Install dependencies
