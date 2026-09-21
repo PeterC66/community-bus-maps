@@ -248,6 +248,10 @@ jobs:
         working-directory: claude-skills
         run: node tools/prove-red-doc-links.mjs
 
+      - name: Prove the short-form checker can go red
+        working-directory: claude-skills
+        run: node tools/prove-red-doc-acronyms.mjs
+
       # --tree, not --root: --root is flat by contract (prove-red-tables.mjs
       # drives it and asserts an exact row count), and this repository nests its
       # documents under docs/, docs/_archive/ and engine/.
@@ -265,6 +269,14 @@ jobs:
       - name: Links, anchors, section citations and documented commands
         working-directory: community-bus-maps
         run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-links.mjs"
+
+      # Since 2026-09-21 (buses-data status review, decided by Peter): every short
+      # form a reader meets in a LIVE document can be looked up. The scope is
+      # `.doc-acronyms.json` -- the changelog and docs/_archive/ are dated history
+      # and excluded as folders; ours are defined in docs/SHORT-FORMS.md.
+      - name: Every short form a reader meets can be looked up
+        working-directory: community-bus-maps
+        run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-acronyms.mjs"
 
       # `check-doc-coverage.mjs` deliberately does NOT run here, and that was
       # measured rather than assumed. It asks whether every working document is
