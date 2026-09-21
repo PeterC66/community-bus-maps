@@ -1218,7 +1218,7 @@ $('saveBtn').addEventListener('click', async () => {
 
 $('sheetBtn').addEventListener('click', async () => {
   const dlg = $('sheetDialog'); const stage = $('sheetStage');
-  stage.textContent = 'Rendering the sheet with your choices…';
+  stage.textContent = 'Drawing the map with your choices…';
   dlg.showModal();
   try {
     const r = await fetch(`/api/maps/${MAP_ID}/preview`, {
@@ -1232,7 +1232,7 @@ $('sheetBtn').addEventListener('click', async () => {
     if (b.rejected && b.rejected.length) note('Some entries were not accepted: ' + b.rejected.join('; '), 'warn');
     // The cheapest place to learn a *Must show* cannot be seated: nothing has
     // been saved, so the answer is still editable when the reader gets it.
-    else if (b.warnings && b.warnings.length) showWarnings(b.warnings, 'This is what the sheet looks like — but not every choice could be applied:');
+    else if (b.warnings && b.warnings.length) showWarnings(b.warnings, 'This is what the map looks like — but not every choice could be applied:');
   } catch (e) {
     stage.textContent = e.message;
   }

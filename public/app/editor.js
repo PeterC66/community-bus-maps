@@ -176,7 +176,7 @@ async function onOutputsChange() {
       renderPending = true;
       buildOutputs();
       buildTabs();
-      notice('warn', 'Outputs updated — showing a preview. Save to add the enabled sheets to the print-ready files.');
+      notice('warn', 'Outputs updated — showing a preview. Save to add the maps you turned on to the print-ready files.');
       runPreview();
     } else {
       notice('err', (body && body.error) || 'Could not update outputs.');
@@ -507,7 +507,7 @@ function buildPublish() {
   // them: there is no way to publish one sheet and hold another back.
   const sheets = sheetCount();
   $('publishUnit').textContent = sheets > 1
-    ? `A version is the whole map: sending, reviewing and publishing cover all ${sheets} sheets of it together — there is no way to publish one sheet and hold another back.`
+    ? `A version is the whole map set: sending, reviewing and publishing cover all ${sheets} maps in it together — there is no way to publish one map and hold another back.`
     : '';
 
   if (pending) stateEl.innerHTML = '<span class="status-pill req">Awaiting review</span>';
@@ -739,7 +739,7 @@ function stripState() {
   // The unit of publication is the whole map, never one sheet (H1) — say so, in
   // whichever tense the step is in.
   const sheets = sheetCount();
-  const sheetLine = (lead) => (sheets > 1 ? ` ${lead} all ${sheets} sheets of this map together.` : '');
+  const sheetLine = (lead) => (sheets > 1 ? ` ${lead} all ${sheets} maps in this set together.` : '');
 
   const common = {
     offeredAt: pu ? pu.createdAt : (accepted ? accepted.created_at : null),
@@ -779,7 +779,7 @@ function stripState() {
     return {
       ...common, at: 1, blocked: false,
       title: `Draft ${head} is ready${age && age !== 'today' ? ` (saved ${age} ago)` : ''}. Nothing is public yet.`,
-      why: `${pub ? `The public still has ${pub}.` : 'This map has never been published.'} It will not publish itself — send it for review when ${you} ${mine ? 'are' : 'is'} happy with the sheets below.${sheetLine('Publishing covers')}`,
+      why: `${pub ? `The public still has ${pub}.` : 'This map has never been published.'} It will not publish itself — send it for review when ${you} ${mine ? 'are' : 'is'} happy with the maps below.${sheetLine('Publishing covers')}`,
       action: { label: 'Send for review →', kind: 'primary', fn: () => submitPublish() },
     };
   }
@@ -931,7 +931,7 @@ async function acceptUpdate() {
     if (res.ok && b.ok) {
       // "Review it below" collided with the approver's Review step (H3), and "below"
       // was past the whole editor (C1). The strip at the top now carries both.
-      let msg = `Update accepted — new draft version ${b.version} is ready. Check the sheets over, then use “Send for review” at the top of the page. Nothing is public until an approver publishes it.`;
+      let msg = `Update accepted — new draft version ${b.version} is ready. Check the maps over, then use “Send for review” at the top of the page. Nothing is public until an approver publishes it.`;
       if (b.dropped && b.dropped.length) msg += ` (${b.dropped.length} customisation${b.dropped.length > 1 ? 's' : ''} no longer applied and ${b.dropped.length > 1 ? 'were' : 'was'} dropped.)`;
       flash('ok', msg); location.reload();
     } else { notice('err', (b && b.error) || 'Could not accept the update.'); btn.disabled = false; btn.textContent = 'Accept update'; }

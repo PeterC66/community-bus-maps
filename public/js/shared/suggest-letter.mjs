@@ -176,7 +176,7 @@ export function suggestionLetter(offer, query) {
     '[the town you live in]',
   ].join('\n');
 
-  const extra = `If it helps, there is a supplier already producing exactly this kind of sheet from the open Bus Open Data Service data — busmaps.uk. I have no connection to them beyond having used their site to find you.`;
+  const extra = `If it helps, there is a supplier already producing exactly this kind of map from the open Bus Open Data Service data — busmaps.uk. I have no connection to them beyond having used their site to find you.`;
 
   return { subject, body, extra };
 }

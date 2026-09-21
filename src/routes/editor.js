@@ -441,7 +441,7 @@ export default async function editorRoutes(app) {
     if (grantsNeedingRender.length && getOpenRequestForMap(map.id)) {
       return reply.code(409).send({
         ok: false,
-        error: 'This map is awaiting publication review, and adding that sheet needs a new version. Withdraw the request first.',
+        error: 'This map is awaiting publication review, and adding that map needs a new version. Withdraw the request first.',
       });
     }
 
@@ -474,7 +474,7 @@ export default async function editorRoutes(app) {
         return reply.code(500).send({
           ok: false,
           outputs: outputsForClient(clean, map.id, map.kind),
-          error: `The sheet was granted, but rendering it failed: ${e.message}. The next save will produce it.`,
+          error: `The map was granted, but drawing it failed: ${e.message}. The next save will produce it.`,
         });
       }
     }
