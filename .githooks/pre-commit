@@ -14,6 +14,40 @@
 set -e
 
 # ---------------------------------------------------------------------------
+# A REFUSAL THAT DIES MID-SENTENCE MUST STILL REFUSE.
+#
+# The indent() comment below says removing the pipeline from inside this hook
+# closed the `git commit | head -N` hole. IT DID NOT, and the same correction has
+# been made in buses-data (commit cbfea924, 2026-09-12). Removing the pipeline
+# stops a CHILD of the hook being killed; it does nothing about the hook's OWN
+# echo taking SIGPIPE on the next line and dying before it reaches `exit 1`.
+#
+# MEASURED HERE, on this repository's own hook, in a throwaway worktree of main:
+# staging 60 files with trailing whitespace and piping the refusal to head gave
+# 16 LEAKS IN 24 RUNS across `head -2`, `-3`, `-5` and `-8` -- the hook printed
+# its refusal, GIT EXITED 0, and all 60 bad files were committed.
+#
+# IT IS A RACE, AND THE VARIABLE IS HOW MUCH THE REFUSAL STILL HAS TO SAY, not the
+# depth of the cut. The same probe with a TWO-line finding leaked 0 times in 32
+# runs, because a short refusal fits the pipe buffer and finishes before head has
+# been scheduled at all. So a clean run of a small case proves nothing here, and
+# no check in this file was exempt -- the stamper below has the identical shape.
+#
+# Ignoring SIGPIPE outright is NOT the fix: writes would then fail under `set -e`.
+# Exiting 1 on it is the fail-safe direction -- if the reader stopped listening we
+# cannot know the verdict reached them, so refuse and let it be re-run.
+#
+# THE FALSE REFUSAL THIS MIGHT COST DID NOT MATERIALISE, measured rather than
+# argued in the sibling repository: a PASSING commit whose output is truncated
+# still lands, because the hook's own writes fit the buffer and any 141 the caller
+# sees comes from git's summary line hitting the closed pipe afterwards.
+#
+# THE FULLER FIX is to buffer every line and print once after the verdict is
+# decided, so truncation can never pre-empt the decision. That is a restructure of
+# this whole file and is deliberately not done here.
+trap 'exit 1' PIPE
+
+# ---------------------------------------------------------------------------
 # indent -- print a block indented four spaces, WITHOUT a pipeline.
 #
 # WHY IT IS NOT `printf ... | sed`. MEASURED in the sibling buses-data repository,
@@ -25,6 +59,13 @@ set -e
 # correctly refused. That made every refusal here conditional on how the caller
 # happened to read the output. A guard that can be switched off by `| head` is not
 # a guard, so every write stays inside the hook's own process.
+#
+# BUT THIS DID NOT CLOSE THE HOLE, and this paragraph claimed it had. Keeping the
+# writes inside the hook stops a child being killed; the hook's own echo still
+# takes SIGPIPE on the next line. Re-measured on this repository 2026-09-12: a
+# 60-finding refusal piped to head leaked 16 times in 24 runs, git exiting 0 with
+# the bad files committed. `trap 'exit 1' PIPE` at the top of this file is what
+# actually closes it. Keep this loop anyway -- it is still right, just not enough.
 indent() {
   while IFS= read -r _line; do
     echo "    $_line"
