@@ -1,0 +1,21 @@
+10 warnings, 0 blocking, and 2 measurements.
+
+BLOCKING means the engine refused to draw something, or drew a label that names
+nothing — the sheet is wrong and the reader cannot tell. Fix the config it names.
+MEASURED is a number this build recorded. It is never a fault.
+
+--- WARN (10) ---
+[internal] northArrow: the configured spot is blocked — placed automatically at 191,39 (nearest clear corner).
+[internal] panel: service VL14 is badged in the Services panel but draws no line on the map — either its geometry is missing/trimmed away, or the row should say it is not shown.
+[internal] placeIndex: 1 name could not be numbered either — the map has no room beside those symbols even for two digits, and the index block still has 5 free rows.
+[internal] labels: 2 could not be placed; 1 of them numbered in the place index, 1 still unnamed -> unplaced.json ("Burleigh Hill Community Centre")
+[external] legend: the configured spot covers 1.4% symbols / 0% route ink — moved 179,22 mm to 185,52 (0.0% / 0%).
+[external] howToUse: the configured spot covers 18.9% symbols / 6% route ink — moved -4,-124 mm to 6,30 (0.0% / 0%). external labels: 3 unplaced ("Central Cambridge", "Addenbrooke's", "Bury")
+[schematic] northArrow: the configured spot is blocked — placed automatically at 191,39 (nearest clear corner).
+[schematic] panel: service VL14 is badged in the Services panel but draws no line on the map — either its geometry is missing/trimmed away, or the row should say it is not shown.
+[schematic] placeIndex: 1 name could not be numbered either — the map has no room beside those symbols even for two digits, and the index block still has 5 free rows.
+[schematic] labels: 2 could not be placed; 1 of them numbered in the place index, 1 still unnamed -> unplaced.json ("Burleigh Hill Community Centre") schematic labels: 1 could not be placed -> unplaced-schematic.json
+
+--- MEASURED (2) ---
+[internal] measure: lanes on=false segs=2444 lateral=10191 components=0 bridges=0 conflicts=0 flipped=0 ribbon=false folded=0
+[schematic] measure: lanes on=false segs=2390 lateral=4172 components=0 bridges=0 conflicts=0 flipped=0 ribbon=false folded=0

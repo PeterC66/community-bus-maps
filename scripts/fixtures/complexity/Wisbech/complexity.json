@@ -1,0 +1,138 @@
+{
+  "scoredAt": "2026-09-11 04:06",
+  "dir": "C:\\u3a St Ives\\Using AI\\Buses\\Areas\\Wisbech\\S2-geometry\\2026-09-11_0503",
+  "geometrySource": "routes_paths.json (road-matched)",
+  "geometryApproximate": false,
+  "metrics": {
+    "R": 12,
+    "S": 84,
+    "K5": 0.64,
+    "D5": 4.03,
+    "P": 52,
+    "poiFramePct": 3.1,
+    "maxRoutesPerCell": 12,
+    "congestedClusters": 1,
+    "largestClusterCells": 52,
+    "routeKm": 74.1,
+    "extentKm": [
+      4.57,
+      5.34
+    ],
+    "inkDensity": 3.04,
+    "medianBuriedFraction": 0.888,
+    "routesOverHalfBuried": 6
+  },
+  "bands": {
+    "amber": {
+      "R": 12,
+      "S": 120,
+      "K5": 0.5,
+      "D5": 1.6,
+      "P": 42
+    },
+    "red": {
+      "R": 18,
+      "S": 200,
+      "K5": 0.8,
+      "D5": 3.5,
+      "P": 110
+    }
+  },
+  "applied": {
+    "internalCorridors": null,
+    "corridorPalette": null,
+    "coreBox": null,
+    "stopThinning": null
+  },
+  "band": "RED",
+  "failedThresholds": [
+    "D5=4.03 > 3.5"
+  ],
+  "colours": {
+    "routes": 10,
+    "distinct": 10,
+    "ambiguity": 1
+  },
+  "congestionShape": "trunk corridor (a fisheye lens will not fix this)",
+  "ladder": [
+    {
+      "rung": 1,
+      "action": "bundle 1 co-running route family into single lines (CANDIDATES - confirm each really co-runs)",
+      "detail": "60/46L/X46/52/T7",
+      "data": {
+        "families": [
+          [
+            "60",
+            "46L",
+            "X46",
+            "52",
+            "T7"
+          ]
+        ],
+        "overlapMin": 0.6,
+        "internalCorridors": {
+          "60": [
+            "46L",
+            "X46",
+            "52",
+            "T7"
+          ]
+        }
+      },
+      "after": {
+        "R": 8,
+        "S": 84,
+        "K5": 0.04,
+        "D5": 0.16,
+        "P": 52
+      },
+      "band": "AMBER",
+      "stillFailing": [
+        "P=52 > 42"
+      ]
+    },
+    {
+      "rung": 2,
+      "action": "suppress the core: draw a \"town centre\" box of radius 600 m",
+      "detail": "routes terminate at the box edge instead of crossing the knot",
+      "data": null,
+      "after": {
+        "R": 8,
+        "S": 66,
+        "K5": 0,
+        "D5": 0,
+        "P": 52
+      },
+      "band": "AMBER",
+      "stillFailing": [
+        "P=52 > 42"
+      ]
+    },
+    {
+      "rung": "2c",
+      "action": "classify the POIs with a local: must / may / miss (routes.json \"poi\": {\"tiers\": …})",
+      "detail": "52 POIs reserve 3.1% of the map frame before a route line is drawn, and 9 of them draw a symbol that is never named — node poi_worksheet.js prints the list to ask about",
+      "data": {
+        "poiWorksheet": true,
+        "P": 52,
+        "mute": 9
+      },
+      "after": null,
+      "band": "unknown until a local answers"
+    }
+  ],
+  "perRouteBuried": {
+    "46": 0.2545454545454545,
+    "50": 0.1144578313253012,
+    "52": 1,
+    "56": 0.9329608938547486,
+    "60": 0.888283378746594,
+    "66": 0.34521158129175944,
+    "68": 0.22236340533672172,
+    "excel": 0.4157088122605364,
+    "46L": 0.8888888888888888,
+    "T7": 1,
+    "X46": 0.9966329966329966,
+    "43A": 0.19786096256684493
+  }
+}
