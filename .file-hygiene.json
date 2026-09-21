@@ -1,23 +1,40 @@
 {
   "_comment": [
-    "What check-file-hygiene.mjs must not apply its house-style tier to here. The",
-    "CHECKER lives in claude-skills (tools/check-file-hygiene.mjs) so that all three",
-    "repositories can run it without a token; the RULE travels and these exemptions",
-    "stay home, because a checker three repositories run must not carry one",
-    "repository's exclusion list. buses-data OA-241.",
+    "What check-file-hygiene.mjs must not read, or must not apply its house-style",
+    "tier to, in THIS repository. The CHECKER lives in claude-skills",
+    "(tools/check-file-hygiene.mjs) so that all three repositories can run it",
+    "without a token; the RULE travels and these exemptions stay home, because a",
+    "checker three repositories run must not carry one repository's exclusion",
+    "list. buses-data OA-241 states the convention; this file arrived with OA-398.",
     "",
-    "This file did not exist until 2026-09-14, and .github/workflows/test.yml said in",
-    "terms that it never would: 'This repository declares no .file-hygiene.json and",
-    "needs none: it has no generated corpus and no verbatim records, so the bare",
-    "rules are right.' That was true when it was written and scripts/fixtures/ made",
-    "it false the same day. The comment has been corrected rather than left to be",
-    "read as still describing the repository.",
+    "TWO DECLARATIONS, FOR TWO CORPORA, BY TWO DIFFERENT MECHANISMS. They landed",
+    "four days apart and neither supersedes the other, so both entries stay and the",
+    "reason for each is written beside it rather than shared.",
     "",
-    "ONLY TIER 2 IS RELAXED. A byte-order mark and mixed line endings are still",
-    "findings in a captured file, and must be: those are the two faults that would",
-    "make a fixture differ from what the engine wrote in a way no diff shows."
+    "neverRead, over gate-fixtures/. Until 2026-09-18 this repository declared",
+    "nothing and got the bare rules over its whole tracked corpus, which was right",
+    "and cost nothing. Vendoring the byte gates' fixtures into gate-fixtures/",
+    "changed that: 45 of the 73 files are generator output with no final newline,",
+    "and they are BYTE-IDENTICAL COPIES of files in buses-data, which excuses the",
+    "same folder for the same reason. Fixing them here would make the copy differ",
+    "from its source and turn `npm run fixtures:vendor` red for ever; excusing them",
+    "keeps the copy honest. The pattern is buses-data's own, so the same fixture is",
+    "excused by the same words on both sides of the copy.",
+    "",
+    "notAuthored, over scripts/fixtures/. These are not copies of another",
+    "repository's files but captures of the engine's own output, taken off the map",
+    "tree so that the halves of test-build-warnings.mjs and test-complexity-band.mjs",
+    "which need real engine output can run in CI rather than on one laptop.",
+    "",
+    "ONLY TIER 2 IS RELAXED by that second entry. A byte-order mark and mixed line",
+    "endings are still findings in a captured file, and must be: those are the two",
+    "faults that would make a fixture differ from what the engine wrote in a way no",
+    "diff shows."
   ],
   "notAuthored": [
     ["^scripts/fixtures/(build-warnings|complexity)/", "verbatim engine output, captured off the map tree in buses-data and committed unchanged — the whole value of a captured fixture is that its bytes are the engine's, so adding a final newline here would make it our file rather than its. scripts/fixtures/README.md says where each one came from"]
+  ],
+  "neverRead": [
+    "(^|/)_portal-fixture/"
   ]
 }

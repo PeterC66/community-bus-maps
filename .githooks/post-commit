@@ -1,0 +1,21 @@
+#!/bin/sh
+# After a commit, make the index agree with what was committed for the documents the
+# pre-commit hook stamped -- and only the index; the working tree is never touched.
+#
+# WHY THIS EXISTS (buses-data OA-397, 2026-09-18). For a PATHSPEC commit git snapshots
+# the working tree into the real index BEFORE the pre-commit hook runs, commits from a
+# temporary index the hook may change, and writes that early snapshot as the real
+# index afterwards. So a document the hook stamped reads `MM` in `git status` once the
+# commit is made: HEAD holds the stamped blob, the disk holds the stamped file, and
+# the index still holds the un-stamped snapshot. A plain commit has no such window.
+#
+# `git reset -q -- <path>` sets the index entry to HEAD's version and nothing else.
+# When the disk copy was stamped too, the file then reads clean; when the author's
+# disk copy differed (a partial stage), it reads modified, which is the truth.
+# `--root` is load-bearing: without it diff-tree lists nothing for a repository's
+# first commit. Installed by the same `git config core.hooksPath .githooks` as the
+# pre-commit hook; exits 0 always.
+git diff-tree --root --no-commit-id --name-only -r HEAD -- '*.md' '*.pptx' | while IFS= read -r p; do
+  [ -n "$p" ] && git reset -q -- "$p"
+done
+exit 0

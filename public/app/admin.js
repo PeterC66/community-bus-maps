@@ -79,10 +79,16 @@ async function jsend(url, method, data) {
 }
 
 let banished = null;
+// `<kind>-sticky` stays on screen; anything else clears itself after 8 seconds.
+// STICKINESS USED TO BE SPELT `ok-sticky` AND NOTHING ELSE, so the only banner
+// that could stay was a success one — and a warning carrying a sign-in link the
+// admin has to copy is exactly the banner that must not vanish while they read
+// it (OA-362). The suffix is stripped before the class is set, so the CSS still
+// sees `ok`, `warn` or `err`.
 function banner(kind, html) {
-  const el = $('banner'); el.className = 'notice show ' + kind; el.innerHTML = html;
-  clearTimeout(banished); if (kind !== 'ok-sticky') banished = setTimeout(() => { el.className = 'notice'; }, 8000);
-  if (kind === 'ok-sticky') el.className = 'notice show ok';
+  const sticky = kind.endsWith('-sticky');
+  const el = $('banner'); el.className = 'notice show ' + (sticky ? kind.slice(0, -7) : kind); el.innerHTML = html;
+  clearTimeout(banished); if (!sticky) banished = setTimeout(() => { el.className = 'notice'; }, 8000);
 }
 
 // ---- tabs -------------------------------------------------------------------
@@ -223,10 +229,20 @@ $('approveForm').addEventListener('submit', async (e) => {
   btn.disabled = false; btn.textContent = 'Approve & invite';
   if (body.ok) {
     approveDlg.close();
-    const link = body.inviteLink
-      ? `<div class="invite">Invite link (dev — normally emailed): <code id="ilink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyLink" type="button">Copy</button></div>`
-      : ' The invite has been emailed.';
-    banner('ok-sticky', `✓ Approved <strong>${esc(body.customer.name)}</strong> and invited ${esc(body.user.email)}.${link}`);
+    // THREE OUTCOMES, NOT TWO (OA-362). This branched on whether the server had
+    // handed back a dev link, and said "The invite has been emailed" in every
+    // other case — including the two where nothing was sent. It now branches on
+    // `body.emailed`, which is the answer the server actually computed, and the
+    // not-emailed arm shows the link, because otherwise the admin has a customer
+    // who cannot sign in and no way to let them.
+    const inviteBlock = (id, l) => `<div class="invite">Invite link — <b>send this to them by hand</b>: <code id="${id}">${esc(l)}</code> <button class="btn btn-ghost btn-xs" id="copyLink" type="button">Copy</button></div>`;
+    const approved = `✓ Approved <strong>${esc(body.customer.name)}</strong> and created an account for ${esc(body.user.email)}.`;
+    if (body.emailed) {
+      banner(body.inviteLink ? 'ok-sticky' : 'ok', `${approved} The invite has been emailed.${body.inviteLink ? inviteBlock('ilink', body.inviteLink) : ''}`);
+    } else {
+      banner('warn-sticky', `${approved} <b>No invite was emailed</b>${body.emailError ? ` — ${esc(body.emailError)}` : ''}.`
+        + (body.inviteLink ? inviteBlock('ilink', body.inviteLink) : ' No sign-in link could be issued either — check the Ops tab.'));
+    }
     const cp = $('copyLink'); if (cp) cp.addEventListener('click', () => navigator.clipboard.writeText(body.inviteLink).then(() => { cp.textContent = 'Copied'; }));
     LOADERS.applications(); loadSummary();
   } else {
@@ -329,8 +345,8 @@ function rowCust(c) {
     <div class="gt-cell" role="cell"><select data-q="status"><option value="active"${c.status === 'active' ? ' selected' : ''}>active</option><option value="suspended"${c.status === 'suspended' ? ' selected' : ''}>suspended</option></select></div>
     <div class="gt-cell" role="cell"><input type="text" value="${esc(c.plan)}" data-q="plan" class="planin" maxlength="40"></div>
     <div class="gt-cell" role="cell"><input type="checkbox" data-q="hideOps"${c.hideOperatorsEnabled ? ' checked' : ''}></div>
-    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners. Turned off at the same moment as Sample maps, when an organisation stops being ours and starts being theirs."${c.watermarkEnabled ? ' checked' : ''}></div>
-    <div class="gt-cell" role="cell"><input type="checkbox" data-q="isSample" title="Are this organisation's maps OUR samples? While this is on, every sheet carries the red PILOT - SAMPLE MAP band saying nobody published it. Turn it off - with Watermark downloads - when a real organisation takes the maps on."${c.isSample ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="watermark" title="Watermark downloads for non-owners. A SEPARATE decision from Sample maps, and it does not move with it: the first real customer asked to keep this on after registering, because it is the only marking that says work in progress without also saying nobody published the sheet. Leave it as the organisation asked."${c.watermarkEnabled ? ' checked' : ''}></div>
+    <div class="gt-cell" role="cell"><input type="checkbox" data-q="isSample" title="Are this organisation's maps OUR samples? While this is on, every sheet carries the red PILOT - SAMPLE MAP band saying nobody published it. Turn it off when a real organisation takes the maps on - and leave Watermark downloads alone, which is a separate decision and theirs rather than ours."${c.isSample ? ' checked' : ''}></div>
     <div class="gt-cell actions" role="cell"><button class="btn btn-ghost btn-xs" data-save="${c.id}">Save</button></div>
   </div>`;
 }
@@ -591,10 +607,15 @@ $('inviteForm').addEventListener('submit', async (e) => {
   btn.disabled = false; btn.textContent = 'Invite';
   if (body.ok) {
     inviteDlg.close();
-    const link = body.inviteLink
-      ? `<div class="invite">Invite link (dev — normally emailed): <code id="ulink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyULink" type="button">Copy</button></div>`
-      : ' The invite has been emailed.';
-    banner('ok-sticky', `✓ Invited ${esc(body.user.email)} as ${esc(body.user.role)}.${link}`);
+    // Three outcomes here too, for the same reason as the approve banner above
+    // (OA-362) — this is the route that adds a customer's second user.
+    const ulink = body.inviteLink
+      ? `<div class="invite">Invite link — <b>send this to them by hand</b>: <code id="ulink">${esc(body.inviteLink)}</code> <button class="btn btn-ghost btn-xs" id="copyULink" type="button">Copy</button></div>`
+      : '';
+    const invited = `✓ Created an account for ${esc(body.user.email)} as ${esc(body.user.role)}.`;
+    if (body.emailed) banner(body.inviteLink ? 'ok-sticky' : 'ok', `${invited} The invite has been emailed.${ulink}`);
+    else banner('warn-sticky', `${invited} <b>No invite was emailed</b>${body.emailError ? ` — ${esc(body.emailError)}` : ''}.`
+      + (ulink || ' No sign-in link could be issued either — check the Ops tab.'));
     const cp = $('copyULink'); if (cp) cp.addEventListener('click', () => navigator.clipboard.writeText(body.inviteLink).then(() => { cp.textContent = 'Copied'; }));
     customersForInvite = null; // customer user-counts changed
     LOADERS.users(); LOADERS.customers();
@@ -774,6 +795,24 @@ LOADERS.ops = async () => {
     `<span class="status-pill ${c.ok ? 'pub' : 'req'}">${esc(name)}${c.ok ? ' ok' : ' — ' + esc(c.error || (c.missing || []).join(', '))}</span>`).join(' ');
 
   const reclaimable = (s.totals.stagedBytes || 0) + (s.totals.archivedBytes || 0);
+
+  // EMAIL DELIVERY, WHICH THE SERVER HAS ALWAYS COMPUTED AND NO SCREEN SHOWED
+  // (OA-362). `activity.email` is emailHealth() — it has been in the /api/admin/ops
+  // JSON since P7 and a grep of public/ for any of its field names returned
+  // nothing, so answering "did that invite actually go?" meant opening a raw
+  // endpoint nothing links to. The Health chip above is configStatus() — a
+  // provider is NAMED and a key is PRESENT — which a reader takes for an
+  // assurance about delivery and which it is not; these are the counters.
+  //
+  // They are in memory and a restart forgets them, so the card says so rather
+  // than letting a zero read as "nothing has ever failed".
+  const em = a.email || {};
+  const emailCard = `
+      <div class="card"><h3>Email delivery</h3>
+        <p>last sent <strong>${esc(fmtDate(em.lastSentAt) || 'never, since this process started')}</strong></p>
+        <p class="sub">${em.totalSent || 0} sent · ${em.totalFailed || 0} failed · ${em.consecutiveFailures || 0} failure(s) since the last success</p>
+        ${em.lastError ? `<p class="sub"><b>last error</b> ${esc(em.lastError)} (${esc(fmtDate(em.lastErrorAt) || '—')})</p>` : ''}
+        <p class="sub">Counted in memory since start-up — a deploy resets them, and they say nothing about sends before it.</p></div>`;
   box.innerHTML = `
     <div class="ops-grid">
       <div class="card"><h3>Health</h3><div class="pill-row">${checks}</div>
@@ -785,6 +824,7 @@ LOADERS.ops = async () => {
       <div class="card"><h3>Activity</h3>
         <p>${a.publishedMaps} published · ${a.pendingPublishRequests} awaiting review · ${a.pendingProposedUpdates} update(s) pending · ${a.sessions} active session(s)</p>
         <p class="sub">last version ${esc(fmtDate(a.lastVersionAt) || '—')} · last publish ${esc(fmtDate(a.lastPublishAt) || '—')} · ${a.auditEvents} audit event(s)</p></div>
+      ${emailCard}
     </div>
     <div class="table-wrap" style="margin-top:14px" id="opsMapsTable"></div>`;
 

@@ -53,9 +53,10 @@
  *         classified, which is what keeps this block byte-neutral when absent.
  *
  * THE DEFAULT FOR A POI WITH NO NAME IS `miss` (OA-238, 2026-09-04), and it is
- * the one place this block is not byte-neutral when absent. Only `pharmacy` and
- * `gp` can reach here nameless — every other category has a fallback name from
- * `classify()` — and a nameless symbol costs a full box for a glyph nobody chose.
+ * the one place this block is not byte-neutral when absent. `pharmacy`, `gp` and
+ * — since OA-340 — `pub` can reach here nameless; every other category has a
+ * fallback name from `classify()`, and a nameless symbol costs a full box for a
+ * glyph nobody chose.
  * It is still listed in `report.candidates` so the local can name it or confirm
  * the miss; an explicit answer in `poi.tiers` overrides the default either way.
  *
@@ -79,8 +80,19 @@
  * The OSM tag combinations this engine draws, in precedence order — the first
  * match wins, so a leisure centre tagged as a school stays a school only if the
  * school test comes first. Returns [category, name] or null for "not a POI".
- * `allotments` is opt-in per town (poi.include) because most towns do not want
- * them; everything else is on for every town.
+ * `allotments` and `pubs` are opt-in per town (poi.include) because most towns
+ * do not want them; everything else is on for every town.
+ *
+ * WHY `pubs` IS OPT-IN RATHER THAN A CATEGORY LIKE THE OTHERS (OA-340, Peter's
+ * decision of 2026-09-13, taken on the measurement in
+ * `Development Docs/pubs-as-landmarks-measured_2026-09-13.md`). Estate-wide the
+ * category is 116 more named symbols on top of the 340 the eight town sheets
+ * carry — +34%, and +50% on St Neots — onto pages where 98 labels already do not
+ * fit. Branded-only is a defensible 15, but it decides WHICH pubs by a tag that
+ * records a tenancy rather than a landmark. Opt-in is byte-inert on the day it
+ * lands and puts the judgement where the must/may/miss design already puts it:
+ * with the local adviser, who knows that St Neots navigates by three pubs and
+ * not by twenty-one.
  */
 function classify(t, poiCfg) {
   const POI = poiCfg || {};
@@ -95,6 +107,14 @@ function classify(t, poiCfg) {
   if(t.amenity==='school')    return ['school', t.name||'School'];
   if(t.leisure==='park'||t.leisure==='recreation_ground') return ['park', t.name||'Park'];
   if((POI.include||[]).includes('allotments') && t.landuse==='allotments') return ['allotments', t.name||'Allotments'];
+  /* Below the named categories on purpose: a pub that OpenStreetMap ALSO tags as
+   * a community centre or a restaurant-with-rooms is the thing that tag says
+   * first, and a town that switched pubs on did not thereby ask for its village
+   * hall to be redrawn as one. The fallback is deliberately blank rather than
+   * 'Pub': a nameless pub is a bare glyph nobody chose, so OA-238's
+   * nameless-`miss` default keeps it off the page while still offering it in the
+   * chooser — see the `noName` rule below. */
+  if((POI.include||[]).includes('pubs') && t.amenity==='pub') return ['pub', t.name||''];
   if(t.landuse==='industrial') return ['industrial', t.name||'Industrial Estate'];
   return null;
 }
@@ -116,7 +136,11 @@ function classify(t, poiCfg) {
  * an unnamed green is called "Park" and names nothing — and that clause was in
  * both copies too.
  */
-const AUTO_NAMED_CATS = ['shop','leisure','school','park','community','allotments'];
+/* `pub` is here because the whole point of the category is *the Wetherspoon* —
+ * a pub symbol with no name beside it is no use to anybody navigating by it
+ * (OA-340). It is also the one auto-named category with a BLANK fallback, so
+ * `noName` below reads an unnamed pub as unnamed and leaves it off the page. */
+const AUTO_NAMED_CATS = ['shop','leisure','school','park','community','allotments','pub'];
 
 /** Does this POI's own name get printed beside its symbol, or is it symbol-only? */
 function printsName(p){
@@ -263,8 +287,9 @@ function applyTiers(pois, POI, report){
   /* THE DEFAULT IS NOT ALWAYS `may` ANY MORE (OA-238, Peter's decision 2026-09-03).
    *
    * A POI with no name prints nothing beside its symbol — `classify()` supplies a
-   * fallback name for every category except `pharmacy` and `gp`, so the whole
-   * population of this rule is a chemist or a surgery OpenStreetMap has not named.
+   * fallback name for every category except `pharmacy`, `gp` and `pub`, so the
+   * population of this rule is a chemist, a surgery, or (since OA-340, on a town
+   * that has switched pubs on) a pub OpenStreetMap has not named.
    * It costs the same 4.2 x 4.2 mm box and the same placer anchor as a named one,
    * for a bare glyph nobody chose. So it defaults to NOT DRAWN.
    *
@@ -304,8 +329,10 @@ function applyTiers(pois, POI, report){
    * `a bare glyph nobody chose` -- does not reach it: for a town hall, a library
    * or a museum the CATEGORY is the choice, the symbol is the information, and
    * whether OpenStreetMap happens to carry a name changes nothing a reader sees.
-   * For pharmacy and gp, the two that reach here genuinely blank, the behaviour
-   * is exactly what OA-238 decided and this line is unchanged.
+   * For pharmacy and gp, which reach here genuinely blank, the behaviour is
+   * exactly what OA-238 decided and this line is unchanged. A `pub` reaches here
+   * blank too but is auto-named, so it takes the first arm and is missed — which
+   * is OA-340's own answer to *what does a nameless pub do*.
    *
    * De-duplication still reads a label as no-name for EVERY category, which is
    * the other half of OA-338 and is not affected: two unnamed town halls 5 km
@@ -369,7 +396,14 @@ function applyTiers(pois, POI, report){
     // No early return on a missing TIERS block any more: the nameless default
     // above has to apply to a town that has classified nothing, and Huntingdon
     // and St Neots — the two the estate loses a symbol on — are exactly that.
-    if(explicit(p)) used.add(k);
+    /* The key is stamped onto the POI as well as counted. `as` REPLACES the
+     * identity two lines below, so a caller holding the kept POI afterwards
+     * cannot reconstruct which answer it came from — and the one thing a caller
+     * has to be able to say about a classified place it then drops is which key
+     * the customer wrote. `tierKey` is that key as they wrote it, before any
+     * rename. It is read by gen_internal.js's culledAfterTiers block (OA-250
+     * item 2) and by nothing else; it is not serialised anywhere. */
+    if(explicit(p)){ used.add(k); p.tierKey = k; }
     const r = ruleFor(p);
     if(r.tier === 'miss') continue;                // never drawn, never reserved
     if(r.as) p.name = r.as;                        // a rename REPLACES the identity
@@ -395,4 +429,84 @@ function applyTiers(pois, POI, report){
   return kept;
 }
 
-module.exports = { classify, selectPois, applyTiers, sameThing, unnamed, CATEGORY_LABELS, AUTO_NAMED_CATS, printsName };
+/* A TIER THAT MATCHED AND WAS THEN CULLED BY THE SHEET (OA-250 item 2).
+ *
+ * `report.unknownTierKeys` catches the answer that matched nothing. This is the
+ * opposite and quieter failure: the key DID match a real POI, so it is not
+ * unknown, and the place then never became a label candidate on that sheet, so
+ * it is not in `unplaced.json` either. It falls out between the two, and until
+ * this function existed nothing anywhere said so. High Wycombe is the worked
+ * case: the Library and the Museum were both marked `must` in the chooser on
+ * 2026-09-02 and both sit inside that town's 600 m `coreBox`, which the
+ * geographic sheet leaves blank — so the two places a visitor is most likely to
+ * be walking to are the two the sheet cannot name.
+ *
+ * IT LIVES HERE AND NOT IN THE GENERATOR because the tier key is this module's
+ * fact — `as` replaces the identity, so only `tierKey` still holds the key the
+ * customer wrote — while the reason is the generator's, and is passed in. A
+ * generator supplies `why`: a function from the POI's CURRENT key (after any
+ * rename, which is what a frame test would have been given) to a short reason,
+ * or a falsey value when the place was drawn.
+ *
+ * `hide` IS NOT REPORTED, and that exclusion is the point rather than an
+ * oversight. It is an override the customer wrote themselves, in a file they
+ * can read, saying exactly this: an answer that succeeded. The frame and the
+ * core are decisions the ENGINE made about their answer, and those are the ones
+ * they are owed a sentence about.
+ *
+ * Takes the KEPT list — a `miss` never reaches a sheet at all and its absence is
+ * the answer working, not failing.
+ *
+ * ONE ROW PER KEY, not per POI. Where two places share a key — the collision
+ * item 1 of OA-250 is about — there is still only ONE answer, written once, and
+ * the customer is owed one sentence about it. High Wycombe carries three Boots
+ * and would otherwise name the same key three times in a message already long
+ * enough to go unread. A row is `must` if ANY of the places under that key was.
+ *
+ * SORTED, because a build message is read by a person and `must` is the thing
+ * they answered hardest: the strongest answers first, and stable within that so
+ * the line does not reshuffle between two builds of the same sheet. */
+function culledAfterTiers(kept, why){
+  const byKey = new Map();
+  for(const p of kept){
+    if(!p.tierKey) continue;                       // nobody classified this place
+    const reason = why(p.cat + ':' + p.name);
+    if(!reason || reason === 'hide') continue;
+    const row = byKey.get(p.tierKey);
+    if(row){ row.must = row.must || p.tier === 'must'; }
+    else byKey.set(p.tierKey, { key: p.tierKey, why: reason, must: p.tier === 'must' });
+  }
+  const out = [...byKey.values()];
+  out.sort((a,b) => (b.must - a.must) || 0);       // stable: insertion order within a tier
+  return out;
+}
+
+/* The build message for the rows above, or '' when there are none — here rather
+ * than in the generator because gen_internal.js is the file the line ratchet
+ * holds, and a paragraph of prose about tiers is exactly the growth that rule
+ * exists to push back into a module.
+ *
+ * CAPPED AT SIX, like the unplaced-labels line it sits beside. High Wycombe
+ * culls 31 keys; a message naming all of them is a paragraph nobody reads and
+ * the three that matter are buried in it. The `must`s are sorted first and the
+ * count carries the rest. */
+function culledAfterTiersNote(culled){
+  if(!culled.length) return '';
+  const musts = culled.filter(c=>c.must).length;
+  const where = c => (c.why === 'core' ? 'inside the blank coreBox' : 'outside the frame');
+  return 'poi.tiers: ' + culled.length + ' classified place' + (culled.length>1?'s':'')
+    + ' matched a key and then fell off this sheet'
+    + (musts ? ' — ' + musts + ' of them a "must"' : '') + ': '
+    + culled.slice(0,6).map(c => '"'+c.key+'" ('+where(c)+(c.must?', a "must"':'')+')').join(', ')
+    + (culled.length>6 ? ', and ' + (culled.length-6) + ' more' : '')
+    /* `coreBox` BARE, with no `design.` in front of it: it is a top-level
+     * routes.json key read through complexity_ladder.js, and the prefixed
+     * spelling invented a 37th design key for the register gate to hunt — which
+     * that gate caught in CI, from inside a string, and then again from inside
+     * the comment that explained the first one. */
+    + '. The answer was applied and the sheet still cannot show it. Widen or drop'
+    + ' the coreBox, widen the frame, or tell whoever classified it that this'
+    + ' place is off the edge of the town sheet.';
+}
+
+module.exports = { classify, selectPois, applyTiers, culledAfterTiers, culledAfterTiersNote, sameThing, unnamed, CATEGORY_LABELS, AUTO_NAMED_CATS, printsName };

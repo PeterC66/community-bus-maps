@@ -1,7 +1,7 @@
 # Developing the portal — how to change it safely
 
-<!-- docstamp v1.28 | 2026-09-12 | sha=b4259075 -->
-**v1.28** · updated 12 September 2026
+<!-- docstamp v1.29 | 2026-09-18 | sha=7e54aa63 -->
+**v1.29** · updated 18 September 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
@@ -126,7 +126,7 @@ npm test                # the whole suite - it prints its own count and timings
 
 So **adding a test is adding the file**. Give it an npm script too (`test:<thing>`), because that script is what the runner invokes and what you will want when running it alone; the runner names any file that has no script, in case that was an oversight rather than a choice.
 
-**A test that cannot run here needs an entry in the runner's `EXCLUDED` map with a reason that says where it DOES run** - the two current entries need `BUSES_DIR` and run in `verify.yml`. The runner refuses to start (exit 2) on an exclusion with no reason or one naming a file that is no longer there, so an exclusion cannot quietly become a hole. Exit codes are the house rule: 0 ok, 1 a test failed, 2 the runner was used wrongly.
+**A test that cannot run here needs an entry in the runner's `EXCLUDED` map with a reason that says where it DOES run** - the two current entries are slow (they rasterise) and run in `verify.yml`. Both said "needs `BUSES_DIR`" until 2026-09-18, when the fixtures were vendored into this repository and that stopped being true; a stale reason is worse than a stale exclusion, because it tells the next reader the test CANNOT run here. The runner refuses to start (exit 2) on an exclusion with no reason or one naming a file that is no longer there, so an exclusion cannot quietly become a hole. Exit codes are the house rule: 0 ok, 1 a test failed, 2 the runner was used wrongly.
 
 The runner is itself falsified by [`scripts/prove-red-run-tests.mjs`](../scripts/prove-red-run-tests.mjs) (`npm run test:prove-red-run-tests`), which runs FIRST in `test.yml` for the usual reason: a bug in the thing that decides whether the suite is green does not make one test wrong, it makes the whole verdict wrong in the reassuring direction. Six cases on scratch repositories plus two controls, ~3 s.
 
@@ -166,7 +166,7 @@ Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one
 
 ### Which pack `verify` gates, and the per-machine `.env` keys that change it
 
-**You do not have to set anything.** `scripts/lib/fixtures.mjs` resolves a COMMITTED fixture — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in the buses-data repo — from `BUSES_DIR` or from a buses-data checkout sitting beside this one, and when it can find nothing at all the gate **fails** rather than skipping. It used to print "skipping" and exit 0, which is how a fresh clone, a CI run and a second developer all got a green result from a gate that had never executed (technical-audit_2026-08-19, finding V2); `npm run verify -- --allow-skip` is the one remaining way to get a green board without proving anything, and it says so in capitals. The committed fixture is what `verify.yml` gates in CI.
+**You do not have to set anything, and since 2026-09-18 you do not have to have buses-data either** (buses-data OA-398). `scripts/lib/fixtures.mjs` resolves a COMMITTED fixture — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` — from [`gate-fixtures/`](../gate-fixtures/README.md) in this repository first, then `BUSES_DIR`, then a buses-data checkout sitting beside this one; and when it can find nothing at all the gate **fails** rather than skipping. It used to print "skipping" and exit 0, which is how a fresh clone, a CI run and a second developer all got a green result from a gate that had never executed (technical-audit_2026-08-19, finding V2); `npm run verify -- --allow-skip` is the one remaining way to get a green board without proving anything, and it says so in capitals. The committed fixture is what `verify.yml` gates in CI.
 
 **`FIXTURE_DIR` and `PLACE_FIXTURE_DIR` in `.env` override that pack, and are per-machine.** `.env` is git-ignored, so this is a step every clone and every laptop does for itself; `.env.example` carries the full form of both keys. Point `FIXTURE_DIR` at a live `Areas/<Town>/S5-render/<version>` folder and the local gate becomes **stronger** than CI's — that tree is where a real regression surfaces first — which is why the environment wins over the committed fixture rather than the other way round. It may be a `;`-separated list (`;`, not `:`, because these are Windows absolute paths): `verify:area` takes the first entry, and `verify:defaults` needs all three towns, because no single town exercises all thirteen escape hatches.
 

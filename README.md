@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.20 | 2026-09-10 | sha=f68f1d62 -->
-**v1.20** · updated 10 September 2026
+<!-- docstamp v1.21 | 2026-09-18 | sha=5445460f -->
+**v1.21** · updated 18 September 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
@@ -46,13 +46,13 @@ cp .env.example .env      # then edit if you like
 npm run dev               # serves the shopfront on http://127.0.0.1:5180
 ```
 
-Prove the renderer reproduces a real leaflet byte-for-byte. Run from this repository's root, with the separate `buses-data` repo cloned next to it (or `BUSES_DIR` set in `.env` to wherever it is):
+Prove the renderer reproduces a real leaflet byte-for-byte. Run from this repository's root; nothing else needs to be on the machine:
 
 ```bash
 npm run verify
 ```
 
-Nothing else to configure: the gates read a **committed fixture** — `Areas/_portal-fixture/<Town>` and `Places/_portal-fixture/<Place>` in `buses-data` — so a fresh clone proves the claim. Set `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` only to point a gate at something else, normally the live render tree.
+Nothing else to configure, and since 2026-09-18 nothing else to clone: the gates read a **committed fixture** this repository holds, at [`gate-fixtures/`](gate-fixtures/README.md), so a clone of the portal alone proves the claim. Set `FIXTURE_DIR` / `PLACE_FIXTURE_DIR` only to point a gate at something else, normally the live render tree.
 
 **With no fixture at all, `verify` FAILS.** It used to print "skipping" and exit 0, which meant a fresh clone, a CI run and a second developer all got a green result from a check that had not executed — the finding `Development Docs/technical-audit_2026-08-19.md` in the **buses-data** repository called the single most important structural item in the report (V2), on the grounds that the byte-identical guarantee is what the product is sold on and it could be verified by exactly one person on one machine. `npm run verify -- --allow-skip` is the escape hatch for a clone of the portal alone, and it says out loud that it proved nothing.
 

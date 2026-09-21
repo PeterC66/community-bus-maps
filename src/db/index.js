@@ -36,6 +36,49 @@ db.exec('PRAGMA foreign_keys = ON;');
 db.exec('PRAGMA busy_timeout = 5000;');
 db.exec(readFileSync(path.join(HERE, 'schema.sql'), 'utf8'));
 
+/**
+ * Run `fn` inside one SQLite transaction, rolling back if it throws.
+ *
+ * node:sqlite's DatabaseSync has no `.transaction()` helper (that is a
+ * better-sqlite3-ism), so the shape is the explicit BEGIN/COMMIT/ROLLBACK that
+ * scripts/delete-map.mjs already uses. THIS EXISTS SO THE HABIT IS IMPORTABLE.
+ * It was in that one script and had not reached the route in the file next
+ * door: POST /api/admin/applications/:id/approve ran insertCustomer →
+ * insertUser → setApplicationReviewed in sequence, and a failure between the
+ * first and the third left an orphan customer with no users and the
+ * application still pending — recoverable only by hand, and invisible until
+ * somebody counted customers (OA-367 face 3).
+ *
+ * NESTING JOINS THE OUTER TRANSACTION rather than throwing. SQLite has no
+ * nested BEGIN, and a helper that refused one would make a caller's safety
+ * depend on who called it. `db.isTransaction` is the runtime's own answer to
+ * "am I in one already", so an inner call runs fn and leaves COMMIT or
+ * ROLLBACK to the outermost frame.
+ *
+ * SYNCHRONOUS ONLY, AND IT SAYS SO OUT LOUD. Every write in this module is
+ * synchronous; handing this an async fn would COMMIT at the first await with
+ * the work still outstanding, which is a rollback that silently protects
+ * nothing. A thenable is refused rather than mis-wrapped.
+ */
+export function withTransaction(fn) {
+  if (db.isTransaction) return refuseThenable(fn());
+  db.exec('BEGIN');
+  try {
+    const out = refuseThenable(fn());
+    db.exec('COMMIT');
+    return out;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+function refuseThenable(out) {
+  if (out && typeof out.then === 'function') {
+    throw new TypeError('withTransaction() takes a synchronous function — an async one commits at the first await.');
+  }
+  return out;
+}
+
 // Lightweight migrations for DBs created before a column existed. (schema.sql is
 // CREATE TABLE IF NOT EXISTS, so an existing table won't pick up new columns.)
 function tableColumns(table) {
@@ -962,6 +1005,13 @@ export function listProposedForMap(mapId) {
  * `since` is the draft's own creation time, so the item can age like the rest.
  * Maps not yet built (no current version) are excluded — they are the build
  * queue's business, and archived maps are nobody's.
+ *
+ * `public_listed` and the customer's status are selected because the ROW this
+ * feeds makes a claim about the public site, and `published_version_id` alone
+ * does not support one: PUBLIC_WHERE below wants four clauses, and reading the
+ * first as though it were all four told Peter for a day that Ramsey's public
+ * had v7.0 while /m/ramsey was a 404 (OA-295). The one state where the
+ * sentence is most reassuring — a map taken down — is the one where it lied.
  */
 export function listUnsubmittedDrafts() {
   return db
@@ -969,7 +1019,8 @@ export function listUnsubmittedDrafts() {
       `SELECT m.id, m.name, m.slug, m.kind, m.status,
               c.name AS customer_name,
               v.storage_key AS draft_key, v.created_at AS draft_at, v.review_state AS draft_state,
-              pv.storage_key AS published_key
+              pv.storage_key AS published_key,
+              m.public_listed, c.status AS customer_status
          FROM map m
          JOIN map_version v ON v.id = m.current_version_id
          LEFT JOIN map_version pv ON pv.id = m.published_version_id
