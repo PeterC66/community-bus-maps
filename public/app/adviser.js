@@ -45,7 +45,7 @@
     if (!viewer) {
       viewer = window.CBMViewer.create($('viewer'), {
         noRaster: true,
-        onFail: (what) => fail('That sheet could not be loaded (' + what + '). Please tell us and we will look.'),
+        onFail: (what) => fail('That map could not be loaded (' + what + '). Please tell us and we will look.'),
       });
     }
     $('err').hidden = true;
