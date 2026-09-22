@@ -134,6 +134,7 @@
     "check:sitemap": "node scripts/check-sitemap.mjs",
     "test:sitemap": "node scripts/test-sitemap.mjs",
     "test:prove-red-sitemap": "node scripts/prove-red-sitemap.mjs",
+    "test:scratch-deps": "node scripts/test-scratch-deps.mjs",
     "test:env-inventory": "node scripts/test-env-inventory.mjs",
     "test:node-pin": "node scripts/test-node-pin.mjs",
     "test:render-parity-supervisor": "node scripts/test-render-parity-supervisor.mjs",

@@ -28,6 +28,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { depsFrom } from './lib/scratch-deps.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 let failures = 0;
@@ -56,7 +57,7 @@ function makeCopy() {
   // one. An arm that "passes" because its subject crashed proves nothing, which
   // is why each arm below names the check it expects to see red rather than
   // trusting the exit code.
-  symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');
+  symlinkSync(depsFrom(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');
   return dir;
 }
 

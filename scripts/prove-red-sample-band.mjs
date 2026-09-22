@@ -34,6 +34,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { depsFrom } from './lib/scratch-deps.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -47,7 +48,7 @@ function scratch() {
   // checkout, so an edit "to the copy" would vandalise the repository this
   // harness exists to protect.
   for (const dir of ['node_modules', 'engine']) {
-    const from = path.join(ROOT, dir);
+    const from = depsFrom(ROOT, dir);
     if (!existsSync(from)) continue;
     try { symlinkSync(from, path.join(tmp, dir), 'junction'); } catch { cpSync(from, path.join(tmp, dir), { recursive: true }); }
   }

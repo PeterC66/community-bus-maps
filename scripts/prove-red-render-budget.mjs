@@ -32,6 +32,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { depsFrom } from './lib/scratch-deps.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 let failures = 0;
@@ -46,7 +47,7 @@ for (const dir of ['scripts', 'src', 'views', 'public']) {
   cpSync(path.join(ROOT, dir), path.join(TREE, dir), { recursive: true });
 }
 for (const dir of ['node_modules', 'engine']) {
-  const from = path.join(ROOT, dir), to = path.join(TREE, dir);
+  const from = depsFrom(ROOT, dir), to = path.join(TREE, dir);
   try { symlinkSync(from, to, 'junction'); }
   catch { cpSync(from, to, { recursive: true }); }
 }
