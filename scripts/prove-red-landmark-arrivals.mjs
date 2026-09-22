@@ -25,6 +25,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { depsFrom } from './lib/scratch-deps.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -48,7 +49,7 @@ function scratch() {
   // without it every case would enumerate nothing and every mutation would
   // "survive" for a reason that is not the guard's fault.
   for (const dir of ['node_modules', 'engine', 'data']) {
-    const from = path.join(ROOT, dir); const to = path.join(tmp, dir);
+    const from = depsFrom(ROOT, dir); const to = path.join(tmp, dir);
     if (!existsSync(from)) continue;
     try { symlinkSync(from, to, 'junction'); } catch { cpSync(from, to, { recursive: true }); }
   }

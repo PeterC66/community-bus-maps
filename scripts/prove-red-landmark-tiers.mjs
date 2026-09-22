@@ -49,6 +49,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { depsFrom } from './lib/scratch-deps.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -74,7 +75,7 @@ function scratch() {
   // read-only. The fixture half needs none of this: it writes its own osm.json
   // and routes.json into the temp dir and runs everywhere.
   for (const dir of ['node_modules', 'engine', 'data']) {
-    const from = path.join(ROOT, dir); const to = path.join(tmp, dir);
+    const from = depsFrom(ROOT, dir); const to = path.join(tmp, dir);
     // A link to something that is not there is WORSE than no link: src/db/index.js
     // calls mkdirSync(DATA_DIR) at import, and mkdir through a dangling link
     // throws ENOENT — which crashed the whole suite on CI instead of letting it

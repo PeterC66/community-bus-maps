@@ -34,6 +34,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { depsFrom } from './lib/scratch-deps.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -48,7 +49,7 @@ function scratch() {
   // on 2026-09-03. Anything the app requires and does not carry in those four
   // directories is linked whole.
   for (const dir of ['node_modules', 'engine']) {
-    const from = path.join(ROOT, dir), to = path.join(tmp, dir);
+    const from = depsFrom(ROOT, dir), to = path.join(tmp, dir);
     try { symlinkSync(from, to, 'junction'); }
     catch { cpSync(from, to, { recursive: true }); }
   }
