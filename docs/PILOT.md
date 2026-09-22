@@ -1,7 +1,7 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.10 | 2026-09-21 | sha=81952756 -->
-**v1.10** · updated 21 September 2026
+<!-- docstamp v1.11 | 2026-09-23 | sha=1fb66700 -->
+**v1.11** · updated 23 September 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -61,6 +61,8 @@ Leaving the `<script>` tags in place after `PILOT_MODE=0` is harmless: the route
 Two things changed in this work that are corrections, not pilot chrome, and are not gated on the flag:
 
 **Truthful copy.** "Maps our customers have published" was false. So were "those are live, kept up to date", "we will get back to you", "our team", "always looks right". These were rewritten to be true regardless of pilot state. When the pilot ends the claims may become true again — but they should be re-made deliberately, against real customers, not restored by reverting a commit.
+
+**The organisation count lives in the FAQ, not in the legal caveats.** `terms.html` and `legal.html` say only that the service is a pilot with no income, and link to `faq.html#pilot`, which names the organisations; since 2026-09-23 neither caveat carries a number, because a hand-typed count goes stale the day the next organisation signs up and nobody reopens a legal page to fix it. *No income* stays on both: it cannot go stale silently, because the first payment is also the day the terms review falls due (buses-data OA-138), and the terms caveat itself must stay until that review happens. Three pages still carry a count as part of their argument — `apply.html`, `accessibility.html` and `background.html` — and need editing by hand, alongside the FAQ entry, when a second organisation signs up. From the repository root, with no placeholders, this finds them: `grep -rn -i -E "organisation has signed up|one organisation and" public`.
 
 **Sample labelling.** `customer.is_demo` flags the organisations `scripts/seed-demo.mjs` invents — Broadmeadow Parish Council, Fenmarsh District Council and Oakfield Community Transport Trust (all suffixed "(demo)"), holding **0, 1 and the rest** of the seeded maps so the empty-dashboard, single-map and multi-map states are all demoable. Fully fictional names, not paired with any real body — the grouping is by map-count, not by "this council owns its own map". They render a red **Sample** badge and an explicit "this organisation is invented" note on `/maps`, `/m/<slug>`, `/o/<slug>` and the home strip. Demo data stays demo data after the pilot ends. The flag is set on creation *and* backfilled on every re-run of the seed, so instances seeded before it existed get labelled too.
 
