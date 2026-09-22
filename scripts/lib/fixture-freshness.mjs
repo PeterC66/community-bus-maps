@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { versionedRender } from './newest-render.mjs';
 
 // Never throws — permission-denied children (real case, 2026-08-09: FIXTURE_DIR
 // mounted at /fixture inside a container means its "parent" is / itself, whose
@@ -33,6 +34,11 @@ function newestMtime(dir) {
  * S5-render/v6.22_...) among siblings in the same parent. Warn if a sibling
  * is newer — the .env-repointing bug from §2.6. */
 export function warnIfStaleSibling(fixtureDir) {
+  // OA-432: only a `<town>/S5-render/<run>` folder has siblings worth comparing.
+  // `deliver-map.mjs` mounts the staged render at `/fixture` inside a throwaway
+  // container, whose parent is the filesystem root — every entry under it,
+  // `/sys` included, is "newer", so this printed on every area delivery.
+  if (!versionedRender(fixtureDir)) return;
   const parent = path.dirname(fixtureDir);
   if (!existsSync(parent)) return;
   const self = path.basename(fixtureDir);

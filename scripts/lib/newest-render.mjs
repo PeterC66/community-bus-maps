@@ -49,7 +49,7 @@ import path from 'node:path';
  * keeps PLACE_FIXTURE_DIR untouched: it points straight at
  * `Places/_portal-fixture/<Place>`, which has no version in it to go stale.
  */
-function versionedRender(fixtureDir) {
+export function versionedRender(fixtureDir) {
   const abs = path.resolve(fixtureDir);
   const parent = path.dirname(abs);
   if (path.basename(parent) !== 'S5-render') return null;
