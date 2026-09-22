@@ -48,6 +48,7 @@
     "test:approve-application": "node scripts/test-approve-application.mjs",
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:newest-render": "node scripts/test-newest-render.mjs",
+    "test:fixture-freshness": "node scripts/test-fixture-freshness.mjs",
     "test:prove-red-delete-map": "node scripts/prove-red-delete-map.mjs",
     "test:prove-red-newest-render": "node scripts/prove-red-newest-render.mjs",
     "test:prove-red-owner-picker": "node scripts/prove-red-owner-picker.mjs",
