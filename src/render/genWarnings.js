@@ -6,10 +6,13 @@
 // difference to stderr — *"3 of 20 must POIs were still not placed on this
 // sheet"*, naming each one. Its own comment calls that warning "the only thing
 // standing between a classified POI and an answer that failed without saying so".
-// Two siblings sit beside it: a `poi.tiers` key that matched no POI and did
-// nothing, and a rename that collided so two places share one override key.
+// Three siblings sit beside it: a `poi.tiers` key that matched no POI and did
+// nothing, a rename that collided so two places share one override key, and —
+// since OA-250 item 2 — a key that matched a real place which this sheet's frame
+// or its blank `coreBox` then excluded, so the answer was applied and the paper
+// still cannot show it.
 //
-// All three are written with `process.stderr.write` and not with `refuse()`, and
+// All four are written with `process.stderr.write` and not with `refuse()`, and
 // that is deliberate — they are not refusals to draw, the sheet is still worth
 // having — so the run exits 0. And `renderMap.js` read stderr ONLY when the exit
 // status was non-zero. On the success path, which is the path all three take, the
@@ -47,15 +50,33 @@
 const EDITOR_FACING = [
   {
     prefix: 'poi.tiers:',
-    /* All three `poi.tiers:` lines are about the customer's own classification,
+    /* All FOUR `poi.tiers:` lines are about the customer's own classification,
      * which is why one prefix covers them. The heading is chosen from the line
-     * so a reader is not told "a key did nothing" about a placement failure. */
+     * so a reader is not told "a key did nothing" about a placement failure.
+     *
+     * THE ORDER OF THESE ARMS IS LOAD-BEARING, and the culled arm is first for
+     * a reason a reader cannot see from the regexes alone. `culledAfterTiersNote`
+     * in poi_select.js (OA-250 item 2) names how many of the culled keys were a
+     * `must`, so its line CONTAINS the string `"must"` and the placement arm
+     * below matches it. Put it second and every culled-with-a-must line is
+     * headed "could not be fitted on the map" — which names the wrong cause and
+     * therefore the wrong remedy: the placer did not run out of room, the
+     * sheet's frame or its blank coreBox excludes the place outright, and no
+     * pos/move override or shorter `as` will bring it back.
+     *
+     * AND THE FALL-THROUGH WAS WORSE THAN THE MIS-MATCH. A culled line with no
+     * `must` among its keys matched neither of the two arms that existed and
+     * landed on the default, "named nothing on this map and did nothing" —
+     * flatly false three times over. The key named a real place, the answer WAS
+     * applied, and the build said so in the same sentence. */
     heading: (line) =>
-      /must" POI|must POI|"must"/.test(line)
-        ? 'Some places you marked Must show could not be fitted on the map'
-        : /rename has collided/.test(line)
-          ? 'Two places now share one name, so they share one entry'
-          : 'Part of your answer named nothing on this map and did nothing',
+      /fell off this sheet/.test(line)
+        ? 'Some places you chose are off the edge of the map'
+        : /must" POI|must POI|"must"/.test(line)
+          ? 'Some places you marked Must show could not be fitted on the map'
+          : /rename has collided/.test(line)
+            ? 'Two places now share one name, so they share one entry'
+            : 'Part of your answer named nothing on this map and did nothing',
   },
 ];
 

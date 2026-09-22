@@ -43,6 +43,7 @@
 // Runs against a throwaway dir; no network, no portal data, no real generator.
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { readGenWarnings, mergeGenWarnings } from '../src/render/genWarnings.js';
@@ -68,6 +69,30 @@ const COLLIDE_LINE =
   'poi.tiers: a rename has collided — "The Co-op" now names more than one POI,'
   + ' so they share an override key and a placer anchor.'
   + ' Give one of them a different "as", or classify one of them "miss".';
+
+/* THE FOURTH LINE IS BUILT BY THE ENGINE RATHER THAN QUOTED FROM IT (OA-250
+ * item 2), and the departure from the three above is deliberate.
+ *
+ * What this line says is not fixed prose: `culledAfterTiersNote()` composes it
+ * from the number of culled keys, how many were a `must`, and whether each fell
+ * outside the frame or inside the blank coreBox — and the arm that reads it in
+ * genWarnings.js has to be right for EVERY shape that function can produce, not
+ * for one transcription of one of them. Calling the real module is the only way
+ * to ask that question; a copied string would have proved the fix against text
+ * this file wrote for itself.
+ *
+ * The property the verbatim convention exists to protect is kept as its own
+ * assertion below instead: a reword that removes the phrase the reader keys on
+ * goes red, by name, rather than quietly taking the rewording with it. */
+const enginePoiSelect = createRequire(import.meta.url)('../engine/poi_select.js');
+const CULLED_LINE = enginePoiSelect.culledAfterTiersNote([
+  { key: 'library:Library', why: 'core', must: true },
+  { key: 'museum:Museum', why: 'core', must: true },
+  { key: 'shop:Morrisons', why: 'frame', must: false },
+]);
+const CULLED_LINE_NO_MUST = enginePoiSelect.culledAfterTiersNote([
+  { key: 'shop:Morrisons', why: 'frame', must: false },
+]);
 /* The other half of a real stream, and none of it is the customer's business:
  * these are about the engine's own layout, and an editor can act on not one. */
 const INTERNAL_LINES = [
@@ -95,21 +120,56 @@ console.log('\nSelecting the lines an editor can act on:\n');
   else ok('the engine namespace is stripped');
 }
 
-console.log('\nThe three poi.tiers lines get three different headings:\n');
+console.log('\nThe four poi.tiers lines get four different headings:\n');
 {
   const h = (line) => (readGenWarnings(line).editor[0] || {}).heading;
   const must = h(MUST_LINE); const unknown = h(UNKNOWN_LINE); const collide = h(COLLIDE_LINE);
+  const culled = h(CULLED_LINE); const culledNoMust = h(CULLED_LINE_NO_MUST);
   if (!/could not be fitted/.test(must || '')) fail(`the "must" line reads "${must}"`);
   else ok('a Must show that could not be seated');
   if (!/named nothing/.test(unknown || '')) fail(`the unknown-key line reads "${unknown}"`);
   else ok('a key that matched nothing');
   if (!/share one/.test(collide || '')) fail(`the collision line reads "${collide}"`);
   else ok('a rename that collided');
-  // A SINGLE PREFIX COVERS THREE DIFFERENT FAULTS, so a heading chosen by the
+  if (!/off the edge of the map/.test(culled || '')) fail(`the culled-by-the-frame line reads "${culled}"`);
+  else ok('a place the sheet\'s frame or coreBox excluded');
+
+  /* THE TWO ARMS THE FIX IS ACTUALLY ABOUT, and each was a different wrong
+   * sentence before it (OA-250 item 2, measured 2026-09-22 on the engine text
+   * these constants are built from).
+   *
+   * A culled line naming a `must` contains the string `"must"`, so the
+   * placement arm matched it and the customer was told the placer could not fit
+   * the place — the wrong cause, and so the wrong remedy: a pos/move override
+   * or a shorter `as` cannot bring back a place the frame excludes.
+   *
+   * A culled line naming none matched no arm at all and fell to the default,
+   * "named nothing on this map and did nothing", which is false in each of its
+   * three clauses: the key named a real place, the answer was applied, and the
+   * same sentence says so. */
+  if (culled === must) fail('a culled place is headed as a placement failure — the placer had room; the frame excluded it');
+  else ok('a culled place is NOT read as a Must show the placer could not seat');
+  if (culledNoMust === unknown) fail('a culled place with no "must" among its keys is headed "named nothing and did nothing", which is false — it named a real place and the answer was applied');
+  else ok('and one with no "must" in it does not fall through to "named nothing"');
+  if (culledNoMust !== culled) fail(`the same fault reads two ways — "${culled}" and "${culledNoMust}"`);
+  else ok('both shapes of the culled line read the same to a customer');
+
+  /* WHAT THE VERBATIM CONVENTION ABOVE PROTECTS, kept as an assertion because
+   * these two constants are built by the engine rather than copied from it.
+   * `fell off this sheet` is the phrase the reader keys on, and the `"must"`
+   * substring is the whole reason its arm has to come FIRST. An engine reword
+   * that drops either goes red here, by name. */
+  if (!/^poi\.tiers:/.test(CULLED_LINE) || !/fell off this sheet/.test(CULLED_LINE)) fail('the engine no longer emits "poi.tiers: … fell off this sheet" — the reader in genWarnings.js keys on that phrase');
+  else ok('the engine still emits the phrase the reader keys on');
+  if (!/"must"/.test(CULLED_LINE)) fail('the culled line no longer contains \'"must"\' — the ordering comment in genWarnings.js is now describing a hazard that has gone, and should be revisited');
+  else ok('and still contains \'"must"\', which is why its arm must come first');
+
+  // A SINGLE PREFIX COVERS FOUR DIFFERENT FAULTS, so a heading chosen by the
   // prefix alone would tell a reader "part of your answer did nothing" about a
   // placement failure. This is the assertion that keeps them apart.
-  if (must === unknown || must === collide || unknown === collide) fail('two of the three share a heading — a reader would be told the wrong thing about one of them');
-  else ok('all three are distinct');
+  const four = [must, unknown, collide, culled];
+  if (new Set(four).size !== 4) fail(`two of the four share a heading — a reader would be told the wrong thing about one of them: ${four.join(' | ')}`);
+  else ok('all four are distinct');
 }
 
 console.log('\nThe controls — silence where silence is right:\n');
