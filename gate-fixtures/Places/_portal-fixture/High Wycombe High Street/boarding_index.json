@@ -2,8 +2,8 @@
  "place": "High Street",
  "homeLocality": "High Wycombe",
  "generatedBy": "boarding_index.py v1.4",
- "asof": "2026-08-31",
- "feed": "20260831_025027",
+ "asof": "2026-09-23",
+ "feed": "20260901_024734",
  "region": "buckinghamshire.sqlite",
  "stands": [
   {
@@ -221,7 +221,7 @@
     "105",
     "X74"
    ],
-   "trips": 811,
+   "trips": 935,
    "limited": false,
    "alsoFrom": [
     {
@@ -249,7 +249,7 @@
     "103",
     "X74"
    ],
-   "trips": 417,
+   "trips": 541,
    "limited": false,
    "alsoFrom": []
   },
@@ -479,7 +479,7 @@
     "103",
     "X74"
    ],
-   "trips": 417,
+   "trips": 541,
    "limited": false,
    "alsoFrom": []
   },
@@ -493,7 +493,7 @@
     "103",
     "X74"
    ],
-   "trips": 417,
+   "trips": 541,
    "limited": false,
    "alsoFrom": []
   },
@@ -532,7 +532,7 @@
    "routes": [
     "X74"
    ],
-   "trips": 135,
+   "trips": 243,
    "limited": false,
    "alsoFrom": []
   },
@@ -616,7 +616,7 @@
     "103",
     "X74"
    ],
-   "trips": 417,
+   "trips": 541,
    "limited": false,
    "alsoFrom": []
   },
@@ -684,7 +684,7 @@
    "routes": [
     "X74"
    ],
-   "trips": 135,
+   "trips": 243,
    "limited": false,
    "alsoFrom": []
   },
@@ -726,7 +726,7 @@
     "M40",
     "X74"
    ],
-   "trips": 590,
+   "trips": 806,
    "limited": false,
    "alsoFrom": []
   },
@@ -745,7 +745,7 @@
     "M40",
     "X74"
    ],
-   "trips": 1095,
+   "trips": 1327,
    "limited": false,
    "alsoFrom": []
   },
@@ -826,7 +826,7 @@
     "103",
     "X74"
    ],
-   "trips": 417,
+   "trips": 541,
    "limited": false,
    "alsoFrom": []
   },
@@ -868,7 +868,7 @@
     "104",
     "M40"
    ],
-   "trips": 455,
+   "trips": 563,
    "limited": false,
    "alsoFrom": []
   },
