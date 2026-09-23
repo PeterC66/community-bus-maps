@@ -1,11 +1,12 @@
 {
-  "engine": "e90b320c51",
+  "engine": "be266473ef",
+  "engineCommit": "649599810c3441671ab99018436f07d7aa008257",
   "place": "High Street, High Wycombe",
   "placeShort": "High Street",
   "placeTitle": "Buses serving High Street, High Wycombe",
   "town": "High Wycombe",
   "validFrom": "August 2026",
-  "version": "v1.14",
+  "version": "v1.23",
   "anchor": "040000003055",
   "anchorLabel": "High Street",
   "titleColor": "#4477AA",
@@ -121,7 +122,7 @@
   "design": {
     "sheetUrl": "busmaps.uk/m/high-wycombe-high-street",
     "sheetUrlLabel": "Latest version:",
-    "sheetVersion": "build 1.14 · 31 Aug 2026"
+    "sheetVersion": "build 1.23 · 23 Sep 2026"
   },
   "checkedAt": "August 2026"
 }
