@@ -1072,7 +1072,7 @@ is a permanent feature, so no entry was needed in `docs/PILOT.md`'s removal chec
 
 ### Docs — bustimes.org licensing question resolved — 2026-08-07
 
-The site owner (Josh Goodwin, bustimes.org) confirmed by email that our use — central,
+The site owner of bustimes.org confirmed by email that our use — central,
 human-in-the-loop, a handful of pages per town per month — is acceptable and that no attribution
 is required. This closes the item that `docs/LICENSING.md` §3 had flagged as an open launch-gate
 question. Updated `docs/LICENSING.md`, `NOTICE`, `docs/ROADMAP.md`, `docs/DOCUMENTATION-PLAN.md`
