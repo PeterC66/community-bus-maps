@@ -1,7 +1,7 @@
 # Licensing & attribution review (launch gate)
 
-<!-- docstamp v1.12 | 2026-09-21 | sha=1e955ee3 -->
-**v1.12** · updated 21 September 2026
+<!-- docstamp v1.13 | 2026-09-24 | sha=19c42abd -->
+**v1.13** · updated 24 September 2026
 
 This is the launch go/no-go the planning documents named: the maps are built from other people's data, published to the public, and printed by third parties, so the obligations have to be written down and **reviewed before the public site is announced** — not discovered afterwards.
 
@@ -63,15 +63,13 @@ A licence obligation is only met if a reader sees it. Today:
 
 Cross-checking against bustimes.org is part of *central* map-making (the expert tier), not something a customer's browser or the portal server does. The volume is a handful of pages per town per month, read by a person or with a person reviewing the result.
 
-The site owner, Josh Goodwin, was written to directly describing this use (per-town, roughly monthly, a handful of pages, human-reviewed, not from any website users) and asked (a) whether the use is acceptable and (b) what attribution wording, if any, was wanted. His reply, received 7 August 2026:
-
-> "That sounds very acceptable to me; I have no attribution requirements."
+The site owner was written to directly describing this use (per-town, roughly monthly, a handful of pages, human-reviewed, not from any website users) and asked (a) whether the use is acceptable and (b) what attribution wording, if any, was wanted. In a reply received 7 August 2026, he confirmed the use was acceptable and said he had no attribution requirements.
 
 **Outcome:**
 
 - Our use of bustimes.org (central, human-in-the-loop, a handful of pages per town per month, to sanity-check a route already built from BODS, and to fill gaps BODS doesn't cover) is **confirmed acceptable** by the site owner.
 - **No attribution to bustimes.org is required** on printed sheets, public pages, `NOTICE`, or anywhere else. The footer/legal-page mentions of bustimes.org as a place to check live times are a courtesy link, not a data credit, and may stay or go at the operator's discretion.
-- The correspondence is kept at `bustimes.org OK our use.txt` (outside this repo, operator's local files) as the record of consent.
+- **The full thread — the letter, his reply verbatim, and a row-by-row triage of where each answer went — is `Correspondence/CORR-009/` in the private `buses-data` repository**, and it is the record of consent. It is not reproduced here: this is the summary a reader of *this* repository needs.
 
 This closes the item that was previously an open launch-gate question. Widening the scope beyond the pilot (any UK town, automated/bulk use) was not what was described or approved, and would be worth a fresh note to the site owner if it happens.
 
@@ -99,7 +97,7 @@ Progress recorded 2026-07-25. The **web-attribution** rows were verified by Clau
 | NaPTAN credit — on the **site-wide web footer** | ✅ present on all 15 public pages, woven into the existing attribution sentence | Claude | 2026-08-25 |
 | OSM + BODS credit — on the **printed sheet** | ☐ check on paper (operator) — see §2 | | |
 | Printed-sheet credit **legibility**, every output a map offers | ☐ check on paper (operator) | | |
-| bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (Josh Goodwin, bustimes.org) | 2026-08-07 |
+| bustimes.org terms | ✅ **resolved** — site owner confirmed use acceptable, no attribution required (§3) | operator (the site owner, bustimes.org) | 2026-08-07 |
 | **OpenStreetMap ODbL terms** — map-matching, the locator extract and §4.6 | ✅ **resolved** — the Licensing Working Group answered in writing: map-matching is a *Trivial Transformation*, the only obligation is attribution while we publish Produced Works alone, and §4.6 is moot (§1, *asked and resolved*). One narrow point about a customer designer’s own sheet is asked and not yet answered | OSMF Licensing Working Group | 2026-09-12 |
 | Privacy notice reviewed + dated | ✅ reviewed against the system (`legal.html`, dated); confirm for launch (operator) | Claude | 2026-07-25 |
 | CSRF tokens on state-changing POSTs | ✅ **Fixed 2026-08-25** (`8787a72`, audit 2026-08-25 P1) — no longer an accepted risk. A `preHandler` hook rejects every mutating method (POST/PUT/PATCH/DELETE) that carries a session cookie without a matching `x-csrf-token`, plus `POST /auth/verify` unconditionally, because that one runs for somebody who has no session yet and is exactly the request that must not be forgeable. An `onRequest` hook hands every visitor the `cbm_csrf` cookie so any page can echo it. **Verified live 2026-08-28**, not merely merged: `curl -sI https://busmaps.uk/` returns `Set-Cookie: cbm_csrf=…; SameSite=Lax; Secure` on `0.10.0-pilot+2eec3ac`. This row said "deferred, not fixed" for three days after it was fixed. | Claude | 2026-08-28 |
