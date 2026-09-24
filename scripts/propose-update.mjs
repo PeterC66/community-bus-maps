@@ -8,11 +8,18 @@
 // overrides as a new major version) or Declines.
 //
 //   node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" \
-//        [--note "BODS August 2026 refresh"]
+//        [--note "BODS August 2026 refresh"] [--no-notify]
 //
 // --map is a slug or numeric map id; --src must carry gen_internal.js /
 // gen_external.js + the *.json inputs (a Buses ".../S5-render/vX_..." folder).
 // A newer refresh supersedes any still-pending one for the same map.
+//
+// --no-notify stages the update WITHOUT emailing the customer (buses-data
+// OA-152). A multi-map round otherwise sends one near-identical notice per map
+// — the 2026-08-28 round put 18 in one inbox — and there was no way to rehearse
+// a delivery against a real customer record without mailing them. deliver-map.mjs
+// forwards the flag unchanged. The update is staged exactly as without it; only
+// step 4 is skipped, and the run says so.
 
 import { cpSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -24,13 +31,14 @@ import {
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
 import { notify, appUrl } from '../src/email/notify.js';
-import { arg } from './lib/cli.mjs';
+import { arg, has } from './lib/cli.mjs';
 
 
 const mapRef = arg('map');
 const src = arg('src');
+const noNotify = has('no-notify');
 if (!mapRef || !src) {
-  console.error('Usage: node scripts/propose-update.mjs --map <slug|id> --src "<fresh render dir>" [--note "..."]');
+  console.error('Usage: node scripts/propose-update.mjs --map <slug|id> --src "<fresh render dir>" [--note "..."] [--no-notify]');
   process.exit(2);
 }
 
@@ -147,6 +155,10 @@ console.log(`\n  The customer reviews + accepts it at:  /app/maps/${map.id}`);
 // sat in the portal until somebody happened to sign in, which is how one can
 // sit for weeks. Skipped without EMAIL_PROVIDER, and never fatal — the update
 // is staged either way, so a mail failure must not fail this run.
+if (noNotify) {
+  console.log(`  No email sent: --no-notify was given. "${map.customer_name || 'The customer'}" has not been told this update is waiting.`);
+  process.exit(0);
+}
 const mailed = await notify('update-ready', {
   customerId: map.customer_id,
   mapName: map.name, sourceNote: note,
