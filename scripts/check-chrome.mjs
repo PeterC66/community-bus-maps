@@ -42,6 +42,14 @@ for (const name of files) {
     }
   }
 
+  // The nav's skip link targets #main, so a page without exactly one
+  // focusable <main id="main"> has a skip link that goes nowhere (OA-447).
+  const mains = content.match(/<main\b[^>]*>/g) || [];
+  if (mains.length !== 1 || !/\bid="main"/.test(mains[0]) || !/\btabindex="-1"/.test(mains[0])) {
+    failures++; ok = false;
+    console.error(`  ✗ ${name} — needs exactly one <main id="main" tabindex="-1">, the skip link's target; found ${mains.length ? mains.join(', ') : 'none'}`);
+  }
+
   if (ok) console.log(`  ✓ ${name}`);
 }
 

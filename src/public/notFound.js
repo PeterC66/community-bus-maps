@@ -27,10 +27,11 @@ export function notFoundPage(what) {
 <title>Not found — BusMaps.uk</title><link rel="stylesheet" href="/css/styles.css">
 <script src="/js/site-banner.js" defer></script>
 <script src="/js/nav-current.js" defer></script></head>
-<body><header class="site-header"><div class="container"><nav class="nav">
-<a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
+<body><a class="skip-link" href="#main">Skip to main content</a>
+<header class="site-header"><div class="container"><nav class="nav">
+<a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a><span class="spacer"></span>
 <a class="navlink" href="/maps">Published maps</a></nav></div></header>
-<main><section><div class="container">
+<main id="main" tabindex="-1"><section><div class="container">
 <h2 class="mt-0">We can’t find that ${what}</h2>
 <p class="section-intro">It may never have been published, or it may have been taken down. Every map published through the portal is listed on the published-maps page.</p>
 <div class="lead-cta"><a class="btn btn-primary" href="/maps">Browse published maps</a>

@@ -16,8 +16,9 @@
 </head>
 <body>
   <!-- nav:start -->
+  <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header"><div class="container"><nav class="nav">
-    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>
@@ -29,7 +30,7 @@
   </nav></div></header>
   <!-- nav:end -->
 
-  <main>
+  <main id="main" tabindex="-1">
     <section><div class="container">
       <h2 class="mt-0">Accessibility</h2>
       <p class="section-intro">A bus map is a picture, and a picture on its own excludes people. Every map we publish therefore comes with the same information written out as text.</p>

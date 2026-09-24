@@ -60,6 +60,25 @@ a:hover { text-decoration: underline; }
 
 .container { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
 
+/* ---------- skip link ----------
+   The first thing in every page's nav block (scripts/lib/site-chrome.mjs): off
+   screen until a keyboard focuses it, then pinned top-left above the sticky
+   header and the pilot banner. Its target is <main id="main" tabindex="-1">,
+   which takes focus but should not draw a ring round the whole page. */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -100px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 0 0 10px 10px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 600;
+}
+.skip-link:focus { top: 0; outline: 3px solid var(--accent); outline-offset: 0; text-decoration: none; }
+main:focus { outline: none; }
+
 /* ---------- header / nav ---------- */
 .site-header {
   position: sticky;

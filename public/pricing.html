@@ -16,8 +16,9 @@
 </head>
 <body>
   <!-- nav:start -->
+  <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header"><div class="container"><nav class="nav">
-    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>
@@ -29,7 +30,7 @@
   </nav></div></header>
   <!-- nav:end -->
 
-  <main>
+  <main id="main" tabindex="-1">
     <section><div class="container">
       <h2 class="mt-0">Pricing</h2>
       <p class="section-intro">What this would cost, if and when it costs anything.</p>
@@ -51,20 +52,20 @@
       <p class="section-intro">Three separable things. Most suppliers sell only the first.</p>
       <div class="grid cols-3">
         <div class="card">
-          <div class="ico">🖨️</div>
+          <div class="ico" aria-hidden="true">🖨️</div>
           <h3>Print-ready maps</h3>
           <p>A4 at 300 dpi, plus the SVG, for each output you have turned on — reviewed by a
             person before you can download them. A one-off deliverable: useful the day it lands.</p>
         </div>
         <div class="card">
-          <div class="ico">🔁</div>
+          <div class="ico" aria-hidden="true">🔁</div>
           <h3>Keeping them right</h3>
           <p>The monthly cycle: the data is re-read, changes to <em>your</em> routes are shown to
             you, you preview and accept, and your colours and labels carry over. This is the part
             that stops a map on a noticeboard quietly becoming wrong.</p>
         </div>
         <div class="card">
-          <div class="ico">🌐</div>
+          <div class="ico" aria-hidden="true">🌐</div>
           <h3>A public page</h3>
           <p>Each reviewed map gets a page anyone can view, print and link to, carrying your
             organisation's name and a form so readers can tell you if something looks off.</p>

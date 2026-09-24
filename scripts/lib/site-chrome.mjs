@@ -11,9 +11,15 @@
 // not new copy: it keeps the "Always check live times…" caveat that 7 of 12
 // pages already carried, and drops examples.html's lone "Example maps ©" and
 // index.html's lone alternate intro sentence.
+//
+// NAV_HTML opens with the skip link, so it is the first thing a keyboard
+// reaches; it targets `<main id="main" tabindex="-1">`, which check-chrome.mjs
+// asserts every page carries. The logo emoji is aria-hidden so a screen reader
+// reads the brand as "BusMaps.uk" and not "bus, BusMaps.uk" (buses-data OA-447).
 
-export const NAV_HTML = `  <header class="site-header"><div class="container"><nav class="nav">
-    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+export const NAV_HTML = `  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>

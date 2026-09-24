@@ -19,8 +19,9 @@
 </head>
 <body>
   <!-- nav:start -->
+  <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header"><div class="container"><nav class="nav">
-    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>
@@ -32,7 +33,7 @@
   </nav></div></header>
   <!-- nav:end -->
 
-  <main>
+  <main id="main" tabindex="-1">
     <section><div class="container">
       <h2 class="mt-0">Published bus maps</h2>
       <p class="section-intro">These are the maps published through the portal, each reviewed by a person before it went out. Open a place to view its maps or download a print-ready copy — free to use, print and hand out. <strong>This is a pilot:</strong> anything marked <em>Sample</em> is one of our own maps, not an organisation’s published work. <a href="/faq.html#pilot">What that means</a>.</p>
