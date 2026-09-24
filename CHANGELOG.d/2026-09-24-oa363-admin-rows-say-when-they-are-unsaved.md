@@ -1,0 +1,10 @@
+---
+date: 2026-09-24
+title: "The admin console says when a row has changes that are not saved"
+---
+
+- **A Customers or Users row with changes that are not saved is now tinted, and its Save button is enabled only then.** Before this, the grids had several controls on each row and nothing to mark an edit. You could untick *Sample maps* on a customer, move to another tab, and the screen looked exactly as it does after a save. The shape is the one `diagram.js` already uses for its pins: track the changes, disable Save when there is nothing to save, guard the exit. It now lives in `public/app/unsaved-edits.js` (buses-data OA-363).
+- **Leaving the tab asks first.** The admin tabs switch inside the page, so a `beforeunload` guard alone would never have seen the case the action was filed for. A tab switch with unsaved rows asks whether to discard them, and discarding puts the starting values back so the screen matches the database. A real unload (a reload, or closing the page) is guarded too.
+- **A redraw no longer throws an edit away.** Sorting a column, or the reload that follows saving another row, used to rebuild every control from the server, which silently reverted an unsaved edit. Only the controls you changed are carried across a redraw; any control you did not touch shows the server's current value.
+- **Two faults on the same grids.** The Users tab's name box is full width, so a whole name is visible rather than its first eleven letters. Column headings now wrap at a space instead of clipping, so *Watermark downloads* no longer reads *WATERMARK DOWI*. The missing hover text on *Operator filter* is deliberately not written here: the action records that its wording depends on a decision nobody has made yet.
+- `npm run test:admin-unsaved-edits` drives the module through a small fake DOM and checks that admin.js calls it at the redraw, the tab switch, the unload and both saves. It also runs six broken copies of the module, and each must fail. One of them is a redraw that discards the edit, which is the fault this change was made for.

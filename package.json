@@ -45,6 +45,7 @@
     "test:deploy-env-probe": "node scripts/test-deploy-env-probe.mjs",
     "test:safe-subset": "node scripts/test-safe-subset.mjs",
     "test:owner-picker": "node scripts/test-owner-picker.mjs",
+    "test:admin-unsaved-edits": "node scripts/test-admin-unsaved-edits.mjs",
     "test:approve-application": "node scripts/test-approve-application.mjs",
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:newest-render": "node scripts/test-newest-render.mjs",

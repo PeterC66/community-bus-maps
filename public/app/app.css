@@ -230,7 +230,8 @@ dialog.dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .grid-table { display: grid; width: 100%; min-width: 640px; font-size: .9rem; }
 .grid-table .gt-row { display: contents; }
 .grid-table .gt-cell { padding: 11px 12px; border-bottom: 1px solid var(--border); align-self: start; }
-.grid-table .gt-head .gt-cell { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 12px; background: var(--surface); white-space: nowrap; }
+/* Headings WRAP at a space rather than clip: at nowrap, an 11% column printed "WATERMARK DOWI" for Watermark downloads, with no ellipsis to say it had been cut (OA-363). */
+.grid-table .gt-head .gt-cell { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 12px; background: var(--surface); white-space: normal; }
 .grid-table .gt-head .gt-cell.gt-sortable { cursor: pointer; user-select: none; }
 .grid-table .gt-head .gt-cell.gt-sortable:hover { color: var(--text); }
 .grid-table .gt-head .gt-cell.gt-sortable:focus-visible { outline: 2px solid var(--accent, #4a90d9); outline-offset: -2px; }
@@ -246,6 +247,10 @@ dialog.dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .qcell.over .used { color: var(--err); }
 .qnum { width: 52px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
 .planin { width: 90px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
+/* A person's name is a whole value in an input, not a chip: at 90px a full name showed only its first eleven letters and read as a mangled name (OA-363). */
+.planin.namein { width: 100%; max-width: 260px; box-sizing: border-box; margin-top: 4px; }
+/* A row with changes that are not saved yet (unsaved-edits.js, OA-363). */
+.grid-table .gt-row.dirty .gt-cell { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .grid-table select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
 .invite { margin-top: 8px; font-size: .84rem; }
 .invite code { background: var(--surface-2); padding: 2px 7px; border-radius: 6px; word-break: break-all; }
