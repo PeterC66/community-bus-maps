@@ -16,8 +16,9 @@
 </head>
 <body>
   <!-- nav:start -->
+  <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header"><div class="container"><nav class="nav">
-    <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a>
+    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>
@@ -29,7 +30,7 @@
   </nav></div></header>
   <!-- nav:end -->
 
-  <main>
+  <main id="main" tabindex="-1">
     <section><div class="container">
       <h2 class="mt-0">Take this on</h2>
       <p class="section-intro">A working system, looking for someone to run it as a Community
@@ -84,7 +85,7 @@
         above is an opportunity or a wish. Everything here exists and runs today.</p>
       <div class="grid cols-3">
         <div class="card">
-          <div class="ico">🗺️</div>
+          <div class="ico" aria-hidden="true">🗺️</div>
           <h3>A working engine</h3>
           <p><strong>Eight towns and twelve individual places</strong> have been built with it,
             from a small market town to High Wycombe — twenty maps, of which eighteen are
@@ -94,7 +95,7 @@
             drawing time — which is what makes a print file reproducible a year later.</p>
         </div>
         <div class="card">
-          <div class="ico">🚦</div>
+          <div class="ico" aria-hidden="true">🚦</div>
           <h3>A gate that prices the job first</h3>
           <p>Every area is <a href="/examples.html#complex">scored before the expensive work
             starts</a> — how many lines, how tightly they bunch, how much of the network would end
@@ -103,7 +104,7 @@
             quoting.</p>
         </div>
         <div class="card">
-          <div class="ico">🔁</div>
+          <div class="ico" aria-hidden="true">🔁</div>
           <h3>A portal, not a folder of files</h3>
           <p>Self-serve editing inside a safe subset, <strong>three approval gates</strong>
             (organisation, map request, publication review) and a monthly maintenance cycle where
@@ -111,7 +112,7 @@
             product; the one-off map is what everyone else sells.</p>
         </div>
         <div class="card">
-          <div class="ico">📖</div>
+          <div class="ico" aria-hidden="true">📖</div>
           <h3>Documented to be handed over</h3>
           <p>An operations handbook and <strong>six runbooks</strong> — create a map, onboard a
             customer, review and publish, run the monthly cycle, handle messages, handle an
@@ -119,7 +120,7 @@
             procedure step by step, which is the part usually missing.</p>
         </div>
         <div class="card">
-          <div class="ico">🔓</div>
+          <div class="ico" aria-hidden="true">🔓</div>
           <h3>Source-available, with a path to open</h3>
           <p>The codebase and its full history are readable and auditable by a successor today —
             not something they have to be given from scratch. It's licensed under the
@@ -128,7 +129,7 @@
             unconditional later, once the commercial position it protects no longer needs shielding.</p>
         </div>
         <div class="card">
-          <div class="ico">📶</div>
+          <div class="ico" aria-hidden="true">📶</div>
           <h3>Built on open data</h3>
           <p>Bus services from the UK Bus Open Data Service (Open Government Licence); streets and
             landmarks from OpenStreetMap (ODbL, attributed on every map). No licensed dataset to

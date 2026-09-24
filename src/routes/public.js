@@ -651,7 +651,10 @@ export default async function publicRoutes(app) {
       + ' <span class="pilot-more">${jsStr(PILOT.long)}</span></span>'
       + '<a class="pilot-link" href="${jsStr(PILOT.href)}">What this means</a>'
       + '</div>';
-    d.body.insertBefore(b, d.body.firstChild);
+    // After the skip link, so the skip link stays the first thing a keyboard
+    // reaches rather than the banner's own link (OA-447).
+    var skip = d.querySelector('body > .skip-link');
+    d.body.insertBefore(b, skip ? skip.nextSibling : d.body.firstChild);
   }
   // The public map/org pages rewrite document.title after their fetch resolves,
   // which is long after this script runs — so watch <title> and re-apply the
@@ -687,7 +690,8 @@ export default async function publicRoutes(app) {
       + '<span class="local-badge">Local</span>'
       + '<span class="local-text">This is a local/dev copy, not the public BusMaps.uk site.</span>'
       + '</div>';
-    d.body.insertBefore(b, d.body.firstChild);
+    var skip = d.querySelector('body > .skip-link');
+    d.body.insertBefore(b, skip ? skip.nextSibling : d.body.firstChild);
   }
   if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', mount);
   else mount();
@@ -727,8 +731,9 @@ export default async function publicRoutes(app) {
 })();
 `;
 
-  // Order matters: each banner's mount() does insertBefore(..., body.firstChild),
-  // so whichever script runs LAST ends up visually topmost. LOCAL_BANNER_JS runs
+  // Order matters: each banner's mount() inserts at the top of <body> (just after
+  // the skip link, where the page has one), so whichever script runs LAST ends up
+  // visually topmost. LOCAL_BANNER_JS runs
   // last so it sits above the pilot banner when both are present.
   const SITE_BANNER_JS = PILOT_BANNER_JS + LOCAL_BANNER_JS + VERSION_BADGE_JS;
 
