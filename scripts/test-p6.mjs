@@ -170,6 +170,37 @@ console.log('\nupgrade from a pre-P6 database');
   try { rmSync(old, { recursive: true, force: true }); } catch { /* windows file locks */ }
 }
 
+// --- 5. publishedAt is when the version was APPROVED (buses-data OA-295) -----
+// Ramsey v8.0's row was created on 8 Sep and approved on 10 Sep, and the public
+// page's "Published" pill said 8 Sep. Clocks are set by hand because every
+// write in one test run lands in the same second.
+console.log('\npublishedAt is the approval time');
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const raw = new DatabaseSync(path.join(scratch, 'portal.sqlite'));
+  const lateId = seedMap(activeId, 'approved-late');
+  const lateVid = db.getMapBySlug('approved-late').published_version_id;
+  const approved = db.insertPublishRequest({ map_id: lateId, version_id: lateVid });
+  db.decidePublishRequest(approved, { status: 'approved' });
+  const rejected = db.insertPublishRequest({ map_id: lateId, version_id: lateVid });
+  db.decidePublishRequest(rejected, { status: 'rejected' });
+  const plainVid = db.getMapBySlug('published-map').published_version_id;
+  raw.prepare('UPDATE map_version SET created_at = ? WHERE id = ?').run('2026-09-08 15:00:19', lateVid);
+  raw.prepare('UPDATE map_version SET created_at = ? WHERE id = ?').run('2026-09-09 00:00:00', plainVid);
+  raw.prepare('UPDATE publish_request SET reviewed_at = ? WHERE id = ?').run('2026-09-10 09:30:00', approved);
+  raw.prepare('UPDATE publish_request SET reviewed_at = ? WHERE id = ?').run('2026-09-12 10:00:00', rejected);
+  raw.close();
+  eq('a version created before its approval reports the approval time',
+    db.getPublicMapBySlug('approved-late').published_at, '2026-09-10 09:30:00');
+  eq('a later REJECTED request does not move it', db.listPublicMaps().find((r) => r.slug === 'approved-late').published_at,
+    '2026-09-10 09:30:00');
+  eq('a version with no approved request falls back to its creation time',
+    db.getPublicMapBySlug('published-map').published_at, '2026-09-09 00:00:00');
+  eq('the public list is newest APPROVAL first',
+    db.listPublicMaps().map((r) => r.slug).filter((s) => s === 'approved-late' || s === 'published-map'),
+    ['approved-late', 'published-map']);
+}
+
 try { rmSync(scratch, { recursive: true, force: true }); } catch { /* windows file locks */ }
 
 console.log(failures ? `\n✗ ${failures} check(s) failed` : '\n✓ all P6 checks passed');
