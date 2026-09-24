@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.110 | 2026-09-24 | sha=fe8393f3 -->
-**v1.110** · updated 24 September 2026
+<!-- docstamp v1.111 | 2026-09-24 | sha=b7e8f6b5 -->
+**v1.111** · updated 24 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -58,9 +58,9 @@ Add `--dry-run` to see the preflight and change nothing. `RESEND_API_KEY` is del
 
 **It proves the rotation rather than reporting it**, in the three ways this system has had to learn. The file and the running process are compared by `sha256` fingerprint and must agree with each other and differ from the old one — a config read cannot tell you a container was recreated, and `docker compose up -d` is used rather than `restart`, which does not re-evaluate the `${VAR}` substitution. Then the **old** value is exercised against the live service and its refusal asserted: for `METRICS_TOKEN` that is `/health?deep=1` losing `gitSha`, for `OPERATOR_TOKEN` a 401 on `/api/admin/worklist`. `STATUS_TOKEN` has no safe read-only route — the only thing it opens is a POST that writes the status snapshot — so its revocation is reported **UNPROVED** rather than inferred from a config read.
 
-**It keeps no `.env` backup, on purpose.** The obvious `cp .env .env.bak-$(date)` leaves a cleartext duplicate of every *other* live secret sitting beside the original for ever; two such files were found on this host on 2026-09-01, one of them five weeks old and holding a live `RESEND_API_KEY`. The only thing such a backup preserves is a value being retired deliberately, so the old fingerprint is printed instead.
+**It keeps no `.env` backup, on purpose.** The obvious `cp .env .env.bak-$(date)` leaves a cleartext duplicate of every *other* live secret sitting beside the original for ever; two such files were found on this host on 2026-09-01, one of them five weeks old and holding a live `RESEND_API_KEY`. The only thing such a backup preserves is a value being retired deliberately, so the old fingerprint is printed instead. Because that fingerprint is the only record, it is taken the way Compose reads the key — the last line for a repeated key, one pair of quotes stripped — through the same `scripts/lib/host-env.mjs` reader the deploy uses. Until 2026-09-24 it took the first line and kept the quotes, so on a duplicated or hand-quoted key it described a value that was never live (buses-data OA-425).
 
-**Rotating `STATUS_TOKEN` or `OPERATOR_TOKEN` breaks a laptop-side tool until its copy is updated** — `push-status.mjs` and `worklist.mjs` in the `bus-work` skill. The script says so in its preflight, before it changes anything, rather than at the end. `npm run test:rotate-secret` asserts every refusal above and breaks the `compose.yaml` preflight on purpose to show it can go red.
+**Rotating `STATUS_TOKEN` or `OPERATOR_TOKEN` breaks a laptop-side tool until its copy is updated** — `push-status.mjs` and `worklist.mjs` in the `bus-work` skill. The script says so in its preflight, before it changes anything, rather than at the end. `npm run test:rotate-secret` asserts every refusal above and breaks the `compose.yaml` preflight on purpose to show it can go red. It also runs the host script's read of the old value under a real `sh` against fixture `.env` files — plain, repeated, quoted, Windows line endings — and requires the fingerprint to match the value Compose would load, with the old first-line read put back on purpose to show that arm can go red too.
 
 ## 3. Run it
 

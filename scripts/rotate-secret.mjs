@@ -49,6 +49,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { rotationScript } from './lib/rotate-host-script.mjs';
 
 /* ------------------------------------------------------------------ *
  * What may be rotated, and what else in the world holds a copy.
@@ -144,8 +145,6 @@ function sshScript(script, { inherit = true } = {}) {
   return { status: r.status, stdout: (r.stdout || '').trim(), stderr: (r.stderr || '').trim() };
 }
 
-const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
-
 console.log(`== rotate ${VAR} ==`);
 console.log(`   host : ${HOST}`);
 console.log(`   dir  : ${APP_DIR}`);
@@ -209,55 +208,9 @@ fi
 echo "5. revocation UNPROVED - no safe read-only probe for this token"
 `;
 
-const script = `
-set -eu
-cd ${q(APP_DIR)}
-V=${q(VAR)}
-test -f .env || { echo "FAIL: no .env in ${APP_DIR}"; exit 1; }
-
-fp() { sha256sum | cut -c1-12; }
-
-OLD=$(grep "^$V=" .env | head -1 | cut -d= -f2- | tr -d '\\r\\n' || true)
-OLDFP=$(printf %s "$OLD" | fp)
-echo "1. before      : len=\${#OLD} fp=$OLDFP"
-
-NEW=$(openssl rand -hex 24)
-if [ \${#NEW} -ne 48 ]; then echo "FAIL: generated \${#NEW} chars, expected 48"; exit 1; fi
-echo "2. generated   : 48 hex chars, host-side"
-
-grep -v "^$V=" .env > .env.new
-printf '%s=%s\\n' "$V" "$NEW" >> .env.new
-chmod --reference=.env .env.new 2>/dev/null || chmod 600 .env.new
-mv .env.new .env
-NEW=
-echo "3. .env written (no backup kept - the old fingerprint above is the record)"
-
-docker compose up -d portal >/dev/null 2>&1
-echo "4. container recreated with 'up -d' (not 'restart')"
-sleep 6
-
-FILEFP=$(grep "^$V=" .env | head -1 | cut -d= -f2- | tr -d '\\r\\n' | fp)
-CONTRAW=$(docker compose exec -T portal printenv "$V" | tr -d '\\r\\n')
-CONTFP=$(printf %s "$CONTRAW" | fp)
-echo "   file       : fp=$FILEFP"
-echo "   process    : fp=$CONTFP len=\${#CONTRAW}"
-
-if [ -z "$CONTRAW" ]; then
-  echo "FAIL: the container has no value - .env is not reaching it"
-  exit 1
-fi
-if [ "$FILEFP" != "$CONTFP" ]; then
-  echo "FAIL: the file and the running process disagree"
-  exit 1
-fi
-if [ "$FILEFP" = "$OLDFP" ]; then
-  echo "FAIL: the value did not change"
-  exit 1
-fi
-echo "   -> file == process, and both differ from the old value"
-${probeBlock}
-echo "DONE  $OLDFP -> $FILEFP"
-`;
+// The host-side script is built in scripts/lib/rotate-host-script.mjs, so
+// test-rotate-secret.mjs can run the part of it that reads the old value.
+const script = rotationScript({ name: VAR, appDir: APP_DIR, probeBlock });
 
 const r = sshScript(script);
 if (r.status !== 0) {
