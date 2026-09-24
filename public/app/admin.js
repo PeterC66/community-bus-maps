@@ -52,6 +52,8 @@ const sortState = {}; // { [stateKey]: { key, dir } } — remembers the active s
 // element for a table embedded alongside other content (e.g. the ops cards).
 function renderSortable(stateKey, box, colWidths, columns, rows, rowFn, afterRender) {
   const st = sortState[stateKey] || (sortState[stateKey] = { key: null, dir: 1 });
+  // An edit the operator has not saved survives the redraw (unsaved-edits.js).
+  const carried = UnsavedEdits.carry(box);
   const sorted = st.key ? sortRows(rows, st.key, st.dir) : rows;
   const style = `grid-template-columns:${colWidths.map((w) => w + '%').join(' ')}`;
   const head = columns.map((c) => {
@@ -70,6 +72,7 @@ function renderSortable(stateKey, box, colWidths, columns, rows, rowFn, afterRen
     h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
   });
   if (afterRender) afterRender(box);
+  UnsavedEdits.arm(box, carried);
   return box;
 }
 async function jget(url) { const r = await fetch(url); return { status: r.status, body: await r.json().catch(() => ({})) }; }
@@ -94,12 +97,21 @@ function banner(kind, html) {
 // ---- tabs -------------------------------------------------------------------
 const SECTIONS = ['todo', 'applications', 'requests', 'customers', 'users', 'advisers', 'sessions', 'messages', 'refreshes', 'audit', 'ops'];
 const LOADERS = {};
+// Leaving a tab is not a page unload, so beforeunload alone could never have
+// caught the case OA-363 was filed for: the tab switch is what the operator does.
 function showTab(name) {
+  const from = SECTIONS.find((s) => !$('sec-' + s).hidden);
+  if (from && from !== name) {
+    const sec = $('sec-' + from), n = UnsavedEdits.count(sec);
+    if (n && !confirm(`${n} row${n === 1 ? ' has' : 's have'} changes that are not saved. Leave this tab and discard ${n === 1 ? 'it' : 'them'}?`)) return;
+    UnsavedEdits.revert(sec);
+  }
   $('tabs').querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
   SECTIONS.forEach((s) => { $('sec-' + s).hidden = s !== name; });
   if (LOADERS[name]) LOADERS[name]();
 }
 $('tabs').querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+window.addEventListener('beforeunload', (e) => { if (UnsavedEdits.count(document)) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---- summary badges ---------------------------------------------------------
 async function loadSummary() {
@@ -337,7 +349,7 @@ LOADERS.customers = async () => {
 };
 function rowCust(c) {
   const overA = c.usedAreas > c.quotaAreas ? ' over' : '', overP = c.usedPlaces > c.quotaPlaces ? ' over' : '';
-  return `<div class="gt-row" role="row" data-cust="${c.id}">
+  return `<div class="gt-row" role="row" data-cust="${c.id}" data-edit-key="cust-${c.id}">
     <div class="gt-cell" role="cell"><strong>${esc(c.name)}</strong><div class="sub">${esc(c.type)}${c.publicUrl ? ' · <a href="' + esc(c.publicUrl) + '" target="_blank" rel="noopener">public page</a>' : ''}</div></div>
     <div class="gt-cell" role="cell">${c.users}</div>
     <div class="gt-cell qcell${overA}" role="cell"><span class="used">${c.usedAreas}</span> / <input type="number" min="0" max="99" value="${c.quotaAreas}" data-q="areas" class="qnum"></div>
@@ -355,7 +367,7 @@ async function saveCust(id) {
   const g = (q) => tr.querySelector(`[data-q="${q}"]`);
   const data = { quotaAreas: Number(g('areas').value), quotaPlaces: Number(g('places').value), status: g('status').value, plan: g('plan').value, hideOperatorsEnabled: g('hideOps').checked, watermarkEnabled: g('watermark').checked, isSample: g('isSample').checked };
   const { body } = await jsend(`/api/admin/customers/${id}`, 'PATCH', data);
-  if (body.ok) banner('ok', `Saved changes to ${esc(body.customer.name)}.`);
+  if (body.ok) { UnsavedEdits.markSaved(tr); banner('ok', `Saved changes to ${esc(body.customer.name)}.`); }
   else banner('err', body.error || 'Save failed.');
 }
 
@@ -391,8 +403,8 @@ function rowUser(u) {
   const self = me && u.id === me.id;
   const custOptions = '<option value="">— platform admin —</option>'
     + (customersForInvite || []).map((c) => `<option value="${c.id}"${u.customerId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
-  return `<div class="gt-row" role="row" data-user="${u.id}" data-current-customer="${u.customerId || ''}">
-    <div class="gt-cell" role="cell"><strong>${esc(u.email)}</strong>${self ? ' <span class="muted">(you)</span>' : ''}<div><input type="text" value="${esc(u.name || '')}" data-q="name" class="planin" maxlength="120" placeholder="name"></div></div>
+  return `<div class="gt-row" role="row" data-user="${u.id}" data-edit-key="user-${u.id}" data-current-customer="${u.customerId || ''}">
+    <div class="gt-cell" role="cell"><strong>${esc(u.email)}</strong>${self ? ' <span class="muted">(you)</span>' : ''}<div><input type="text" value="${esc(u.name || '')}" data-q="name" class="planin namein" maxlength="120" placeholder="name" aria-label="Name (editable)" title="Name — editable, saved with this row"></div></div>
     <div class="gt-cell" role="cell"><select data-q="customerId">${custOptions}</select></div>
     <div class="gt-cell" role="cell"><select data-q="role">
         <option value="adviser"${u.role === 'adviser' ? ' selected' : ''}>adviser</option>
@@ -564,7 +576,7 @@ async function saveUser(id) {
     const fromName = (customersForInvite || []).find((c) => String(c.id) === wasCustomer);
     const toName = (customersForInvite || []).find((c) => String(c.id) === customerId);
     const msg = `Move this user from ${fromName ? fromName.name : '— platform admin —'} to ${toName ? toName.name : '— platform admin —'}?\n\nThis changes which maps they can see.`;
-    if (!confirm(msg)) { g('customerId').value = wasCustomer; return; }
+    if (!confirm(msg)) { g('customerId').value = wasCustomer; UnsavedEdits.refresh(tr); return; }
   }
   const data = { name: g('name').value, role: g('role').value, status: g('status').disabled ? undefined : g('status').value, customerId: customerId || null };
   const { body } = await jsend(`/api/admin/users/${id}`, 'PATCH', data);
@@ -575,7 +587,7 @@ async function saveUser(id) {
     // and silent about the credential the person was still holding (OA-183).
     const n = body.revokedSessions || 0;
     banner('ok', `Saved changes to ${esc(body.user.email)}.${n ? ` Signed them out of ${n} live session${n === 1 ? '' : 's'}.` : ''}`);
-    customersForInvite = null; LOADERS.users(); LOADERS.customers();
+    UnsavedEdits.markSaved(tr); customersForInvite = null; LOADERS.users(); LOADERS.customers();
   }
   else banner('err', body.error || 'Save failed.');
 }
