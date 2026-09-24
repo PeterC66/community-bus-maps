@@ -1473,11 +1473,19 @@ const PUBLIC_WHERE = `m.published_version_id IS NOT NULL
        AND m.status <> 'archived'
        AND c.status = 'active'`;
 
+// published_at is when the published version was APPROVED — its latest approved
+// publish_request, as listPublishedHistory() reads it — not when the version row
+// was created, which can be days earlier for a draft that waited (Ramsey v8.0:
+// created 8 Sep, published 10 Sep). A version with no approved request (a direct
+// re-import) falls back to its creation time. buses-data OA-295.
 const PUBLIC_COLUMNS = `m.id, m.slug, m.name, m.kind, m.subject, m.outputs,
               m.banner_note,
               c.id AS customer_id, c.name AS customer_name, c.type AS customer_type,
               c.slug AS customer_slug, c.branding_json, c.is_demo, c.watermark_enabled,
-              pv.storage_key AS pub_key, pv.created_at AS published_at,
+              pv.storage_key AS pub_key,
+              COALESCE((SELECT MAX(pr.reviewed_at) FROM publish_request pr
+                         WHERE pr.version_id = pv.id AND pr.map_id = m.id
+                           AND pr.status = 'approved'), pv.created_at) AS published_at,
               pv.major AS pub_major, pv.minor AS pub_minor`;
 
 /** Every publicly-visible map (newest publication first). */
@@ -1489,7 +1497,7 @@ export function listPublicMaps() {
          JOIN customer c ON c.id = m.customer_id
          JOIN map_version pv ON pv.id = m.published_version_id
         WHERE ${PUBLIC_WHERE}
-        ORDER BY pv.created_at DESC, m.name`,
+        ORDER BY published_at DESC, m.name`,
     )
     .all();
 }
