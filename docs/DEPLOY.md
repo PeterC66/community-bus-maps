@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.120 | 2026-09-25 | sha=aaf23c10 -->
-**v1.120** · updated 25 September 2026
+<!-- docstamp v1.121 | 2026-09-25 | sha=df50efe6 -->
+**v1.121** · updated 25 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -370,6 +370,14 @@ npm run prune:staged -- --days 90             # dry run by default; add --yes to
 Removes staged payloads of **settled** monthly refreshes and the data an accepted refresh replaced, once they are older than `--days`. It never touches a pending update, a map's live data, or any rendered version. The Ops tab shows how much it would free.
 
 Sessions expire themselves (the server purges hourly). Nothing else grows unbounded except renders, which are kept on purpose — every version stays downloadable.
+
+**Who has used the portal, and what they did.** `scripts/activity-report.mjs` prints one block per person for the last 28 days: their account and organisation, the sign-in links they were sent and used, every change the audit log holds for them with the maps it touched, and any application or message they sent. Command-line actors such as `cli:delete-map` are listed apart. It reads the database read-only and prints real names and addresses, so read it and do not paste it into a file under git. It counts **used sign-in links, not sessions**, because the hourly purge above deletes a session once it expires, and it cannot see page views: *no actions* means nothing was changed, not that nothing was looked at. From the laptop, from any folder, with no placeholders:
+
+```bash
+npm --prefix "C:/Claude/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/activity-report.mjs"
+```
+
+Add `--days 90` inside the quoted command for a longer window (any whole number of days), or `--json` for the same figures as JSON. Run on the laptop instead, as `npm run activity:report` from `C:\Claude\community-bus-maps`, it reports the local portal, whose seeded demo accounts read like real customers.
 
 ## 7. Upgrading the app
 

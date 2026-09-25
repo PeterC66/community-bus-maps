@@ -89,6 +89,8 @@
     "test:demand": "node scripts/test-demand.mjs",
     "test:prove-red-demand": "node scripts/prove-red-demand.mjs",
     "demand:report": "node scripts/demand-report.mjs",
+    "activity:report": "node scripts/activity-report.mjs",
+    "test:activity-report": "node scripts/test-activity-report.mjs",
     "sync:directory": "node scripts/sync-directory.mjs",
     "fixtures:vendor": "node scripts/vendor-fixtures.mjs",
     "test:prove-red-vendored-fixtures": "node scripts/prove-red-vendored-fixtures.mjs",
