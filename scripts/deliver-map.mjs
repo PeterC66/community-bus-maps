@@ -28,6 +28,9 @@
 //   npm run deliver -- --src "<fresh S5-render dir>" --map st-ives --kind area \
 //        --note "BODS 2026-08-01 refresh"
 //
+// --no-notify is forwarded like any other flag: propose-update.mjs then stages
+// the update without emailing the customer (buses-data OA-152).
+//
 // --kind is still required in this mode too — it only picks which verify gate
 // (verify:area vs verify:place) runs in step 2; it is not forwarded to
 // propose-update.mjs, which infers kind from the map row itself.
