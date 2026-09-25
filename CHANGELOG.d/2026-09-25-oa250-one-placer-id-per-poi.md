@@ -1,0 +1,7 @@
+---
+date: 2026-09-25
+title: "Two landmarks with the same name no longer print one name twice"
+---
+
+- **Re-vendored `engine/place/gen_internal.js` and `engine/poi_select.js` from the claude-skills pull request for buses-data OA-250.** When two landmarks had the same category and name, such as St Neots' two Lidls 2.9 km apart, the label placer treated them as one. It printed one name twice in the same spot and lost the other place's name. Each landmark now gets its own placement, so both names can print, and one that has no room is reported as unplaced. Nine doubled names on four committed sheets go to none. The maps that move are High Wycombe, St Neots and Beaconsfield, on both the geographic and simplified street sheets. Every other map, including both portal fixtures (St Ives and High Wycombe Aldi), is byte-identical, so `verify:area` and `verify:place` do not move. A landmark answer or an editor override still uses `<category>:<name>` and still applies to both places.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It carries only the re-vendor and this entry. No schema, route or UI changes. The published High Wycombe, St Neots and Beaconsfield sheets redraw at their next re-render. §3a has no sheet-level check that can see this. The claude-skills estate measurement in the engine commit is the evidence.
