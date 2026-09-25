@@ -1334,6 +1334,9 @@ async function buildOwnerPanel() {
     $('whoami').textContent = me.customer ? `${me.email} · ${me.customer.name}` : `${me.email} · admin`;
     $('logoutBtn').style.display = '';
     if (me.role === 'admin') $('adminLink').style.display = '';
+    // H9 — after role-based nav is shown; also covers #ownerPanel, which
+    // buildOwnerPanel() unhides with the `hidden` attribute, not style.display.
+    if (window.EEV) window.EEV.apply();
     ME = me;
     // Public details belong to a customer organisation, not a platform account.
     if (!me.customer) document.querySelectorAll('a[href="/app/branding"]').forEach((a) => { a.style.display = 'none'; });
