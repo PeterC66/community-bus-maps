@@ -1,0 +1,8 @@
+---
+date: 2026-09-26
+title: "The map search matches a place map's stop by the town it is in"
+---
+
+- **The `/maps` search now reads the NaPTAN locality a place map records for each stop (buses-data OA-311).** Since claude-skills #136 the place engine writes `stopLocalities[]` beside each destination's `stops[]` in `routes.json`, one locality or `null` per stop. `buildPlacesFromDir()` in `src/search/place-index.js` copies it into the `places.json` sidecar as `locality`, and `src/search/index.js` indexes that locality as a place in its own right, while the stop's own name then matches only in full. So a search for *Uxbridge* finds a sheet whose stop is *York Road (UB8)*, and a search for *York* does not, without guessing from the shape of the name. A stop named after its own locality, or known as a destination elsewhere in the estate, keeps word matching. A `null` entry, a list of the wrong length, and every map published before #136 keep the street-type and placeless-name rules exactly as they were.
+- **Nothing live moves on this deploy.** No published place map carries `stopLocalities` yet: each gains it when it is next rebuilt and re-published (buses-data OA-430's rebuild rows), and its sidecar is written at that publish. `npm run test:search` gains ten checks and `npm run test:prove-red-search` four arms that break each half and require the named check to go red.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It carries the search change, its tests and this entry. No schema, route or UI changes, and no engine re-vendor.

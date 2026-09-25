@@ -67,8 +67,9 @@ function addHit(hits, map, role, text, via) {
 // bare string: place-index.js takes the name straight off the sheet, and
 // nothing in it says whether that name is somewhere you can GO or somewhere the
 // route merely passes. So this is a heuristic over the string, and it is
-// written to be deleted — see the action for the real fix, which is to record
-// NaPTAN's locality at publish time and match on that instead.
+// written to be deleted — the real fix, a stop's NaPTAN locality recorded by
+// the engine and matched on instead, is `locatedElsewhere()` below, and it
+// reaches only the place maps built since claude-skills #136.
 //
 // THE RULE: a stop or landmark name that is shaped like a thoroughfare matches
 // only in FULL. Word, prefix and substring matching stay exactly as they were
@@ -148,6 +149,29 @@ function looksLikeThoroughfare(text, knownPlaces) {
   return !knownPlaces.has(normalize(text));
 }
 
+// A STOP THAT KNOWS ITS LOCALITY ANSWERS TO THE LOCALITY, NOT TO ITS OWN WORDS
+// (buses-data OA-311, 2026-09-26). The heuristics above guess from the shape of
+// a name; a place map built since claude-skills #136 records the NaPTAN
+// locality of each stop instead, so "York Road (UB8)" arrives saying it is in
+// Uxbridge. Such a stop is indexed twice: its locality as an ordinary place,
+// and its own name matching only in full — whatever that name's shape. The
+// guesses still run for every stop the engine could not pin, and for every map
+// published before it began pinning them.
+//
+// Two stops keep word matching: one whose name IS its locality (a stop called
+// "Bar Hill" in Bar Hill is the village), and one the estate knows as a
+// destination somewhere, for the same reason `knownPlaces` spares Bourne End.
+/**
+ * @param {{name:string, locality?:string}} p  one sidecar place of role 'stop'
+ * @param {Set<string>} knownPlaces
+ */
+function locatedElsewhere(p, knownPlaces) {
+  if (!p.locality) return false;
+  const norm = normalize(p.name);
+  if (norm === normalize(p.locality) || withoutQualifier(p.name) === normalize(p.locality)) return false;
+  return !knownPlaces.has(norm);
+}
+
 function buildIndex() {
   const hits = [];
   const rows = [];
@@ -178,11 +202,17 @@ function buildIndex() {
       // The thoroughfare rule spares destinations, which are places by
       // construction; the placeless rule does not, because a name carrying no
       // locality names no place whatever role it was recorded in.
-      if ((role === 'stop' && looksLikeThoroughfare(p.name, knownPlaces)) || namesNoPlace(p.name)) {
+      if ((role === 'stop' && (locatedElsewhere(p, knownPlaces) || looksLikeThoroughfare(p.name, knownPlaces)))
+        || namesNoPlace(p.name)) {
         hit.fullOnly = true;
         hit.bare = withoutQualifier(p.name);
       }
       hits.push(hit);
+      // The settlement the stop is in is a place by construction, so it takes
+      // word, prefix and typo matching like a destination does.
+      if (role === 'stop' && p.locality && normalize(p.locality) !== hit.norm) {
+        addHit(hits, map, 'stop', p.locality, p.via);
+      }
     }
     for (const name of sidecar.pois || []) {
       const hit = { map, role: 'poi', text: name, via: '', norm: normalize(name) };

@@ -19,13 +19,22 @@ function readJson(p, fallback) {
 
 // Dedupe by (name, role, via) — the same place can legitimately appear as a
 // destination on one route and an intermediate stop on another.
-function addPlace(out, seen, name, role, via) {
+//
+// `locality` is the NaPTAN locality the place engine's derive_stops.py writes
+// beside each stop of a PLACE map, as `stopLocalities[]` parallel to `stops[]`
+// (claude-skills #136, buses-data OA-311). It is recorded only when it is a
+// non-empty string; an area map's stops are mostly settlements already and
+// carry none, and a stop the engine could not pin is `null` and carries none.
+function addPlace(out, seen, name, role, via, locality) {
   const clean = typeof name === 'string' ? name.trim() : '';
   if (!clean) return;
   const key = `${clean.toLowerCase()}|${role}|${via || ''}`;
   if (seen.has(key)) return;
   seen.add(key);
-  out.push(via ? { name: clean, role, via } : { name: clean, role });
+  const entry = via ? { name: clean, role, via } : { name: clean, role };
+  const loc = typeof locality === 'string' ? locality.trim() : '';
+  if (loc) entry.locality = loc;
+  out.push(entry);
 }
 
 /**
@@ -34,7 +43,7 @@ function addPlace(out, seen, name, role, via) {
  * generator run, so this is safe to call at publish time.
  * @param {string} dataDir
  * @param {'area'|'place'} kind
- * @returns {{ places: {name:string, role:string, via?:string}[], pois: string[] }}
+ * @returns {{ places: {name:string, role:string, via?:string, locality?:string}[], pois: string[] }}
  */
 export function buildPlacesFromDir(dataDir, kind) {
   const rj = readJson(path.join(dataDir, 'routes.json'), {}) || {};
@@ -45,7 +54,12 @@ export function buildPlacesFromDir(dataDir, kind) {
     for (const d of Array.isArray(rj.destinations) ? rj.destinations : []) {
       const via = Array.isArray(d.routes) ? d.routes.filter(Boolean).join('/') : '';
       addPlace(places, seen, d.name, 'destination', via);
-      for (const s of Array.isArray(d.stops) ? d.stops : []) addPlace(places, seen, s, 'stop', via);
+      const stops = Array.isArray(d.stops) ? d.stops : [];
+      // Parallel to `stops` or not used at all: a list of the wrong length
+      // cannot say which locality belongs to which stop.
+      const localities = Array.isArray(d.stopLocalities) && d.stopLocalities.length === stops.length
+        ? d.stopLocalities : [];
+      stops.forEach((s, i) => addPlace(places, seen, s, 'stop', via, localities[i]));
     }
   } else {
     for (const r of Array.isArray(rj.external) ? rj.external : []) {
