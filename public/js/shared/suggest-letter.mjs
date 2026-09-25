@@ -88,7 +88,10 @@ function whatTheyHave(offer) {
     // opinion about a map the sender may never have opened, put in their mouth
     // by us. What the row supports is that the map exists and when it is dated.
     const dated = offer.dated ? `, dated ${monthWords(offer.dated)}` : '';
-    return `I can see that you publish a map of the whole network${dated}. What I cannot find is a map of the buses in one town at a scale I can read at a bus stop.`;
+    // `networkPart` (buses-data OA-381): the row says the map covers PART of
+    // the network, and the letter must not claim more for the council than
+    // the directory does.
+    return `I can see that you publish a map of ${offer.networkPart ? 'part of the network' : 'the whole network'}${dated}. What I cannot find is a map of the buses in one town at a scale I can read at a bus stop.`;
   }
   if (offer.status === 'town') {
     const towns = (offer.towns || []).join(', ');
@@ -184,7 +187,7 @@ export function suggestionLetter(offer, query) {
 /** What the directory says about this authority, as one clause for the letter's last paragraph. */
 function describeRecord(offer) {
   const checked = offer.checked ? ` when it last looked, on ${dayWords(offer.checked)}.` : '.';
-  if (offer.status === 'network') return `you published a map of the whole network, and no map of an individual town,${checked}`;
+  if (offer.status === 'network') return `you published a map of ${offer.networkPart ? 'part of the network' : 'the whole network'}, and no map of an individual town,${checked}`;
   if (offer.status === 'town') return `you published maps of some individual towns${checked}`;
   return `it could find no bus map published by you${checked}`;
 }

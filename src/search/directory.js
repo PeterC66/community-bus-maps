@@ -119,17 +119,25 @@ export function resetDirectoryCache() { cached = null; }
  * card leads with, and it is about what the authority publishes — never about
  * whether we like it.
  *
- * @returns {{status:'network'|'town'|'none', ...}}
+ * `networkMap.status: 'some'` (buses-data OA-381) is a map of PART of the
+ * network — six district maps of new routes, four area maps with two boroughs
+ * missing. It is offered exactly as a whole-network map is, status 'network',
+ * with `networkPart` set so the card and the letter say "part of the network".
+ * It was added because 'yes' made the Boxworth panel, and the letter a reader
+ * sends, tell a council it maps the whole network when its own row said not.
+ *
+ * @returns {{status:'network'|'town'|'none', networkPart:boolean, ...}}
  */
 export function offerOf(row) {
   const net = row.networkMap || {};
   const town = row.townMaps || {};
-  const hasNet = net.status === 'yes';
+  const hasNet = net.status === 'yes' || net.status === 'some';
   const hasTown = town.status === 'yes' || town.status === 'some';
   const url = (hasNet && net.url) || (hasTown && town.url) || row.landingPage || '';
   return {
     authority: row.lta,
     status: hasNet ? 'network' : hasTown ? 'town' : 'none',
+    networkPart: hasNet && net.status === 'some',
     url,
     format: hasNet ? net.format || '' : '',
     dated: hasNet ? net.dated || '' : '',
