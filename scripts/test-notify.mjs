@@ -145,6 +145,30 @@ check('… singular for exactly one map', /^1 map update ready/.test(compose('up
   eq('no ids, no digests', updateRoundDigests([]).groups, []);
   const sent = await notifyUpdateRound(round, { info() {}, warn() {} });
   eq('notifyUpdateRound: one send attempt per customer, none without a provider', sent.results.map((r) => [r.maps, r.sent]).sort(), [[1, 0], [3, 0]]);
+
+  // The round's caller, scripts/notify-update-round.mjs, run as a child against
+  // this same scratch database. It resolves each map to its pending update and
+  // refuses the whole round, sending nothing, if any one does not resolve.
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const script = fileURLToPath(new URL('./notify-update-round.mjs', import.meta.url));
+  const runRound = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env: process.env });
+  const audits = () => db.listAudit({ limit: 1000 }).filter((a) => a.action === 'notify.update-ready-batch');
+  mk(custId, 'fen-d');   // a map with nothing staged
+  const plan = runRound('--map', 'fen-a,oak-a', '--dry-run');
+  eq('notify-update-round --dry-run exits 0', plan.status, 0);
+  check('… plans one digest per customer', plan.stdout.includes('2 customer digest(s) for 2 staged update(s)'), plan.stdout + plan.stderr);
+  check('… a map resolves to its NEWEST pending update, not an earlier one', plan.stdout.includes(`    #${round[0]}  Fen-a`) && !plan.stdout.includes(`    #${earlier}  `), plan.stdout);
+  check('… and sends nothing', /Dry run: nothing was sent/.test(plan.stdout) && audits().length === 0, plan.stdout);
+  for (const [why, args] of [['an unknown slug', ['--map', 'fen-b,nowhere']], ['a map with nothing staged', ['--map', 'fen-b,fen-d']], ['an id that is not pending', ['--ids', `${round[1]},99999`]]]) {
+    const r = runRound(...args);
+    check(`${why} refuses the whole round (exit 1) and sends nothing`, r.status === 1 && /nothing was sent/.test(r.stderr) && audits().length === 0, `exit ${r.status}: ${r.stderr}`);
+  }
+  eq('neither --map nor --ids is a usage error', runRound().status, 2);
+  eq('… and so is both', runRound('--map', 'fen-b', '--ids', String(round[1])).status, 2);
+  const real = runRound('--map', 'fen-b,fen-c');
+  eq('a real round exits 0', real.status, 0);
+  eq('… and is audited once, with the ids it resolved', audits().map((a) => JSON.parse(a.detail_json).proposedIds), [[round[1], round[2]]]);
 }
 
 check('every email says why it was received', [up, pubbed, back, batch, upBatch].every((m) => /You are receiving this/.test(m.text)));
