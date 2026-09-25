@@ -48,6 +48,7 @@
     "test:admin-unsaved-edits": "node scripts/test-admin-unsaved-edits.mjs",
     "test:branding-unsaved-edits": "node scripts/test-branding-unsaved-edits.mjs",
     "test:approve-application": "node scripts/test-approve-application.mjs",
+    "test:create-admin": "node scripts/test-create-admin.mjs",
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:propose-no-notify": "node scripts/test-propose-update-no-notify.mjs",
     "test:newest-render": "node scripts/test-newest-render.mjs",
