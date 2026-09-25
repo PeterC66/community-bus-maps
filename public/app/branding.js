@@ -7,6 +7,37 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 
 let state = { branding: {}, accents: [], customer: null, preview: null };
 
+// UNSAVED CHANGES (buses-data OA-363). The two panels each have their own Save,
+// and until this nothing said either had been changed and not saved: type a new
+// public name, click away, and the page let you go without a word. Each panel
+// now keeps the value it last loaded or saved; a panel that differs from it has
+// its Save enabled, and only then, and a reload or close asks first — the shape
+// diagram.js and the admin console already follow. Both stay null until the
+// server has answered, so a page that never loaded can never claim an edit.
+let savedDetails = null;
+let savedWatermarkFree = null;
+
+function detailsNow() {
+  return JSON.stringify({
+    publicName: $('publicName').value.trim(),
+    blurb: $('blurb').value.trim(),
+    website: $('website').value.trim(),
+    emoji: $('emoji').value.trim(),
+    accent: state.branding.accent || '',
+  });
+}
+const detailsDirty = () => savedDetails !== null && detailsNow() !== savedDetails;
+const settingsDirty = () => savedWatermarkFree !== null && $('watermarkFree').checked !== savedWatermarkFree;
+
+function paintSaveState() {
+  const pairs = [[$('saveBtn'), detailsDirty()], [$('settingsSaveBtn'), settingsDirty()]];
+  for (const [btn, dirty] of pairs) {
+    if (btn.dataset.busy) continue;
+    btn.disabled = !dirty;
+    btn.title = dirty ? 'You have changes here that are not saved yet.' : 'Nothing here has changed.';
+  }
+}
+
 function note(kind, text) {
   const m = $('msg');
   m.className = 'notice ' + (kind ? kind + ' show' : '');
@@ -21,7 +52,7 @@ function paintAccents() {
     </label>`).join('');
   $('accents').querySelectorAll('input[name=accent]').forEach((r) => r.addEventListener('change', () => {
     state.branding.accent = r.value;
-    paintAccents(); paintPreview();
+    paintAccents(); paintPreview(); paintSaveState();
   }));
 }
 
@@ -55,7 +86,7 @@ function paintPublicList(maps) {
 
 $('brandForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const btn = $('saveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  const btn = $('saveBtn'); btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Saving…';
   const branding = {
     publicName: $('publicName').value.trim(),
     blurb: $('blurb').value.trim(),
@@ -77,9 +108,10 @@ $('brandForm').addEventListener('submit', async (e) => {
         : 'Saved — your public pages now show these details.');
     } else note('err', (b && b.error) || 'Could not save your public details.');
   } catch { note('err', 'Network error while saving.'); }
-  finally { btn.disabled = false; btn.textContent = 'Save public details'; }
+  finally { delete btn.dataset.busy; btn.textContent = 'Save public details'; paintSaveState(); }
 });
 
+// Fills the form from the server's answer, which is by definition what is saved.
 function fill() {
   const b = state.branding || {};
   $('publicName').value = b.publicName || '';
@@ -88,9 +120,14 @@ function fill() {
   $('emoji').value = b.emoji || '';
   if (!b.accent && state.preview) state.branding.accent = state.preview.accent;
   paintAccents(); paintPreview();
+  savedDetails = detailsNow();
+  paintSaveState();
 }
 
-['publicName', 'blurb', 'website', 'emoji'].forEach((id) => $(id).addEventListener('input', paintPreview));
+['publicName', 'blurb', 'website', 'emoji'].forEach((id) => $(id).addEventListener('input', () => { paintPreview(); paintSaveState(); }));
+$('watermarkFree').addEventListener('change', paintSaveState);
+window.addEventListener('beforeunload', (e) => { if (detailsDirty() || settingsDirty()) { e.preventDefault(); e.returnValue = ''; } });
+paintSaveState();
 
 function settingsNote(kind, text) {
   const m = $('settingsMsg');
@@ -99,7 +136,7 @@ function settingsNote(kind, text) {
 }
 
 $('settingsSaveBtn').addEventListener('click', async () => {
-  const btn = $('settingsSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  const btn = $('settingsSaveBtn'); btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Saving…';
   try {
     const res = await fetch('/api/customer/settings', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -108,10 +145,11 @@ $('settingsSaveBtn').addEventListener('click', async () => {
     const b = await res.json().catch(() => ({}));
     if (res.ok && b.ok) {
       $('watermarkFree').checked = !b.watermarkEnabled;
+      savedWatermarkFree = $('watermarkFree').checked;
       settingsNote('ok', 'Saved.');
     } else settingsNote('err', (b && b.error) || 'Could not save this setting.');
   } catch { settingsNote('err', 'Network error while saving.'); }
-  finally { btn.disabled = false; btn.textContent = 'Save'; }
+  finally { delete btn.dataset.busy; btn.textContent = 'Save'; paintSaveState(); }
 });
 
 $('logoutBtn').addEventListener('click', async () => {
@@ -139,6 +177,7 @@ $('logoutBtn').addEventListener('click', async () => {
     state = { branding: b.branding || {}, accents: b.accents || [], customer: b.customer, preview: b.preview };
     $('nameHint').textContent = `Leave blank to use “${b.customer.name}”.`;
     $('watermarkFree').checked = !b.customer.watermarkEnabled;
+    savedWatermarkFree = $('watermarkFree').checked;
     if (b.customer.publicUrl) {
       $('viewPublic').href = b.customer.publicUrl;
       $('viewPublic').style.display = (b.publicMaps && b.publicMaps.length) ? '' : 'none';

@@ -96,7 +96,7 @@
           <div class="panel">
             <header>Points of interest <span class="count" id="poiCount"></span></header>
             <div class="body">
-              <p class="hint-line">Tick to show a landmark’s icon on the “within” map; untick to hide it. Unticking here stops it being <em>drawn</em> but keeps its space reserved — to give the space back, and to say which places really matter, use <a href="#" id="poiPanelLink">Choose the landmarks</a>.</p>
+              <p class="hint-line">Tick to show a landmark’s icon on the “within” map; untick to hide it. Unticking here stops it being <em>drawn</em> but keeps its space reserved — to give the space back, and to say which places really matter, use <a href="#" id="poiPanelLink">Choose the landmarks</a>. A landmark set to <em>Do not show</em> there is unticked here, and is changed there.</p>
               <input class="field poi-search" id="poiSearch" type="search" placeholder="Filter landmarks…" aria-label="Filter points of interest">
               <div class="poi-scroll" id="pois"></div>
             </div>
@@ -228,6 +228,7 @@
     </form>
   </dialog>
 
+  <script src="/js/editor-eye-view.js"></script>
   <script src="/app/changes.js"></script>
   <script src="/app/editor.js"></script>
 </body>

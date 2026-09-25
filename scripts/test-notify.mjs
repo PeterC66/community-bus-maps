@@ -111,7 +111,67 @@ check('singular subject for exactly one map', /^1 map published/.test(one.subjec
 const empty = compose('published-batch', { maps: [] });
 check('an empty batch does not throw', empty.subject === '0 maps published on BusMaps.uk', empty.subject);
 
-check('every email says why it was received', [up, pubbed, back, batch].every((m) => /You are receiving this/.test(m.text)));
+// A delivery round (buses-data OA-152) stages each map with --no-notify and then
+// asks for ONE digest per customer. The wording first, then the grouping, which
+// here is the server's own (updateRoundDigests reads the proposed-update queue).
+const upBatch = compose('update-ready-batch', {
+  maps: [
+    { mapName: 'Fenmarsh', sourceNote: 'BODS October 2026 refresh', mapUrl: 'https://busmaps.uk/app/maps/7' },
+    { mapName: 'Oakfield', mapUrl: 'https://busmaps.uk/app/maps/9' },
+  ],
+});
+check('update-ready-batch counts the maps in the subject', /^2 map updates ready/.test(upBatch.subject), upBatch.subject);
+check('… names and links every map', upBatch.text.includes('Fenmarsh (BODS October 2026 refresh) — https://busmaps.uk/app/maps/7') && upBatch.text.includes('Oakfield — https://busmaps.uk/app/maps/9'), upBatch.text);
+check('… says nothing is public yet', /nothing is public yet/i.test(upBatch.text), upBatch.text);
+check('… singular for exactly one map', /^1 map update ready/.test(compose('update-ready-batch', { maps: [{ mapName: 'Fenmarsh', mapUrl: 'x' }] }).subject));
+
+{
+  const { updateRoundDigests, notifyUpdateRound } = await import('../src/email/notify.js');
+  const mk = (customer_id, slug) => db.insertMap({ customer_id, slug, name: slug[0].toUpperCase() + slug.slice(1), data_dir: '' });
+  const [m1, m2, m3, m4] = [mk(custId, 'fen-a'), mk(custId, 'fen-b'), mk(custId, 'fen-c'), mk(otherId, 'oak-a')];
+  const earlier = db.insertProposedUpdate({ map_id: m1, source_note: 'an earlier round' });
+  const round = [m1, m2, m3, m4].map((map_id) => db.insertProposedUpdate({ map_id, source_note: 'BODS October 2026 refresh' }));
+  // m1's newer update supersedes the earlier one in real life; here it stays
+  // pending on purpose, to prove the digest names only the ids it was given.
+  const d = updateRoundDigests([...round, 99999]);
+  const fen = d.groups.find((g) => g.customerId === custId);
+  const oak = d.groups.find((g) => g.customerId === otherId);
+  eq('a round for two customers is two digests, not four emails', d.groups.length, 2);
+  eq('… the three Fenmarsh maps are in ONE digest', fen && fen.maps.map((m) => m.proposedId).sort((a, b) => a - b), round.slice(0, 3));
+  eq('… and Oakfield gets its own', oak && oak.maps.map((m) => m.mapName), ['Oak-a']);
+  check('… a pending update from an earlier round is NOT swept up', !fen.maps.some((m) => m.proposedId === earlier));
+  eq('… an id that is not pending is reported, not sent', d.skipped, [99999]);
+  check('… each map links to its own page', fen.maps.every((m) => /^https:\/\/busmaps\.uk\/app\/maps\/\d+$/.test(m.mapUrl)), JSON.stringify(fen.maps));
+  eq('no ids, no digests', updateRoundDigests([]).groups, []);
+  const sent = await notifyUpdateRound(round, { info() {}, warn() {} });
+  eq('notifyUpdateRound: one send attempt per customer, none without a provider', sent.results.map((r) => [r.maps, r.sent]).sort(), [[1, 0], [3, 0]]);
+
+  // The round's caller, scripts/notify-update-round.mjs, run as a child against
+  // this same scratch database. It resolves each map to its pending update and
+  // refuses the whole round, sending nothing, if any one does not resolve.
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const script = fileURLToPath(new URL('./notify-update-round.mjs', import.meta.url));
+  const runRound = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env: process.env });
+  const audits = () => db.listAudit({ limit: 1000 }).filter((a) => a.action === 'notify.update-ready-batch');
+  mk(custId, 'fen-d');   // a map with nothing staged
+  const plan = runRound('--map', 'fen-a,oak-a', '--dry-run');
+  eq('notify-update-round --dry-run exits 0', plan.status, 0);
+  check('… plans one digest per customer', plan.stdout.includes('2 customer digest(s) for 2 staged update(s)'), plan.stdout + plan.stderr);
+  check('… a map resolves to its NEWEST pending update, not an earlier one', plan.stdout.includes(`    #${round[0]}  Fen-a`) && !plan.stdout.includes(`    #${earlier}  `), plan.stdout);
+  check('… and sends nothing', /Dry run: nothing was sent/.test(plan.stdout) && audits().length === 0, plan.stdout);
+  for (const [why, args] of [['an unknown slug', ['--map', 'fen-b,nowhere']], ['a map with nothing staged', ['--map', 'fen-b,fen-d']], ['an id that is not pending', ['--ids', `${round[1]},99999`]]]) {
+    const r = runRound(...args);
+    check(`${why} refuses the whole round (exit 1) and sends nothing`, r.status === 1 && /nothing was sent/.test(r.stderr) && audits().length === 0, `exit ${r.status}: ${r.stderr}`);
+  }
+  eq('neither --map nor --ids is a usage error', runRound().status, 2);
+  eq('… and so is both', runRound('--map', 'fen-b', '--ids', String(round[1])).status, 2);
+  const real = runRound('--map', 'fen-b,fen-c');
+  eq('a real round exits 0', real.status, 0);
+  eq('… and is audited once, with the ids it resolved', audits().map((a) => JSON.parse(a.detail_json).proposedIds), [[round[1], round[2]]]);
+}
+
+check('every email says why it was received', [up, pubbed, back, batch, upBatch].every((m) => /You are receiving this/.test(m.text)));
 
 // --- escaping (OA-224 Tier 1.2) ------------------------------------------------
 // A customer types the map name; an approver types the reason. Before 2026-09-02

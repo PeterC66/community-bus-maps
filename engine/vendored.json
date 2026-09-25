@@ -167,7 +167,7 @@
       "path": "poi_select.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/poi_select.js",
-      "sha256": "f6bba2135842447f67806eed1a20fd54d9890fe9dc67d18f90a92bc4440f6747",
+      "sha256": "bead2681fac1d31f41f477cd2319825d4eefc69e1955d527e54aefd75d12cbf9",
       "vendoredOn": "2026-09-25",
       "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
     },

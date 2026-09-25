@@ -18,7 +18,8 @@
 // OA-152). A multi-map round otherwise sends one near-identical notice per map
 // — the 2026-08-28 round put 18 in one inbox — and there was no way to rehearse
 // a delivery against a real customer record without mailing them. deliver-map.mjs
-// forwards the flag unchanged. The update is staged exactly as without it; only
+// forwards the flag unchanged, and scripts/notify-update-round.mjs ends the round
+// with one digest per customer. The update is staged exactly as without it; only
 // step 4 is skipped, and the run says so.
 
 import { cpSync, existsSync, readdirSync } from 'node:fs';
@@ -157,6 +158,7 @@ console.log(`\n  The customer reviews + accepts it at:  /app/maps/${map.id}`);
 // is staged either way, so a mail failure must not fail this run.
 if (noNotify) {
   console.log(`  No email sent: --no-notify was given. "${map.customer_name || 'The customer'}" has not been told this update is waiting.`);
+  console.log(`  At the end of the round, one email per customer: node scripts/notify-update-round.mjs --map ${map.slug},<the round's other slugs>`);
   process.exit(0);
 }
 const mailed = await notify('update-ready', {

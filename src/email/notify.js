@@ -28,7 +28,7 @@
 
 import { sendEmail } from './index.js';
 import { escapeHtml as h } from '../html.js';
-import { listUsersAdmin } from '../db/index.js';
+import { listPendingProposedUpdates, listUsersAdmin } from '../db/index.js';
 import { publicBaseUrl } from '../config.js';
 
 const SITE = 'BusMaps.uk';
@@ -76,7 +76,7 @@ const SIGN_OFF = `You are receiving this because your organisation has a map on 
 /**
  * Compose one of the three. Pure and exported so the wording can be read (and
  * tested) without a mail provider or a database.
- * @param {'update-ready'|'published'|'sent-back'|'published-batch'} kind
+ * @param {'update-ready'|'update-ready-batch'|'published'|'sent-back'|'published-batch'} kind
  * @param {{mapName:string, mapUrl:string, versionKey?:string, publishedVersion?:string,
  *          sourceNote?:string, reason?:string, publicUrl?:string,
  *          maps?:{mapName:string, versionKey?:string, mapUrl:string}[]}} f
@@ -127,6 +127,22 @@ export function compose(kind, f) {
       }),
     };
   }
+  if (kind === 'update-ready-batch') {
+    const maps = Array.isArray(f.maps) ? f.maps : [];
+    const n = maps.length;
+    return {
+      subject: `${n} map update${n === 1 ? '' : 's'} ready on ${SITE}`,
+      ...wrap({
+        lede: `Rebuilt version${n === 1 ? '' : 's'} of ${n} of your map${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} waiting for you at ${SITE}.`,
+        body: [
+          ...maps.map((m) => `${m.mapName}${m.sourceNote ? ` (${m.sourceNote})` : ''} — ${m.mapUrl}`),
+          'Nothing is public yet and your published maps are unaffected until you decide. Open each page to see exactly what moved, then accept the update or decline it.',
+          'Accepting creates a new draft with your colours and landmark choices re-applied — you then send it to us for review, and an approver publishes it.',
+        ],
+        footnote: SIGN_OFF,
+      }),
+    };
+  }
   if (kind === 'sent-back') {
     return {
       subject: `${map} ${f.versionKey ? f.versionKey + ' ' : ''}was sent back`,
@@ -170,4 +186,46 @@ export async function notify(kind, { customerId, log = console, ...fields }) {
   }
   log.info?.({ kind, sent, skipped, subject: msg.subject }, sent ? 'notification sent' : 'notification not sent (no provider, or every send failed)');
   return { sent, skipped };
+}
+
+/**
+ * One delivery round, grouped per customer (buses-data OA-152). A round stages
+ * each map with propose-update.mjs --no-notify, then names the proposed-update
+ * ids it staged; this turns those ids into one digest per customer rather than
+ * one email per map (the 2026-08-28 round put 18 in one inbox).
+ *
+ * The ids are named, not inferred from the whole pending queue: an update that
+ * is still pending from an EARLIER round was already announced, and a digest
+ * that swept it up would announce it twice. An id that is not pending (accepted,
+ * declined, superseded, unknown) is reported back and left out.
+ * @param {number[]} proposedIds
+ * @returns {{groups:{customerId:number, maps:{mapName:string, sourceNote:string, mapUrl:string, proposedId:number}[]}[], skipped:number[]}}
+ */
+export function updateRoundDigests(proposedIds) {
+  const wanted = new Set((Array.isArray(proposedIds) ? proposedIds : []).map(Number).filter(Number.isFinite));
+  const byCustomer = new Map();
+  const found = new Set();
+  for (const pu of listPendingProposedUpdates()) {
+    if (!wanted.has(Number(pu.id))) continue;
+    found.add(Number(pu.id));
+    if (pu.customer_id == null) continue;   // nobody to tell; recipientsFor(null) is [] anyway
+    if (!byCustomer.has(pu.customer_id)) byCustomer.set(pu.customer_id, []);
+    byCustomer.get(pu.customer_id).push({
+      mapName: pu.map_name, sourceNote: pu.source_note || '',
+      mapUrl: appUrl(`/app/maps/${pu.map_id}`), proposedId: Number(pu.id),
+    });
+  }
+  const groups = [...byCustomer].map(([customerId, maps]) => ({ customerId, maps }));
+  return { groups, skipped: [...wanted].filter((id) => !found.has(id)) };
+}
+
+/** Send updateRoundDigests(ids): one 'update-ready-batch' email per customer. Never throws. */
+export async function notifyUpdateRound(proposedIds, log = console) {
+  const { groups, skipped } = updateRoundDigests(proposedIds);
+  const results = [];
+  for (const { customerId, maps } of groups) {
+    const r = await notify('update-ready-batch', { customerId, maps, log });
+    results.push({ customerId, maps: maps.length, ...r });
+  }
+  return { results, skipped };
 }

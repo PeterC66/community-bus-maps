@@ -139,6 +139,7 @@
   "POST /api/admin/maps/:id/reject",
   "POST /api/admin/messages/:id/status",
   "POST /api/admin/notify-published-batch",
+  "POST /api/admin/notify-update-ready-batch",
   "POST /api/admin/sessions/:handle/revoke",
   "POST /api/admin/status",
   "POST /api/admin/users",
