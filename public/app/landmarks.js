@@ -1096,6 +1096,12 @@ function dirty() {
   return JSON.stringify(tiersPayload()) !== JSON.stringify(BASE);
 }
 
+// The page said "Not saved yet" and still let a reload or a closed tab throw the
+// answers away; editor.js and diagram.js have always asked first (buses-data
+// OA-363). BASE is null until the map has loaded, and a page that never loaded
+// has nothing to lose, so it never asks.
+window.addEventListener('beforeunload', (e) => { if (BASE !== null && dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
 /**
  * The two lines under the map, and the WORDS are the point (OA-220).
  *
