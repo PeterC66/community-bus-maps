@@ -230,6 +230,30 @@ console.log('\nthe editor carries a landmark answer through untouched');
     eq('and an expert key the editor does not own is still not re-emitted',
       round({ internal: { rotationDeg: 5 } }).internal, undefined);
   }
+
+  // OA-471: the editor's tick list and the chooser must give one answer. The
+  // tick is read through poiShown(); a `miss` that shows ticked is the fault
+  // Peter met on St Neots East, with all eleven answers still on disk.
+  let shown = null;
+  let whyShown = editorSrc ? '' : 'public/app/editor.js could not be read';
+  if (editorSrc) {
+    try {
+      const a = lift('stagedFromOverrides'), m = lift('poiMissed'), s = lift('poiShown');
+      if (!a || !m || !s) whyShown = 'could not find stagedFromOverrides, poiMissed and poiShown in public/app/editor.js';
+      else shown = new Function(`${a}\n${m}\n${s}\nreturn (ov, k) => poiShown(stagedFromOverrides(ov), k);`)();
+    } catch (e) { whyShown = e.message; }
+  }
+  check('the editor tick can be read out of its own source', !!shown, whyShown);
+  if (shown) {
+    const tiers = { 'shop:Aldi': { tier: 'miss' }, 'community:The Hive': { tier: 'must' }, 'pub:Three Fishes': { tier: 'may' } };
+    eq('a Do not show answer shows UNTICKED in the editor', shown({ internal: { poiTiers: tiers } }, 'shop:Aldi'), false);
+    eq('a must answer shows ticked', shown({ internal: { poiTiers: tiers } }, 'community:The Hive'), true);
+    eq('a may answer shows ticked', shown({ internal: { poiTiers: tiers } }, 'pub:Three Fishes'), true);
+    eq('a landmark with no answer shows ticked', shown({ internal: { poiTiers: tiers } }, 'park:Ripple Park'), true);
+    eq('an old-style hide still shows unticked',
+      shown({ internal: { pois: { 'park:Ripple Park': { hide: true } } } }, 'park:Ripple Park'), false);
+    eq('and a map with no overrides at all shows everything ticked', shown({}, 'shop:Aldi'), true);
+  }
 }
 
 // ---------------------------------------------------------------------------

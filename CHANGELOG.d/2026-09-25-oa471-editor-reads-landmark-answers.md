@@ -1,0 +1,9 @@
+---
+date: 2026-09-25
+title: "The map editor's landmark list shows the answers given in the chooser"
+---
+
+- **A landmark set to *Do not show* in Choose the landmarks is now unticked in the map editor, instead of ticked (buses-data OA-471).** The editor's tick list read only the older `internal.pois[key].hide` flag and never `internal.poiTiers`, so on St Neots East four of the association's eleven *Do not show* answers sat ticked in the editor, and Peter read them as lost when all eleven were still saved. The box for such a landmark is now fixed unticked, says *set in the chooser*, and its tooltip says to change it there: a `miss` is applied when landmarks are selected, before `hide` is read, so ticking it in the editor could not have shown it anyway. `must`, `may` and unanswered landmarks still follow the tick as before. The panel's hint line says the same.
+- **Reset no longer drops the chooser's answers.** The editor's Reset rebuilt its staged settings without `poiTiers`, so Reset followed by Save would have deleted every must / may / miss, the fault OA-215 fixed for Save, reached another way. Reset now keeps them.
+- **Tested and proven red.** `npm run test:landmark-tiers` lifts `poiShown()` out of `editor.js` and checks a `miss` shows unticked, with `must`, `may`, no answer and an old-style hide as controls; `npm run test:prove-red-landmark-tiers` gains a mutation that makes the tick ignore the answer, and it is caught.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It changes the editor's client script, its stylesheet and one hint line in `views/app/editor.html`. No schema, route, engine or rendered-sheet change, so `verify:area` and `verify:place` do not move.
