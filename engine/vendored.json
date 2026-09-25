@@ -94,8 +94,8 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "9a387f1fc9804c0c20677b7e9b77a74a184aebcec31bf1a538449fd718def731",
-      "vendoredOn": "2026-09-04",
+      "sha256": "8813fcb009d0b6e5955a74135f1edb982a47c48302f60f13a57729aedb9aa938",
+      "vendoredOn": "2026-09-25",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
     {
@@ -292,6 +292,13 @@
       "source": "make-bus-leaflet/assets/road_graph.js",
       "sha256": "da91973d59ff1b29108399a80edad15783528265c587073371ca69da19cd767b",
       "vendoredOn": "2026-09-03"
+    },
+    {
+      "path": "arm_note.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/arm_note.js",
+      "sha256": "be16b181d1539212ef04eb68e167fa108b31653f990937b94b21befb7b60e8db",
+      "vendoredOn": "2026-09-25"
     }
   ]
 }
