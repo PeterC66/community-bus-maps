@@ -22,6 +22,7 @@
 //   3  the bracket strip removed                             -> York Road (UB8) escapes the rule
 //   4  the bare-name form removed from the exact pass        -> "York Road" stops finding York Road (UB8)
 //   5  the fuzzy-pass guard removed                          -> a typo walks back through the closed door
+//   9-12  the locality half: rule, locality hit, sidecar field, length guard
 
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import os from 'node:os';
@@ -172,6 +173,30 @@ arm('7  the falsified generic-word rule implemented — real places stop answeri
 arm('8  the placeless list widened to a name that IS a place — the warning the action leaves in terms',
   (dir) => patch(dir, SEARCH, (s) => s.replace("  'business park',", "  'business park',\n  'science park',")),
   [['"Science" still finds Science Park', 'the Science Park control']]);
+
+// ARMS 9–12 are the locality half (2026-09-26): a place map built since
+// claude-skills #136 says which settlement each stop is in, and the search
+// matches on that instead of guessing from the name.
+const PLACE_INDEX = path.join('src', 'search', 'place-index.js');
+
+arm('9  a located stop no longer made full-match-only — its own words answer again',
+  (dir) => patch(dir, SEARCH, (s) => s.replace('  if (!p.locality) return false;', '  return false;')),
+  [['a located stop that is not street-shaped answers only in full', 'the Kingfisher check']]);
+
+arm('10  the locality never indexed — the settlement a stop is in cannot be searched',
+  (dir) => patch(dir, SEARCH, (s) => s.replace("if (role === 'stop' && p.locality && ", "if (false && ")),
+  [['"Uxbridge" finds the place map through the locality of its stop', 'the Uxbridge check']]);
+
+arm('11  the sidecar drops the locality — publish-time loses what the engine wrote',
+  (dir) => patch(dir, PLACE_INDEX, (s) => s.replace('  if (loc) entry.locality = loc;\n', '')),
+  [
+    ['"Uxbridge" finds the place map through the locality of its stop', 'the Uxbridge check'],
+    ['a located stop that is not street-shaped answers only in full', 'the Kingfisher check'],
+  ]);
+
+arm('12  the length guard removed — a mislisted stopLocalities pins stops to the wrong place',
+  (dir) => patch(dir, PLACE_INDEX, (s) => s.replace(' && d.stopLocalities.length === stops.length', '')),
+  [['a stopLocalities list of the wrong length is ignored', 'the wrong-length check']]);
 
 for (const dir of scratches) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* windows file locks */ } }
 

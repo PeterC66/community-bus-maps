@@ -38,7 +38,7 @@ const areaRoutesJson = (label, stops) => ({
 /** Seed one map, optionally publishing it and writing its sidecar, mirroring
  * what the approve handler does in src/server.js. Returns { id, versionId, storageKey }. */
 function seedMap({ customerId, slug, kind = 'area', subject = '', destination, stops = [],
-  publish = true, listed = true, storageKey = 'v1.0' }) {
+  publish = true, listed = true, storageKey = 'v1.0', routesJson = null }) {
   const id = db.insertMap({ customer_id: customerId, slug, name: slug, kind, subject, data_dir: `maps/${slug}`, status: publish ? 'published' : 'draft' });
   const versionId = db.insertVersion({ map_id: id, major: 1, minor: 0, storage_key: storageKey, overrides: {} });
   db.setCurrentVersion(id, versionId);
@@ -46,7 +46,7 @@ function seedMap({ customerId, slug, kind = 'area', subject = '', destination, s
 
   const dataDir = mapDataDir(id);
   mkdirSync(dataDir, { recursive: true });
-  writeFileSync(path.join(dataDir, 'routes.json'), JSON.stringify(areaRoutesJson(destination, stops)));
+  writeFileSync(path.join(dataDir, 'routes.json'), JSON.stringify(routesJson || areaRoutesJson(destination, stops)));
 
   if (publish) {
     // A public page needs at least one output file on disk (src/public/index.js
@@ -276,6 +276,56 @@ console.log('\na name that names no place answers only to its whole self');
     searchPlaces('Hill').some((r) => r.map.slug === 'search-realplaces'));
   check('"End" still finds a map that goes to Bourne End',
     searchPlaces('End').some((r) => r.map.slug === 'search-bourne'));
+}
+
+// ---------------------------------------------------------------------------
+// A STOP THAT KNOWS ITS LOCALITY (buses-data OA-311, 2026-09-26). A place map
+// built since claude-skills #136 carries `stopLocalities[]` beside `stops[]`,
+// one NaPTAN locality or null per stop. A located stop answers to its locality
+// and to its own name only in full — whatever the name's shape, which is the
+// point: "Tesco Kingfisher" is not street-shaped, and no heuristic caught it.
+// A null entry, and every map built before #136, keeps the rules above.
+console.log('\na stop that knows its locality answers to the locality');
+{
+  seedMap({
+    customerId: activeCustomer, slug: 'search-located', kind: 'place', subject: 'Located Superstore',
+    routesJson: {
+      destinations: [
+        {
+          name: 'Faraway Market Town', routes: ['104'],
+          stops: ['York Road (UB8)', 'Kingfisher Parade Shops', 'Nether Wallop', 'Unpinned Orchard Walk', 'Quietly Hemmingworth'],
+          stopLocalities: ['Uxbridge', 'Pinnerwick', 'Nether Wallop', null, null],
+        },
+        // A list of the wrong length says nothing about which stop is where.
+        { name: 'Mislisted Town', routes: ['7'], stops: ['Crookback Mill Stores'], stopLocalities: ['Nowhere', 'Extra'] },
+      ],
+    },
+  });
+
+  check('"York" still does not find a place map whose stop is York Road — now by its locality',
+    !searchPlaces('York').some((r) => r.map.slug === 'search-located'),
+    JSON.stringify(searchPlaces('York').map((r) => r.reason)));
+  check('"York Road" in full still finds it',
+    searchPlaces('York Road').some((r) => r.map.slug === 'search-located'));
+  check('"Uxbridge" finds the place map through the locality of its stop',
+    searchPlaces('Uxbridge').some((r) => r.map.slug === 'search-located'),
+    JSON.stringify(searchPlaces('Uxbridge').map((r) => r.reason)));
+  check('a located stop that is not street-shaped answers only in full — "Kingfisher" misses',
+    !searchPlaces('Kingfisher').some((r) => r.map.slug === 'search-located'),
+    JSON.stringify(searchPlaces('Kingfisher').map((r) => r.reason)));
+  check('…while its locality takes a prefix — "Pinner" finds Pinnerwick',
+    searchPlaces('Pinner').some((r) => r.map.slug === 'search-located'));
+  check('…and a typo — "Pinerwick" finds Pinnerwick',
+    searchPlaces('Pinerwick').some((r) => r.map.slug === 'search-located'));
+  check('a stop whose name IS its locality keeps word matching — "Wallop"',
+    searchPlaces('Wallop').some((r) => r.map.slug === 'search-located'));
+  check('a stop the engine could not pin keeps today\'s rules — "Orchard Walk" street-shaped, "Orchard" misses',
+    !searchPlaces('Orchard').some((r) => r.map.slug === 'search-located'));
+  check('…and an unpinned place-shaped stop still takes a word — "Hemmingworth"',
+    searchPlaces('Hemmingworth').some((r) => r.map.slug === 'search-located'));
+  check('a stopLocalities list of the wrong length is ignored — "Crookback" still takes a word, "Nowhere" finds nothing',
+    searchPlaces('Crookback').some((r) => r.map.slug === 'search-located')
+      && !searchPlaces('Nowhere').some((r) => r.map.slug === 'search-located'));
 }
 
 console.log('\nsanity — an unrelated query still misses cleanly');
