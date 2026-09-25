@@ -30,7 +30,7 @@ import { logAudit } from '../audit/index.js';
 import { bumpSearchIndex } from '../search/index.js';
 import { APP_VERSION } from '../version.js';
 import { sendMagicLink } from '../email/index.js';
-import { notify } from '../email/notify.js';
+import { notify, notifyUpdateRound } from '../email/notify.js';
 import { dbDateMs } from '../db/dates.js';
 // PILOT: both lines. Remove with docs/PILOT.md.
 import { isSampleCustomer } from '../render/pilotStamp.js';
@@ -755,6 +755,19 @@ export default async function adminRoutes(app) {
     }
     req.log.info({ customers: results.length, items: items.length }, 'published-batch digest sent');
     return { ok: true, results };
+  });
+
+  // One "N map updates ready" email per customer for a delivery round that staged
+  // each map with propose-update.mjs --no-notify (buses-data OA-152). The caller
+  // names the proposed-update ids it staged; the server groups them, so the
+  // recipient lookup and the wording stay in src/email/notify.js.
+  app.post('/notify-update-ready-batch', async (req, reply) => {
+    const ids = Array.isArray((req.body || {}).proposedIds) ? (req.body || {}).proposedIds : [];
+    if (!ids.length) return reply.code(400).send({ ok: false, error: 'proposedIds must name at least one proposed update.' });
+    const { results, skipped } = await notifyUpdateRound(ids, req.log);
+    req.log.info({ customers: results.length, ids: ids.length, skipped: skipped.length }, 'update-ready-batch digest sent');
+    logAudit(req, 'notify.update-ready-batch', { detail: { proposedIds: ids, skipped, results } });
+    return { ok: true, results, skipped };
   });
 
   // Operational snapshot (P7): readiness, disk usage per map, and the counts an
