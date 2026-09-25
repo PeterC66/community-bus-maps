@@ -56,7 +56,18 @@ check('every row carries a checked date as YYYY-MM-DD',
   doc.rows.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.checked || '')),
   doc.rows.filter((r) => !/^\d{4}-\d{2}-\d{2}$/.test(r.checked || '')).map((r) => r.lta).join('; '));
 check('every row has a networkMap status from the vocabulary',
-  doc.rows.every((r) => ['yes', 'no', 'unknown'].includes((r.networkMap || {}).status)));
+  doc.rows.every((r) => ['yes', 'some', 'no', 'unknown'].includes((r.networkMap || {}).status)),
+  doc.rows.filter((r) => !['yes', 'some', 'no', 'unknown'].includes((r.networkMap || {}).status)).map((r) => r.lta).join('; '));
+// `some` (buses-data OA-381) is a map of PART of the network. It must reach the
+// reader as a map — never dropped into offerOf()'s else, which says "publishes no
+// bus map that we could find" — and it must say which it is.
+check('a networkMap "some" row is offered as a map of part of the network',
+  doc.rows.filter((r) => r.networkMap.status === 'some').every((r) => {
+    const o = offerOf(r);
+    return o.status === 'network' && o.networkPart === true;
+  }),
+  doc.rows.filter((r) => r.networkMap.status === 'some').map((r) => `${r.lta} (${offerOf(r).status})`).join('; '));
+check('…and a "yes" row is not', doc.rows.filter((r) => r.networkMap.status === 'yes').every((r) => !offerOf(r).networkPart));
 check('every row has a townMaps status from the vocabulary',
   doc.rows.every((r) => ['yes', 'some', 'no', 'unknown'].includes((r.townMaps || {}).status)));
 // Not a style rule: an `unknown` row rendered to a reader would say "publishes

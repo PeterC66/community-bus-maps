@@ -37,6 +37,13 @@ const NETWORK = {
   format: 'pdf', dated: '2025-04', towns: [], townsMore: false,
   landingPage: 'https://example.invalid/', checked: '2026-09-11', also: [],
 };
+// A map of PART of the network (buses-data OA-381): offerOf() gives it the same
+// 'network' status, because the card and the letter treat it the same way in
+// every respect but one sentence, and `networkPart` is that sentence.
+const PART = {
+  ...NETWORK, authority: 'Cambridgeshire and Peterborough Combined Authority', networkPart: true,
+  dated: '2024-05',
+};
 const TOWNS = {
   authority: 'Essex County Council', status: 'town', url: 'https://example.invalid/towns',
   format: '', dated: '', towns: ['Colchester', 'Harlow'], townsMore: false,
@@ -74,6 +81,19 @@ console.log('\nrule 3 — every claim in the letter comes from the row');
   check('…and invites a correction', /out of date or wrong/.test(l.body));
   check('it quotes the date we last looked', l.body.includes('11 September 2026'));
   check('the subject line names the place', l.subject === 'A bus map for Bedford');
+}
+console.log('\nrule 3, a partial network map — the letter never says "the whole network" for one');
+{
+  const l = suggestionLetter(PART, 'Boxworth');
+  check('it credits a map of PART of the network', /map of part of the network/.test(l.body), l.body);
+  check('…and never the whole network', !/whole network/.test(l.body),
+    (l.body.match(/.*whole network.*/g) || []).join(' | '));
+  check('…still with the date the directory recorded', l.body.includes('May 2024'));
+  const html = directoryCard(PART, '', { query: 'Boxworth', matchKind: 'area' });
+  check('the card says part of the network', /map of part of the network/.test(html));
+  check('…and the card never says the whole network', !/Publishes a map of the whole network/.test(html));
+  const whole = directoryCard(NETWORK, '', { query: 'Bedford', matchKind: 'area' });
+  check('a whole-network row still says the whole network', /Publishes a map of the whole network/.test(whole));
 }
 {
   const l = suggestionLetter(NONE, 'Skipton');

@@ -124,7 +124,7 @@
         "South Cambridgeshire"
       ],
       "networkMap": {
-        "status": "yes",
+        "status": "some",
         "url": "https://cambridgeshirepeterborough-ca.gov.uk/better-buses/",
         "format": "pdf",
         "publisher": "unknown",
@@ -572,7 +572,7 @@
         "Wirral"
       ],
       "networkMap": {
-        "status": "yes",
+        "status": "some",
         "url": "https://www.merseytravel.gov.uk/customer-information/routes-and-maps/",
         "format": "pdf",
         "publisher": "other"
@@ -693,7 +693,7 @@
     {
       "lta": "North Lincolnshire Council",
       "networkMap": {
-        "status": "yes",
+        "status": "some",
         "url": "https://www.northlincs.gov.uk/roads-paths-and-transport/public-transport-and-amenities/bus-services-and-information/bus-service-maps/",
         "format": "pdf",
         "publisher": "Pindar Creative",
@@ -881,7 +881,7 @@
         "Sheffield"
       ],
       "networkMap": {
-        "status": "yes",
+        "status": "some",
         "url": "https://www.travelsouthyorkshire.com/en-gb/journeyplanning/public-transport-maps",
         "format": "pdf",
         "publisher": "council",
@@ -1092,7 +1092,7 @@
         "London"
       ],
       "networkMap": {
-        "status": "yes",
+        "status": "some",
         "url": "https://tfl.gov.uk/maps/bus",
         "format": "pdf",
         "publisher": "council"

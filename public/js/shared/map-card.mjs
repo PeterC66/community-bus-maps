@@ -199,7 +199,7 @@ export function askForOneHref(place) {
  */
 export function directoryCard(d, reason, ctx = {}) {
   const what = d.status === 'network'
-    ? `Publishes a map of the whole network${d.format ? ` (${esc(d.format)})` : ''}${d.dated ? `, dated ${esc(monthGB(d.dated))}` : ''}.`
+    ? `Publishes a map of ${d.networkPart ? 'part of the network' : 'the whole network'}${d.format ? ` (${esc(d.format)})` : ''}${d.dated ? `, dated ${esc(monthGB(d.dated))}` : ''}.`
     : d.status === 'town'
       ? `Publishes maps of individual towns${d.towns.length ? `: ${d.towns.map(esc).join(', ')}${d.townsMore ? ' and some others' : ''}` : ''}.`
       : 'Publishes no bus map that we could find.';
