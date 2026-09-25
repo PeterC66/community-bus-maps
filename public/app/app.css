@@ -168,6 +168,9 @@
 /* The "Ask us" button on a request-only output (the hand-finished diagram) sits
    at the right-hand end of its row. */
 .poi-item .btn-xs { margin-left: auto; flex: 0 0 auto; }
+/* A landmark answered Do not show in the chooser is fixed unticked in the
+   editor, and says where its answer lives (buses-data OA-471). */
+.poi-item .poi-why { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
 .map-card .meta.owner { margin-top: 6px; font-weight: 600; color: var(--primary); font-size: .82rem; }
 .nav .navlink#whoami { font-size: .82rem; color: var(--muted); }
 

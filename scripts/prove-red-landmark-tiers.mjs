@@ -218,6 +218,12 @@ const MUTATIONS = [
     expect: 'a landmark answer survives a save from the EDITOR page',
   },
   {
+    what: 'the editor tick list stops reading the landmark answer',
+    why: 'OA-471: a landmark set to Do not show sits TICKED in the editor, and a customer reads every answer they gave in the chooser as lost',
+    edits: [[EDITOR, '  return !s.hide.has(key) && !poiMissed(s, key);', '  return !s.hide.has(key);']],
+    expect: 'a Do not show answer shows UNTICKED in the editor',
+  },
+  {
     what: 'the expert-only sweep forgets poiTiers is not the only internal key',
     why: 'the sweep is what stops rotationDeg, viewport and stop moves riding in beside a tier; widening it by one key must not have widened it to everything',
     edits: [[SUBSET, "if (k !== 'pois' && k !== 'poiTiers') rejected.push(`internal.${k} (expert-only)`);", '']],

@@ -76,6 +76,23 @@ function overridesFromStaged(s) {
   if (s.hiddenOps.size) ov.hiddenOperators = [...s.hiddenOps];
   return ov;
 }
+/*
+ * ONE ANSWER PER LANDMARK ON BOTH SCREENS (buses-data OA-471).
+ *
+ * The tick list used to read only the older `hide` flag, so a landmark the
+ * customer had set to *Do not show* in the chooser — a `miss` tier — sat here
+ * ticked, and Peter read St Neots East's eleven answers as lost when all eleven
+ * were on disk. A `miss` is shown unticked, and its box is fixed: unticking
+ * already agrees with it, and ticking it would add nothing, because a `miss` is
+ * applied at selection, before `hide` is ever read. The answer is changed where
+ * it was given, in the chooser. `must` and `may` leave the tick to `hide`.
+ */
+function poiMissed(s, key) {
+  return !!(s.poiTiers && s.poiTiers[key] && s.poiTiers[key].tier === 'miss');
+}
+function poiShown(s, key) {
+  return !s.hide.has(key) && !poiMissed(s, key);
+}
 function sig(s) {
   const c = Object.keys(s.colors).sort().map((k) => `${k}=${(s.colors[k] || '').toLowerCase()}`).join(',');
   return `C:${c}|H:${[...s.hide].sort().join(',')}|O:${[...s.hiddenOps].sort().join(',')}`;
@@ -292,10 +309,12 @@ function buildPois() {
   for (const [cat, items] of byCat) {
     html += `<div class="poi-cat">${esc(cat || 'Other')}</div>`;
     for (const p of items) {
-      const shown = !staged.hide.has(p.key);
-      html += `<div class="poi-item ${shown ? '' : 'off'}" data-key="${esc(p.key)}" data-search="${esc((p.name + ' ' + p.cat).toLowerCase())}">
-        <input type="checkbox" id="poi_${esc(p.key)}" ${shown ? 'checked' : ''}>
-        <label for="poi_${esc(p.key)}">${esc(p.name || p.key)}</label></div>`;
+      const shown = poiShown(staged, p.key);
+      const missed = poiMissed(staged, p.key);
+      const why = missed ? 'Set to Do not show in Choose the landmarks — change it there.' : '';
+      html += `<div class="poi-item ${shown ? '' : 'off'}" data-key="${esc(p.key)}" data-search="${esc((p.name + ' ' + p.cat).toLowerCase())}"${missed ? ` title="${esc(why)}"` : ''}>
+        <input type="checkbox" id="poi_${esc(p.key)}" ${shown ? 'checked' : ''}${missed ? ' disabled data-fixed="1"' : ''}>
+        <label for="poi_${esc(p.key)}">${esc(p.name || p.key)}</label>${missed ? '<span class="soon poi-why">set in the chooser</span>' : ''}</div>`;
     }
   }
   box.innerHTML = html || '<p class="hint-line">No toggleable landmarks on this map.</p>';
@@ -982,7 +1001,9 @@ $('saveBtn').addEventListener('click', async () => {
 });
 
 // ---- reset / preview / logout ------------------------------------------------
-$('resetBtn').addEventListener('click', () => { staged = { colors: {}, hide: new Set(), hiddenOps: new Set() }; buildRoutes(); buildOperators(); buildPois(); onEdit(); });
+// The chooser's answers are not this page's to reset: dropping poiTiers here made
+// the next save delete every must / may / miss (OA-215's fault, by another door).
+$('resetBtn').addEventListener('click', () => { staged = { colors: {}, hide: new Set(), hiddenOps: new Set(), poiTiers: staged.poiTiers }; buildRoutes(); buildOperators(); buildPois(); onEdit(); });
 $('previewBtn').addEventListener('click', () => { clearTimeout(debounce); runPreview(); });
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
 window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
