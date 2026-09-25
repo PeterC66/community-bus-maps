@@ -29,7 +29,9 @@
 //        --note "BODS 2026-08-01 refresh"
 //
 // --no-notify is forwarded like any other flag: propose-update.mjs then stages
-// the update without emailing the customer (buses-data OA-152).
+// the update without emailing the customer (buses-data OA-152). A round of
+// several maps stages each one that way and then sends ONE digest per customer
+// with scripts/notify-update-round.mjs, whose header carries the command.
 //
 // --kind is still required in this mode too — it only picks which verify gate
 // (verify:area vs verify:place) runs in step 2; it is not forwarded to
