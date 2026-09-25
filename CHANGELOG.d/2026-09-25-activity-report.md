@@ -1,0 +1,9 @@
+---
+date: 2026-09-25
+title: "A read-only report of who has used the portal and what they did"
+---
+
+- **`scripts/activity-report.mjs` answers "who, apart from us, has used the portal lately, and what did they do?"** Asked on 2026-09-25 and answered then with a query piped into the container by hand; this keeps it. For each person active in the last 28 days (`--days` changes that) it prints their account and organisation, the sign-in links they were sent and used, every audit-logged change with the maps it touched, and any application or message they sent. `cli:*` actors are listed apart, and accounts with no activity are named in one line. It opens the database read-only. How to run it against the live site is in [DEPLOY §6](docs/DEPLOY.md#6-housekeeping).
+- **It counts used sign-in links, not sessions.** The hand query counted `session` rows, which the hourly purge deletes when they expire, so it under-reported anyone who had signed in more than a few days earlier. A `magic_link` row keeps its `used_at`.
+- **Tested and seen to fail.** `npm run test:activity-report` builds a throwaway database and checks sign-in counting, the `--days` window, the `cli:` split, applicants with no account and the 2 and 3 exit codes. Three deliberate breakages (sessions-style counting, dropping the `cli:` split, ignoring the window) each turned it red before the script was restored.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It adds one script, its test, two npm entries and a DEPLOY paragraph. No schema, route, engine or rendered-sheet change, so `verify:area` and `verify:place` do not move. The script is in the image because the Dockerfile copies `scripts/`; it can be run on the VPS once this is deployed.
