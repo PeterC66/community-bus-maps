@@ -1,0 +1,7 @@
+---
+date: 2026-09-26
+title: "A route drawn from its usual pattern says when some journeys go another way"
+---
+
+- **Re-vendored `engine/services_panel.js` and `engine/place/gen_internal.js` from claude-skills #145, for buses-data OA-452 item 1.** Since claude-skills #135 the engine can draw each direction of a route from the stops most of its journeys call at. For example, St Neots' 18 is no longer drawn round a station loop that only 3 of its 25 journeys take. That change dropped the other workings without a word. Now, when a build folder holds the `journey_weights.json` that S2 writes, the route's Services-panel row adds "· some journeys via …". It names the places those workings reach that the drawn line does not, and falls back to "some journeys vary" when the row has no room. `routes.json minorityNote` sets the words for a route, or `false` turns them off. No committed map and no portal fixture has that file yet, so every sheet is byte-identical: St Neots and High Wycombe were rendered with the old and new engine and compared with `diff -q`. `verify:area` and `verify:place` should therefore not move.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It carries only the re-vendor and this entry. It makes no schema, route or UI change. No published sheet changes until St Neots is rebuilt from a new S2 (OA-452 item 2).
