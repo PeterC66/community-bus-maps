@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.122 | 2026-09-26 | sha=4ed8e8ea -->
-**v1.122** · updated 26 September 2026
+<!-- docstamp v1.123 | 2026-09-26 | sha=88b57a87 -->
+**v1.123** · updated 26 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -162,7 +162,7 @@ There is a way to test the whole header block without touching the live site or 
 npm --prefix "C:/Claude/community-bus-maps" run deploy
 ```
 
-It does so only when CI is green on `main` for the commit being deployed, only after the history entry below has been merged, and only if it then reads the result back: `X-App-Version` from `https://busmaps.uk/` and `/health?deep=1` (§4). If the read-back fails, the fix is a **revert by a second pull request**, merged and deployed the same way — never a hand edit on the host. **Every raw `ssh` or `scp` to the VPS stays Peter's**, because Claude Code's auto-mode classifier refuses them to sessions: the token-holding `/health` read-back in §4, the two `track-engine.mjs` commands in §4a, the `scp` of the §5 drills, and any `npm run ssh -- …` such as R1's `delete-map`. `npm run deploy` wraps its own `ssh` calls and is the one route a session uses. **A deploy that is pending is a chore, not a fault**: the bus-work worklist carries it as a row (`deploy_pending.mjs` in the `bus-work` skill), and the board never goes red for it.
+It does so only when CI is green on `main` for the commit being deployed, only after the history entry below has been merged, and only if it then reads the result back: `X-App-Version` from `https://busmaps.uk/` and `/health?deep=1` (§4). If the read-back fails, the fix is a **revert by a second pull request**, merged and deployed the same way — never a hand edit on the host. **Every raw `ssh` or `scp` to the VPS stays Peter's**, because Claude Code's auto-mode classifier refuses them to sessions: the token-holding `/health` read-back in §4, the `scp` of the §5 drills, and any `npm run ssh -- …` such as R1's `delete-map`. `npm run deploy` wraps its own `ssh` calls and is the one route a session uses, and since 2026-09-26 it also runs the §4a tracking itself, so a re-vendor no longer owes Peter a hand step. **A deploy that is pending is a chore, not a fault**: the bus-work worklist carries it as a row (`deploy_pending.mjs` in the `bus-work` skill), and the board never goes red for it.
 
 Adopted 7 September 2026 (buses-data OA-266, retired the same day). **Write the entry, merge it, then deploy the merge.** The old order — deploy, then record it — is what put `main` permanently one commit ahead of the live site, because a bookkeeping commit lands *after* the thing it describes and nothing deploys it. That is not a nuisance: `status.js`'s deployment check compares the live commit against `main`, so **the act of documenting a deploy was what made the next drift red**. On 2026-09-06 that clock ran out at 20:14 and produced seven consecutive CI failures across two repositories, and `buses-data` is private, so each inherited red was a billed run whose verdict was about paperwork rather than about the site.
 
@@ -240,7 +240,9 @@ Then, signed in as an admin, open **`/app/admin` → Ops**: dependency health, p
 
 **Run it where the maps are, and read that number.** The script's store comes from `MAPS_DIR`, which derives from `DATA_DIR` — on the laptop that is the local dev store, which is a DIFFERENT set of maps from the live one. Measured 2026-09-02 after deploying `a65d9a7`: the laptop said *3 already current, 10 BEHIND*; the live store said **10 already current, 36 BEHIND**. A local run is not an answer about busmaps.uk, and a green local run after a re-vendor is the easiest way to believe the hand-off is done when 36 packs are still frozen at import.
 
-Report first, then apply, then re-read. From any folder on the laptop; the host path is real and there are no placeholders:
+**`npm run deploy` does this itself, as its step 5b, on every deploy (since 2026-09-26, buses-data OA-473).** After the switch and the readiness check it runs `track-engine.mjs --apply` inside the live container and then the report form, and its verdict is the exit code of that second run — a read of the store after the write, not the absence of an error from the write. On a deploy that moved no engine file it copies nothing and prints `0 BEHIND`. If anything is left behind, or any row is a `?`, the deploy still runs the sign-in test and then exits non-zero with the site live, so nobody reads it as done. Until then this was two raw `ssh` commands that only Peter could run, owed after every re-vendor and surfaced by nothing on the board; five re-vendors (#373, #381, #384, #386, #389, 25–26 Sep 2026) were waiting on it at once. `scripts/lib/track-live.mjs` holds the step and `npm run test:deploy-track-engine` runs the real `track-engine.mjs` against scratch stores to prove it, including the arm where the write succeeds and the read-back says behind.
+
+The two commands stay here for Peter, for reading the live store without deploying — report first, then apply, then re-read. From any folder on the laptop; the host path is real and there are no placeholders:
 
 ```bash
 ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "cd /opt/community-bus-maps && docker compose exec -T portal node scripts/track-engine.mjs"
