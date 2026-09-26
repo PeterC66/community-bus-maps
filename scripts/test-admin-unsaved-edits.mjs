@@ -33,6 +33,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MODULE = path.join(ROOT, 'public', 'app', 'unsaved-edits.js');
 const ADMIN = path.join(ROOT, 'public', 'app', 'admin.js');
 const SHELL = path.join(ROOT, 'views', 'app', 'admin.html');
+const EDITOR = path.join(ROOT, 'public', 'app', 'editor.js');
 
 let failures = 0;
 const check = (name, cond, extra) => {
@@ -159,6 +160,14 @@ check('a real unload is guarded too', /addEventListener\('beforeunload'[^\n]*Uns
 check('a Customers row is tracked', /data-cust="\$\{c\.id\}" data-edit-key="cust-\$\{c\.id\}"/.test(admin));
 check('a Users row is tracked', /data-user="\$\{u\.id\}" data-edit-key="user-\$\{u\.id\}"/.test(admin));
 check('both saves mark their row saved', (admin.match(/UnsavedEdits\.markSaved\(tr\)/g) || []).length === 2);
+
+// Grid fault 3 (Peter's ruling, 2026-09-26): hiding an operator removes real,
+// running services from a published map, so both the switch that allows it and
+// the box that does it say so on hover, in words a reader of the sheet would use.
+console.log('\nthe operator filter says what it does to the published map');
+check('the Customers grid\'s Operator filter box has hover text naming the consequence', /data-q="hideOps" title="[^"]*readers will not see them\.?"/.test(admin));
+const editor = readFileSync(EDITOR, 'utf8');
+check('each operator row in the editor has hover text naming the consequence', /data-op="\$\{esc\(op\.name\)\}" title="[^"]*Hides this operator's buses from your published map[^"]*readers will not see them\.?"/.test(editor));
 
 console.log('\nand the behaviour checks have been seen to refuse a broken module');
 const MUTANTS = [
