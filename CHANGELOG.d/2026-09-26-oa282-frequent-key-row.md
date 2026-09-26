@@ -1,0 +1,7 @@
+---
+date: 2026-09-26
+title: "The Frequent row in a map's Key says \"at least every 30 minutes\""
+---
+
+- **Re-vendored `engine/place/gen_internal.js` and `engine/services_panel.js` from claude-skills #146, for buses-data OA-282.** The Frequent line-thickness row in a street sheet's Key used to say "Frequent — turn up and go". Our Frequent tier means a bus at least every 30 minutes through the core of the day, and "turn up and go" usually means every 12 to 15 minutes. Peter ruled on 2026-09-25 that the row should state the tier's own rule, so it now reads "Frequent — at least every 30 minutes". The threshold has not changed. The longer wording uses 48.4 mm of the row's 86.0 mm, so nothing else on the sheet moves. No map overrides this label. `verify:area`, `verify:place` and `verify:defaults` all pass in this change: the St Ives pack runs its own generator copy, and neither place fixture prints a Frequent row.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It carries only the re-vendor and this entry, with no schema, route or UI change. A published sheet that prints a Frequent row changes at its next re-render, once its pack has been tracked ([§4a](docs/DEPLOY.md#4a-a-re-vendor-is-not-finished-until-the-live-store-has-been-tracked-and-the-live-number-is-not-the-laptops)), and each map's rebuild is one row under buses-data OA-430.
