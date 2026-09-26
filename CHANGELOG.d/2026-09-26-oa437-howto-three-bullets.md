@@ -1,0 +1,7 @@
+---
+date: 2026-09-26
+title: "The how-to panel on an external sheet is three bullets wherever a town has not chosen its own"
+---
+
+- **Re-vendored `engine/area/gen_external_radial.js` from claude-skills#165, for buses-data OA-437 and OA-443.** The "How to use this map" panel on a town's external sheet derives three bullets by default: find your destination, follow its line in to the hub, and read the badge. It used to derive five or six. Nine towns already store exactly those three, and the three towns that store nothing (Chatteris, Soham and Whittlesey) were drawing six. So those three are the towns whose external sheet moves, and only in that panel, which gets shorter by three lines. A town that stores its own `bullets` is unchanged. Both portal fixtures are byte-identical: `verify:area` passes against the St Ives pack, which stores its bullets, and `refresh_area_fixture.js --check` reports the fixture current. So `verify:area` and `verify:place` do not move.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It carries only the re-vendor and this entry. No schema, route or UI changes. Chatteris is unpublished. The sheets of Soham and Whittlesey redraw at their next re-render. §3a has no sheet-level check that can see this. The evidence is the measurement in the engine commit: all three towns draw three bullets under `STRICT_GUARDS=1`, and March is byte-identical.
