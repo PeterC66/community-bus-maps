@@ -17,6 +17,8 @@
 // Then curl /health?deep=1 and print it for a human to read the gitSha/status
 // off — this script does not itself decide the deploy "worked", it surfaces
 // the same evidence DEPLOY.md says to trust over any document.
+// Then step 5b brings the live store's map packs up to the engine just shipped
+// and reads them back (scripts/lib/track-live.mjs, docs/DEPLOY.md §4a).
 //
 // Same config as deliver-map.mjs: DEPLOY_HOST (user@host), DEPLOY_SSH_KEY
 // (path, optional), DEPLOY_APP_DIR (dir on the host holding compose.yaml).
@@ -29,6 +31,7 @@
 import { spawnSync } from 'node:child_process';
 import { has } from './lib/cli.mjs';
 import { hostEnvDiagnosis, hostEnvProbe } from './lib/host-env.mjs';
+import { trackLiveStore } from './lib/track-live.mjs';
 
 const DRY_RUN = has('dry-run');
 const SKIP_BACKUP = has('skip-backup');
@@ -206,6 +209,21 @@ if (!DRY_RUN) {
   }
 }
 
+// 5b. Bring the live store's map packs up to the engine just deployed.
+//
+// A re-vendor that is deployed and not tracked reaches no map already in the
+// store (docs/DEPLOY.md §4a). This used to be two raw `ssh` commands only Peter
+// could run, owed after every re-vendor and surfaced by nothing; the whole
+// account is in scripts/lib/track-live.mjs. A failure here does NOT stop the
+// sign-in test below — the two are independent, and the site is already live —
+// but the deploy still exits non-zero at the end, so nobody reads it as done.
+console.log('\n-- 5b. track the live store to the vendored engine (docs/DEPLOY.md §4a)');
+let tracking = null;
+if (!DRY_RUN) {
+  tracking = trackLiveStore({ appDir: APP_DIR, sshRun });
+  console.log(`   ${tracking.ok ? '✓' : '✗'} ${tracking.message}`);
+}
+
 // 6. Can anyone actually get in?
 //
 // Readiness proves the DB, the store, the rasteriser and the email
@@ -223,6 +241,13 @@ if (!DRY_RUN && !has('skip-signin')) {
   }
 } else if (has('skip-signin')) {
   console.log('   SKIPPED (--skip-signin) — nothing has proved a real sign-in email can be sent.');
+}
+
+if (tracking && !tracking.ok) {
+  console.error('\n✗ the deploy is LIVE, but the map store is not tracked to it: ' + tracking.message);
+  console.error('  Read the track-engine report above; docs/DEPLOY.md §4a says what each mark means.');
+  console.error('  A published map keeps rendering with its old generator until this is cleared.');
+  process.exit(1);
 }
 
 console.log('\n✓ deploy sequence complete.');

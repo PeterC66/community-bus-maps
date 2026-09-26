@@ -44,6 +44,7 @@
     "test:caddyfile": "node scripts/test-caddyfile.mjs",
     "test:deploy-env-probe": "node scripts/test-deploy-env-probe.mjs",
     "test:deploy-history": "node scripts/test-deploy-history.mjs",
+    "test:deploy-track-engine": "node scripts/test-deploy-track-engine.mjs",
     "check:deploy-history": "node scripts/check-deploy-history.mjs",
     "test:safe-subset": "node scripts/test-safe-subset.mjs",
     "test:owner-picker": "node scripts/test-owner-picker.mjs",
