@@ -14,11 +14,15 @@ import { dbDateMs } from '../db/dates.js';
 
 // ---- request-shaped values and the constants the routes validate against ----
 // The five pain-point classes the shopfront is organised around, plus 'other'.
-// The trailing seven are the original organisation-type values: no longer offered
+// 'community-group' joined on 2026-09-26 (buses-data OA-359): the first
+// organisation ever to apply was a community association and had to pick
+// 'Something else', though every document about who this is for names them.
+// public/apply.html offers exactly the first seven, and test-approve-application
+// holds the form to this list. The trailing six are the original organisation-type values: no longer offered
 // on the form, still accepted so that stored applications and seeded demo rows
 // keep validating (customer.type is copied straight from here on approval).
 const ORG_TYPES = [
-  'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'operator-ct', 'other',
+  'authority-council', 'healthcare-campus', 'business-park', 'bid-tourism', 'community-group', 'operator-ct', 'other',
   'council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt',
 ];
 // What the PUBLIC contact form may set. 'diagram-request' is a further kind in

@@ -334,6 +334,35 @@ check('an async function is refused, not silently mis-wrapped',
   asyncThrew instanceof TypeError, String(asyncThrew));
 
 // ===========================================================================
+console.log('\nThe form offers only kinds the server accepts, and a community group is one');
+// ===========================================================================
+
+// buses-data OA-359: the first organisation to apply was a community association
+// and had to pick "Something else". The option is in two places — the <select> in
+// public/apply.html and ORG_TYPES, which POST /api/apply validates against and
+// which approval copies to customer.type — so the join is asserted here: an
+// option the list lacks would be refused as a missing field at submit.
+const { readFileSync } = await import('node:fs');
+const { ORG_TYPES } = await import('../src/http/helpers.js');
+const applyHtml = readFileSync(new URL('../public/apply.html', import.meta.url), 'utf8');
+const select = (applyHtml.match(/<select id="org_type"[\s\S]*?<\/select>/) || [''])[0];
+const offered = [...select.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1]);
+check('apply.html offers organisation kinds', offered.length >= 2, JSON.stringify(offered));
+eq('every kind apply.html offers is one the server accepts',
+  offered.filter((v) => !ORG_TYPES.includes(v)), []);
+check('…and a community or residents\' association is one of them',
+  offered.includes('community-group'), JSON.stringify(offered));
+
+const commId = db.insertApplication({
+  org_name: 'Oakfield Residents Association (test)', org_type: 'community-group',
+  contact_name: 'A Member', email: 'member@oakfield-ra.example',
+});
+const comm = await post(`/api/admin/applications/${commId}/approve`, adminTok);
+eq('a community-group application approves', comm.status, 200);
+eq('…and the customer keeps the kind rather than falling back to other',
+  (db.getCustomerByName('Oakfield Residents Association (test)') || {}).type, 'community-group');
+
+// ===========================================================================
 if (failures) {
   console.error(`\n✗ ${failures} assertion(s) failed.`);
   process.exit(1);
