@@ -286,7 +286,7 @@ function buildOperators() {
   const box = $('operators');
   box.innerHTML = detail.operators.map((op) => {
     const shown = !staged.hiddenOps.has(op.name);
-    return `<label class="poi-row" data-op="${esc(op.name)}">
+    return `<label class="poi-row" data-op="${esc(op.name)}" title="Untick to hide. Hides this operator's buses from your published map - readers will not see them.">
       <input type="checkbox" ${shown ? 'checked' : ''}${blocked ? ' disabled' : ''}>
       <span>${esc(op.name)}</span>
     </label>`;
