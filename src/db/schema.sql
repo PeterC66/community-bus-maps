@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS application (
   org_name      TEXT NOT NULL,
   org_type      TEXT NOT NULL,           -- one of ORG_TYPES in src/server.js: the five pain-point
                                           -- classes (authority-council | healthcare-campus |
-                                          -- business-park | bid-tourism | operator-ct | other),
+                                          -- business-park | bid-tourism | community-group |
+                                          -- operator-ct | other),
                                           -- plus the original values still held by older rows
                                           -- (council | shop | business | school |
                                           -- function-organiser | charity-nt)
