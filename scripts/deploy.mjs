@@ -3,7 +3,9 @@
 // the upgrade, as actually done") as one laptop command, the same way
 // deliver-map.mjs turned the map-delivery recipe into one command.
 //
-// Four steps, in the order DEPLOY.md's own write-up insists matters —
+// Step 0 refuses before anything else if a commit about to go live has no
+// deploy-history entry (scripts/check-deploy-history.mjs, buses-data OA-377).
+// Then four steps, in the order DEPLOY.md's own write-up insists matters —
 // "back up first, build second, switch third":
 //   1. docker compose run --rm backup   (a release-time backup, not cron's 03:15 one)
 //   2. git pull, then READ the new HEAD rather than assuming the pull got what
@@ -63,6 +65,26 @@ function sshRun(remoteCmd) {
 console.log('== deploy ==');
 console.log(`  host   : ${HOST}`);
 console.log(`  appDir : ${APP_DIR}`);
+console.log('');
+
+// 0. Is everything about to go live described? (buses-data OA-377)
+//
+// §3b orders an entry against ITS OWN change and was silent about every other
+// commit that merged between the writing and the deploy; twice in September
+// 2026 those rode up to busmaps.uk described by nothing, and both times it was
+// the next entry's author who noticed. So ask before anything on the host is
+// touched, and refuse. The subject is `origin/main` AFTER a fetch, because the
+// host's `git pull` takes main from GitHub, not from this laptop. It runs on
+// --dry-run too: a rehearsal that skips the one refusal is not a rehearsal.
+console.log('-- 0. is every commit about to go live described? (docs/DEPLOY.md §3b)');
+if (run('git', ['fetch', 'origin', 'main']) !== 0) {
+  console.error('✗ git fetch failed — cannot say what the host would pull, so not deploying.');
+  process.exit(1);
+}
+if (run(process.execPath, ['scripts/check-deploy-history.mjs', '--to', 'origin/main']) !== 0) {
+  console.error('✗ not deploying: write the missing entry first (the lines above say which), merge it, then deploy.');
+  process.exit(1);
+}
 console.log('');
 
 // 1. Backup, immediately before the release — not cron's 03:15 one.

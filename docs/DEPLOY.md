@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.121 | 2026-09-25 | sha=df50efe6 -->
-**v1.121** · updated 25 September 2026
+<!-- docstamp v1.122 | 2026-09-26 | sha=4ed8e8ea -->
+**v1.122** · updated 26 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -167,6 +167,14 @@ It does so only when CI is green on `main` for the commit being deployed, only a
 Adopted 7 September 2026 (buses-data OA-266, retired the same day). **Write the entry, merge it, then deploy the merge.** The old order — deploy, then record it — is what put `main` permanently one commit ahead of the live site, because a bookkeeping commit lands *after* the thing it describes and nothing deploys it. That is not a nuisance: `status.js`'s deployment check compares the live commit against `main`, so **the act of documenting a deploy was what made the next drift red**. On 2026-09-06 that clock ran out at 20:14 and produced seven consecutive CI failures across two repositories, and `buses-data` is private, so each inherited red was a billed run whose verdict was about paperwork rather than about the site.
 
 **The sha an entry names is the change, and the sha that gets deployed is the merge carrying the entry.** Those are two different commits and always will be; say which is which in the entry rather than leaving a reader to work it out. Where the change is small enough to share a pull request with its own history entry, put both in one PR and the two collapse into one.
+
+**The entry is a `CHANGELOG.d/` fragment in the change's own pull request, and the deploy refuses a commit that has none** (buses-data OA-377, adopted 2026-09-26). This ordering fixes where an entry sits against ITS OWN change and used to say nothing about every other commit that merged between the writing and the deploy: twice in September 2026 those went live described by nothing (#295–#297, then #301–#303, the owner picker among them), and both times it was the next entry's author who noticed. So `npm run deploy` now fetches and runs `scripts/check-deploy-history.mjs` as its step 0, before the backup, and stops if any first-parent commit on `origin/main` after the check's baseline neither adds a fragment, nor edits this file, nor is named by `#NNN` or short sha in one of them. When it stops, it names each commit; the remedy is a fragment naming them, in its own pull request, merged and then deployed. To ask the same question without deploying, from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
+
+```bash
+npm run check:deploy-history
+```
+
+It exits 0 when everything is described, 1 when something is not, and 2 when git cannot answer. It reads git and the documents only, never the clock or the live site, so it can say nothing about what the host is ACTUALLY running; that is still `X-App-Version`, below. The *Deploy history* line in §9 has not been written to since 2026-09-25, because the fragments now carry every entry; it stays as the record up to then, and the check still reads it.
 
 **What an entry written in advance cannot hold is the post-deploy evidence** — `gitSha`, `builtAt`, the `check:live-routes` count, the §3a read-back. That is a real cost of this ordering and it is accepted deliberately, but **three of those four readings are reproducible from the running site at any time and the fourth is not**. The sha, the `check:live-routes` count and the §3a read-back need no credential — §4's `X-App-Version` header carries the sha to any caller, which is how the `gitSha` line is reproduced on a machine holding no token. **`builtAt` is the one reading that must be captured at deploy time**: it is served only in the `opsAuthorised()` branch of `/health`, so a caller without `METRICS_TOKEN` cannot ask for it later, and this laptop deliberately holds none. Against that, the drift red this ordering replaces was silent for twelve hours and then woke somebody at 20:14. So write what is known in advance — what is shipping, why, and what §3a check will be the one that can see it — and add a **second** entry only when the deploy fails or the read-back surprises you. A failure is loud and immediate; that is the ordering answering the obvious objection that a pre-written record claims a deploy that has not happened yet.
 
