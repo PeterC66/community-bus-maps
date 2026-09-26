@@ -149,12 +149,13 @@ const ROAD_LABEL_PX = 11;
  * The engine's own keys were printed raw as the group headings — a reader saw
  * "gp" and "townhall" — and it took a pictogram appearing beside them to make
  * that obvious. The set is CLOSED: classify() in poi_select.js returns exactly
- * these thirteen or null, which is also why the glyph sprite can be complete
+ * these fourteen or null, which is also why the glyph sprite can be complete
  * rather than defensive.
  *
- * TWO OF THE THIRTEEN ARE OPT-IN AND STILL BELONG HERE (OA-340, 2026-09-19).
- * `allotments` and `pubs` only reach a sheet when that town's routes.json
- * carries `poi.include`, so for most towns these two rows never appear — which
+ * THREE OF THE FOURTEEN ARE OPT-IN AND STILL BELONG HERE (OA-340, 2026-09-19;
+ * `station` joined them under buses-data OA-453, 2026-09-26).
+ * `allotments`, `pubs` and `stations` only reach a sheet when that town's routes.json
+ * carries `poi.include`, so for most towns these rows never appear — which
  * is exactly why they have to be written down rather than met. A category the
  * engine can emit and this page cannot name prints its raw key as a heading,
  * and a town that has just switched pubs on is the one town whose reader is
@@ -166,11 +167,12 @@ const CAT_LABEL = {
   school: 'Schools', park: 'Parks and recreation grounds',
   industrial: 'Industrial estates', community: 'Community centres',
   townhall: 'Town halls', allotments: 'Allotments', pub: 'Pubs',
+  station: 'Railway stations',
 };
 const catLabel = (c) => CAT_LABEL[c] || c;
 
 /**
- * The same thirteen, one at a time, for the row that has no name of its own.
+ * The same fourteen, one at a time, for the row that has no name of its own.
  *
  * Not derived from CAT_LABEL by trimming an "s": "Pharmacies" and "Parks and
  * recreation grounds" do not survive it, and a heading that reads "Unnamed
@@ -181,14 +183,15 @@ const catLabel = (c) => CAT_LABEL[c] || c;
  * nameless default leaves it undrawn — a bare glyph wearing a label would have
  * walked straight past the rule that exists to stop it. It is still offered
  * here, because the row's own rename box is how a local turns an unnamed
- * amenity=pub into the one everybody navigates by.
+ * amenity=pub into the one everybody navigates by. A nameless `station` takes
+ * the same path, for the same reason.
  */
 const CAT_ONE = {
   shop: 'supermarket', gp: 'GP surgery', pharmacy: 'pharmacy',
   library: 'library', museum: 'museum', leisure: 'leisure centre',
   school: 'school', park: 'park', industrial: 'industrial estate',
   community: 'community centre', townhall: 'town hall', allotments: 'allotment site',
-  pub: 'pub',
+  pub: 'pub', station: 'railway station',
 };
 
 /**
