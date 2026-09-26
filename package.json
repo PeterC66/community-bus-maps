@@ -56,6 +56,8 @@
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:propose-no-notify": "node scripts/test-propose-update-no-notify.mjs",
     "test:newest-render": "node scripts/test-newest-render.mjs",
+    "test:local-decisions": "node scripts/test-local-decisions.mjs",
+    "test:prove-red-local-decisions": "node scripts/prove-red-local-decisions.mjs",
     "test:fixture-freshness": "node scripts/test-fixture-freshness.mjs",
     "test:prove-red-delete-map": "node scripts/prove-red-delete-map.mjs",
     "test:prove-red-newest-render": "node scripts/prove-red-newest-render.mjs",
