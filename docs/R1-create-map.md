@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.20 | 2026-09-21 | sha=0a592e3e -->
-**v1.20** · updated 21 September 2026
+<!-- docstamp v1.21 | 2026-09-26 | sha=7cb96626 -->
+**v1.21** · updated 26 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -44,7 +44,9 @@ node assets/status.js --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claud
 
 The map's own `manifest.json` carries the same answer in `stages.S5.latest`, and since 2026-09-20 `deliver-map.mjs` asks it: step 0b refuses a `--src` the manifest does not call current, before anything leaves the laptop. `--render-superseded "<reason>"` is the escape hatch for a deliberate older delivery.
 
-**Run `npm run deliver -- --dry-run …` before the delete, whatever you are doing.** It runs both local gates and prints the exact `import-map.mjs` argument vector without an `scp`, an `ssh` or a write of any kind, so a refusal that would otherwise land *after* a row has been deleted costs nothing to buy in advance. It also shows how a customer name with an apostrophe survives the shell, which is worth reading rather than hoping about.
+**Since 2026-09-26 step 0c refuses a map with a blocking local question still open** (buses-data OA-083). It reads the `local-decisions.json` beside the map's `manifest.json` and refuses while any decision with `severity: "blocking"` has an answer state other than `answered` or `dont-know`. The question goes to the customer by letter; record the answer in that file and deliver again. A dated deferral, per decision and never per map, goes in `scripts/local-decision-waivers.json`, and `--local-decisions-unchecked "<reason>"` is the one-off escape hatch. A map with no `local-decisions.json` passes as N/A.
+
+**Run `npm run deliver -- --dry-run …` before the delete, whatever you are doing.** It runs the local gates and prints the exact `import-map.mjs` argument vector without an `scp`, an `ssh` or a write of any kind, so a refusal that would otherwise land *after* a row has been deleted costs nothing to buy in advance. It also shows how a customer name with an apostrophe survives the shell, which is worth reading rather than hoping about.
 
 **The board command above is the one exception on this page**, and everything from here on returns to the repository root (`C:\Claude\community-bus-maps`), as the note at the top of this page says.
 

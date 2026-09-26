@@ -1,0 +1,44 @@
+{
+  "_comment": [
+    "Blocking local questions a map may be delivered with while they are still open, and until when.",
+    "",
+    "scripts/deliver-map.mjs step 0c refuses a map whose local-decisions.json holds a decision with",
+    "severity \"blocking\" whose answer is not \"answered\" or \"dont-know\" (buses-data OA-083). Blocking",
+    "means printing our guess could misdirect a passenger, and Peter ruled on 2026-09-26 that such a",
+    "question goes to the customer by letter. This file exists because the gate would otherwise be red",
+    "on day one for three maps, and a gate that is red on day one gets muted: the same bargain as",
+    "scripts/s6-waivers.json, whose header gives the reasoning in full.",
+    "",
+    "One entry per DECISION, keyed by map name (the manifest's `town`) and the decision's `id`. Never",
+    "by map alone: a map-wide waiver would cover the next blocking question a rebuild records, which",
+    "is the one nobody has read yet. An entry whose `until` has passed is refused as loudly as a",
+    "missing one.",
+    "",
+    "TO CLEAR ONE: get the answer, record it in the map's local-decisions.json in buses-data as",
+    "{ \"state\": \"answered\" } or { \"state\": \"dont-know\" }, then delete the entry here. Do not",
+    "extend `until` without writing down what changed."
+  ],
+  "waive": [
+    {
+      "map": "Ramsey",
+      "decision": "rural-hoppa-still-runs",
+      "until": "2026-10-31",
+      "why": "Asked of the Ramsey adviser (CORR-001) and not yet answered when the gate landed on 2026-09-26. Ramsey is a live customer map that takes a monthly refresh.",
+      "removeBy": "Record the adviser's answer in Areas/Ramsey/local-decisions.json, or dont-know if none comes, and delete this entry."
+    },
+    {
+      "map": "St Neots Town Centre",
+      "decision": "community-service-stands",
+      "until": "2026-10-31",
+      "why": "Recorded and never put to anyone when the gate landed on 2026-09-26 (the board's corr-unasked-St Neots Town Centre row). A live map of the first customer's.",
+      "removeBy": "Put the question in a letter to the St Neots customer, record the answer (or dont-know) in that place's local-decisions.json, and delete this entry."
+    },
+    {
+      "map": "The Shelfords",
+      "decision": "t3-saturdays",
+      "until": "2026-10-31",
+      "why": "Asked of the Shelfords correspondent (CORR-005) and not yet answered when the gate landed on 2026-09-26.",
+      "removeBy": "Record the answer in Areas/The Shelfords/local-decisions.json, or dont-know if none comes, and delete this entry."
+    }
+  ]
+}

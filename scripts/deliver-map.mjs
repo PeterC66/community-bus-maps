@@ -49,6 +49,11 @@
 //      render that still reproduces from a current one, and two of the first
 //      customer's sheets went publicly live a fortnight stale through that gap.
 //      --render-superseded "<reason>" is the one-off escape hatch.
+//   0c. LOCAL DECISIONS — refuse a map whose local-decisions.json holds a
+//      BLOCKING question still unanswered (buses-data OA-083). Local, before
+//      the scp. Per-decision deferrals with expiry dates live in
+//      scripts/local-decision-waivers.json; --local-decisions-unchecked
+//      "<reason>" is the one-off escape hatch.
 //   1. scp --src up to a scratch dir on the host (rsync isn't reliably
 //      available on Windows/Git Bash laptops, so this uses scp instead).
 //   2. PRE-FLIGHT VERIFY there, inside a throwaway container, BEFORE touching
@@ -98,6 +103,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkS6, findWaiver, refuses } from './lib/s6-freshness.mjs';
 import { checkNewestRender } from './lib/newest-render.mjs';
+import { checkLocalDecisions, findDecisionWaiver } from './lib/local-decisions.mjs';
 import { arg, has } from './lib/cli.mjs';
 
 
@@ -155,6 +161,8 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
   if (all[i - 1] === '--s6-unchecked') return false;
   if (a === '--render-superseded') return false;
   if (all[i - 1] === '--render-superseded') return false;
+  if (a === '--local-decisions-unchecked') return false;
+  if (all[i - 1] === '--local-decisions-unchecked') return false;
   return true;
 });
 
@@ -396,6 +404,95 @@ if (RENDER_SUPERSEDED) {
   console.log('   Nothing has established that this is the newest render we hold for this map.');
 } else {
   gateNewestRender();
+}
+
+// ---------------------------------------------------------------------------
+// STEP 0c — is a BLOCKING local question still open on this map?
+// buses-data OA-083.
+//
+// A build records what only somebody local can tell us in the map folder's
+// local-decisions.json, and marks `blocking` the questions where printing our
+// guess would misdirect a passenger. Until this step nothing read that mark:
+// the board raised a row for an unasked question and the map shipped anyway.
+// Peter ruled on 2026-09-26 that those questions go to the customer by letter,
+// so this is where the answer is required. `answered` and `dont-know` clear it;
+// every other state — never asked, asked, open, partly answered, or one this
+// gate has not learned — refuses.
+//
+// Same shape as step 0: local, before the scp, dated per-decision deferrals in
+// scripts/local-decision-waivers.json, and a one-off escape hatch,
+// --local-decisions-unchecked "<reason>". No local-decisions.json at all passes
+// out loud as N/A: a build that recorded no question has none open.
+// ---------------------------------------------------------------------------
+const DECISION_WAIVERS_PATH = path.join(HERE, 'local-decision-waivers.json');
+const LOCAL_DECISIONS_UNCHECKED = (() => {
+  const i = process.argv.indexOf('--local-decisions-unchecked');
+  return i === -1 ? null : (process.argv[i + 1] || '(no reason given)');
+})();
+
+function gateLocalDecisions() {
+  const r = checkLocalDecisions({ srcDir: SRC });
+
+  if (r.verdict === 'clear') {
+    console.log(`-- 0c. Local decisions: OK — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'no-file') {
+    console.log(`-- 0c. Local decisions: N/A — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'no-manifest' || r.verdict === 'unreadable') {
+    console.error('\n✗ 0c. Local decisions: CANNOT TELL — nothing has been uploaded.');
+    console.error(`  ${r.message}`);
+    console.error('  Refusing rather than assuming, as steps 0 and 0b do. Fix the file, or add');
+    console.error('  --local-decisions-unchecked "<reason>" if you mean to ship regardless.');
+    process.exit(1);
+  }
+  if (r.verdict !== 'outstanding') {
+    console.error(`\n✗ 0c. Local decisions: UNKNOWN VERDICT "${r.verdict}" — nothing has been uploaded.`);
+    console.error('  scripts/lib/local-decisions.mjs produced a verdict this gate does not know how to');
+    console.error('  judge. Teach gateLocalDecisions() what it means rather than widening the pass.');
+    process.exit(1);
+  }
+
+  let waivers = { waive: [] };
+  try { if (existsSync(DECISION_WAIVERS_PATH)) waivers = JSON.parse(readFileSync(DECISION_WAIVERS_PATH, 'utf8')); } catch (e) {
+    console.error(`✗ could not read ${DECISION_WAIVERS_PATH}: ${e.message}`);
+    process.exit(1);
+  }
+  const unwaived = [];
+  for (const o of r.outstanding) {
+    const w = findDecisionWaiver(waivers, r.map, o.id);
+    if (w && !w.expired) {
+      console.log(`-- 0c. Local decisions: ${o.id} OPEN (${o.state}), deferred until ${w.until}`);
+      console.log(`  Why deferred: ${w.why}`);
+      console.log(`  To clear: ${w.removeBy}`);
+    } else {
+      unwaived.push({ ...o, expiredOn: w && w.expired ? w.until : null });
+    }
+  }
+  if (!unwaived.length) return;
+
+  console.error(`\n✗ 0c. Local decisions: REFUSED — ${r.map} has a blocking local question open. Nothing has been uploaded and the live service is untouched.`);
+  for (const o of unwaived) {
+    console.error(`\n  ${o.id} (${o.state})${o.expiredOn ? ` — its deferral EXPIRED on ${o.expiredOn}` : ' — no deferral'}`);
+    console.error(`    ${o.question}`);
+  }
+  console.error(`\n  In: ${r.file}`);
+  console.error('\n  Do one of these:');
+  console.error('   1. Get the answer — the question goes to the customer by letter — and record it in that');
+  console.error('      file as { "state": "answered" } or, if nobody local knows, { "state": "dont-know" } (the right answer).');
+  console.error('   2. Add or renew a DATED entry in scripts/local-decision-waivers.json, per decision, saying who clears it.');
+  console.error('   3. --local-decisions-unchecked "<reason>" for a one-off, which is recorded in this log and nowhere else.');
+  process.exit(1);
+}
+
+if (LOCAL_DECISIONS_UNCHECKED) {
+  console.log('!! 0c. Local decisions: SKIPPED BY HAND');
+  console.log(`   reason: ${LOCAL_DECISIONS_UNCHECKED}`);
+  console.log('   Nothing has established that no blocking local question is open on this map.');
+} else {
+  gateLocalDecisions();
 }
 console.log('');
 
