@@ -282,6 +282,15 @@
         "status": "no",
         "examples": []
       },
+      "alsoPublished": [
+        {
+          "publisher": "Nottinghamshire County Council",
+          "covers": "Nottinghamshire",
+          "what": "Nottinghamshire County Bus Network map, a PDF on the county's travel-maps page — a constituent council of the combined authority draws it",
+          "url": "https://www.nottinghamshire.gov.uk/transport/public-transport/travel-maps",
+          "checked": "2026-09-26"
+        }
+      ],
       "landingPage": "https://www.eastmidlands-cca.gov.uk/what-we-do/transport/",
       "checked": "2026-09-11"
     },
