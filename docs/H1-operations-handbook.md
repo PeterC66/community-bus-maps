@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.30 | 2026-09-27 | sha=8556bebd -->
-**v1.30** · updated 27 September 2026
+<!-- docstamp v1.31 | 2026-09-27 | sha=03bb016f -->
+**v1.31** · updated 27 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -212,6 +212,7 @@ npm run prune:staged -- --days 90               # dry run by default; add --yes 
 node scripts/import-map.mjs --src "<S5-render dir>" --name "…" --slug … --kind area|place --customer "…"
 node scripts/import-map.mjs --list-requests      # approved requests awaiting a build
 node scripts/import-map.mjs --request <id> --src "<S5-render dir>"   # build one IN PLACE
+# add --dry-run to either import above to see what it would write, and write nothing
 node scripts/delete-map.mjs --slug <slug>                            # dry run — shows what would go
 node scripts/delete-map.mjs --slug <slug> --yes                      # retire a map (row, versions, dir)
 node scripts/propose-update.mjs …               # stage a monthly refresh
