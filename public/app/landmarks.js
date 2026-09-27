@@ -16,7 +16,9 @@
 // older `internal.pois[k].hide`. The two are not interchangeable: `hide` is a
 // render-time override that leaves the symbol reserving its 4.2 mm box, so a
 // reader told they were making room would have been told something false. A
-// tier is applied at selection, before anything reserves anything.
+// tier is applied at selection, before anything reserves anything. Since
+// OA-439 it also writes `overrides.internal.poiInclude`, the category switch —
+// pubs, allotments, railway stations on or off a whole kind at a time.
 //
 // It carries the map's OTHER overrides with it on save. Route colours live in
 // the same object and sanitizeOverrides() rebuilds that object from scratch, so
@@ -221,6 +223,12 @@ const motionOK = () => !(window.matchMedia && window.matchMedia('(prefers-reduce
 let DETAIL = null;      // /api/maps/:id  (needed for the OTHER overrides we must not lose)
 let LANDMARKS = [];     // /api/maps/:id/landmarks
 let BASE = null;        // saved tier per key, as loaded
+// The category switch (OA-439 item 3). CATS is /landmarks' `categories`, one
+// row per opt-in category; SWITCH is cat -> on, as the reader has left it; and
+// BASE_SWITCH is the payload as loaded, so dirty() can compare like with like.
+let CATS = [];
+let SWITCH = new Map();
+let BASE_SWITCH = null;
 // key -> { tier, as, set }. `set` is the OA-215 addition and it is a different
 // question from "is this tier something other than may": it records whether the
 // READER has answered this row at all. Without it the page cannot show progress
@@ -1095,8 +1103,60 @@ function tiersPayload() {
   return out;
 }
 
+/**
+ * The category switch as it is saved: ONLY the categories whose answer differs
+ * from the town's own poi.include. A reader who switches pubs on and off again
+ * has changed nothing, and posting `{pubs: false}` for a town that never drew
+ * pubs would light the Save button for a drawing identical to the last.
+ */
+function switchPayload() {
+  const out = {};
+  for (const c of CATS) {
+    const on = SWITCH.has(c.cat) ? SWITCH.get(c.cat) : c.on;
+    if (on !== c.packOn) out[c.cat] = on;
+  }
+  return out;
+}
+
 function dirty() {
-  return JSON.stringify(tiersPayload()) !== JSON.stringify(BASE);
+  return JSON.stringify(tiersPayload()) !== JSON.stringify(BASE)
+    || JSON.stringify(switchPayload()) !== JSON.stringify(BASE_SWITCH);
+}
+
+const CAT_SWITCH_LABEL = { allotments: 'Allotments', pubs: 'Pubs', stations: 'Railway stations' };
+
+/**
+ * One checkbox per category. A category the map's data holds none of is drawn
+ * DISABLED with the reason, not hidden: the reader who came looking for the
+ * pubs needs to learn that this map's OpenStreetMap pull never fetched them,
+ * which is a thing to ask us about and not a switch that silently does nothing.
+ */
+function buildSwitches() {
+  const box = $('catSwitches');
+  const list = $('catList');
+  if (!box || !list) return;
+  list.textContent = '';
+  if (!CATS.length) { showEl(box, false); return; }
+  showEl(box, true);
+  for (const c of CATS) {
+    const on = SWITCH.has(c.cat) ? SWITCH.get(c.cat) : c.on;
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = on;
+    cb.dataset.cat = c.cat;
+    const none = !c.available && !on;
+    cb.disabled = none;
+    if (none) label.classList.add('off');
+    cb.addEventListener('change', () => { SWITCH.set(c.cat, cb.checked); onEdit(); });
+    const n = document.createElement('span');
+    n.className = 'lm-cat-n';
+    n.textContent = none
+      ? '— none in this map’s data; ask us if you want them'
+      : `— ${c.available} in this map’s data`;
+    label.append(cb, ' ' + (CAT_SWITCH_LABEL[c.cat] || c.cat) + ' ', n);
+    list.appendChild(label);
+  }
 }
 
 // The page said "Not saved yet" and still let a reload or a closed tab throw the
@@ -1196,8 +1256,15 @@ function onEdit() {
 function payload() {
   const ov = JSON.parse(JSON.stringify(DETAIL.overrides || {}));
   delete ov.internal;
+  const internal = {};
   const tiers = tiersPayload();
-  if (Object.keys(tiers).length) ov.internal = { poiTiers: tiers };
+  if (Object.keys(tiers).length) internal.poiTiers = tiers;
+  // The category switch is this page's too (OA-439), so it is re-emitted here
+  // for the same reason the colours are carried: the object is rebuilt from
+  // scratch on save, and a key nobody posts is deleted.
+  const sw = switchPayload();
+  if (Object.keys(sw).length) internal.poiInclude = sw;
+  if (Object.keys(internal).length) ov.internal = internal;
   return ov;
 }
 
@@ -1301,6 +1368,8 @@ function showBlock(headline, block) {
 $('resetBtn').addEventListener('click', () => {
   STATE = new Map();
   for (const p of LANDMARKS) STATE.set(p.key, { tier: p.tier, as: p.as || null, set: !!p.answered });
+  SWITCH = new Map();
+  buildSwitches();
   buildList(); onEdit();
 });
 
@@ -1402,6 +1471,10 @@ async function load() {
   STATE = new Map();
   for (const p of LANDMARKS) STATE.set(p.key, { tier: p.tier, as: p.as || null, set: !!p.answered });
   BASE = tiersPayload();
+  CATS = Array.isArray(l.categories) ? l.categories : [];
+  SWITCH = new Map();
+  BASE_SWITCH = switchPayload();
+  buildSwitches();
 
   // Say out loud that an old-style hide is being read as "Do not show", and what
   // saving will do about it — the sheet really does reflow, because the space is

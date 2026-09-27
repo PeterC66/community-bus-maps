@@ -122,6 +122,16 @@ function savedPoiTiers(id) {
   return t && typeof t === 'object' ? t : {};
 }
 
+/**
+ * A map's saved category switch ({} if none) — `internal.poiInclude`, which
+ * safeSubset.js has already cut down to opt-in categories and booleans (OA-439).
+ */
+function savedPoiInclude(id) {
+  const ov = readOverrides(id);
+  const s = ov && ov.internal && ov.internal.poiInclude;
+  return s && typeof s === 'object' && !Array.isArray(s) ? s : {};
+}
+
 /** The three things sanitizeOverrides() needs to know about a map's customer + payload. */
 function safeSubsetAllow(map, meta, poiKeys, dataDir) {
   return {
@@ -303,5 +313,5 @@ function publishedHistoryFor(map) {
 }
 
 export {
-  withMapLock, loadOwnedMap, loadReadableMap, loadAdvisedMap, operatorFilterAllow, boardingPlanActive, savedPoiTiers, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor,
+  withMapLock, loadOwnedMap, loadReadableMap, loadAdvisedMap, operatorFilterAllow, boardingPlanActive, savedPoiTiers, savedPoiInclude, safeSubsetAllow, downloadsForVersion, visibleDownloadsForVersion, loadPendingProposed, refreshNote, mapDetail, publishedHistoryFor,
 };

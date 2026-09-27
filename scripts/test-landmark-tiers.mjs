@@ -358,6 +358,8 @@ console.log('\nthe editable key universe, on a fixture — the half CI can run')
     const has = (list) => list.some((c) => c.key === 'pub:The Crown');
     check('a pub is not offered on a town that never switched pubs on', !has(enumerateCandidatesFromDir(fixture)), 'pub:The Crown offered unasked');
     check('the customer switching pubs on offers it', has(enumerateCandidatesFromDir(fixture, null, { pubs: true })), 'pub:The Crown not offered');
+    check('and a pub answer survives the switch being off, because the editable universe holds every switchable category',
+      editablePoiKeysFromDir(fixture).includes('pub:The Crown'), 'pub:The Crown is refused while pubs are off');
     eq('and a tier answered in the same save still applies to it',
       (enumerateCandidatesFromDir(fixture, { 'pub:The Crown': { tier: 'must' } }, { pubs: true }).find((c) => c.key === 'pub:The Crown') || {}).tier, 'must');
     writeFileSync(path.join(fixture, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: { include: ['pubs'] } }));

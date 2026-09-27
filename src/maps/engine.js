@@ -405,6 +405,53 @@ export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null, include
 }
 
 /**
+ * The category switch as the chooser shows it (OA-439 item 3): one row per
+ * opt-in category, saying whether the sheet draws it and how many places the
+ * map's own OpenStreetMap data holds for it.
+ *
+ * `available` comes from one enumeration with EVERY opt-in category switched
+ * on, counted per candidate `cat` — which is not the switch's own name (`pubs`
+ * classifies as `pub`, `stations` as `station`). A category the data holds none
+ * of is still returned, with 0: switching it on would draw nothing, because the
+ * map's S2 pull never asked OpenStreetMap for it, and the page says so rather
+ * than offering a switch that silently does nothing.
+ *
+ * `on` is the answer the sheet is drawn with — the pack's poi.include with the
+ * customer's switch laid over it by the engine's own mergePoiOverlay(), the
+ * same call the render makes — `packOn` is the town's own poi.include without
+ * it, and `saved` is whether the customer's layer names the category at all, so
+ * the page can tell "you switched this on" from "this town has always drawn it"
+ * and post only the switches that differ from the town's own default.
+ *
+ * @returns {{ cat:string, candidateCat:string, on:boolean, packOn:boolean,
+ *             saved:boolean, available:number }[]}  [] if the engine module cannot be read
+ */
+export const SWITCH_CANDIDATE_CAT = { allotments: 'allotments', pubs: 'pub', stations: 'station' };
+export function categorySwitchesFromDir(dataDir, includeOverlay = null) {
+  let OPT_IN_CATS, mergePoiOverlay;
+  try {
+    ({ OPT_IN_CATS, mergePoiOverlay } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
+  } catch { return []; }
+  const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
+  const sw = includeOverlay && typeof includeOverlay === 'object' ? includeOverlay : {};
+  const merged = mergePoiOverlay(routes.poi || {}, { poiInclude: sw });
+  const drawn = new Set(Array.isArray(merged.include) ? merged.include : []);
+  const pack = new Set(Array.isArray(routes.poi && routes.poi.include) ? routes.poi.include : []);
+  const counts = {};
+  for (const p of enumerateCandidatesFromDir(dataDir, null, allSwitchedOn(OPT_IN_CATS))) {
+    counts[p.cat] = (counts[p.cat] || 0) + 1;
+  }
+  return OPT_IN_CATS.map((cat) => {
+    const candidateCat = SWITCH_CANDIDATE_CAT[cat] || cat;
+    return { cat, candidateCat, on: drawn.has(cat), packOn: pack.has(cat), saved: typeof sw[cat] === 'boolean', available: counts[candidateCat] || 0 };
+  });
+}
+
+function allSwitchedOn(cats) {
+  return Object.fromEntries(cats.map((c) => [c, true]));
+}
+
+/**
  * The tiers a map's own pack carries in routes.json — a town's answer as it was
  * exported back into its source data, as opposed to the customer's live layer.
  *
@@ -437,10 +484,18 @@ export function packPoiTiers(dataDir) {
  *    forward by track-engine.mjs runs the generator it was IMPORTED with, so
  *    the two really can disagree. Losing a customer's existing edit to that is
  *    not a trade worth making, and the union costs nothing.
+ *  • CANDIDATES ARE ENUMERATED WITH EVERY OPT-IN CATEGORY SWITCHED ON (OA-439).
+ *    A customer who answers a pub and then switches pubs off has not withdrawn
+ *    the answer, and validating against the switch as saved would reject the
+ *    key on the next save and lose it — so switching pubs back on would bring
+ *    every pub back unanswered. The switch decides what is drawn; it never
+ *    decides which answers may be kept.
  */
 export function editablePoiKeysFromDir(dataDir, tiersOverlay = null) {
   const keys = new Set();
-  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);
+  let everyCat = null;
+  try { everyCat = allSwitchedOn(poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')).OPT_IN_CATS); } catch { everyCat = null; }
+  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);
   for (const p of enumeratePoisFromDir(dataDir)) keys.add(p.key);
   return [...keys];
 }
