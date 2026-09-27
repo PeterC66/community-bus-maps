@@ -1,8 +1,9 @@
 {
-  "engine": "3b0658bfb8",
+  "engine": "d5237bbda5",
+  "engineCommit": "c91b091b450ada27d4f9c3b9ac1b34fea5158a6d",
   "town": "St Ives",
   "validFrom": "3 August 2026",
-  "version": "6.83",
+  "version": "6.84",
   "externalHubLabel": "St Ives Bus Station/\nPark and Ride",
   "palette": {
     "9": "#009988",
@@ -279,7 +280,7 @@
     "badgeEvery": 70,
     "termini": {
       "9": {
-        "end": "Huntingdon"
+        "end": "Hemingfords & Huntingdon"
       },
       "69": {
         "start": "Boxworth",
@@ -308,7 +309,7 @@
     "skeletonMaxW": 11.5
   },
   "terminiLabels": {
-    "9": "Huntingdon",
+    "9": "Hemingfords & Huntingdon",
     "69": "Boxworth",
     "301": "Ramsey",
     "302": "March",
@@ -483,7 +484,7 @@
       }
     },
     "laneOrientation": false,
-    "sheetVersion": "build 6.83 · 21 Sep 2026"
+    "sheetVersion": "build 6.84 · 27 Sep 2026"
   },
   "labels": {},
   "frequency": {

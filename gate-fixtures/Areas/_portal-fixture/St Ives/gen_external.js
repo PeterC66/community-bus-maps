@@ -44,6 +44,7 @@ const { wrap, externalPrimitives, hubEdgeFor, rayToRectFor } = require(_from('ex
 // relocating itself or a drop already counted by the sidecar. None of those is a
 // refusal and none becomes one here.
 const { refuse: guardRefuse, report: reportRefusals } = require(_from('strict_guards.js'));
+const { armItemsFrom, drawArmNote } = require(_from('arm_note.js'));
 
 // ---- main() ---------------------------------------------------------------
 // OA-224 Tier 4.1: the body below runs only when this file is RUN, never when it
@@ -587,12 +588,10 @@ let _boxWarned = false;   // OA-157 — see buildLegend
 // two arms — to Manea and to Wisbech"), or use D.externalNote to override.
 // Hoisted above buildLegend because its TEXT does not depend on where the legend
 // sits — only its wrap width and position do.
+// The auto note is one line per route (J10, buses-data OA-040) -- see arm_note.js.
 let armNote = D.externalNote;
-if(armNote===undefined){
-  const arms={}; EXT.forEach(b=>{(arms[b.route]=arms[b.route]||[]).push(b.label);});
-  armNote = Object.entries(arms).filter(([,v])=>v.length>1)
-    .map(([r,v])=>`${r} runs as two arms — to ${v.slice(0,-1).join(', ')} and to ${v[v.length-1]}.`).join('  ');
-}
+let armItems = null;
+if(armNote===undefined) ({ items: armItems, note: armNote } = armItemsFrom(EXT));
 /*
  * ART — the artwork's own claimed boxes, snapshotted BEFORE the legend adds any
  * badge boxes of its own. design.legendPlace searches against this, so the legend
@@ -708,10 +707,10 @@ function buildLegend(lx, ly, dx, dy){
     // Measured in mm on the real advances, not in characters: the note now fills the
     // width it is given instead of stopping ~16% short of it (see measureText).
     const _panelW = _box ? (_box.w - 8) : Math.max(panelMaxX - lx, 100);
-    const _noteLines = wrapMm(armNote, _panelW, 2.9);
-    _noteLines.forEach((ln,i)=>out(`<text x="${_nx}" y="${(_ny+i*3.6).toFixed(2)}" font-family="Arial" font-size="2.9" fill="#666">${esc(ln)}</text>`));
-    panelMaxX = Math.max(panelMaxX, _nx + Math.max(..._noteLines.map(ln=>measureText(ln,2.9))));
-    panelMaxY = Math.max(panelMaxY, _ny + (_noteLines.length-1)*3.6 + 2);
+    const _ink = drawArmNote({ items: armItems, note: armNote, x: _nx, y: _ny, width: _panelW,
+      out: s => out(s), wrapMm, measureText, esc });
+    panelMaxX = Math.max(panelMaxX, _ink.maxX);
+    panelMaxY = Math.max(panelMaxY, _ink.maxY);
   }
   out = realOut;
   // legendAt.box may override just one dimension (e.g. width, to steer clear of a spoke
@@ -913,11 +912,10 @@ LEG.buf.forEach(out);
  *
  * `bullets` and `heading` override the lot for a town that wants its own words.
  *
- * ON BY DEFAULT since 2026-08-24, `howToUse:false` to refuse it. All 8 towns had
- * opted in, which is the definition of a default here. NOTE what was NOT flipped:
- * every one of those towns also stores its own three `bullets`, a hand-picked subset
- * of the five derived below, and those stay explicit — they are per-map content, not
- * a repeated flag, and unsetting them would grow every town's panel by two bullets.
+ * ON BY DEFAULT since 2026-08-24, `howToUse:false` to refuse it. THREE BULLETS since
+ * 2026-09-26 (buses-data OA-437, OA-443): eight of nine stored `bullets` were these
+ * three verbatim, and the towns storing none drew six. The journey-time bullet went
+ * too — no stored town printed it, and the footer already says times are approximate.
  */
 const HOWTO = DESIGN.howToUse === false ? null
   : (DESIGN.howToUse == null || DESIGN.howToUse === true ? {} : DESIGN.howToUse);
@@ -932,10 +930,7 @@ if(HOWTO){
       'Find where you want to go, around the edge of the diagram.',
       `Follow its coloured line in to ${HUB_PROSE} at the centre.`,
       'The badge on that line is the bus service number.',
-      'The panel headed “Operators & services” says who runs it.',
-      'Names printed along a line are its main stops, not every stop.',
     ];
-    if(_hasTimes) b.push('A time under a destination is a typical whole journey, not a timetable.');
     if(DESIGN.scaleBar === false) b.push('Not to scale — directions and distances are simplified.');
     return b;
   })();
