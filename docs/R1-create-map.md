@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.22 | 2026-09-27 | sha=f4c9bbff -->
-**v1.22** · updated 27 September 2026
+<!-- docstamp v1.23 | 2026-09-27 | sha=d3c0dbf7 -->
+**v1.23** · updated 27 September 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -76,6 +76,7 @@ Flags:
 | `--subject` | what the map is of (defaults to `--name`) |
 | `--customer "Name"` | attach to that customer (created if missing). **Required** — since 2026-08-30 the importer REFUSES without it rather than warning and carrying on, because an unowned map is invisible to the public site (see below). `--unowned` is the deliberate escape hatch |
 | `--customer-type` | one of `council · shop · business · school · function-organiser · charity-nt · other` (only used if the customer is created here) |
+| `--dry-run` | run every refusal (owner, slug, kind, vendored engine, payload shape), then say what it would create or adopt, which owner it would create or reuse, which files it would copy and that it would render v1.0 — and write no row, no folder and no file (buses-data OA-228) |
 
 What it does: copies the generators + JSON inputs into the git-ignored object store (`DATA_DIR/maps/<id>/data/`); stores any shipped `overrides.json` as **expert framing** (`base-overrides.json`, merged *under* customer edits — never as the customer layer); writes empty customer overrides `{}`; renders **v1.0 = the byte-identical baseline**; prints the new map id and its edit URL `/app/maps/<id>`.
 

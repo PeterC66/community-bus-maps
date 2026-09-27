@@ -27,6 +27,14 @@
 // approved request (each overridable with the usual flag), the row moves
 // 'approved' → 'draft', and the fulfilment is written to the audit log. There is
 // no placeholder left to archive and quota counts the map once.
+//
+// --dry-run (buses-data OA-228) runs every refusal above the first write — the
+// owner, the slug, the kind, the vendored engine, the payload's shape — and then
+// says what it WOULD do: the row it would create or adopt, the owner it would
+// create or reuse, the files it would copy and the baseline it would render. It
+// writes no row, no folder and no file. It takes cli.mjs's confirm('remote'):
+// the default is still to import, because a script that suddenly stops writing
+// is how an operator's sequence becomes a silent no-op.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { writeEngineSource, ENGINE_SOURCE_FILE } from './lib/engine-source.mjs';
@@ -42,7 +50,9 @@ import { renderVersion, defaultOutputs } from '../src/maps/engine.js';
 import { isSampleCustomer } from '../src/render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { newestReportPath, parseSections, sectionsForMap, bannerNoteFor } from './lib/upcoming-report.mjs';
 import { requireScan } from './lib/vendored.mjs';
-import { arg, has } from './lib/cli.mjs';
+import { arg, has, confirm } from './lib/cli.mjs';
+
+const { dryRun } = confirm('remote');
 
 const ORG_TYPES = ['council', 'shop', 'business', 'school', 'function-organiser', 'charity-nt', 'other'];
 
@@ -143,8 +153,8 @@ if (requestId != null) {
 
 const name = arg('name', request ? request.name : undefined);
 if (!src || !name) {
-  console.error('Usage: node scripts/import-map.mjs --src "<run dir>" --name "<Display Name>" --customer "Org" [--slug ..] [--kind area|place] [--subject ..] [--unowned]');
-  console.error('   or: node scripts/import-map.mjs --request <mapId> --src "<run dir>"   (build an approved request)');
+  console.error('Usage: node scripts/import-map.mjs --src "<run dir>" --name "<Display Name>" --customer "Org" [--slug ..] [--kind area|place] [--subject ..] [--unowned] [--dry-run]');
+  console.error('   or: node scripts/import-map.mjs --request <mapId> --src "<run dir>" [--dry-run]   (build an approved request)');
   console.error('   or: node scripts/import-map.mjs --list-requests');
   process.exit(2);
 }
@@ -285,6 +295,9 @@ if (request) {
   if (existing) {
     customerId = existing.id;
     console.log(`· owner: existing customer "${customerName}" (#${customerId})`);
+  } else if (dryRun) {
+    const type = ORG_TYPES.includes(customerType) ? customerType : 'other';
+    console.log(`· owner: would create customer "${customerName}" (${type})`);
   } else {
     const type = ORG_TYPES.includes(customerType) ? customerType : 'other';
     customerId = insertCustomer({ name: customerName, type });
@@ -298,6 +311,23 @@ if (request) {
   console.warn('· UNOWNED (--unowned given) — this map is dropped by every public query and');
   console.warn('  cannot become publicly visible until an owner is set. Set one afterwards with');
   console.warn('  POST /api/admin/maps/<id>/owner from the admin console.');
+}
+
+// --dry-run stops HERE: every refusal above has run, and nothing below has.
+// The file list is the same filter step 2 applies, so what it names is what a
+// real import would copy.
+if (dryRun) {
+  const payload = readdirSync(SRC).filter((f) => f !== 'overrides.json' && f !== BASE_OVERRIDES
+    && (/^gen_.*\.js$/.test(f) || f === BUILD_WARNINGS || (f.endsWith('.json') && !f.endsWith('.bak'))));
+  const staged = areaFallback ? areaFallback.map(([, as]) => as) : isPlace ? PLACE_GENS : [];
+  console.log(request
+    ? `· would build approved request #${request.id} in place as "${name}" (slug: ${slug}, kind: ${kind}) and move it approved → draft`
+    : `· would create map "${name}" (slug: ${slug}, kind: ${kind}, status: draft)`);
+  console.log(`· would copy ${payload.length} payload file(s) from ${SRC}${payload.length ? `: ${payload.join(', ')}` : ''}`);
+  if (staged.length) console.log(`· would stage the vendored engine: ${staged.join(', ')}`);
+  console.log('· would render baseline v1.0 with empty overrides');
+  console.log(`\ndry run complete — "${name}" would be imported; nothing written.`);
+  process.exit(0);
 }
 
 // 1) DB row + object-store folders. Fulfilling a request ADOPTS its row (so the

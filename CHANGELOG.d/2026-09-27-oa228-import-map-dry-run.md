@@ -1,0 +1,7 @@
+---
+date: 2026-09-27
+title: "import-map can say what it would import first"
+---
+
+- **`scripts/import-map.mjs` takes `--dry-run` (buses-data OA-228).** It writes a customer when `--customer` names a new one, a map row (or adopts an approved request's), a pack under `maps/<id>/`, a version and an audit row, with no way to see which first. It now reads `confirm('remote')` from `scripts/lib/cli.mjs`: the default is unchanged, and `--dry-run` runs every refusal the real run makes — owner, slug, kind, vendored engine, payload shape — then names the row it would create or adopt, the owner it would create or reuse, the payload files it would copy and the v1.0 baseline it would render, and writes no row, no folder and no file. New `scripts/test-import-map.mjs` (`npm run test:import-map`) counts the rows of every table in a throwaway store and lists its packs before and after a fresh import and a request build, checks two refusals still refuse under `--dry-run`, and uses a real run as the control; against the old script it fails 14 of its 21 checks. [R1](docs/R1-create-map.md) and [H1](docs/H1-operations-handbook.md) name the flag. The sixth of the nine scripts OA-228 lists; one pull request each.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. The server does not import `import-map.mjs`, so nothing a visitor or a customer sees changes: no schema, route, UI or engine change.

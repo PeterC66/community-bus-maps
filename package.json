@@ -91,6 +91,7 @@
     "test:prove-red-search": "node scripts/prove-red-search.mjs",
     "check:publish-paths": "node scripts/check-publish-paths.mjs",
     "test:publish-baseline": "node scripts/test-publish-baseline.mjs",
+    "test:import-map": "node scripts/test-import-map.mjs",
     "test:publish-baseline-search": "node scripts/test-publish-baseline-search.mjs",
     "test:prove-red-publish-paths": "node scripts/prove-red-publish-paths.mjs",
     "test:directory": "node scripts/test-directory.mjs",
