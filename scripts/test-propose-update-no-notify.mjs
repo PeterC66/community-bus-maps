@@ -100,6 +100,21 @@ if (seed.status !== 0) {
   check('a second update is staged, superseding the first',
     afterQuiet && afterQuiet.length === 2 && afterQuiet[0].status !== afterQuiet[1].status, JSON.stringify(afterQuiet));
 
+  console.log('2b a managed customer is told nothing even without the flag (OA-468)');
+  const setPlan = (plan) => spawnSync(process.execPath, ['--input-type=module', '-e', `
+    const db = await import(${JSON.stringify(new URL('../src/db/index.js', import.meta.url).href)});
+    const c = db.getCustomerByName('Testville Council');
+    db.updateCustomerAdmin(c.id, { plan: ${JSON.stringify(plan)} });
+  `], { cwd: ROOT, env, encoding: 'utf8' }).status;
+  check('the customer is set to managed', setPlan('managed') === 0);
+  const managed = run();
+  check('it exits 0', managed.status === 0, `exit ${managed.status}: ${managed.out.split('\n').slice(-4).join(' | ')}`);
+  check('notify() is NOT reached', !TRIED.test(managed.out), managed.out.split('\n').filter((l) => TRIED.test(l)).join(' | '));
+  check('and the run says why nobody was told', /is a managed customer/.test(managed.out), managed.out.split('\n').slice(-3).join(' | '));
+  const afterManaged = proposed();
+  check('the update is still staged', afterManaged && afterManaged.length === 3, JSON.stringify(afterManaged));
+  setPlan('free');
+
   console.log('3  deliver-map.mjs forwards the flag rather than swallowing it');
   const { readFileSync } = await import('node:fs');
   const deliver = readFileSync(path.join(ROOT, 'scripts', 'deliver-map.mjs'), 'utf8');

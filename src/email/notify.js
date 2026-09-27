@@ -28,8 +28,24 @@
 
 import { sendEmail } from './index.js';
 import { escapeHtml as h } from '../html.js';
-import { listPendingProposedUpdates, listUsersAdmin } from '../db/index.js';
+import { getCustomer, listPendingProposedUpdates, listUsersAdmin } from '../db/index.js';
 import { publicBaseUrl } from '../config.js';
+
+/**
+ * A managed customer is written to by Peter, never by the portal (buses-data
+ * OA-468, ruled 2026-09-26). They agree each version by replying to his email,
+ * so every one of the five below would tell them to sign in and act — which
+ * they do not do. `customer.plan` is the admin screen's free-text Plan field;
+ * `managed` is read case- and space-insensitively so a typed "Managed " counts.
+ * Sign-in, invitation and adviser mail do not come through notify() and are
+ * unaffected.
+ */
+export const MANAGED_SILENT_KINDS = ['update-ready', 'update-ready-batch', 'published', 'published-batch', 'sent-back'];
+export function isManaged(customerId) {
+  if (customerId == null) return false;
+  const c = getCustomer(customerId);
+  return !!c && String(c.plan || '').trim().toLowerCase() === 'managed';
+}
 
 const SITE = 'BusMaps.uk';
 
@@ -167,6 +183,10 @@ export function compose(kind, f) {
  * @returns {Promise<{sent:number, skipped:number}>}
  */
 export async function notify(kind, { customerId, log = console, ...fields }) {
+  if (MANAGED_SILENT_KINDS.includes(kind) && isManaged(customerId)) {
+    log.info?.({ kind, customerId }, 'notification: managed customer, Peter writes to them — nothing sent');
+    return { sent: 0, skipped: 0, managed: true };
+  }
   const to = recipientsFor(customerId);
   if (!to.length) {
     log.info?.({ kind, customerId }, 'notification: nobody deliverable to tell');

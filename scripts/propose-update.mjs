@@ -31,7 +31,7 @@ import {
 } from '../src/db/index.js';
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
-import { notify, appUrl } from '../src/email/notify.js';
+import { notify, appUrl, isManaged } from '../src/email/notify.js';
 import { arg, has } from './lib/cli.mjs';
 
 
@@ -159,6 +159,12 @@ console.log(`\n  The customer reviews + accepts it at:  /app/maps/${map.id}`);
 if (noNotify) {
   console.log(`  No email sent: --no-notify was given. "${map.customer_name || 'The customer'}" has not been told this update is waiting.`);
   console.log(`  At the end of the round, one email per customer: node scripts/notify-update-round.mjs --map ${map.slug},<the round's other slugs>`);
+  process.exit(0);
+}
+// A managed customer hears from Peter, never from the portal (buses-data
+// OA-468): the same as --no-notify, and said as plainly.
+if (isManaged(map.customer_id)) {
+  console.log(`  No email sent: "${map.customer_name || 'The customer'}" is a managed customer — Peter writes to them himself (the refresh letter).`);
   process.exit(0);
 }
 const mailed = await notify('update-ready', {
