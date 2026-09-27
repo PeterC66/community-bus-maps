@@ -76,6 +76,31 @@ eq('an unknown customer is a quiet no-op', none, { sent: 0, skipped: 0 });
 const bad = await notify('not-a-kind', { customerId: custId, log: { info() {}, warn() {} }, mapName: 'Fenmarsh' });
 check('an unknown kind is swallowed, not thrown', bad.sent === 0);
 
+// --- a managed customer is told nothing (buses-data OA-468) -------------------
+// Peter writes every email a managed customer gets. The proof that a send was
+// NOT attempted is `skipped`: with no provider, an attempted send to the one
+// deliverable address counts skipped 1 (the control, above and below); a
+// suppressed one never reaches recipientsFor() and counts 0.
+{
+  const { isManaged, MANAGED_SILENT_KINDS } = await import('../src/email/notify.js');
+  const quiet = { info() {}, warn() {} };
+  const mgdId = db.insertCustomer({ name: 'Marshfield Parish Council', type: 'council', plan: 'managed' });
+  db.insertUser({ customer_id: mgdId, email: 'clerk@marshfield-pc.org.uk', role: 'editor' });
+  check('isManaged reads plan = managed', isManaged(mgdId));
+  check('… and not a free customer', !isManaged(custId));
+  check('… and not a map with no customer', !isManaged(null));
+  const fields = { mapName: 'Marshfield', versionKey: 'v1.0', mapUrl: appUrl('/app/maps/70'), maps: [{ mapName: 'Marshfield', mapUrl: appUrl('/app/maps/70') }] };
+  eq('the five customer emails are the ones silenced', MANAGED_SILENT_KINDS, ['update-ready', 'update-ready-batch', 'published', 'published-batch', 'sent-back']);
+  for (const kind of MANAGED_SILENT_KINDS) {
+    eq(`${kind}: a managed customer is not sent it`, await notify(kind, { customerId: mgdId, log: quiet, ...fields }), { sent: 0, skipped: 0, managed: true });
+  }
+  db.updateCustomerAdmin(mgdId, { plan: ' Managed ' });
+  check('a typed " Managed " still counts', isManaged(mgdId));
+  db.updateCustomerAdmin(mgdId, { plan: 'free' });
+  eq('control: the same customer on plan free IS sent it (one attempt)', await notify('published', { customerId: mgdId, log: quiet, ...fields }), { sent: 0, skipped: 1 });
+  db.updateCustomerAdmin(mgdId, { plan: 'managed' });
+}
+
 // --- wording ----------------------------------------------------------------
 const up = compose('update-ready', { mapName: 'Fenmarsh', sourceNote: 'BODS August 2026 refresh', mapUrl: 'https://busmaps.uk/app/maps/7' });
 check('update-ready names the map in the subject', /Fenmarsh/.test(up.subject), up.subject);
