@@ -1,8 +1,10 @@
 // The safe-subset security boundary.
 //
-// P1 lets a customer do TWO deterministic, engine-supported edits:
+// P1 lets a customer do these deterministic, engine-supported edits:
 //   • recolour a route          -> top-level  routeColors[<route>] = "#rrggbb"
 //   • hide/show a POI icon       -> internal.pois[<cat:name>] = { hide: true }
+//   • switch a landmark category -> internal.poiInclude[<allotments|pubs|stations>] = true|false
+//                                   (OA-439; the per-place answers are internal.poiTiers)
 // A THIRD is opt-in per customer (2026-08-03):
 //   • hide an operator's routes -> top-level  hiddenOperators = ["<operator name>"...]
 //     only accepted when the caller passes allow.operatorFilterEnabled (from
@@ -21,7 +23,18 @@
 // POI left visible, an empty hiddenOperators list) are dropped, so an untouched
 // map serialises to {} and stays byte-identical to the shipped baseline.
 
+import { createRequire } from 'node:module';
+
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/**
+ * The categories a customer may switch on or off (buses-data OA-439), read from
+ * the vendored engine rather than copied: `mergePoiOverlay()` in poi_select.js
+ * reads exactly this list, so a category the engine adds is one this gate admits
+ * on the next re-vendor, and a copy here could only drift from it.
+ */
+const { OPT_IN_CATS } = createRequire(import.meta.url)('../../engine/poi_select.js');
+const OPT_IN = new Set(OPT_IN_CATS);
 
 /** The three answers the landmark chooser can give (OA-212). Engine keys, never shown. */
 const POI_TIERS = new Set(['must', 'may', 'miss']);
@@ -173,10 +186,34 @@ export function sanitizeOverrides(input, {
     tiers[k] = as ? { tier, as } : { tier };
   }
 
-  if (Object.keys(pois).length || Object.keys(tiers).length) {
+  // --- internal.poiInclude[cat] = true|false — the category switch (OA-439) ---
+  //
+  // `true` switches an opt-in category (allotments, pubs, stations) on and
+  // `false` switches it off, including on a town whose own pack switched it on.
+  // Both are KEPT even where they match the pack, for the reason an explicit
+  // `may` is kept above: this gate does not know the pack's `poi.include`, and
+  // the answer is the customer's whether or not it moves the sheet. The engine's
+  // mergePoiOverlay() ignores a bad key or value silently, so this is the one
+  // place a refusal can carry its reason.
+  const inInc = inInt.poiInclude;
+  const include = {};
+  if (inInc !== undefined && inInc !== null) {
+    if (typeof inInc !== 'object' || Array.isArray(inInc)) {
+      rejected.push('internal.poiInclude (not an object of category: true/false)');
+    } else {
+      for (const c of Object.keys(inInc)) {
+        if (!OPT_IN.has(c)) { rejected.push(`internal.poiInclude.${c} (not a category that can be switched; these can: ${OPT_IN_CATS.join(', ')})`); continue; }
+        if (typeof inInc[c] !== 'boolean') { rejected.push(`internal.poiInclude.${c} (not true or false)`); continue; }
+        include[c] = inInc[c];
+      }
+    }
+  }
+
+  if (Object.keys(pois).length || Object.keys(tiers).length || Object.keys(include).length) {
     out.internal = {};
     if (Object.keys(pois).length) out.internal.pois = pois;
     if (Object.keys(tiers).length) out.internal.poiTiers = tiers;
+    if (Object.keys(include).length) out.internal.poiInclude = include;
   }
 
   // --- hiddenOperators: known operator name only, and only if this customer
@@ -211,7 +248,7 @@ export function sanitizeOverrides(input, {
     if (k !== 'routeColors' && k !== 'internal' && k !== 'hiddenOperators') rejected.push(`${k} (expert-only)`);
   }
   for (const k of Object.keys(inInt)) {
-    if (k !== 'pois' && k !== 'poiTiers') rejected.push(`internal.${k} (expert-only)`);
+    if (k !== 'pois' && k !== 'poiTiers' && k !== 'poiInclude') rejected.push(`internal.${k} (expert-only)`);
   }
 
   return { overrides: out, rejected };

@@ -130,6 +130,48 @@ console.log('\nexisting routeColors/pois behaviour is unaffected by the new para
   eq('routeColors still works', overrides.routeColors, { 9: '#ff0000' });
 }
 
+// The category switch (buses-data OA-439). The engine's mergePoiOverlay()
+// ignores a bad key or value without a word, so this gate is the only place a
+// refusal can carry its reason — and the only thing between a client and a
+// category the engine never meant a customer to switch.
+console.log('\ninternal.poiInclude — the category switch');
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { internal: { poiInclude: { pubs: true, stations: false } } },
+    { palette, operatorNames },
+  );
+  eq('both answers kept, off as well as on', overrides.internal, { poiInclude: { pubs: true, stations: false } });
+  eq('nothing rejected', rejected, []);
+}
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { internal: { poiInclude: { schools: false, pubs: 'yes', allotments: true } } },
+    { palette, operatorNames },
+  );
+  eq('only the valid category survives', overrides.internal, { poiInclude: { allotments: true } });
+  check('a category that is on for every town is refused, naming the ones that can be switched',
+    rejected.some((r) => r.startsWith('internal.poiInclude.schools') && r.includes('allotments, pubs, stations')), rejected.join('; '));
+  check('a non-boolean is refused with its reason',
+    rejected.some((r) => r === 'internal.poiInclude.pubs (not true or false)'), rejected.join('; '));
+  check('and it is not reported as expert-only', !rejected.some((r) => r.includes('expert-only')), rejected.join('; '));
+}
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { internal: { poiInclude: ['pubs'] } },
+    { palette, operatorNames },
+  );
+  eq('an array is not a switch', overrides, {});
+  check('and says so', rejected.some((r) => r.startsWith('internal.poiInclude (not an object')), rejected.join('; '));
+}
+{
+  const { overrides, rejected } = sanitizeOverrides(
+    { internal: { poiInclude: {} } },
+    { palette, operatorNames },
+  );
+  eq('an empty switch is a no-op and the map still serialises to {}', overrides, {});
+  eq('nothing rejected', rejected, []);
+}
+
 if (failures) {
   console.error(`\n✗ ${failures} safe-subset check(s) failed`);
   process.exit(1);

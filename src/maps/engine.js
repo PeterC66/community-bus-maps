@@ -374,16 +374,19 @@ export function poiGlyphs() {
  *
  * @param {string} dataDir  a map data folder (osm.json + routes.json)
  * @param {object} tiersOverlay  overrides.internal.poiTiers, merged over
- *        routes.json's poi.tiers exactly as gen_internal.js merges it, so the
- *        tier reported here is the tier the sheet would actually be drawn with.
+ *        routes.json's poi.tiers by the engine's own mergePoiOverlay() — the
+ *        call gen_internal.js makes — so the tier reported here is the tier the
+ *        sheet would actually be drawn with, and the two cannot drift (OA-439).
+ * @param {object} includeOverlay  overrides.internal.poiInclude, the category
+ *        switch, laid over poi.include by the same call.
  * @returns {{ key:string, cat:string, name:string, ll:number[], tier:string,
  *             as:string|null, printsName:boolean }[]}
  */
-export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null) {
+export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null, includeOverlay = null) {
   const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
-  let selectPois;
+  let selectPois, mergePoiOverlay;
   try {
-    ({ selectPois } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
+    ({ selectPois, mergePoiOverlay } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
   } catch { return []; }
 
   // osm2.json is optional — some payloads carry only the first sweep.
@@ -394,10 +397,7 @@ export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null) {
   }
   if (!sets.length) return [];
 
-  const base = routes.poi || {};
-  const poiCfg = (tiersOverlay && Object.keys(tiersOverlay).length)
-    ? { ...base, tiers: { ...(base.tiers || {}), ...tiersOverlay } }
-    : base;
+  const poiCfg = mergePoiOverlay(routes.poi || {}, { poiTiers: tiersOverlay, poiInclude: includeOverlay });
 
   const report = {};
   try { selectPois(sets, poiCfg, report); } catch { return []; }
