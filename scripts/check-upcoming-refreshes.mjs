@@ -17,19 +17,26 @@
 // see setMapBannerNoteAuto in src/db/index.js, which refuses to overwrite a
 // note an admin/customer has since edited by hand.
 //
-//   node scripts/check-upcoming-refreshes.mjs [--report "<path to upcoming-report_*.md>"]
+//   node scripts/check-upcoming-refreshes.mjs [--report "<path to upcoming-report_*.md>"] [--dry-run]
 //
 // Without --report, the newest upcoming-report_<date>.md under
 // "<BUSES_DIR>/_gtfs/upcoming/" is used (BUSES_DIR defaults the same way
 // scripts/seed-demo.mjs does). Safe to run repeatedly: a map already flagged
 // for a given report date is not flagged again (checked against existing
 // 'refresh-flag' messages).
+//
+// It writes into the live store — a message per flagged map and a public banner
+// per hit — so it takes the REMOTE vocabulary of docs/CONVENTIONS.md through
+// cli.mjs's confirm(): the default is to do it, and `--dry-run` names every flag
+// and banner it would write and writes neither (buses-data OA-228).
+// test-check-upcoming-refreshes.mjs proves that by reading the store back.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { listMaps, listMessages, insertMessage, setMapBannerNoteAuto } from '../src/db/index.js';
 import { newestReportPath, reportDateOf, parseSections, bannerNoteFor, reportHasPlaces, mapsForSection, mapsForSectionLegacy, unscannedPlaceMaps } from './lib/upcoming-report.mjs';
-import { arg } from './lib/cli.mjs';
+import { arg, confirm } from './lib/cli.mjs';
 
+const { dryRun } = confirm('remote');
 
 const reportPath = arg('report') || newestReportPath();
 if (!reportPath || !existsSync(reportPath)) {
@@ -73,19 +80,23 @@ for (const section of sections.filter((s) => s.actionable)) {
   const where = kind === 'place' && parent ? `${name} (place, in ${parent})` : name;
   const banner = bannerNoteFor(bullets);
   for (const m of hits) {
-    if (banner && setMapBannerNoteAuto(m.id, banner)) bannered++;
+    // A hand-written banner is never overwritten (setMapBannerNoteAuto refuses), so
+    // the dry run asks the same question of the row rather than calling it.
+    if (banner && (dryRun ? m.banner_note_source !== 'manual' : setMapBannerNoteAuto(m.id, banner))) bannered++;
     if (alreadyFlagged(m.id)) { skippedDuplicate++; continue; }
     const text = `Upcoming bus changes for ${where} (report ${reportDate}): ${upcoming} upcoming${verify}.\n\n${bulletsText}\n\n` +
       `This map ("${m.name}", ${m.customer_name || 'unowned'}) may need a refresh. Re-run the ` +
       `${skill} skill for ${name} to produce a fresh render, then:\n` +
       `  node scripts/propose-update.mjs --map ${m.slug} --src "<fresh S5-render dir>"`;
-    insertMessage({ kind: 'refresh-flag', body: text, map_id: m.id });
+    if (!dryRun) insertMessage({ kind: 'refresh-flag', body: text, map_id: m.id });
     flagged++;
-    console.log(`· flagged map "${m.slug}" (#${m.id}, ${m.customer_name || 'unowned'}) — ${where}: ${upcoming} upcoming${verify}`);
+    console.log(`· ${dryRun ? 'would flag' : 'flagged'} map "${m.slug}" (#${m.id}, ${m.customer_name || 'unowned'}) — ${where}: ${upcoming} upcoming${verify}`);
   }
 }
 
-console.log(`\n${flagged} flag(s) queued in the admin Messages inbox, ${skippedDuplicate} already flagged for this report, ${skippedNoMap} section(s) with no matching portal map, ${bannered} public banner(s) set/refreshed.`);
+console.log(dryRun
+  ? `\n${flagged} flag(s) would be queued in the admin Messages inbox, ${skippedDuplicate} already flagged for this report, ${skippedNoMap} section(s) with no matching portal map, ${bannered} public banner(s) would be set/refreshed — --dry-run, nothing written.`
+  : `\n${flagged} flag(s) queued in the admin Messages inbox, ${skippedDuplicate} already flagged for this report, ${skippedNoMap} section(s) with no matching portal map, ${bannered} public banner(s) set/refreshed.`);
 if (unmatchedPlaces.length) {
   console.log(`⚠ ${unmatchedPlaces.length} place section(s) matched no portal map by name — check for a name mismatch: ${unmatchedPlaces.join(', ')}`);
 }
@@ -97,4 +108,4 @@ if (unscanned.length) {
   console.log(`⚠ ${unscanned.length} live place map(s) absent from this report — NOT scanned, which is not the same as "no changes": ${unscanned.map((m) => m.slug).join(', ')}`);
   console.log('  Each needs a built place folder of the same name under Areas/<Town>/Places/ or Places/ for the monthly scan to see it.');
 }
-if (flagged) console.log('Review at /app/admin (Messages tab) — each entry names the map and the propose-update.mjs command to run once a fresh render exists.');
+if (flagged && !dryRun) console.log('Review at /app/admin (Messages tab) — each entry names the map and the propose-update.mjs command to run once a fresh render exists.');

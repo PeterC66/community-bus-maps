@@ -1,7 +1,7 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.9 | 2026-09-24 | sha=6d026f39 -->
-**v1.9** · updated 24 September 2026
+<!-- docstamp v1.10 | 2026-09-27 | sha=abe64d17 -->
+**v1.10** · updated 27 September 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -19,7 +19,7 @@ The split again: **you** regenerate a town's data centrally (live sources + judg
 
 The monthly BODS refresh.
 
-> **Claude-assisted shortcut:** the Buses side mines **upcoming changes** (`gtfs_upcoming.py` — the ≥42-day-ahead feed + a month-over-month diff → a per-town upcoming-changes report) so you know *which* towns actually changed before regenerating anything. Work those first; skip the unchanged. `npm run check-upcoming` cross-references that report against the portal's own maps and queues a `refresh-flag` message (Admin → Messages) for every LIVE map — demo or real customer, treated the same — whose town/place shows upcoming changes, so you don't have to remember which towns have a portal map while reading the report. It does not regenerate anything itself: Step 1 below is still a human (+ Claude) job.
+> **Claude-assisted shortcut:** the Buses side mines **upcoming changes** (`gtfs_upcoming.py` — the ≥42-day-ahead feed + a month-over-month diff → a per-town upcoming-changes report) so you know *which* towns actually changed before regenerating anything. Work those first; skip the unchanged. `npm run check-upcoming` cross-references that report against the portal's own maps and queues a `refresh-flag` message (Admin → Messages) for every LIVE map — demo or real customer, treated the same — whose town/place shows upcoming changes, so you don't have to remember which towns have a portal map while reading the report; `npm run check-upcoming -- --dry-run` names every flag and banner it would write and writes neither. It does not regenerate anything itself: Step 1 below is still a human (+ Claude) job.
 
 ## S6 freshness gates delivery
 
