@@ -12,11 +12,19 @@
 // see src/server.js's requireApprover). Only ever touches a map whose current
 // version isn't already the published one; anything else is skipped, not
 // forced.
+//
+// --dry-run (buses-data OA-228) names every map it WOULD publish and writes
+// nothing — no publish request, no version state, no pointer, no sidecar, no
+// audit row. It takes cli.mjs's confirm('remote'): the default is still to do
+// it, because a script that suddenly stops writing is how an operator's
+// sequence becomes a silent no-op.
 
 import { listMaps, getMapBySlug, getUserByEmail, getVersionById, insertPublishRequest, setVersionState, decidePublishRequest, setPublishedVersion, setMapStatus, recordAudit } from '../src/db/index.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
 import { writePlacesSidecar } from '../src/search/place-index.js';
-import { arg, has } from './lib/cli.mjs';
+import { arg, has, confirm } from './lib/cli.mjs';
+
+const { dryRun } = confirm('remote');
 
 
 const actorEmail = arg('actor');
@@ -43,7 +51,7 @@ if (slug) {
 } else if (has('all-drafts')) {
   targets = listMaps().filter((m) => m.status === 'draft');
 } else {
-  console.error('Usage: node scripts/publish-baseline.mjs --actor <email> (--slug <slug> | --all-drafts)');
+  console.error('Usage: node scripts/publish-baseline.mjs --actor <email> (--slug <slug> | --all-drafts) [--dry-run]');
   process.exit(2);
 }
 
@@ -56,6 +64,7 @@ function fullChecklist() {
 function publishBaseline(m) {
   if (!m.current_version_id) { console.log(`· ${m.slug}: no rendered version yet — skipped`); return false; }
   if (m.published_version_id === m.current_version_id) { console.log(`· ${m.slug}: already published — skipped`); return false; }
+  if (dryRun) { console.log(`· would publish ${m.slug} v1.0`); return true; }
 
   const summary = { base: 'baseline', unchanged: true, routes: [], poisHidden: [], poisShown: [] };
   const reqId = insertPublishRequest({
@@ -94,6 +103,10 @@ function publishBaseline(m) {
 
 let n = 0;
 for (const m of targets) { if (publishBaseline(m)) n++; }
+if (dryRun) {
+  console.log(`\ndry run complete — ${n} map(s) would be published; nothing written.`);
+  process.exit(0);
+}
 console.log(`\n${n} map(s) published.`);
 // A RUNNING PORTAL WILL NOT SEE THE NEW PLACE NAMES UNTIL IT IS RESTARTED, and
 // saying so is the honest half of the fix above. The sidecars this script writes
