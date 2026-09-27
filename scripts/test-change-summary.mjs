@@ -138,6 +138,19 @@ console.log('\nlandmark answers reach the reviewer (OA-212)');
   eq('and the tier beside it as a tier', both.landmarks.map((c) => c.key), ['shop:Aldi']);
 }
 
+console.log('\nthe landmark category switch (OA-439)');
+{
+  // The fault this block exists to catch: a version whose ONLY change is
+  // switching pubs on must not reach the approver as "nothing to change".
+  const on = changeSummary({ internal: { poiInclude: { pubs: true } } }, {}, opts());
+  check('a switch alone is not unchanged', on.unchanged === false);
+  eq('it is reported as a category', on.categories, [{ cat: 'pubs', from: 'as the town was built', to: 'drawn' }]);
+  const off = changeSummary({ internal: { poiInclude: { pubs: false } } }, { internal: { poiInclude: { pubs: true } } }, opts());
+  eq('switching it off reads the other way', off.categories, [{ cat: 'pubs', from: 'drawn', to: 'not drawn' }]);
+  const same = changeSummary({ internal: { poiInclude: { pubs: true } } }, { internal: { poiInclude: { pubs: true } } }, opts());
+  check('the same switch both sides is unchanged', same.unchanged === true && same.categories.length === 0);
+}
+
 console.log('\nmultiple accepted refreshes since the published version');
 {
   const second = { ...realRefresh, version: 'v3.0', summary: { ...realRefresh.summary, routesAdded: ['46'] } };

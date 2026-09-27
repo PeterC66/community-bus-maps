@@ -236,9 +236,15 @@ const MUTATIONS = [
     expect: 'the customer switching pubs on offers it',
   },
   {
+    what: 'the key universe follows the category switch as saved',
+    why: 'OA-439. A customer who answers a pub and then switches pubs off has not withdrawn the answer; validate against the switch as saved and the next save refuses the key, so switching pubs back on brings every pub back unanswered',
+    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);\n', '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n']],
+    expect: 'and a pub answer survives the switch being off, because the editable universe holds every switchable category',
+  },
+  {
     what: 'the key universe shrinks back to what is DRAWN',
     why: 'THE ONE THAT WOULD SHIP. A miss in the MAP PACK\'s routes.json is applied at selection, so the POI never reaches the SVG the drawn enumeration scrapes — validate against that set and the key is refused, the place cannot be turned back on, and the tier is dropped on the next save. Measured: a miss in the CUSTOMER layer does not do this, because that render uses base overrides',
-    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n', '']],
+    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);\n', '']],
     expect: 'so the editable universe contains it, and a save naming it is not rejected',
     needsPack: true,
   },
@@ -253,7 +259,7 @@ const MUTATIONS = [
     // stays, because only a real pack exercises the DRAWN half of that union.
     what: 'the key universe shrinks back to what is DRAWN (no pack needed)',
     why: 'the same one-way control as the arm above, falsified where CI can watch it. On the fixture the drawn enumeration is empty by construction, so dropping the candidates half empties the universe outright and every key a save could name is refused',
-    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n', '']],
+    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);\n', '']],
     expect: 'so the fixture universe still contains it, and a save naming it is not rejected',
   },
   {

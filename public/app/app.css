@@ -502,6 +502,16 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-legend { display: grid; gap: 6px; font-size: .84rem; color: var(--muted); }
 .lm-legend b { color: var(--text); }
 
+/* The category switch (OA-439): a plain labelled checkbox per kind of place.
+   A category the map's data holds none of is shown disabled, with the reason,
+   rather than left out — the reader who wanted the pubs needs to learn why. */
+.lm-cats { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px 4px; margin: 12px 0 0; }
+.lm-cats legend { font-size: .84rem; font-weight: 700; padding: 0 4px; }
+.lm-cat-list { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: .9rem; }
+.lm-cat-list label { display: inline-flex; align-items: center; gap: 6px; }
+.lm-cat-list .lm-cat-n { color: var(--muted); font-size: .84rem; }
+.lm-cat-list label.off { color: var(--muted); }
+
 /* One colour vocabulary for the three answers, used by the legend, the radio
    pills, the tally and the dots on the map. A reader should be able to glance
    from a row to the map and back without re-learning what orange means. */

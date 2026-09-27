@@ -43,7 +43,7 @@ import { tubeDiagramOffered } from '../config.js';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { getCustomer, getMap, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
 import { mapPageUrl } from '../public/index.js';
-import { chooseOutputs, editablePoiKeysFromDir, enumerateCandidatesFromDir, outputsForClient, outputsNeedingRender, packPoiTiers, preview, readOverrides, readRoutesMeta, renderVersion } from '../maps/engine.js';
+import { categorySwitchesFromDir, chooseOutputs, editablePoiKeysFromDir, enumerateCandidatesFromDir, outputsForClient, outputsNeedingRender, packPoiTiers, preview, readOverrides, readRoutesMeta, renderVersion } from '../maps/engine.js';
 import { sanitizeOverrides } from '../maps/safeSubset.js';
 import { mergeGenWarnings } from '../render/genWarnings.js';
 import { OUTPUTS, OUTPUT_FILES, mapDataDir, versionDir } from '../maps/store.js';
@@ -52,7 +52,7 @@ import { isSampleCustomer } from '../render/pilotStamp.js'; // PILOT: remove wit
 import { logAudit } from '../audit/index.js';
 import { bumpSearchIndex } from '../search/index.js';
 import { MAP_KINDS, operatorRead, parseOutputs, RENDER_BUDGET_MESSAGE, renderBudgetSpent, requireUser, slugify, str } from '../http/helpers.js';
-import { loadOwnedMap, loadReadableMap, mapDetail, safeSubsetAllow, savedPoiTiers, visibleDownloadsForVersion, withMapLock } from '../maps/detail.js';
+import { loadOwnedMap, loadReadableMap, mapDetail, safeSubsetAllow, savedPoiInclude, savedPoiTiers, visibleDownloadsForVersion, withMapLock } from '../maps/detail.js';
 
 export default async function editorRoutes(app) {
   app.addHook('preHandler', async (req, reply) => {
@@ -191,7 +191,11 @@ export default async function editorRoutes(app) {
       ...Object.keys(packPoiTiers(mapDataDir(id))),
       ...Object.keys(tiers || {}),
     ]);
-    const cand = enumerateCandidatesFromDir(mapDataDir(id), tiers).map((p) => ({
+    // The category switch (OA-439 item 3). Passed to the enumerator so the list
+    // is what the sheet would draw — pubs appear here only once they are on —
+    // and returned per category so the page can draw the switches themselves.
+    const include = savedPoiInclude(id);
+    const cand = enumerateCandidatesFromDir(mapDataDir(id), tiers, include).map((p) => ({
       key: p.key, cat: p.cat, name: p.name, ll: p.ll,
       tier: p.tier === 'may' && hidden.has(p.key) ? 'miss' : p.tier,
       as: p.as || null,
@@ -203,6 +207,7 @@ export default async function editorRoutes(app) {
       ok: true,
       map: { id, name: map.name, slug: map.slug, kind: map.kind, status: map.status },
       landmarks: cand,
+      categories: categorySwitchesFromDir(mapDataDir(id), include),
       counts: {
         total: cand.length,
         must: cand.filter((p) => p.tier === 'must').length,
@@ -267,10 +272,15 @@ export default async function editorRoutes(app) {
     for (const [k, v] of Object.entries(pack)) tiers[k] = typeof v === 'string' ? { tier: v } : { ...v };
     for (const [k, v] of Object.entries(saved)) tiers[k] = typeof v === 'string' ? { tier: v } : { ...v };
     for (const k of hidden) if (!tiers[k]) tiers[k] = { tier: 'miss' };
+    // The customer's category switch travels with the tiers (OA-439): it is the
+    // second half of a landmark answer, and poi_tiers_sync.js is what carries a
+    // town's answer back into its source data. Only the customer's layer — the
+    // pack's own poi.include is already in the source.
+    const include = savedPoiInclude(id);
     return {
       ok: true,
       map: { id, slug: map.slug, name: map.name, kind: map.kind, status: map.status },
-      tiers, saved, pack, hidden,
+      tiers, saved, pack, hidden, include,
       counts: { answered: Object.keys(tiers).length, saved: Object.keys(saved).length, pack: Object.keys(pack).length, fromHide: hidden.length },
     };
   });

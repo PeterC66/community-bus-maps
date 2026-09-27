@@ -146,6 +146,20 @@ function tiersOf(ov) {
   }
   return out;
 }
+/**
+ * The category switch (OA-439): opt-in category -> true | false, the customer's
+ * layer only. Absent means "the town's own default", which this function cannot
+ * see and does not need to: a change is a change of the customer's answer.
+ */
+function switchesOf(ov) {
+  const s = ov && ov.internal && ov.internal.poiInclude;
+  const out = new Map();
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return out;
+  for (const k of Object.keys(s)) if (typeof s[k] === 'boolean') out.set(k, s[k]);
+  return out;
+}
+const SWITCH_WORDS = { true: 'drawn', false: 'not drawn', undefined: 'as the town was built' };
+
 /** The reviewer's words for the three engine tiers. Never shows an engine key. */
 const TIER_WORDS = { must: 'always show', may: 'show if there is room', miss: 'do not show' };
 const eff = (colors, palette, r) => (colors[r] || palette[r] || '').toLowerCase();
@@ -169,7 +183,7 @@ const eff = (colors, palette, r) => (colors[r] || palette[r] || '').toLowerCase(
  * @param {boolean} opts.hasBaseline            true when `from` is a real published version, false = baseline
  * @param {Array} opts.dataChanges              accepted data refreshes carried since `from` (dataChangesSince())
  * @returns {{ base:string, unchanged:boolean, routes:Array, poisHidden:string[], poisShown:string[],
- *            landmarks:Array, renames:Array,
+ *            landmarks:Array, renames:Array, categories:Array,
  *            dataChanges:Array, dataChanged:boolean, overridesUnchanged:boolean }}
  */
 export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBaseline = false, dataChanges = [] } = {}) {
@@ -221,11 +235,22 @@ export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBas
   landmarks.sort((x, y) => x.key.localeCompare(y.key));
   renames.sort((x, y) => x.key.localeCompare(y.key));
 
+  /* THE CATEGORY SWITCH (OA-439), for the reason the block above gives: the
+   * chooser can now switch pubs on, and a version whose only change was that
+   * would otherwise report `unchanged: true` to the approver. */
+  const toS = switchesOf(toOverrides), fromS = switchesOf(fromOverrides);
+  const categories = [];
+  for (const c of new Set([...toS.keys(), ...fromS.keys()])) {
+    const a = fromS.get(c), b = toS.get(c);
+    if (a !== b) categories.push({ cat: c, from: SWITCH_WORDS[a], to: SWITCH_WORDS[b] });
+  }
+  categories.sort((x, y) => x.cat.localeCompare(y.cat));
+
   // Keep only refreshes that actually moved something — a no-op refresh is real
   // provenance but tells a reviewer nothing, and must not defeat "unchanged".
   const data = (Array.isArray(dataChanges) ? dataChanges : []).filter((d) => d && !isEmptyDataChange(d.summary));
   const overridesUnchanged = routes.length === 0 && poisHidden.length === 0 && poisShown.length === 0
-    && landmarks.length === 0 && renames.length === 0;
+    && landmarks.length === 0 && renames.length === 0 && categories.length === 0;
 
   return {
     base: hasBaseline ? 'published' : 'baseline',
@@ -236,6 +261,7 @@ export function changeSummary(toOverrides, fromOverrides, { palette = {}, hasBas
     poisShown,
     landmarks,
     renames,
+    categories,
     dataChanges: data,
     dataChanged: data.length > 0,
   };

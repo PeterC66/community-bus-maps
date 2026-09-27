@@ -53,7 +53,8 @@ const routeInk = (r) => inkFor(staged.colors[r.id] || r.defaultColor, r.textOn);
  * page does not re-emit is DELETED on save. The chooser was careful about that
  * in its own direction (it carries this page's colours) and this page was never
  * taught the other half, so one save here silently threw away every must / may /
- * miss and every rename a town had given us. `poiTiers` is opaque to this
+ * miss and every rename a town had given us. `poiTiers` — and, since OA-439,
+ * the chooser's category switch `poiInclude` — are opaque to this
  * screen: it is read, held, and written back exactly as it arrived, and it is
  * deliberately absent from sig() because nothing here can change it and a value
  * nobody can edit must not make the Save button light up.
@@ -64,7 +65,8 @@ function stagedFromOverrides(ov) {
     .filter((k) => ov.internal.pois[k] && ov.internal.pois[k].hide));
   const hiddenOps = new Set(Array.isArray(ov.hiddenOperators) ? ov.hiddenOperators : []);
   const poiTiers = (ov.internal && ov.internal.poiTiers) || null;
-  return { colors, hide, hiddenOps, poiTiers };
+  const poiInclude = (ov.internal && ov.internal.poiInclude) || null;
+  return { colors, hide, hiddenOps, poiTiers, poiInclude };
 }
 function overridesFromStaged(s) {
   const ov = {};
@@ -72,6 +74,7 @@ function overridesFromStaged(s) {
   const internal = {};
   if (s.hide.size) internal.pois = Object.fromEntries([...s.hide].map((k) => [k, { hide: true }]));
   if (s.poiTiers && Object.keys(s.poiTiers).length) internal.poiTiers = s.poiTiers;
+  if (s.poiInclude && Object.keys(s.poiInclude).length) internal.poiInclude = s.poiInclude;
   if (Object.keys(internal).length) ov.internal = internal;
   if (s.hiddenOps.size) ov.hiddenOperators = [...s.hiddenOps];
   return ov;
@@ -498,6 +501,7 @@ function renderChangeSummary(sum, pubKey) {
   if (sum.poisHidden.length) parts.push(`<li><strong>${sum.poisHidden.length}</strong> landmark${sum.poisHidden.length === 1 ? '' : 's'} hidden</li>`);
   if (sum.poisShown.length) parts.push(`<li><strong>${sum.poisShown.length}</strong> landmark${sum.poisShown.length === 1 ? '' : 's'} shown</li>`);
   if ((sum.landmarks || []).length) parts.push(`<li><strong>${sum.landmarks.length}</strong> landmark${sum.landmarks.length === 1 ? '' : 's'} re-answered</li>`);
+  if ((sum.categories || []).length) parts.push(`<li><strong>${sum.categories.length}</strong> kind${sum.categories.length === 1 ? '' : 's'} of place switched <span class="muted">(${sum.categories.map((c) => esc(c.cat)).join(', ')})</span></li>`);
   if ((sum.renames || []).length) parts.push(`<li><strong>${sum.renames.length}</strong> landmark${sum.renames.length === 1 ? '' : 's'} renamed</li>`);
   const yours = parts.length
     ? `<div class="change-box"><div class="change-title">${dataHtml ? 'What you changed' : `What publishing will change vs ${base}`}</div><ul class="change-list">${parts.join('')}</ul></div>`
@@ -1002,8 +1006,9 @@ $('saveBtn').addEventListener('click', async () => {
 
 // ---- reset / preview / logout ------------------------------------------------
 // The chooser's answers are not this page's to reset: dropping poiTiers here made
-// the next save delete every must / may / miss (OA-215's fault, by another door).
-$('resetBtn').addEventListener('click', () => { staged = { colors: {}, hide: new Set(), hiddenOps: new Set(), poiTiers: staged.poiTiers }; buildRoutes(); buildOperators(); buildPois(); onEdit(); });
+// the next save delete every must / may / miss (OA-215's fault, by another door),
+// and the category switch is the chooser's too (OA-439).
+$('resetBtn').addEventListener('click', () => { staged = { colors: {}, hide: new Set(), hiddenOps: new Set(), poiTiers: staged.poiTiers, poiInclude: staged.poiInclude }; buildRoutes(); buildOperators(); buildPois(); onEdit(); });
 $('previewBtn').addEventListener('click', () => { clearTimeout(debounce); runPreview(); });
 $('logoutBtn').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.href = '/app/login.html'; });
 window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
