@@ -21,25 +21,36 @@
 // forwards the flag unchanged, and scripts/notify-update-round.mjs ends the round
 // with one digest per customer. The update is staged exactly as without it; only
 // step 4 is skipped, and the run says so.
+//
+// --dry-run (buses-data OA-228) runs every refusal above the first write — the
+// map, its built data, --src, the payload's shape, the live routes.json — and
+// then says what it WOULD do: the pending update it would supersede, the files it
+// would stage, the service-facts and landmarks diff (computed against --src,
+// which is what the staged JSON is copied from), and whether the customer would
+// be emailed. It writes no row, no folder and no file, and emails nobody. It
+// takes cli.mjs's confirm('remote'): the default is still to stage, because a
+// script that suddenly stops writing is how a delivery round becomes a silent
+// no-op.
 
 import { cpSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  getMap, getMapBySlug, getOpenProposedForMap, supersedePendingProposed,
+  getMap, getMapBySlug, getCustomer, getOpenProposedForMap, supersedePendingProposed,
   insertProposedUpdate, setProposedDataDir, setProposedSummary,
 } from '../src/db/index.js';
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary } from '../src/refresh/index.js';
 import { notify, appUrl, isManaged } from '../src/email/notify.js';
-import { arg, has } from './lib/cli.mjs';
+import { arg, has, confirm } from './lib/cli.mjs';
 
 
 const mapRef = arg('map');
 const src = arg('src');
 const noNotify = has('no-notify');
+const { dryRun } = confirm('remote');
 if (!mapRef || !src) {
-  console.error('Usage: node scripts/propose-update.mjs --map <slug|id> --src "<fresh render dir>" [--note "..."] [--no-notify]');
+  console.error('Usage: node scripts/propose-update.mjs --map <slug|id> --src "<fresh render dir>" [--note "..."] [--no-notify] [--dry-run]');
   process.exit(2);
 }
 
@@ -77,29 +88,82 @@ if (!existsSync(path.join(liveData, 'routes.json'))) {
   process.exit(1);
 }
 
-// A newer refresh replaces any still-pending one (only one open per map).
+// Which files of --src get staged: the *.json inputs plus the generators. A
+// shipped overrides.json is EXPERT framing, staged as base-overrides.json below.
+// See import-map.mjs: build-warnings.txt is the engine's verdict on this build
+// and travels with it (OA-046). swapInProposedData() makes the staged folder the
+// live data on accept, so it reaches the map itself from here.
+const payloadFiles = () => readdirSync(SRC).filter((f) => {
+  if (f === 'overrides.json' || f === BASE_OVERRIDES) return false; // framing handled below / never stage stale
+  return /^gen_.*\.js$/.test(f) || f === BUILD_WARNINGS || (f.endsWith('.json') && !f.endsWith('.bak'));
+});
+
+const n = (a) => (a && a.length ? a.length : 0);
+const lmName = (p) => String((p && p.name) || '').trim() || `(unnamed ${(p && p.cat) || '?'})`;
+function printSummary(summary) {
+  if (summary.unchanged) {
+    console.log('    changes: none detected (the service facts and the landmark list are identical).');
+  } else {
+    if (n(summary.routesAdded)) console.log(`    routes added:   ${summary.routesAdded.join(', ')}`);
+    if (n(summary.routesRemoved)) console.log(`    routes removed: ${summary.routesRemoved.join(', ')}`);
+    if (n(summary.descChanged)) console.log(`    descriptions changed: ${summary.descChanged.map((d) => d.id).join(', ')}`);
+    if (n(summary.stopsChanged)) console.log(`    stops changed:  ${summary.stopsChanged.map((s) => `${s.id} (+${s.added}/-${s.removed})`).join(', ')}`);
+    if (n(summary.operatorsAdded)) console.log(`    operators added:   ${summary.operatorsAdded.join(', ')}`);
+    if (n(summary.operatorsRemoved)) console.log(`    operators removed: ${summary.operatorsRemoved.join(', ')}`);
+    if (summary.validity) console.log(`    validity: ${summary.validity.from || '—'} → ${summary.validity.to || '—'}`);
+    // OA-253 — printed here as well as shown to the customer, because whoever
+    // stages the update is the one who can still act on a surprising number
+    // before anybody is emailed about it.
+    if (n(summary.landmarksAdded)) console.log(`    new places:     ${summary.landmarksAdded.map(lmName).join(', ')}`);
+    if (n(summary.landmarksRemoved)) console.log(`    places gone:    ${summary.landmarksRemoved.map(lmName).join(', ')}`);
+  }
+  // Said out loud rather than left as an absence: the landmark comparison is
+  // suppressed when either payload lists no POI candidates at all, and a reader
+  // who is not told cannot tell that from "nothing changed".
+  if (summary.landmarksKnown === false) {
+    console.log('    landmarks:      NOT compared — one of the two payloads lists no POI candidates at all.');
+  }
+}
+
 const prior = getOpenProposedForMap(map.id);
+const note = arg('note', `Data refresh staged ${new Date().toISOString().slice(0, 10)}`);
+
+// --dry-run stops HERE: every refusal above has run, and nothing below has.
+if (dryRun) {
+  const files = payloadFiles();
+  const who = map.customer_name || getCustomer(map.customer_id)?.name || 'The customer';
+  console.log(`dry run — a proposed update for "${map.name}" (#${map.id})`);
+  console.log(`    source: ${note}`);
+  if (prior) console.log(`· would supersede still-pending proposed update #${prior.id}`);
+  console.log(`· would stage ${files.length} payload file(s) from ${SRC}: ${files.join(', ') || '(none)'}`);
+  if (isPlace) {
+    console.log(`· would add the vendored place engine: ${PLACE_GENS.join(', ')}`);
+    const framing = ['overrides.json', BASE_OVERRIDES].find((f) => existsSync(path.join(SRC, f)));
+    if (framing) console.log(`· would stage ${framing} as ${BASE_OVERRIDES}`);
+  }
+  console.log('· the diff it would store (against --src, which the staged JSON is copied from):');
+  printSummary(dataChangeSummary(liveData, SRC));
+  if (noNotify) console.log('· would email nobody: --no-notify was given.');
+  else if (isManaged(map.customer_id)) console.log(`· would email nobody: "${who}" is a managed customer.`);
+  else console.log(`· would email "${who}" that the update is waiting (update-ready).`);
+  console.log(`\ndry run complete — nothing staged for "${map.name}"; no row, no folder, no email.`);
+  process.exit(0);
+}
+
+// A newer refresh replaces any still-pending one (only one open per map).
 if (prior) {
   supersedePendingProposed(map.id);
   console.log(`· superseded still-pending proposed update #${prior.id}`);
 }
 
 // 1) Row first, so we can name the staging folder after its id.
-const note = arg('note', `Data refresh staged ${new Date().toISOString().slice(0, 10)}`);
 const pid = insertProposedUpdate({ map_id: map.id, source_note: note });
 const stagedData = ensureProposedDirs(map.id, pid);
 
-// 2) Stage the payload: the *.json inputs, plus the generators. Area maps carry
-//    their generators in src; place maps get the vendored engine (engine/place/).
-//    A shipped overrides.json is EXPERT framing → staged as base-overrides.json.
+// 2) Stage the payload (payloadFiles() above). Area maps carry their generators
+//    in src; place maps get the vendored engine (engine/place/).
 let copied = 0;
-for (const f of readdirSync(SRC)) {
-  if (f === 'overrides.json' || f === BASE_OVERRIDES) continue; // framing handled below / never stage stale
-  // See import-map.mjs: build-warnings.txt is the engine's verdict on this
-  // build and travels with it (OA-046). swapInProposedData() makes the staged
-  // folder the live data on accept, so it reaches the map itself from here.
-  const keep = /^gen_.*\.js$/.test(f) || f === BUILD_WARNINGS || (f.endsWith('.json') && !f.endsWith('.bak'));
-  if (!keep) continue;
+for (const f of payloadFiles()) {
   cpSync(path.join(SRC, f), path.join(stagedData, f));
   copied++;
 }
@@ -124,32 +188,9 @@ setProposedDataDir(pid, stagedData);
 setProposedSummary(pid, summary);
 
 // --- readable report ---
-const n = (a) => (a && a.length ? a.length : 0);
 console.log(`\n✓ proposed update #${pid} staged for "${map.name}" (#${map.id})`);
 console.log(`    source: ${note}`);
-const lmName = (p) => String((p && p.name) || '').trim() || `(unnamed ${(p && p.cat) || '?'})`;
-if (summary.unchanged) {
-  console.log('    changes: none detected (the service facts and the landmark list are identical).');
-} else {
-  if (n(summary.routesAdded)) console.log(`    routes added:   ${summary.routesAdded.join(', ')}`);
-  if (n(summary.routesRemoved)) console.log(`    routes removed: ${summary.routesRemoved.join(', ')}`);
-  if (n(summary.descChanged)) console.log(`    descriptions changed: ${summary.descChanged.map((d) => d.id).join(', ')}`);
-  if (n(summary.stopsChanged)) console.log(`    stops changed:  ${summary.stopsChanged.map((s) => `${s.id} (+${s.added}/-${s.removed})`).join(', ')}`);
-  if (n(summary.operatorsAdded)) console.log(`    operators added:   ${summary.operatorsAdded.join(', ')}`);
-  if (n(summary.operatorsRemoved)) console.log(`    operators removed: ${summary.operatorsRemoved.join(', ')}`);
-  if (summary.validity) console.log(`    validity: ${summary.validity.from || '—'} → ${summary.validity.to || '—'}`);
-  // OA-253 — printed here as well as shown to the customer, because whoever
-  // stages the update is the one who can still act on a surprising number
-  // before anybody is emailed about it.
-  if (n(summary.landmarksAdded)) console.log(`    new places:     ${summary.landmarksAdded.map(lmName).join(', ')}`);
-  if (n(summary.landmarksRemoved)) console.log(`    places gone:    ${summary.landmarksRemoved.map(lmName).join(', ')}`);
-}
-// Said out loud rather than left as an absence: the landmark comparison is
-// suppressed when either payload lists no POI candidates at all, and a reader
-// who is not told cannot tell that from "nothing changed".
-if (summary.landmarksKnown === false) {
-  console.log('    landmarks:      NOT compared — one of the two payloads lists no POI candidates at all.');
-}
+printSummary(summary);
 console.log(`\n  The customer reviews + accepts it at:  /app/maps/${map.id}`);
 
 // 4) Tell them it is there (findings B2). Staging used to be silent: the update

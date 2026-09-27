@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.31 | 2026-09-27 | sha=03bb016f -->
-**v1.31** · updated 27 September 2026
+<!-- docstamp v1.32 | 2026-09-27 | sha=fd06d044 -->
+**v1.32** · updated 27 September 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -216,5 +216,6 @@ node scripts/import-map.mjs --request <id> --src "<S5-render dir>"   # build one
 node scripts/delete-map.mjs --slug <slug>                            # dry run — shows what would go
 node scripts/delete-map.mjs --slug <slug> --yes                      # retire a map (row, versions, dir)
 node scripts/propose-update.mjs …               # stage a monthly refresh
+# add --dry-run to see the files it would stage, the diff and who it would email, and write and send nothing
 node scripts/fix-badge-contrast.mjs             # dry run; --apply to repair stored sheets
 ```
