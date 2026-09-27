@@ -1,0 +1,8 @@
+---
+date: 2026-09-27
+title: "apply-chrome.mjs writes only on --apply, and the nine guards are checked from source"
+---
+
+- **`scripts/apply-chrome.mjs` takes `--apply` (buses-data OA-228).** It rewrites the nav and footer of every `public/*.html` from `scripts/lib/site-chrome.mjs`, and it wrote on every run. It is a local mutator, so it now reads `confirm('local')` from `scripts/lib/cli.mjs` as [CONVENTIONS](docs/CONVENTIONS.md) prescribes: with no flag it names each page it would change, says it is a dry run and writes nothing; `--apply` writes. `npm run chrome:apply` is unchanged for whoever types it, because the npm script now passes `--apply` itself. A `--dir <folder>` flag points it at another folder of pages, which only its test uses. New `scripts/test-apply-chrome.mjs` (`npm run test:apply-chrome`) runs it against a throwaway copy of two real pages, one with a drifted nav, with an `--apply` run as the control; against the old script it fails 8 of its 22 checks. The ninth and last of the scripts OA-228 lists.
+- **New `scripts/test-write-guards.mjs` (`npm run test:write-guards`)** reads the source of all nine OA-228 scripts and fails if any stops importing `confirm` from `scripts/lib/cli.mjs`, calls it with the wrong kind, or is renamed away. It first runs the same check over three sources that break the rule and requires each to be refused.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. The server imports neither script, and no page's chrome changes, so nothing a visitor or a customer sees changes: no schema, route, UI or engine change.
