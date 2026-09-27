@@ -13,9 +13,16 @@
 //
 // Run FROM THE REPO ROOT on the laptop (C:\Claude\community-bus-maps):
 //
-//   npm run deploy:caddy            copy up, validate, reload, then verify
-//   npm run deploy:caddy -- --check verify the live headers only, change nothing
-//   npm run deploy:caddy -- --print show what it would run, connect to nothing
+//   npm run deploy:caddy              copy up, validate, reload, then verify
+//   npm run deploy:caddy -- --check   verify the live headers only, change nothing
+//   npm run deploy:caddy -- --dry-run show what it would run, connect to nothing
+//
+// `--dry-run` is cli.mjs's confirm('remote') (buses-data OA-228): the default is
+// still to deploy, because this is the one command that puts the Caddyfile on
+// the host and a default that stopped doing so would look exactly like success.
+// `--print` is its older spelling and still works. `--yes` is accepted and
+// changes nothing — the script asks no question, so there is nothing to confirm
+// — so an unattended caller can pass the same pair every VPS script takes.
 //
 // Reads DEPLOY_HOST and DEPLOY_SSH_KEY from .env, so there is no hostname or key
 // path to look up. The public hostname is read out of the Caddyfile itself, so
@@ -24,12 +31,13 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { primaryHost, siteBlocks } from './lib/caddyfile.mjs';
+import { confirm, has } from './lib/cli.mjs';
 
 const HOST = process.env.DEPLOY_HOST;
 const KEY = process.env.DEPLOY_SSH_KEY;
-const argv = process.argv.slice(2);
-const printOnly = argv.includes('--print');
-const checkOnly = argv.includes('--check');
+const { dryRun } = confirm('remote');
+const printOnly = dryRun || has('print');
+const checkOnly = has('check');
 
 // The site address, read out of the file itself so the verification below cannot
 // drift from what was deployed. This was one regex here until 2026-08-31 — "the
@@ -134,6 +142,7 @@ const scpArgs = [...(KEY ? ['-i', KEY] : []), 'Caddyfile', `${HOST}:`];
 const sshArgs = [...(KEY ? ['-i', KEY] : []), '-t', HOST, remote];
 
 if (printOnly) {
+  console.log('Dry run: the commands a deploy would run. Nothing has connected and the host is unchanged.');
   console.log('scp ' + scpArgs.join(' '));
   console.log('ssh ' + sshArgs.slice(0, -1).join(' ') + ` "${remote}"`);
   console.log(`curl -sI https://${siteHost}/   (then check for: ${WANT.join(', ')})`);

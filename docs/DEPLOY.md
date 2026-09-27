@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.125 | 2026-09-26 | sha=33e8425f -->
-**v1.125** · updated 26 September 2026
+<!-- docstamp v1.126 | 2026-09-27 | sha=32c266cf -->
+**v1.126** · updated 27 September 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -110,6 +110,12 @@ That copies the `Caddyfile` up, installs it, runs `caddy validate`, reloads Cadd
 
 ```bash
 npm run deploy:caddy -- --check
+```
+
+To see the exact `scp`, `ssh` and `curl` commands a deploy would run, naming the host and key it read from `.env`, without connecting to anything (`--print` is the older spelling and still works):
+
+```bash
+npm run deploy:caddy -- --dry-run
 ```
 
 **Why the verify step is not optional:** a reload that silently kept the old config looks exactly like a successful one. On 2026-08-20 the app was deployed and the `Caddyfile` was not, and the site ran for a while with the headers merged, the deploy reported done, and every response still carrying none of them. Only reading the headers back tells the two apart.
