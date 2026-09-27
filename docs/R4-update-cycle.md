@@ -1,7 +1,7 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.10 | 2026-09-27 | sha=abe64d17 -->
-**v1.10** · updated 27 September 2026
+<!-- docstamp v1.11 | 2026-09-27 | sha=39accce6 -->
+**v1.11** · updated 27 September 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -50,6 +50,7 @@ node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" --no
 - **Read the `new places` line before you email anybody.** An arrival is answered by neither tier layer, so it takes the default *show if there is room* and can print on the refreshed sheet without the customer deciding it should; the summary tells them, and this print-out tells you first, while there is still something you can do about a surprising number. A rename shows as one arrival and one departure by design. If the line says `landmarks: NOT compared`, the staged payload lists no POI candidates at all — that is a fault in the delivery (a missing `osm.json`, or a selector that will not load), not a quiet refresh, and it is worth looking at before staging goes further. All 18 live maps yielded candidates when this was measured on 2026-09-06, so `NOT compared` should not happen.
 - The map must already have built data. A newer refresh **supersedes** any still-pending one (one open per map).
 - **`--no-notify` stages the update without emailing the customer** (buses-data OA-152, 2026-09-24). Without it every staged map sends its own *an update is ready* email, so a round of many maps for one customer puts that many near-identical notices in one inbox. Use it for all but one map of such a round, or to rehearse a delivery against a real customer record. `npm run deliver` forwards it unchanged. The customer is then told by nothing, so somebody has to tell them.
+- **`--dry-run` stages nothing and emails nobody** (buses-data OA-228, 2026-09-27). Every refusal still runs — the map, its built data, `--src`, the payload's shape — and then it prints the pending update it would supersede, the files it would stage, the same diff (computed against `--src`, which the staged JSON is copied from, so the `new places` line can be read before anything exists) and whether the customer would be emailed. `npm run deliver` does not forward it: `--dry-run` there is the delivery script's own rehearsal.
 
 ## Step 3 — The customer reviews + accepts
 
