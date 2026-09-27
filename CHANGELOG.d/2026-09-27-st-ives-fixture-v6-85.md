@@ -1,0 +1,7 @@
+---
+date: 2026-09-27
+title: "The St Ives gate fixture is re-vendored at v6.85, a re-stamp on engine 3ee0164522 that moves no ink"
+---
+
+- **Re-vendored `gate-fixtures/Areas/_portal-fixture/St Ives` from buses-data b03c682b.** St Ives was re-stamped as v6.85 in buses-data 7be114c6 by `rollout.js --rebuild-stale`, which the estate dry run had reported as STAMP-STALE: every sheet already gated PASS against the current template. The three sheets differ from v6.84 only in the build line. The pack's copies of `gen_internal.js` and `schematize_internal.js` move from claude-skills c91b091b to a7393b8, bringing in the poi_select overlay rule (OA-439), `internalRoads.casingSmooth` (OA-064, off by default) and `journey_weights.json` carried into the workspace (OA-452), all already live in `engine/`. Only fixture files change: seven under `gate-fixtures/`. `verify-reproduce.mjs`, run against this committed fixture with no `FIXTURE_DIR`, is byte-identical on all three sheets, and `verify-reproduce-defaults.mjs` passes on 17 escape hatches.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. It carries only the fixture and this entry. No schema, route, UI or engine changes. The live St Ives map is unchanged until its customer accepts a proposed update. That update has not been staged.
