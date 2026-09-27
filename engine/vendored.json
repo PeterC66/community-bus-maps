@@ -102,7 +102,7 @@
       "path": "expert/diagram_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/diagram_internal.js",
-      "sha256": "f6f8074c1fd3b1498de67b7e3c323821a53a04a1ac742a3d91bd4511aaed36a3",
+      "sha256": "33a61c08d7f9974089448faec2cccc2c994e4a643f472cb8b5fa72923cc6b4d2",
       "vendoredOn": "2026-09-27",
       "note": "The tube-map pre-stage, run by the portal-owned gen_internal_diagram.js wrapper."
     },
@@ -118,7 +118,7 @@
       "path": "expert/schematize_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/schematize_internal.js",
-      "sha256": "a4dd6f35b2df649920a21c20fc61ed6f123626ca0f8323e8f4a3cd7de3bed403",
+      "sha256": "bbf05bbc1c37de24763f9c813ce3e21223d1d7acc2e0a1f87752b0c6f1be4e94",
       "vendoredOn": "2026-09-27",
       "note": "The octolinear geometry pre-stage, run by the portal-owned gen_internal_schematic.js wrapper."
     },
