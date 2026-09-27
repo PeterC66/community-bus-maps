@@ -29,12 +29,12 @@ import { buildFacts, readFactsSnapshot } from '../maps/facts.js';
 import { readRoutesMeta } from '../maps/engine.js';
 import { mapDataDir, readBuildWarnings, readComplexity, versionDir } from '../maps/store.js';
 import { STEP_UP_MINUTES, stepUpFresh } from '../auth/index.js';
-import { CHECKLIST, CHECKLIST_VERSION, changeSummary, chooseRevertTarget, validateChecklist } from '../publish/index.js';
+import { CHECKLIST, CHECKLIST_VERSION, changeSummary, chooseRevertTarget, customerConfirmationGiven, validateChecklist, validateCustomerConfirmation } from '../publish/index.js';
 import { logAudit } from '../audit/index.js';
 import { writePlacesSidecar } from '../search/place-index.js';
 import { bumpSearchIndex } from '../search/index.js';
 import { downloadsForVersion, publishedHistoryFor } from '../maps/detail.js';
-import { notify, appUrl } from '../email/notify.js';
+import { notify, appUrl, isManaged } from '../email/notify.js';
 import { parseJson, requireApprover, requireStepUp, stepUpDeadline, str } from '../http/helpers.js';
 import { allowSelfApproval } from '../config.js';
 
@@ -91,6 +91,9 @@ export default async function reviewRoutes(app) {
         stepUpFresh: stepUpFresh(user),
         stepUpExpiresAt: stepUpDeadline(user),
         stepUpMinutes: STEP_UP_MINUTES,
+        // A managed customer's map cannot be published without their emailed yes
+        // on record (buses-data OA-468), so the screen asks for it up front.
+        managed: isManaged(pr.customer_id),
         reviewedBy: pr.reviewed_by_email || null, reviewedAt: pr.reviewed_at || null,
         decisionNote: pr.decision_note || '',
         evidence: decided ? parseJson(pr.evidence_json) : null,
@@ -198,6 +201,26 @@ export default async function reviewRoutes(app) {
     const { ok, missing, checklist } = validateChecklist((req.body || {}).checklist);
     if (!ok) return reply.code(400).send({ ok: false, error: 'Please confirm every item on the review checklist before publishing.', missing });
 
+    // A managed customer's yes is the review evidence (buses-data OA-468): the
+    // portal sends them nothing, so the only record that they agreed is the email
+    // they sent Peter. Required for a managed customer; checked when given for
+    // anyone else, so a malformed one is refused rather than stored.
+    const offered = (req.body || {}).customerConfirmed;
+    const managed = isManaged(pr.customer_id);
+    let customerConfirmed = null;
+    if (managed || customerConfirmationGiven(offered)) {
+      const c = validateCustomerConfirmation(offered);
+      if (!c.ok) {
+        return reply.code(400).send({
+          ok: false, code: 'customer-confirmation', fields: c.fields,
+          error: managed
+            ? 'This is a managed customer, so their emailed yes is the review evidence: give the date they confirmed (YYYY-MM-DD) and the correspondence message that holds it (CORR-nnn/nnn).'
+            : 'The customer confirmation is incomplete: give the date (YYYY-MM-DD) and the correspondence message (CORR-nnn/nnn), or leave both empty.',
+        });
+      }
+      customerConfirmed = c.value;
+    }
+
     const meta = readRoutesMeta(pr.map_id);
     const pub = pr.published_version_id ? getVersionById(pr.published_version_id) : null;
     const summary = changeSummary(
@@ -221,6 +244,9 @@ export default async function reviewRoutes(app) {
       // override allowed it. Absent on a genuine two-person review, so a later
       // reader can tell the two apart without inferring it from user ids.
       ...(selfApproval ? { selfApproved: true } : {}),
+      // The customer's emailed yes, by date and correspondence reference. Absent
+      // when none was recorded, never null, like the two keys above.
+      ...(customerConfirmed ? { customerConfirmed } : {}),
     };
 
     decidePublishRequest(pr.id, { status: 'approved', reviewedBy: user.id, decisionNote, evidence });
@@ -240,7 +266,7 @@ export default async function reviewRoutes(app) {
     bumpSearchIndex();
 
     req.log.info({ mapId: pr.map_id, requestId: pr.id, version: pr.version_key, by: user.email }, 'version published');
-    logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote, ...(selfApproval ? { selfApproved: true } : {}) } });
+    logAudit(req, 'version.publish', { mapId: pr.map_id, versionId: pr.version_id, detail: { requestId: pr.id, version: pr.version_key, changeSummary: summary, note: decisionNote, ...(selfApproval ? { selfApproved: true } : {}), ...(customerConfirmed ? { customerConfirmed } : {}) } });
     // Tell the people whose map it is (findings B2). Deliberately after every
     // state change and the audit row: the publication has happened whether or not
     // the email does, and notify() never throws.

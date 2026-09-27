@@ -56,6 +56,41 @@ export function validateChecklist(answers) {
   return { ok: missing.length === 0, missing, checklist };
 }
 
+// A MANAGED customer's yes arrives by email, never through the portal (buses-data
+// OA-468). Peter writes to a managed customer and they answer him, so the one
+// confirmation that matters for their map is a message in the correspondence
+// record, which the portal cannot see. The approver records it here: the date the
+// customer confirmed, and the CORR-nnn/message that holds it — a reference, not
+// the email itself, because a correspondent's name is kept out of every store
+// but one. Required on a managed customer's map (src/routes/review.js); on any
+// other map it is optional, and validated the same way when given.
+const CONFIRM_REF = /^CORR-\d{3,}\/\d{3,}$/;
+
+/**
+ * Validate a customer confirmation. Pure; `today` is injectable for tests.
+ * @param {any} input  { on: 'YYYY-MM-DD', ref: 'CORR-nnn/nnn' }
+ * @returns {{ ok:true, value:{by:'email',on:string,ref:string} } | { ok:false, fields:string[] }}
+ */
+export function validateCustomerConfirmation(input, { today = new Date() } = {}) {
+  const c = input && typeof input === 'object' ? input : {};
+  const on = typeof c.on === 'string' ? c.on.trim() : '';
+  const ref = typeof c.ref === 'string' ? c.ref.trim().toUpperCase() : '';
+  const fields = [];
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(on) ? new Date(`${on}T00:00:00Z`) : null;
+  // A real calendar date (2026-02-30 round-trips to March, so it is refused), and
+  // not later than tomorrow — one day of slack for a UK evening against UTC.
+  if (!d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== on) fields.push('on');
+  else if (d.getTime() > today.getTime() + 86_400_000) fields.push('on');
+  if (!CONFIRM_REF.test(ref)) fields.push('ref');
+  return fields.length ? { ok: false, fields } : { ok: true, value: { by: 'email', on, ref } };
+}
+
+/** True when a confirmation was offered at all, so an optional one can still be refused as malformed. */
+export function customerConfirmationGiven(input) {
+  return !!input && typeof input === 'object'
+    && [input.on, input.ref].some((v) => typeof v === 'string' && v.trim() !== '');
+}
+
 /**
  * Pick which version a rollback should serve, and refuse the cases that must not
  * happen. Pure so the rules are testable away from HTTP: the ONLY versions on

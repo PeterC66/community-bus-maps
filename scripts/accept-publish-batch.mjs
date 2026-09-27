@@ -24,6 +24,15 @@
 //   npm run accept-publish -- --dry-run --reviewed-by "Peter Cooper"
 //        (no --cookie needed — lists the plan, makes no HTTP calls)
 //
+//   npm run accept-publish -- --cookie "..." --reviewed-by "Peter Cooper" \
+//        --confirmed "31:2026-09-27:CORR-012/005" --yes
+//        (a MANAGED customer's map: --confirmed "<map id>:<date>:<message>"
+//        records their emailed yes as the review evidence, and the server
+//        refuses to publish a managed map without one — buses-data OA-468.
+//        <map id> is the number the pending list prints after "map", <date>
+//        is the day they confirmed as YYYY-MM-DD, and <message> is the
+//        CORR-nnn/nnn reference of their email. Repeat the flag per map.)
+//
 //   npm run accept-publish -- --dry-run --cookie "..." --reviewed-by "Peter Cooper"
 //        (READS the pending list over the API and prints it; still changes
 //        nothing. This is how to see what a run would do without minting:
@@ -77,7 +86,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import crypto from 'node:crypto';
-import { arg, has } from './lib/cli.mjs';
+import { all, arg, die, has } from './lib/cli.mjs';
+import { validateCustomerConfirmation } from '../src/publish/index.js';
 
 
 const BASE_URL = (arg('base-url', process.env.PUBLIC_BASE_URL) || 'https://busmaps.uk').replace(/\/$/, '');
@@ -88,6 +98,19 @@ const YES = has('yes');
 const DRY_RUN = has('dry-run');
 const MINT = has('mint');
 let COOKIE = arg('cookie');
+
+// --confirmed "<map id>:<YYYY-MM-DD>:<CORR-nnn/nnn>", once per managed map. Read
+// and checked before anything else happens, with the server's own validator, so a
+// typo is refused here (exit 2) and not half-way through a run that has already
+// accepted and submitted the map it names.
+const CONFIRMED = new Map();
+for (const raw of all('confirmed')) {
+  const m = /^(\d+):([^:]+):(.+)$/.exec(raw.trim());
+  const c = m ? validateCustomerConfirmation({ on: m[2], ref: m[3] }) : { ok: false, fields: ['shape'] };
+  if (!c.ok) die(`✗ --confirmed "${raw}" is not "<map id>:<YYYY-MM-DD>:<CORR-nnn/nnn>" (bad: ${c.fields.join(', ')}).`);
+  if (CONFIRMED.has(Number(m[1]))) die(`✗ --confirmed names map ${m[1]} twice.`);
+  CONFIRMED.set(Number(m[1]), c.value);
+}
 
 if (!REVIEWED_BY) {
   console.error('✗ --reviewed-by "<name>" is required — this records who actually looked at the rendered sheets before this ran.');
@@ -297,6 +320,7 @@ async function run() {
       console.log('(dry run — would fetch /api/admin/proposed-updates and process whatever is pending'
         + (ONLY ? ` restricted to ids [${ONLY}]` : '') + ')');
     }
+    for (const [mapId, c] of CONFIRMED) console.log(`   map ${mapId}: would record the customer's yes by email on ${c.on} (${c.ref})`);
     console.log('\nNothing changed. Re-run with --cookie or --mint (and drop --dry-run) once you are ready.');
     return;
   }
@@ -350,6 +374,7 @@ async function run() {
         checklist: { appearance: true, legible: true, alternative: true },
         note: noteText,
         suppressNotify: true,
+        ...(CONFIRMED.has(u.map.id) ? { customerConfirmed: CONFIRMED.get(u.map.id) } : {}),
       });
       entry.steps.published = approved.publishedVersion;
       entry.customerId = approved.customerId;

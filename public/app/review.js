@@ -249,6 +249,7 @@ async function openReview(id) {
       <div class="checklist" id="checklist">
         ${checklist.map((c) => `<label class="check-item"><input type="checkbox" data-cid="${esc(c.id)}"> <span>${esc(c.label)}</span></label>`).join('')}
       </div>
+      ${r.managed ? confirmationHtml() : ''}
       <label class="hint-line" for="decisionNote" style="display:block;margin-top:12px">Notes <span class="hint">— required if rejecting; recorded either way</span></label>
       <textarea class="field" id="decisionNote" maxlength="2000" placeholder="Any notes on this review, or the reason for sending it back…"></textarea>
       <div class="notice" id="reviewMsg"></div>
@@ -262,6 +263,20 @@ async function openReview(id) {
   if (!decided) wireDecision(id, r.version);
 }
 
+// A managed customer's yes comes by email to Peter, which the portal never sees
+// (buses-data OA-468), so the approver records it: when, and which message in the
+// correspondence record holds it. The server refuses a managed publication without
+// both; the button waits for them here so the refusal is never the first word.
+function confirmationHtml() {
+  return `<div class="rd-note" id="customerConfirm" style="margin-top:12px">
+      <strong>Managed customer — their emailed yes is the evidence for this publication.</strong>
+      <label class="hint-line" for="confirmOn" style="display:block;margin-top:6px">Customer confirmed by email on</label>
+      <input class="field" id="confirmOn" type="date">
+      <label class="hint-line" for="confirmRef" style="display:block;margin-top:6px">Correspondence message <span class="hint">— as CORR-nnn/nnn, e.g. CORR-012/005</span></label>
+      <input class="field" id="confirmRef" type="text" maxlength="20" placeholder="CORR-nnn/nnn" pattern="CORR-[0-9]{3,}/[0-9]{3,}">
+    </div>`;
+}
+
 function renderDecided(r) {
   const pill = r.status === 'approved' ? '<span class="status-pill pub">published</span>'
     : r.status === 'rejected' ? '<span class="status-pill rej">sent back</span>'
@@ -273,20 +288,27 @@ function renderDecided(r) {
     ${r.decisionNote ? `<p class="rd-note">“${esc(r.decisionNote)}”</p>` : ''}
     ${ev ? `<p class="hint-line">Review checklist recorded (${ev} item${ev === 1 ? '' : 's'}).</p>` : ''}
     ${r.evidence && r.evidence.complexity ? `<p class="hint-line">Complexity band on record at the decision: <strong>${esc(r.evidence.complexity.band)}</strong>${r.evidence.complexity.failed && r.evidence.complexity.failed.length ? ' (' + esc(r.evidence.complexity.failed.join(', ')) + ')' : ''}.</p>` : ''}
+    ${r.evidence && r.evidence.customerConfirmed ? `<p class="hint-line">Customer confirmed by email on <strong>${esc(r.evidence.customerConfirmed.on)}</strong> (${esc(r.evidence.customerConfirmed.ref)}).</p>` : ''}
   </div>`;
 }
 
 function wireDecision(id, version) {
   const boxes = [...document.querySelectorAll('#checklist input[type=checkbox]')];
   const approve = $('approveBtn');
-  const allChecked = () => boxes.every((b) => b.checked);
+  // Present only on a managed customer's map (confirmationHtml above).
+  const confirmOn = document.getElementById('confirmOn'), confirmRef = document.getElementById('confirmRef');
+  const confirmed = () => !confirmOn || (confirmOn.value !== '' && /^CORR-\d{3,}\/\d{3,}$/i.test(confirmRef.value.trim()));
+  const allChecked = () => boxes.every((b) => b.checked) && confirmed();
   boxes.forEach((b) => b.addEventListener('change', () => { approve.disabled = !allChecked(); }));
+  [confirmOn, confirmRef].forEach((f) => f && f.addEventListener('input', () => { approve.disabled = !allChecked(); }));
 
   approve.addEventListener('click', async () => {
     if (!allChecked()) return;
     const checklist = {}; boxes.forEach((b) => { checklist[b.dataset.cid] = true; });
+    const payload = { checklist, note: $('decisionNote').value };
+    if (confirmOn) payload.customerConfirmed = { on: confirmOn.value, ref: confirmRef.value.trim() };
     approve.disabled = true; approve.textContent = 'Publishing…';
-    const { status, body } = await jsend(`/api/review/${id}/approve`, 'POST', { checklist, note: $('decisionNote').value });
+    const { status, body } = await jsend(`/api/review/${id}/approve`, 'POST', payload);
     if (status === 200 && body.ok) {
       banner('ok-sticky', `✓ Published <strong>${esc(version)}</strong>. It is now the official public version.`);
       current = null; await loadQueue(); await loadPublished();
