@@ -348,6 +348,21 @@ console.log('\nthe editable key universe, on a fixture — the half CI can run')
     eq('and reports the fixture tier as miss', (missed.find((c) => c.key === 'shop:Aldi') || {}).tier, 'miss');
     check('so the fixture universe still contains it, and a save naming it is not rejected',
       editablePoiKeysFromDir(fixture).includes('shop:Aldi'), 'shop:Aldi has left the universe');
+
+    // THE CATEGORY SWITCH (OA-439). The candidates are merged by the engine's own
+    // mergePoiOverlay(), the call gen_internal.js makes, so a saved switch moves
+    // what the chooser offers exactly as it moves what the sheet draws. A pub is
+    // opt-in: offered only where the pack or the customer switched pubs on.
+    writePack(null);
+    writeFileSync(path.join(fixture, 'osm2.json'), JSON.stringify({ elements: [...OSM2, node(6, 52.550, 0.150, { amenity: 'pub', name: 'The Crown' })] }));
+    const has = (list) => list.some((c) => c.key === 'pub:The Crown');
+    check('a pub is not offered on a town that never switched pubs on', !has(enumerateCandidatesFromDir(fixture)), 'pub:The Crown offered unasked');
+    check('the customer switching pubs on offers it', has(enumerateCandidatesFromDir(fixture, null, { pubs: true })), 'pub:The Crown not offered');
+    eq('and a tier answered in the same save still applies to it',
+      (enumerateCandidatesFromDir(fixture, { 'pub:The Crown': { tier: 'must' } }, { pubs: true }).find((c) => c.key === 'pub:The Crown') || {}).tier, 'must');
+    writeFileSync(path.join(fixture, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: { include: ['pubs'] } }));
+    check('a pack that switched pubs on offers it', has(enumerateCandidatesFromDir(fixture)), 'pub:The Crown not offered');
+    check('and the customer switching pubs OFF takes it away', !has(enumerateCandidatesFromDir(fixture, null, { pubs: false })), 'pub:The Crown still offered');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }

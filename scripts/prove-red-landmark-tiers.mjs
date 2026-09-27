@@ -226,8 +226,14 @@ const MUTATIONS = [
   {
     what: 'the expert-only sweep forgets poiTiers is not the only internal key',
     why: 'the sweep is what stops rotationDeg, viewport and stop moves riding in beside a tier; widening it by one key must not have widened it to everything',
-    edits: [[SUBSET, "if (k !== 'pois' && k !== 'poiTiers') rejected.push(`internal.${k} (expert-only)`);", '']],
+    edits: [[SUBSET, "if (k !== 'pois' && k !== 'poiTiers' && k !== 'poiInclude') rejected.push(`internal.${k} (expert-only)`);", '']],
     expect: 'an expert key beside poiTiers is still refused',
+  },
+  {
+    what: 'the chooser stops passing the category switch to the engine merge',
+    why: 'OA-439: the candidates are merged by the engine\'s mergePoiOverlay() so a switched-on category is offered exactly where the sheet would draw it; dropping the overlay here leaves the chooser offering the pack\'s categories while the sheet draws the customer\'s',
+    edits: [[ENGINE, '{ poiTiers: tiersOverlay, poiInclude: includeOverlay }', '{ poiTiers: tiersOverlay, poiInclude: null }']],
+    expect: 'the customer switching pubs on offers it',
   },
   {
     what: 'the key universe shrinks back to what is DRAWN',
