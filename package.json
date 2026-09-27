@@ -54,6 +54,7 @@
     "test:create-admin": "node scripts/test-create-admin.mjs",
     "test:build-place-index": "node scripts/test-build-place-index.mjs",
     "test:check-upcoming-refreshes": "node scripts/test-check-upcoming-refreshes.mjs",
+    "test:seed-demo": "node scripts/test-seed-demo.mjs",
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:propose-no-notify": "node scripts/test-propose-update-no-notify.mjs",
     "test:newest-render": "node scripts/test-newest-render.mjs",
