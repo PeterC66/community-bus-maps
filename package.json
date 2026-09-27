@@ -128,6 +128,7 @@
     "test:gen-warnings": "node scripts/test-gen-warnings.mjs",
     "test:build-warnings": "node scripts/test-build-warnings.mjs",
     "test:complexity-band": "node scripts/test-complexity-band.mjs",
+    "test:customer-confirmation": "node scripts/test-customer-confirmation.mjs",
     "test:changelog": "node scripts/test-changelog.mjs",
     "rotate:secret": "node --env-file-if-exists=.env scripts/rotate-secret.mjs",
     "test:rotate-secret": "node scripts/test-rotate-secret.mjs",
