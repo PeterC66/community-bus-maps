@@ -4,6 +4,15 @@
 //
 //   node scripts/seed-demo.mjs            (stop the dev server first — one SQLite writer)
 //   BUSES_DIR="/path/to/Buses" node scripts/seed-demo.mjs   (override the data location)
+//   node scripts/seed-demo.mjs --dry-run  (say what it would create, write no row)
+//
+// It writes to whatever store DATA_DIR names, so it takes the REMOTE vocabulary
+// of docs/CONVENTIONS.md through cli.mjs's confirm(): the default is to do it,
+// and `--dry-run` reports each thing it would create, import, publish or stage
+// and writes no row, runs no import-map.mjs or propose-update.mjs child and
+// renders nothing (buses-data OA-228). Importing src/db/index.js still opens
+// and migrates the database, as every script that reads it does;
+// test-seed-demo.mjs proves the rest by reading every table back.
 //
 // Sign in (magic link printed to the server console) as:
 //   admin  : peter@pcooper.me.uk                    (sees every customer's maps)
@@ -28,11 +37,14 @@ import { mapDataDir } from '../src/maps/store.js';
 import { CHECKLIST, CHECKLIST_VERSION } from '../src/publish/index.js';
 import { writePlacesSidecar } from '../src/search/place-index.js';
 import { BUSES_DIR } from './lib/buses-dir.mjs';
+import { confirm } from './lib/cli.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT = path.join(HERE, 'import-map.mjs');
 const PROPOSE = path.join(HERE, 'propose-update.mjs');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'peter@pcooper.me.uk';
+const { dryRun } = confirm('remote');
+const DRY = ' — --dry-run, nothing written';
 
 // Both map kinds now render in the portal: AREA maps carry their generators
 // per-map (staged from the town render dir); PLACE maps are staged with the
@@ -86,6 +98,7 @@ const DEMO = [
 function ensureUser(email, role, customerId, name) {
   const existing = getUserByEmail(email);
   if (existing) { console.log(`· user exists: ${email} (${existing.role})`); return existing.id; }
+  if (dryRun) { console.log(`· would create ${role}: ${email}${DRY}`); return null; }
   const id = insertUser({ email, role, customer_id: customerId, name });
   console.log(`· created ${role}: ${email}${customerId ? ' → customer #' + customerId : ''}`);
   return id;
@@ -95,7 +108,8 @@ function ensureCustomer(name, type) {
   const existing = getCustomerByName(name);
   // is_demo: everything this script creates is fictional (see DEMO above). Set
   // it on re-runs too, so instances seeded before the flag existed get labelled.
-  if (existing) { setCustomerDemo(existing.id, true); return existing.id; }
+  if (existing) { if (!dryRun) setCustomerDemo(existing.id, true); return existing.id; }
+  if (dryRun) { console.log(`· would create customer: ${name} (${type})${DRY}`); return null; }
   const id = insertCustomer({ name, type, is_demo: true });
   console.log(`· created customer: ${name} (#${id}, ${type})`);
   return id;
@@ -123,11 +137,14 @@ const approverId = ensureUser(APPROVER_EMAIL, 'approver', null, 'Central approve
 //     the portal has an org whose editor sees an empty dashboard/gallery. ---
 {
   const emptyId = ensureCustomer(ORG_EMPTY.customer, ORG_EMPTY.type);
-  const cust = getCustomer(emptyId);
-  if (!cust.branding_json || cust.branding_json === '{}') {
+  const cust = emptyId && getCustomer(emptyId);
+  if (!cust || !cust.branding_json || cust.branding_json === '{}') {
+    if (dryRun) console.log(`· would seed public branding for ${ORG_EMPTY.customer}${DRY}`);
+    else {
     const { branding } = sanitizeBranding(ORG_EMPTY.branding);
     setCustomerBranding(emptyId, branding);
     console.log(`· seeded public branding for ${ORG_EMPTY.customer}`);
+    }
   }
   ensureUser(ORG_EMPTY.editor, 'editor', emptyId, `${ORG_EMPTY.customer} editor`);
 }
@@ -140,11 +157,14 @@ for (const d of DEMO) {
   const customerId = ensureCustomer(d.customer, d.type);
   // P6 — public branding. Sanitised on the way in, exactly as the API does.
   if (d.branding) {
-    const cust = getCustomer(customerId);
-    if (!cust.branding_json || cust.branding_json === '{}') {
-      const { branding } = sanitizeBranding(d.branding);
-      setCustomerBranding(customerId, branding);
-      console.log(`· seeded public branding for ${d.customer}`);
+    const cust = customerId && getCustomer(customerId);
+    if (!cust || !cust.branding_json || cust.branding_json === '{}') {
+      if (dryRun) console.log(`· would seed public branding for ${d.customer}${DRY}`);
+      else {
+        const { branding } = sanitizeBranding(d.branding);
+        setCustomerBranding(customerId, branding);
+        console.log(`· seeded public branding for ${d.customer}`);
+      }
     }
   }
   const editorId = ensureUser(d.editor, 'editor', customerId, `${d.customer} editor`);
@@ -154,6 +174,7 @@ for (const d of DEMO) {
   if (getMapBySlug(d.slug)) { console.log(`· map exists: ${d.slug} (leaving as-is)`); skipped++; continue; }
   const src = newestRenderDir(d.renderParent);
   if (!src) { console.warn(`· ⚠ no render data for ${d.name} under ${d.renderParent} — skipping import`); skipped++; continue; }
+  if (dryRun) { console.log(`· would import ${d.name} from ${path.basename(src)}${DRY}`); imported++; continue; }
   console.log(`· importing ${d.name} from ${path.basename(src)} …`);
   try {
     execFileSync(process.execPath, [
@@ -168,7 +189,9 @@ for (const d of DEMO) {
 
 // --- P3: a pending application, so the approval flow is demoable out of the box ---
 const DEMO_APP_EMAIL = 'clerk@ramsey-tc.example';
-if (!listApplications().some((a) => a.email === DEMO_APP_EMAIL)) {
+if (!listApplications().some((a) => a.email === DEMO_APP_EMAIL) && dryRun) {
+  console.log(`· would seed a pending application: Ramsey Town Council (${DEMO_APP_EMAIL})${DRY}`);
+} else if (!listApplications().some((a) => a.email === DEMO_APP_EMAIL)) {
   insertApplication({
     org_name: 'Ramsey Town Council', org_type: 'council',
     contact_name: 'Jo Clark', email: DEMO_APP_EMAIL, website: 'https://ramsey-tc.example',
@@ -179,7 +202,9 @@ if (!listApplications().some((a) => a.email === DEMO_APP_EMAIL)) {
 } else console.log('· pending demo application already present');
 
 // --- P3: a requested map, so the map-request queue is demoable ---
-if (stIves && !getMapBySlug('st-ives-waitrose')) {
+if (stIves && !getMapBySlug('st-ives-waitrose') && dryRun) {
+  console.log(`· would seed a requested place map: St Ives Waitrose${DRY}`);
+} else if (stIves && !getMapBySlug('st-ives-waitrose')) {
   insertMap({
     customer_id: stIves.customerId, slug: 'st-ives-waitrose', name: 'St Ives Waitrose', kind: 'place',
     subject: 'Waitrose, St Ives', request_note: 'Centred on the Waitrose car park; please show the guided busway stop.',
@@ -200,6 +225,7 @@ function publishBaseline(slug, editorEmail) {
     console.log(`· ${slug} already published (or not seeded)`);
     return;
   }
+  if (dryRun) { console.log(`· would publish ${slug} v1.0 as its first official version${DRY}`); return; }
   const summary = { base: 'baseline', unchanged: true, routes: [], poisHidden: [], poisShown: [] };
   const reqId = insertPublishRequest({ map_id: m.id, version_id: m.current_version_id, requested_by: editors[slug], note: 'Demo: initial publication of the sample baseline.' });
   setVersionState(m.current_version_id, 'pending');
@@ -237,6 +263,7 @@ async function publishWithBoardingPlan(slug, editorEmail) {
   const m = getMapBySlug(slug);
   if (!m || !m.current_version_id) { console.log(`· ${slug} not seeded — skipping boarding plan`); return; }
   if (m.published_version_id) { console.log(`· ${slug} already published — leaving boarding plan as-is`); return; }
+  if (dryRun) { console.log(`· would render and publish ${slug} with the boarding plan on${DRY}`); return; }
   const outputs = { ...defaultOutputs(), boarding_plan: true };
   setMapOutputs(m.id, outputs);
   const { major, minor } = nextVersion(m.id);
@@ -269,7 +296,9 @@ await publishWithBoardingPlan('st-ives-bus-station', 'coordinator@oakfield-ctt.e
 const stMap = getMapBySlug('st-ives');
 const stFresh = stMap && stMap.current_version_id && !getOpenRequestForMap(stMap.id)
   && nextVersion(stMap.id).major === 1 && nextVersion(stMap.id).minor === 1; // only the baseline exists
-if (stFresh) {
+if (stFresh && dryRun) {
+  console.log(`· would render and submit a St Ives recolour for a demo review${DRY}`);
+} else if (stFresh) {
   try {
     const meta = readRoutesMeta(stMap.id);
     const routeId = meta.palette['9'] ? '9' : Object.keys(meta.palette)[0];
@@ -330,7 +359,9 @@ function makeDemoRefreshSrc(srcDataDir) {
 }
 
 const marchForRefresh = getMapBySlug('march');
-if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.data_dir && !getOpenProposedForMap(marchForRefresh.id)) {
+if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.data_dir && !getOpenProposedForMap(marchForRefresh.id) && dryRun) {
+  console.log(`· would stage a demo monthly update for March${DRY}`);
+} else if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.data_dir && !getOpenProposedForMap(marchForRefresh.id)) {
   try {
     const src = makeDemoRefreshSrc(mapDataDir(marchForRefresh.id));
     execFileSync(process.execPath, [
@@ -347,7 +378,9 @@ if (marchForRefresh && marchForRefresh.current_version_id && marchForRefresh.dat
 // demoable for a place too. makeDemoRefreshSrc derives the "fresh" payload from the
 // live data (which for a place carries the vendored engine + base-overrides.json).
 const placeForRefresh = getMapBySlug('highwycombe-aldi');
-if (placeForRefresh && placeForRefresh.current_version_id && placeForRefresh.data_dir && !getOpenProposedForMap(placeForRefresh.id)) {
+if (placeForRefresh && placeForRefresh.current_version_id && placeForRefresh.data_dir && !getOpenProposedForMap(placeForRefresh.id) && dryRun) {
+  console.log(`· would stage a demo monthly update for High Wycombe Aldi${DRY}`);
+} else if (placeForRefresh && placeForRefresh.current_version_id && placeForRefresh.data_dir && !getOpenProposedForMap(placeForRefresh.id)) {
   try {
     const src = makeDemoRefreshSrc(mapDataDir(placeForRefresh.id));
     execFileSync(process.execPath, [
@@ -362,7 +395,9 @@ if (placeForRefresh && placeForRefresh.current_version_id && placeForRefresh.dat
 // --- P6: a piece of feedback from a public map page, so the admin Messages tab
 //     shows the "About" (which map) column with something in it ---
 const marchPublic = getMapBySlug('march');
-if (marchPublic && !listMessages().some((m) => m.map_id === marchPublic.id)) {
+if (marchPublic && !listMessages().some((m) => m.map_id === marchPublic.id) && dryRun) {
+  console.log(`· would seed a piece of public feedback about the March map${DRY}`);
+} else if (marchPublic && !listMessages().some((m) => m.map_id === marchPublic.id)) {
   insertMessage({
     kind: 'feedback', name: 'A passenger (demo)', email: 'passenger@example.com',
     body: 'Demo feedback, not a real report. The 33 no longer runs along Station Road on Saturdays — worth checking on the next refresh.',
@@ -371,6 +406,10 @@ if (marchPublic && !listMessages().some((m) => m.map_id === marchPublic.id)) {
   console.log('· seeded a piece of public feedback about the March map');
 } else console.log('· public feedback already seeded (or March not seeded)');
 
+if (dryRun) {
+  console.log(`\n✓ dry run complete — ${imported} map(s) would be imported, ${skipped} skipped; nothing written.`);
+  process.exit(0);
+}
 console.log(`\n✓ demo seed complete — ${imported} map(s) imported, ${skipped} skipped.`);
 console.log('  Start the server (npm run dev) and sign in at /app/login.html:');
 console.log(`    admin    : ${ADMIN_EMAIL}`);
