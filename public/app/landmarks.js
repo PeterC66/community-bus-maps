@@ -154,11 +154,12 @@ const ROAD_LABEL_PX = 11;
  * these fourteen or null, which is also why the glyph sprite can be complete
  * rather than defensive.
  *
- * THREE OF THE FOURTEEN ARE OPT-IN AND STILL BELONG HERE (OA-340, 2026-09-19;
- * `station` joined them under buses-data OA-453, 2026-09-26).
- * `allotments`, `pubs` and `stations` only reach a sheet when that town's routes.json
- * carries `poi.include`, so for most towns these rows never appear — which
- * is exactly why they have to be written down rather than met. A category the
+ * THE SWITCHABLE ONES BELONG HERE TOO (OA-340, 2026-09-19; `station` under
+ * buses-data OA-453; the 28 September review, OA-500, turned pubs and stations
+ * ON by default and added post offices). Allotments, post offices and
+ * industrial estates reach a sheet only when a town switches them on, so for
+ * most towns those rows never appear — which is exactly why they have to be
+ * written down rather than met. A category the
  * engine can emit and this page cannot name prints its raw key as a heading,
  * and a town that has just switched pubs on is the one town whose reader is
  * looking at that screen on purpose.
@@ -170,6 +171,9 @@ const CAT_LABEL = {
   industrial: 'Industrial estates', community: 'Community centres',
   townhall: 'Town halls', allotments: 'Allotments', pub: 'Pubs',
   station: 'Railway stations',
+  // The 28 September review's five (buses-data OA-500).
+  hospital: 'Hospitals', theatre: 'Theatres and arts centres', cinema: 'Cinemas',
+  college: 'Colleges and universities', postoffice: 'Post offices',
 };
 const catLabel = (c) => CAT_LABEL[c] || c;
 
@@ -194,6 +198,8 @@ const CAT_ONE = {
   school: 'school', park: 'park', industrial: 'industrial estate',
   community: 'community centre', townhall: 'town hall', allotments: 'allotment site',
   pub: 'pub', station: 'railway station',
+  hospital: 'hospital', theatre: 'theatre', cinema: 'cinema',
+  college: 'college', postoffice: 'post office',
 };
 
 /**
@@ -1123,7 +1129,11 @@ function dirty() {
     || JSON.stringify(switchPayload()) !== JSON.stringify(BASE_SWITCH);
 }
 
-const CAT_SWITCH_LABEL = { allotments: 'Allotments', pubs: 'Pubs', stations: 'Railway stations' };
+// Pubs and stations are ON unless switched off, and the other three OFF unless
+// switched on (buses-data OA-500); the box's tick comes from the server's `on`,
+// which asks the engine, so this list is only their names.
+const CAT_SWITCH_LABEL = { allotments: 'Allotments', pubs: 'Pubs', stations: 'Railway stations',
+  postoffices: 'Post offices', industrial: 'Industrial estates' };
 
 /**
  * One checkbox per category. A category the map's data holds none of is drawn

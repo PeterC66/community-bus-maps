@@ -188,7 +188,7 @@ const { Labeller } = require(_LABELLER);
 const _from = siblingOf(_LABELLER);   // see engine_paths.js: the metrics table follows the labeller
 const FONT = require(_from('font_metrics.js'));
 const LN = require(_dep('lane_normals.js'));
-const { selectPois, placerIds, mergePoiOverlay, printsName, poiLabelOverride, culledAfterTiers, culledAfterTiersNote } = require(_dep('poi_select.js'));
+const { selectPois, placerIds, mergePoiOverlay, printsName, labelPriority, poiLabelOverride, culledAfterTiers, culledAfterTiersNote, poiOverride } = require(_dep('poi_select.js'));
 const { fitSet } = require(_dep('fit_set.js'));
 const { projection } = require(_dep('projection.js'));
 const { internalRoadsConfig } = require(_dep('internal_roads_config.js'));
@@ -819,13 +819,13 @@ if((poiReport.renameCollisions||[]).length) process.stderr.write('poi.tiers: a r
  * 2.9 km apart — and that sentence contradicted the key it was printing. Said
  * rather than collapsed, because collapsing it is the fault OA-234 removed; but
  * it is real, and every key-addressed thing downstream (the tier answer,
- * internal.pois) cannot tell them apart; the placer can since OA-250 (placerIds). */
+ * internal.pois) cannot tell them apart; the placer can (placerIds), and so can an `osm:` key (keyedAnswer). */
 if((poiReport.duplicateCandidateKeys||[]).length) process.stderr.write('poi: two POIs share'
   + ' one key — ' + poiReport.duplicateCandidateKeys.map(k=>'"'+k+'"').join(', ')
   + '. They are far enough apart to be different places, but the key is'
-  + ' "<category>:<name>", so a tier answer and an internal.pois override cannot'
-  + ' address one of them without the other. Give one of them a poi.tiers "as",'
-  + ' or a name of its own in OpenStreetMap if it has none.'+GUARD_NL);
+  + ' "<category>:<name>", so a tier answer or internal.pois override keyed so cannot'
+  + ' address one of them without the other. Key the answer "osm:<type>/<id>" (its candidate row names it),'
+  + ' give one of them a poi.tiers "as", or a name of its own in OpenStreetMap.'+GUARD_NL);
 /* A nameless POI is `miss` by default (OA-238). This town has said otherwise, so
  * the sheet carries a symbol with no name on purpose. Not a fault — it is the
  * customer's answer — but it is the one case where the sheet disagrees with the
@@ -924,7 +924,7 @@ const { placed, iconBoxes, hit, overlaps, overlapsNoIcons, overlapsRound, LAB, r
 // the icon-reservation pre-pass and the drawing pass cannot disagree about either.
 const POI_HALF=2.1;                             // icon(p.cat,x,y,2.1) => a 4.2 mm box
 function poiSite(p){
-  const k=p.cat+':'+p.name; const o=(OV.pois||{})[k]||{};
+  const k=p.cat+':'+p.name; const o=poiOverride(OV.pois,p);
   if(o.hide){ poiCulled.set(k,'hide'); return null; }   // suppress this POI entirely
   let [x,y]=XY(p.ll);
   if(o.pos){ x=o.pos.x; y=o.pos.y; } else if(o.move){ x+=o.move.dx; y+=o.move.dy; }
@@ -1018,7 +1018,7 @@ function poiMark(p){
   const must = p.tier==='must' && !!p.name;
   const showName = o.force===true || must || (auto && o.force!==false);
   if(!showName) return;
-  const opt = {id:'poi:'+u};
+  const opt = {id:'poi:'+u, priority:labelPriority(p)};   // a pub's name seats last (poi_select.js)
   if(must){ opt.priority=10; opt.mustPlace=true; MUST.add('poi:'+u); }
   placeLabel(x,y,p.name,2.5,'#222',false,poiLabelOverride(o.label,RJ.notToScale),poiBox.get(u)||null,opt);
 }
@@ -1304,6 +1304,7 @@ if(IR){
         lb:Math.hypot(Pp[i+1][0]-Pp[i][0],Pp[i+1][1]-Pp[i][1]) }); }
       else { sx=(v[i-1][0]+v[i][0])/2; sy=(v[i-1][1]+v[i][1])/2; }
       return [p[0]+sx+ro.dx, p[1]+sy+ro.dy]; });
+    if(DESIGN.laneTrim===true) SH[r]=LN.trimSwallowtails(SH[r],Pp.map(p=>[p[0]+ro.dx,p[1]+ro.dy]),{trace:process.env.DBG_LANES&&(c=>console.error(`TRIM ${r}	seg=${c.i}..${c.j}	at=${c.at[0].toFixed(2)},${c.at[1].toFixed(2)}	fr=${inFrame(c.at)?1:0}`))}).points; // OA-176 4.14, opt-in: lane_normals.js says why
   }
   // -- cut each route at the frame: keep from the last entry before its first
   //    in-frame stop to the first exit after its last in-frame stop; remember
@@ -1549,7 +1550,7 @@ if(IR){
   // (the hand-drawn convention: "only main stops or stops near places of
   // interest are shown"). ID absent => filter never engages (gate-safe).
   const IDKEEP = ID ? new Set(ID.keepStops||[]) : null;
-  const IDPOI = ID ? pois.map(pp=>{ const o2=((OV.pois||{})[pp.cat+':'+pp.name]||{}); if(o2.hide)return null;
+  const IDPOI = ID ? pois.map(pp=>{ const o2=poiOverride(OV.pois,pp); if(o2.hide)return null;
     const q=XY(pp.ll); if(o2.pos){q[0]=o2.pos.x;q[1]=o2.pos.y;} else if(o2.move){q[0]+=o2.move.dx;q[1]+=o2.move.dy;} return q; }).filter(Boolean) : null;
   const IDPD = (ID && ID.poiStopDist!=null) ? ID.poiStopDist : 8;
   for(const r of order){ const tr=TRIM[r]; if(!tr||!tr.sh)continue;

@@ -423,20 +423,28 @@ export function enumerateCandidatesFromDir(dataDir, tiersOverlay = null, include
  * the page can tell "you switched this on" from "this town has always drawn it"
  * and post only the switches that differ from the town's own default.
  *
+ * BOTH ARE ASKED OF THE ENGINE'S categoryOn(), not read off poi.include
+ * (buses-data OA-498). Since the 28 September review pubs and stations are ON
+ * unless poi.exclude names them, so "is it in include" answered OFF for a
+ * category the sheet draws. An engine too old to export categoryOn falls back to
+ * the include reading, which was right for the engine that shipped it.
+ *
  * @returns {{ cat:string, candidateCat:string, on:boolean, packOn:boolean,
  *             saved:boolean, available:number }[]}  [] if the engine module cannot be read
  */
-export const SWITCH_CANDIDATE_CAT = { allotments: 'allotments', pubs: 'pub', stations: 'station' };
+export const SWITCH_CANDIDATE_CAT = { allotments: 'allotments', pubs: 'pub', stations: 'station', postoffices: 'postoffice', industrial: 'industrial' };
 export function categorySwitchesFromDir(dataDir, includeOverlay = null) {
-  let OPT_IN_CATS, mergePoiOverlay;
+  let OPT_IN_CATS, mergePoiOverlay, categoryOn;
   try {
-    ({ OPT_IN_CATS, mergePoiOverlay } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
+    ({ OPT_IN_CATS, mergePoiOverlay, categoryOn } = poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')));
   } catch { return []; }
+  const onFor = typeof categoryOn === 'function' ? categoryOn
+    : (poi, c) => Array.isArray(poi && poi.include) && poi.include.includes(c);
   const routes = readJson(path.join(dataDir, 'routes.json'), {}) || {};
   const sw = includeOverlay && typeof includeOverlay === 'object' ? includeOverlay : {};
   const merged = mergePoiOverlay(routes.poi || {}, { poiInclude: sw });
-  const drawn = new Set(Array.isArray(merged.include) ? merged.include : []);
-  const pack = new Set(Array.isArray(routes.poi && routes.poi.include) ? routes.poi.include : []);
+  const drawn = new Set(OPT_IN_CATS.filter((c) => onFor(merged, c)));
+  const pack = new Set(OPT_IN_CATS.filter((c) => onFor(routes.poi || {}, c)));
   const counts = {};
   for (const p of enumerateCandidatesFromDir(dataDir, null, allSwitchedOn(OPT_IN_CATS))) {
     counts[p.cat] = (counts[p.cat] || 0) + 1;

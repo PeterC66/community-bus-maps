@@ -46,13 +46,14 @@
           <span><b class="lm-key may">Show if there is room</b> what happens today, and a perfectly good answer.</span>
           <span><b class="lm-key miss">Do not show</b> off the map completely. This is the most useful answer and the one nobody volunteers.</span>
         </div>
-        <!-- The category switch (OA-439 item 3). Three kinds of place most maps
-             leave off whole — pubs, allotments, railway stations — are switched
-             on or off here, a category at a time, before the places in it can be
-             answered one by one. Drawn by landmarks.js from /landmarks'
+        <!-- The category switch (OA-439 item 3). The kinds of place a map can
+             switch whole — pubs and railway stations, on unless switched off;
+             allotments, post offices and industrial estates, off unless switched
+             on (buses-data OA-500) — a category at a time, before the places in
+             it can be answered one by one. Drawn by landmarks.js from /landmarks'
              `categories`; hidden when there are none to show. -->
         <fieldset class="lm-cats" id="catSwitches" hidden>
-          <legend>Kinds of place most maps leave off</legend>
+          <legend>Kinds of place you can switch on or off</legend>
           <div class="lm-cat-list" id="catList"></div>
           <p class="hint-line">Switching one on or off takes effect when you save: the map is redrawn and the places appear in, or leave, the list below.</p>
         </fieldset>
