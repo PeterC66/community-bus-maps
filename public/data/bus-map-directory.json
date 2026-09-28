@@ -511,14 +511,18 @@
     {
       "lta": "Lancashire County Council",
       "networkMap": {
-        "status": "no"
+        "status": "some",
+        "url": "https://lancasterbususers.com/local-bus-timetables/",
+        "format": "pdf",
+        "publisher": "council",
+        "dated": "2026-01"
       },
       "townMaps": {
         "status": "no",
         "examples": []
       },
       "landingPage": "https://www.lancashire.gov.uk/roads-parking-and-travel/public-transport/bus-timetables/",
-      "checked": "2026-09-11"
+      "checked": "2026-09-28"
     },
     {
       "lta": "Leicester City Council",
