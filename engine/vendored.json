@@ -57,8 +57,8 @@
       "path": "icons.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/icons.js",
-      "sha256": "0a9b777102bc40b3cb4c8de6e5128aafe2b63729fb97817f98f84059f3d507d5",
-      "vendoredOn": "2026-09-26"
+      "sha256": "ba8298f9b3a9479795898bd698407e87b2ed2f3e8d57ef80bff323d70faa254c",
+      "vendoredOn": "2026-09-28"
     },
     {
       "path": "labeller.js",
@@ -143,7 +143,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "629da2d10d5eec6e3893800257aa3b97b36fe9e0a7282efe330154b46f60f71a",
+      "sha256": "b16a79fd92c4479c17abd382394a7656d472d0159f4e1d9e4e9ea768c835734b",
       "vendoredOn": "2026-09-28",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -167,8 +167,8 @@
       "path": "poi_select.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/poi_select.js",
-      "sha256": "5b9fcd6a487286f198a4502c34e4a85262adbb06d8e8978751ee5bbc905b2398",
-      "vendoredOn": "2026-09-27",
+      "sha256": "e5dc00595ac6ec425bf940b34b2318cacff45bdc9045e69c764115b9b4d3eb66",
+      "vendoredOn": "2026-09-28",
       "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
     },
     {
@@ -223,8 +223,8 @@
       "path": "services_panel.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/services_panel.js",
-      "sha256": "dd5e8e5ff54134962e0a4157f20693f88deb1224b214529f2fddf12335b86d75",
-      "vendoredOn": "2026-09-26",
+      "sha256": "836ab19f6d7848a44324870a35229be97aca95ec2c69807e39d242a63ec54775",
+      "vendoredOn": "2026-09-28",
       "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
     },
     {

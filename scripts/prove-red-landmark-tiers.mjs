@@ -233,13 +233,13 @@ const MUTATIONS = [
     what: 'the chooser stops passing the category switch to the engine merge',
     why: 'OA-439: the candidates are merged by the engine\'s mergePoiOverlay() so a switched-on category is offered exactly where the sheet would draw it; dropping the overlay here leaves the chooser offering the pack\'s categories while the sheet draws the customer\'s',
     edits: [[ENGINE, '{ poiTiers: tiersOverlay, poiInclude: includeOverlay }', '{ poiTiers: tiersOverlay, poiInclude: null }']],
-    expect: 'the customer switching pubs on offers it',
+    expect: 'the customer switching allotments on offers it',
   },
   {
     what: 'the key universe follows the category switch as saved',
     why: 'OA-439. A customer who answers a pub and then switches pubs off has not withdrawn the answer; validate against the switch as saved and the next save refuses the key, so switching pubs back on brings every pub back unanswered',
     edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);\n', '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n']],
-    expect: 'and a pub answer survives the switch being off, because the editable universe holds every switchable category',
+    expect: 'and an allotment answer survives the switch being off, because the editable universe holds every switchable category',
   },
   {
     what: 'the key universe shrinks back to what is DRAWN',
