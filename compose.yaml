@@ -14,6 +14,18 @@ services:
         BUILT_AT: ${BUILT_AT:-}
     image: community-bus-maps:local
     restart: unless-stopped
+    # A cap on the container's own log, which the json-file driver otherwise
+    # keeps without limit for the life of the container: at most three files of
+    # 10 MB, rotated by Docker. Unbounded logs were the one item of the ops trio
+    # with a failure that arrives by itself, a full VPS disk (codebase review
+    # 2026-09-28 R4 F20, Peter's Decision C; the .dockerignore and the memory
+    # limit were retired as findings the same day). Takes effect when the
+    # container is recreated, which every deploy does.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # Bound to loopback: TLS + the public hostname belong to the reverse proxy.
     ports:
       - "127.0.0.1:5180:5180"

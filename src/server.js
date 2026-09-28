@@ -33,7 +33,7 @@ import { PILOT, listenOn, noListen, statusToken } from './config.js'; // PILOT: 
 import { loggableReq } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { errorEnvelope, notFoundEnvelope, wantsJson } from './http/errors.js';
-import { str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited } from './http/helpers.js';
+import { str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited, startHitsSweep } from './http/helpers.js';
 import { withMapLock, downloadsForVersion } from './maps/detail.js';
 import adminRoutes from './routes/admin.js';
 import adviserRoutes from './routes/adviser.js';
@@ -133,9 +133,10 @@ app.addHook('onRoute', (r) => { for (const m of [].concat(r.method)) ROUTE_TABLE
 /* ONE SHAPE FOR AN UNEXPECTED FAILURE, AND ONE FOR A PATH THAT IS NOT ROUTED
  * (OA-224 Tier 5, portal-src F4).
  *
- * 24 `try` blocks and 11 explicit `.code(500)` cover the failures this code
- * knows about, and every one of them answers `{ok:false,error}` — the envelope
- * the client reads in 128 places. Anything ELSE fell through to Fastify's
+ * The `try` blocks and explicit `.code(500)` calls under src/ cover the
+ * failures this code knows about (`git grep -c "code(500)" -- src` counts the
+ * second; a total typed here went stale twice), and every one of them answers
+ * `{ok:false,error}` — the envelope the client pages read. Anything ELSE fell through to Fastify's
  * default, which is `{statusCode,error,message}`: a different shape, carrying a
  * different key, for exactly the cases nobody anticipated. A client that reads
  * `error` got Fastify's short name ("Internal Server Error") where it expected a
@@ -694,15 +695,16 @@ app.patch('/api/customer/settings', async (req, reply) => {
 // (OA-231). Eleven pages, including the P7 diagram editor's shell and the local
 // adviser's one page (OA-154 D1), which is here
 // because this plugin owns the /app subtree. The hook redirects an anonymous
-// caller to the sign-in page (which declares itself the exception); the four
-// ROLE checks stay in the handlers and redirect rather than refuse.
+// caller to the sign-in page (which declares itself the exception); the ROLE
+// checks (`git grep -n "user.role" -- src/routes/pages.js` finds them) stay in the handlers and redirect rather than refuse.
 // ===========================================================================
 await app.register(pageRoutes, { prefix: '/app' });
 
 // ---------------------------------------------------------------------------
 // The editor spine's API -- src/routes/editor.js, one plugin under /api/maps
-// (OA-231). 14 routes: the map list, a map request, one map's detail, preview,
-// the landmark list and basemap, save, publish-request and its withdrawal, the
+// (OA-231). Its routes, which `ROUTE_TABLE` above lists at run time, include
+// the map list, a map request, one map's detail, preview, the landmark list,
+// basemap and POI tiers, save, publish-request and its withdrawal, the
 // output toggles, the diagram request, public listing, the banner note and the
 // version file server. The plugin guard is requireUser only; loadOwnedMap() and
 // loadReadableMap() are the decisions that matter and they stay in the handlers,
@@ -922,7 +924,11 @@ if (noListen()) {
   try {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`BusMaps.uk portal (${VERSION}) → http://${HOST}:${PORT}`);
-    setInterval(() => { try { purgeExpiredSessions(); } catch {} }, 3_600_000).unref();
+    // Neither timer below swallows its error any more: an empty catch here hid
+    // a sweep that threw on every run for twenty-five days (see startHitsSweep).
+    setInterval(() => {
+      try { purgeExpiredSessions(); } catch (err) { app.log.error({ err }, 'session purge failed'); }
+    }, 3_600_000).unref();
     // Retention for personal data (technical-audit_2026-08-25 N8). Daily, beside
     // the hourly session prune rather than in a separate cron, for the reason
     // the backup dead-man switch taught: a job that lives somewhere else is a
@@ -938,7 +944,7 @@ if (noListen()) {
     };
     purgePersonalData();
     setInterval(purgePersonalData, 86_400_000).unref();
-    setInterval(() => { try { sweepHits(); } catch {} }, 300_000).unref();
+    startHitsSweep(app.log);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

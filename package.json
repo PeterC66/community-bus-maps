@@ -144,6 +144,7 @@
     "test:prove-red-proposed-plugin": "node scripts/prove-red-proposed-plugin.mjs",
     "test:editor-plugin": "node scripts/test-editor-plugin.mjs",
     "test:render-budget": "node scripts/test-render-budget.mjs",
+    "test:hits-sweep": "node scripts/test-hits-sweep.mjs",
     "test:prove-red-editor-plugin": "node scripts/prove-red-editor-plugin.mjs",
     "test:pages-plugin": "node scripts/test-pages-plugin.mjs",
     "test:prove-red-pages-plugin": "node scripts/prove-red-pages-plugin.mjs",

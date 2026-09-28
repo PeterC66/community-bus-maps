@@ -268,8 +268,29 @@ const hits = new Map();
 const HITS_MAX = 20_000;
 function sweepHits(windowMs = 60_000) {
   const now = Date.now();
-  if (hits.size > HITS_MAX) { hits.clear(); return; }
+  const before = hits.size;
+  if (hits.size > HITS_MAX) { hits.clear(); return before; }
   for (const [ip, rec] of hits) if (now - rec.t > windowMs) hits.delete(ip);
+  return before - hits.size;
+}
+
+// The periodic half of the two bounds above, started by server.js once it is
+// listening. It is a function HERE, and not a setInterval over sweepHits in
+// server.js, because that is what it was until 2026-09-28 and it never ran:
+// the cut that moved the counter into this module (2026-09-03) exported
+// rateLimited and not sweepHits, server.js went on calling a name it no longer
+// had, and the ReferenceError went into an empty catch every five minutes for
+// twenty-five days (codebase review 2026-09-28, R4 G8). So a failed sweep is
+// LOGGED now, and scripts/test-hits-sweep.mjs holds server.js to calling this.
+// Returns the timer and a sweepNow() that runs the same guarded sweep once and
+// says how many entries it evicted — the test's handle on the map.
+function startHitsSweep(log, everyMs = 300_000) {
+  const sweepNow = () => {
+    try { return sweepHits(); } catch (err) { log.error({ err }, 'rate-limit sweep failed'); return 0; }
+  };
+  const timer = setInterval(sweepNow, everyMs);
+  timer.unref();
+  return { timer, sweepNow };
 }
 function rateLimited(ip, max = 20, windowMs = 60_000) {
   const now = Date.now();
@@ -341,6 +362,6 @@ function renderBudgetSpent(user) {
 }
 
 export {
-  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, requireAdviser, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited,
+  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, requireAdviser, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited, startHitsSweep,
   RENDER_BUDGET, RENDER_WINDOW_MS, RENDER_BUDGET_MESSAGE, renderBudgetSpent,
 };

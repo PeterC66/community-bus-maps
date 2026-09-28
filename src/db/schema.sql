@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS application (
   id            INTEGER PRIMARY KEY,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   org_name      TEXT NOT NULL,
-  org_type      TEXT NOT NULL,           -- one of ORG_TYPES in src/server.js: the five pain-point
+  org_type      TEXT NOT NULL,           -- one of ORG_TYPES in src/http/helpers.js: the pain-point
                                           -- classes (authority-council | healthcare-campus |
                                           -- business-park | bid-tourism | community-group |
                                           -- operator-ct | other),
@@ -42,9 +42,9 @@ CREATE TABLE IF NOT EXISTS application (
 CREATE TABLE IF NOT EXISTS message (
   id            INTEGER PRIMARY KEY,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  kind          TEXT NOT NULL DEFAULT 'enquiry',  -- enquiry | question | feedback (the three
-                                                  -- the public contact form may set, MSG_KINDS
-                                                  -- in src/server.js), plus two kinds only server
+  kind          TEXT NOT NULL DEFAULT 'enquiry',  -- one of MSG_KINDS in src/http/helpers.js
+                                                  -- (enquiry | question | feedback | map-request |
+                                                  -- issue), plus two kinds only server
                                                   -- code ever writes: 'diagram-request' (a signed-in
                                                   -- customer asking for the hand-finished diagram)
                                                   -- and 'refresh-flag' (scripts/check-upcoming-
