@@ -153,9 +153,9 @@ jobs:
   # times between 2026-08-27 and 2026-09-02 and every widening was within one of
   # the other two repositories: buses-data's own folders, then claude-skills
   # (OA-222). This is the third document set of three -- the runbooks R1-R6,
-  # DEPLOY.md, DEVELOPING.md, H1-operations-handbook.md, PRODUCT.md and 96
-  # changelog fragments -- and it is the set a session reads BEFORE touching the
-  # live site.
+  # DEPLOY.md, DEVELOPING.md, H1-operations-handbook.md, PRODUCT.md and every
+  # changelog fragment (`git ls-files CHANGELOG.d | wc -l` counts them) -- and it
+  # is the set a session reads BEFORE touching the live site.
   #
   # WHY IT RUNS HERE AND NOT IN BUSES-DATA, which is where the checkers live. A
   # check belongs in the suite that fires when its SUBJECT changes -- the rule
@@ -264,8 +264,9 @@ jobs:
       # repository's `.doc-links.json`, which is where this one declares that
       # `CHANGELOG.d/` renders from the repository root. Declaring no `dirs` means
       # the widest scope, its whole tree, which is exactly what `--root .` gave it
-      # before the move: 128 documents plus 4 archived, measured identical on the
-      # day rather than assumed from a green run.
+      # before the move: the same document set, measured identical on the day
+      # rather than assumed from a green run (`git ls-files '*.md' | wc -l`
+      # counts it now).
       - name: Links, anchors, section citations and documented commands
         working-directory: community-bus-maps
         run: node "$GITHUB_WORKSPACE/claude-skills/tools/check-doc-links.mjs"

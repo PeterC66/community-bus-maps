@@ -15,12 +15,15 @@
 #   2. scripts/lib/fixtures.mjs FAILS rather than skips when there is no fixture,
 #      so this job cannot go green by finding nothing.
 #
-# WHY THE THREE GATES ARE THREE STEPS rather than one `npm run verify`. They
-# answer different questions and a reader of a red run should not have to open
-# the log to learn which: verify:area is "does the portal reproduce a shipped
-# TOWN sheet byte-for-byte", verify:place is the same for the vendored PLACE
-# engine, and verify:defaults is "does each of the thirteen design/labels escape
-# hatches still change something" — i.e. is any of them now dead code.
+# WHY EACH GATE IS ITS OWN STEP rather than one `npm run verify`. They answer
+# different questions and a reader of a red run should not have to open the log
+# to learn which: verify:area is "does the portal reproduce a shipped TOWN sheet
+# byte-for-byte", verify:place is the same for the vendored PLACE engine,
+# verify:defaults is "does each design/labels escape hatch still change
+# something" — i.e. is any of them now dead code — and the self-sufficiency
+# pair below them asks whether the engine renders with nothing but this
+# repository, after first proving that gate can go red. The step names are the
+# list; a count typed here went stale when the pair was added.
 #
 # WHAT THIS DOES NOT PROVE. Rasterisation. SVG generation is pure JavaScript and
 # is expected to be byte-identical everywhere; the JPGs are not, because glyph

@@ -32,8 +32,9 @@
 //
 // WHERE THE CHECK RUNS. `npm test` cannot run it — a CI runner for a public repo
 // has no buses-data checkout, and inventing one would be a check that is green
-// for ever. verify.yml already checks buses-data out for the fixtures, so the
-// `--check` form runs THERE, next to the gates that have the same dependency.
+// for ever. So the `--check` form runs in buses-data's own gates.yml, which
+// clones this public repository, and fires when the SOURCE changes (OA-398,
+// which moved it out of verify.yml here; verify.yml's comment has the history).
 // What `npm test` does instead is assert the vendored file's SHAPE
 // (scripts/test-directory.mjs), which needs no second repository.
 //

@@ -52,7 +52,7 @@ export default async function pageRoutes(app) {
     // A LOCAL ADVISER HAS EXACTLY ONE PAGE (buses-data OA-154 D1), and the rule is
     // stated here rather than in ten handlers for the same reason the door above
     // is: a twelfth page must not be able to acquire an adviser audience by
-    // being forgotten about. It is the inverse of the four role checks below —
+    // being forgotten about. It is the inverse of the role checks below —
     // those name the pages one role MAY see; this names the one page an adviser
     // may see and sends them to it from everywhere else. They reach none of the
     // API those other pages call either, because loadOwnedMap() and

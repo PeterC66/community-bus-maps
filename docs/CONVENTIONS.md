@@ -1,7 +1,7 @@
 # Conventions — community-bus-maps
 
-<!-- docstamp v1.15 | 2026-09-21 | sha=212dcb38 -->
-**v1.15** · updated 21 September 2026
+<!-- docstamp v1.16 | 2026-09-28 | sha=afdad3b2 -->
+**v1.16** · updated 28 September 2026
 
 The single sheet that settles the questions a script author would otherwise answer differently each time: what a flag is called, what an exit code means, which stream carries what, how a script that changes something asks permission, and which Node this repository runs. It describes what is **already true here** wherever there is a majority practice, and says so plainly where there is not.
 
@@ -32,6 +32,7 @@ The distinction that matters is 1 against 2. A caller that treats every non-zero
 
 - `--apply` for a **local** mutator: the script does nothing but report by default, and only writes when `--apply` is given. This is the majority practice in `scripts/` (`grep -l "\-\-apply" scripts/*.mjs` counts them; `check-vendored --update` is the older spelling of the same idea).
 - `--dry-run` plus `--yes` for anything that touches the **VPS**: the default is to do it, so the safety has to be the confirmation rather than the default. `--dry-run` shows the plan; `--yes` is the confirmation that lets it run unattended.
+- **Two local writers are stated exceptions and write by default: `vendor-engine` and `sync-directory`.** `npm run vendor:engine` copies the engine and restamps its hashes unless given `--dry-run`, and `npm run sync:directory` rewrites `public/data/bus-map-directory.json` unless given `--check`. Both predate the `--apply` convention, both write only git-tracked files in this checkout, so an accidental run costs a `git checkout` and nothing else, and flipping them would break every documented command line that runs them (`git grep -n -e "vendor:engine" -e "sync:directory"` lists them) and the muscle memory behind them. Peter decided on 2026-09-28 to keep them as they are and write the exception down here (buses-data codebase review 2026-09-28, Decision E, finding R5 C9). A new local writer still takes `--apply`; these two are not a precedent.
 - The asymmetry is deliberate. A local mutator that runs by accident costs a `git checkout`; a deploy that runs by accident costs the live site, so it must be impossible to trigger without saying so.
 - `--check` is the read-only form of a generator (`changelog-assemble --check`). It exits `1` when the generated file is out of date, which is what makes it a CI step.
 - Long flags only, spelled `--like-this`. A flag that takes a value takes it as the next argument (`--only search`), not `--only=search`.

@@ -64,11 +64,12 @@ updates:
     # what stops that PR looking like a routine bump in the list.
     #
     # AND A BASE-IMAGE BUMP IS A MULTI-FILE CHANGE THAT DEPENDABOT CAN ONLY DO
-    # ONE FILE OF. #64 edits the Dockerfile alone, so `test-node-pin.mjs` fails
-    # it five ways - package.json `engines.node` still says >=24, and audit.yml,
-    # render-parity.yml and test.yml each install Node 24 while the image is
-    # node:26. That test is right and the PR is incomplete; merging it green is
-    # not available, and neither is merging it red. Taking one means bumping the
-    # engines floor and the three workflow pins in the same change, THEN
+    # ONE FILE OF. #64 edited the Dockerfile alone, so `test-node-pin.mjs` failed
+    # it - package.json `engines.node` still said >=24 while the image was
+    # node:26. The workflows no longer pin Node for themselves: since #336 each
+    # reads the major from the Dockerfile's FROM line, so the multi-file part is
+    # now the engines floor alone. That test is right and such a PR is
+    # incomplete; merging it green is not available, and neither is merging it
+    # red. Taking one means bumping the engines floor in the same change, THEN
     # re-baselining the render. Do not treat the red as flakiness.
     labels: [dependencies, needs-rebaseline]
