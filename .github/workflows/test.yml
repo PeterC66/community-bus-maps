@@ -170,11 +170,14 @@ jobs:
       # names its main thread MainThread) outlived its step. This names it, with
       # its arguments and where each of its threads is parked, so the next stall
       # of any step here arrives diagnosed. It runs only on a red or cancelled job.
+      # Both names are matched because a `node -e` in the proof run was `node`,
+      # while the hung checker was `MainThread`; kernel threads (children of pid
+      # 2) are left out, or they are most of the listing.
       - name: What was still running when this job failed?
         if: failure() || cancelled()
         run: |
-          ps -eo pid,ppid,etimes,stat,wchan:24,comm,args --forest | grep -v -E '\[k|Runner\.|hosted-compute|provjob' || true
-          for p in $(pgrep -x MainThread); do
+          ps --ppid 2 -p 2 --deselect -o pid,ppid,etimes,stat,wchan:24,comm,args --forest | grep -v -E 'Runner\.|hosted-compute|provjob' || true
+          for p in $(pgrep -x 'node|MainThread'); do
             echo "--- node $p: $(tr '\0' ' ' < /proc/$p/cmdline)"
             for t in /proc/$p/task/*; do echo "    $(cat $t/comm) $(cat $t/wchan)"; done
           done
