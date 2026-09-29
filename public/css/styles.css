@@ -474,6 +474,11 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .dl-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .btn-sm { padding: 8px 15px; font-size: .92rem; }
 .map-page ul { color: var(--muted); }
+/* The map page's heading became an <h1> for crawlers (buses-data OA-501); it
+   keeps the size the <h2> it replaced had. */
+.map-page h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.01em; }
+.map-page #lead { margin-bottom: 18px; }
+.map-page #lead:empty { display: none; }
 
 .center { text-align: center; }
 .mt-0 { margin-top: 0; }

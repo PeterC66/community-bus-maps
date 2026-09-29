@@ -58,8 +58,8 @@
   // be the only place that content exists. See server.js's /m/:slug route.
 
   $('head').innerHTML = `
-    <h2 class="mt-0">${esc(headline)} <span class="badge ${map.kind === 'place' ? 'place' : ''}">${map.kind === 'place' ? 'Place' : 'Area'}</span>${
-      map.org.isDemo ? ' <span class="badge sample">Sample</span>' : ''}</h2>
+    <h1 class="mt-0" id="headline">${esc(headline)} <span class="badge ${map.kind === 'place' ? 'place' : ''}">${map.kind === 'place' ? 'Place' : 'Area'}</span>${
+      map.org.isDemo ? ' <span class="badge sample">Sample</span>' : ''}</h1>
     ${map.org.isDemo ? '<p class="sample-note"><strong>This is a sample map.</strong> The organisation named below is invented and no one publishes this map — it exists to demonstrate the system. Do not use it to catch a bus. <a href="/faq.html#pilot">Why?</a></p>' : ''}
     <div class="org-line big">
       <span class="org-badge" style="--org-accent:${esc(map.org.accentHex)}">${esc(map.org.badge)}</span>

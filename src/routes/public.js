@@ -62,6 +62,7 @@ import { factsForPublicMap, publicServices, servicesPageUrl } from '../public/se
 import { setInner, setAttr, setClass, removeBooleanAttr } from '../public/shell.js';
 import { grid, directoryBlock, searchMeta } from '../../public/js/shared/map-card.mjs';
 import { servicesView } from '../../public/js/shared/services-view.mjs';
+import { mapHeadline, mapTitle, mapLead } from '../../public/js/shared/map-page.mjs';
 import { inlineSvg } from '../public/inlineSvg.js';
 import { notFoundPage } from '../public/notFound.js';
 import { robotsTxt } from '../public/robots.js';
@@ -242,9 +243,9 @@ export default async function publicRoutes(app) {
       .replace(/[ \t]*<meta\s+name="description"[^>]*>\r?\n?/i, '')
       .replace(/[ \t]*<meta\s+property="og:(?:title|description|url|image)"[^>]*>\r?\n?/gi, '');
     page = page.replace('</head>', `${head}\n</head>`);
-    // `fillBody` is where the /services page puts its content (N1). Optional
-    // because /m/:slug still fills its own body in the browser — that page's
-    // content is the SVG sheet itself, which is a 472 KB fetch that would be the
+    // `fillBody` is where the /services page puts its content (N1), and where
+    // /m/:slug puts its <h1> and one sentence (OA-501). /m/:slug still fills the
+    // rest of its body in the browser — that page's content is the SVG sheet itself, which is a 472 KB fetch that would be the
     // wrong thing to inline into every HTML response.
     if (fillBody) page = fillBody(page);
     reply.type('text/html; charset=utf-8');
@@ -254,10 +255,11 @@ export default async function publicRoutes(app) {
   /** The <head> completion for one public map page. */
   function mapHead(req, m, { services = false } = {}) {
     const base = baseUrl(req);
-    const headline = m.kind === 'place' ? `Buses serving ${m.name}` : `Buses within ${m.name}`;
+    // OA-501: the map page's title names the place first and says "bus map",
+    // the words people search for; public/js/shared/map-page.mjs says why.
     const title = services
       ? (m.kind === 'place' ? `Bus services serving ${m.name}` : `Bus services in ${m.name}`)
-      : headline;
+      : mapTitle(m);
     // A /m/<slug> PAGE CARRIES THE WHOLE SET, so its description is plural
     // (buses-data OA-404). It used to open "A bus map published by ...", and a
     // reader who followed that met two to four pictures, each of which they
@@ -296,7 +298,21 @@ export default async function publicRoutes(app) {
   app.get('/m/:slug', async (req, reply) => {
     const row = getPublicMapBySlug(str(req.params.slug, 120));
     if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));
-    return sendShell(reply, 'map.html', mapHead(req, publicMap(row)));
+    const m = publicMap(row);
+    // OA-501: a crawler receives an <h1> and one sentence naming the place and
+    // its services, not an empty shell. The sheet itself still loads in the
+    // browser (see sendShell). A service list that cannot be read costs the
+    // sentence its numbers, never the page.
+    let ids = [];
+    try {
+      const services = publicServices(row, factsForPublicMap(row));
+      ids = services && services.routes ? services.routes.map((r) => r.id) : [];
+    } catch { ids = []; }
+    return sendShell(reply, 'map.html', mapHead(req, m), (page) => {
+      let p = setInner(page, 'headline', escapeHtml(mapHeadline(m)));
+      p = setInner(p, 'lead', mapLead(m, ids));
+      return p;
+    });
   });
 
   // The sheet's TEXT ALTERNATIVE. A picture of a bus map has no `alt` that could

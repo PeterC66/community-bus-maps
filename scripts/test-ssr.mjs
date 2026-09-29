@@ -254,6 +254,41 @@ check('a stale map warns, visibly', stalePage.includes('This information may be 
   && /id="staleNote"(?![^>]*\shidden)/.test(stalePage));
 check('a current map produces no notice', servicesView(demoMap, demoServices).stale === '');
 
+// --- 4b. /m/<slug> is findable: "bus map" in the title, an <h1> and a sentence
+// (buses-data OA-501). /m/wisbech was on Google and ranked for nothing: the
+// title said "Buses within Wisbech" and the HTML carried no heading or text.
+console.log('\n/m/<slug> gives a crawler a title, a heading and a sentence:');
+{
+  const { mapTitle, mapHeadline, mapLead, serviceList } = await import('../public/js/shared/map-page.mjs');
+  const wisbech = { kind: 'area', name: 'Wisbech', org: { name: 'Fenland Council' } };
+  const place = { kind: 'place', name: 'St Neots Co-op', org: { name: 'X' } };
+  check('the title names the place first and says "bus map"',
+    mapTitle(wisbech).startsWith('Wisbech bus map') && mapTitle(place).startsWith('St Neots Co-op bus map'));
+  check('the title keeps the headline', mapTitle(wisbech).includes('Buses within Wisbech')
+    && mapTitle(place).includes('Buses serving St Neots Co-op'));
+  check('the service numbers read as a list, each once', serviceList(['1', '2', '2', 'X1']) === '1, 2 and X1'
+    && serviceList(['9']) === '9' && serviceList([]) === '');
+  const lead = mapLead(wisbech, ['46', '56', '46']);
+  check('the sentence names the place and its services', lead.includes('Wisbech') && lead.includes('2 bus services: 46 and 56'), lead);
+  check('a place sentence says the services call there', mapLead(place, ['61']).includes('the 1 bus service that calls there: 61.')
+    && mapLead(place, ['61', '66']).includes('the 2 bus services that call there'));
+  check('with no service list the sentence still names the place', mapLead(wisbech, []).includes('Wisbech bus maps'));
+  check('the sentence escapes', !mapLead({ ...wisbech, name: '<b>x</b>' }, ['<i>']).includes('<b>')
+    && !mapLead({ ...wisbech, name: 'x' }, ['<i>']).includes('<i>'));
+  const mapShell = shell('map.html');
+  let page = setInner(mapShell, 'headline', esc(mapHeadline(wisbech)));
+  page = setInner(page, 'lead', lead);
+  check('the shell\'s heading is an <h1>', /<h1[^>]*id="headline"[^>]*>Buses within Wisbech<\/h1>/.test(page));
+  check('the shell carries the sentence', /<p[^>]*id="lead"[^>]*>The Wisbech bus maps show/.test(page));
+  // The wiring: the route must fill both, or the functions above are tested
+  // and never called. A source read, because no test here seeds a published map.
+  const routeSrc = readFileSync(path.join(ROOT, 'src/routes/public.js'), 'utf8');
+  const route = routeSrc.slice(routeSrc.indexOf("app.get('/m/:slug',"), routeSrc.indexOf("app.get('/m/:slug/services'"));
+  check('the /m/:slug route fills the heading and the sentence',
+    route.includes("setInner(page, 'headline'") && route.includes("setInner(p, 'lead'"));
+  check('mapHead titles the map page with mapTitle()', /:\s*mapTitle\(m\)/.test(routeSrc));
+}
+
 // --- 5. escaping, because this markup is now written as HTML by two callers --
 console.log('\nescaping:');
 check('esc neutralises tags', esc('<script>x</script>') === '&lt;script&gt;x&lt;/script&gt;');
