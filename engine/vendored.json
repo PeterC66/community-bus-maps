@@ -143,7 +143,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "afa084d60aa15fa88bcc20804831bd4fdddd0a551529ceefe28f1ae238700a8b",
+      "sha256": "02f6b08537457dce438807e54fe073b9fb15db090d2fcb48fa84cf667fa88977",
       "vendoredOn": "2026-09-29",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -167,7 +167,7 @@
       "path": "poi_select.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/poi_select.js",
-      "sha256": "5d9a1337e95f50a6c6a73fbc57ff4c35fa7b710f1165025f7b48e60ae1df840d",
+      "sha256": "f159d71e98d4355c71f06b1f3c0373d75099050573434adf283857790373c2ee",
       "vendoredOn": "2026-09-29",
       "note": "Which OSM elements become drawable POIs. Required at load by gen_internal.js."
     },
