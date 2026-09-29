@@ -1135,6 +1135,13 @@ function dirty() {
 const CAT_SWITCH_LABEL = { allotments: 'Allotments', pubs: 'Pubs', stations: 'Railway stations',
   postoffices: 'Post offices', industrial: 'Industrial estates' };
 
+// Said under the boxes when not one of them can be switched (buses-data OA-439
+// item 5a). Tried on Beaconsfield on 2026-09-28, the panel promised that
+// switching "takes effect when you save" over a row of boxes that would not
+// tick, which reads as a broken page rather than a map whose data is older
+// than the categories.
+const CAT_HINT_NONE = 'None of these can be switched on this map yet: its data holds none of them. Ask us if you want them.';
+
 /**
  * One checkbox per category. A category the map's data holds none of is drawn
  * DISABLED with the reason, not hidden: the reader who came looking for the
@@ -1144,10 +1151,16 @@ const CAT_SWITCH_LABEL = { allotments: 'Allotments', pubs: 'Pubs', stations: 'Ra
 function buildSwitches() {
   const box = $('catSwitches');
   const list = $('catList');
+  const hint = $('catHint');
   if (!box || !list) return;
   list.textContent = '';
   if (!CATS.length) { showEl(box, false); return; }
   showEl(box, true);
+  if (hint) {
+    if (hint.dataset.usual === undefined) hint.dataset.usual = hint.textContent;
+    const inert = CATS.every((c) => !c.available && !(SWITCH.has(c.cat) ? SWITCH.get(c.cat) : c.on));
+    hint.textContent = inert ? CAT_HINT_NONE : hint.dataset.usual;
+  }
   for (const c of CATS) {
     const on = SWITCH.has(c.cat) ? SWITCH.get(c.cat) : c.on;
     const label = document.createElement('label');

@@ -1,7 +1,7 @@
 # Product
 
-<!-- docstamp v1.3 | 2026-09-21 | sha=657902ca -->
-**v1.3** · updated 21 September 2026
+<!-- docstamp v1.4 | 2026-09-29 | sha=ce9a241e -->
+**v1.4** · updated 29 September 2026
 
 <!-- impeccable:product-schema 1 -->
 
@@ -14,15 +14,17 @@ web
 Two equally core audiences, two halves of one funnel:
 
 - **Public visitors** — residents, passengers, and search/link traffic who land on the shopfront, browse the public gallery, view/download a published map, read its text-equivalent page, or submit a "something looks wrong" report. Also prospective organisations evaluating whether to apply.
-- **Approved-organisation staff, inside the self-serve app** — town/parish council clerks first, then shops, businesses, schools, function organisers, the National Trust and similar. As **editors** they recolour routes, toggle landmarks, choose outputs, save versions, and request new maps within quota. A platform **approver** reviews every version's change summary and print-ready output against a checklist before it can publish. An **admin** reviews applications, approves organisations, works the map-request queue, and adjusts quotas.
+- **Approved organisations** — town/parish council clerks first, then shops, businesses, schools, function organisers, the National Trust and similar. **Most are managed customers** (the default offer since 2026-09-25, buses-data OA-469): we build their map, agree it with them by email, and send each new version for their yes, so they never sign in and the portal emails them nothing — every message comes from a person. **Some ask for the editor**, and inside the app as **editors** they recolour routes, toggle landmarks, choose outputs, save versions, and request new maps within quota. A platform **approver** reviews every version's change summary and print-ready output against a checklist before it can publish. An **admin** reviews applications, approves organisations, works the map-request queue, and adjusts quotas.
 
 ## Product Purpose
 
-Lets an approved organisation generate, tweak, and keep up to date printable bus maps for a place they care about (a town/parish, or a single point like a shop or school), without needing design or GIS skill — while every publish is reviewed by a human and every render is provably reproducible.
+Gives an approved organisation printable bus maps for a place they care about (a town/parish, or a single point like a shop or school), kept up to date, without their needing design or GIS skill or any time in an app — while every publish is reviewed by a human and every render is provably reproducible. For the organisation that wants it, the editor lets them tweak the map themselves.
 
 ## Positioning
 
-One deterministic engine, not a mapping tool: given a map's prepared data + config + a customer's overrides, the renderer produces byte-identical SVG/JPG output every time — no AI, no external calls, no live-data drift at render time. Customers self-serve against that safe subset (recolour, relabel, toggle, re-render); everything upstream of it (fetching bus/map data, onboarding a new area, the monthly "what changed?" refresh) stays centrally expert-gated and arrives as a proposed update the customer accepts or declines. This split is what makes self-serve safe.
+**A managed service first, an editor second.** By default we build the map, agree it with the customer by email, publish it once they say yes, and send each refreshed version for their yes in the same way; the customer's only work is to answer *is it right?* The editor is offered to any customer who asks for it, and is never the first thing they meet. No price is named anywhere until one is set (buses-data OA-029).
+
+Underneath both is one deterministic engine, not a mapping tool: given a map's prepared data + config + a customer's overrides, the renderer produces byte-identical SVG/JPG output every time — no AI, no external calls, no live-data drift at render time. An editor customer self-serves against that safe subset (recolour, relabel, toggle, re-render); everything upstream of it (fetching bus/map data, onboarding a new area, the monthly "what changed?" refresh) stays centrally expert-gated and arrives as a proposed update the customer accepts or declines. This split is what makes the editor safe, and it is also what lets us make a managed customer's changes quickly.
 
 ## Operating Context
 
@@ -53,7 +55,7 @@ One deterministic engine, not a mapping tool: given a map's prepared data + conf
 
 ## Product Principles
 
-1. Self-serve stays safe because the deterministic render tier and the expert-gated data tier are kept structurally separate — never blur that line for convenience.
+1. Managed comes first: a customer's default experience is an email with the sheets attached and one question, not a sign-in. The editor stays safe because the deterministic render tier and the expert-gated data tier are kept structurally separate — never blur that line for convenience.
 2. A human reviews every publish; the workflow should make the reviewer's evidence (change summary, print-ready output, checklist) easy to inspect, not easy to rubber-stamp.
 3. Public-facing copy and states must stay truthful to pilot reality — no implied customers, uptime, or cadence the system doesn't actually have.
 4. One organisation, one set of maps, one clear owner per action (editor drafts, approver/admin publishes) — the separation of duties is a product guarantee, not an implementation detail.

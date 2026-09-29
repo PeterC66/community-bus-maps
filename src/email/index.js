@@ -25,6 +25,12 @@ function signInPageFrom(link) {
   try { return `${new URL(link).origin}/app/login.html`; } catch { return null; }
 }
 
+/** The customer guide, public/guide.html (generated from docs/C1), derived from
+ *  the link for the same reason as the sign-in page above (buses-data OA-337). */
+function guidePageFrom(link) {
+  try { return `${new URL(link).origin}/guide.html`; } catch { return null; }
+}
+
 /** The address a reader who is confused by any of this should write to. It is
  *  the one on /contact.html and /index.html, and it is deliberately NOT
  *  `emailFrom()`: that is configuration, it defaults to `noreply@busmaps.uk`,
@@ -153,6 +159,11 @@ function inviteContent({ link, to, orgName, role }) {
     // the fear of breaking something in public.
     editor
       ? 'You can look at a map and ask for changes. Nothing you do goes public on its own: a new version is checked and published by us, not by you.'
+      : null,
+    // THE GUIDE HAD NO HOME until buses-data OA-337: C1 could be read only by
+    // being sent it. It is on the site now, so the letter names it.
+    guidePageFrom(link)
+      ? `There is a short guide to how we look after your maps, and to the editor, at ${guidePageFrom(link)}.`
       : null,
     `If you were not expecting this and do not know what it is about, you can ignore it — nothing happens until the link is used. If you would rather ask a person first, write to ${CONTACT}.`,
   ].filter(Boolean);
