@@ -2,9 +2,10 @@
 //
 // The central pipeline stages a data refresh (scripts/propose-update.mjs); the
 // customer reviews an old-vs-new preview and either Accepts it -- which re-applies
-// their overrides as a new MAJOR version, a draft that still goes through the P4
-// publish gate -- or Declines it. Three routes, registered by src/server.js under
-// the prefix /api/maps/:id/proposed/:pid. The handlers are the ones server.js
+// their overrides as a new version, a draft that still goes through the P4
+// publish gate -- or Declines it. The version is a MAJOR only for a big change
+// (acceptedVersionNumber below, buses-data OA-510) and a minor otherwise. Three
+// routes, registered by src/server.js under the prefix /api/maps/:id/proposed/:pid. The handlers are the ones server.js
 // carried until 2026-09-02, moved verbatim: the only edit inside them is that each
 // no longer opens with its own requireUser() call.
 //
@@ -31,15 +32,27 @@
 // ownership is still enforced BEHIND it -- a signed-in stranger must not reach
 // another customer's proposed update.
 
-import { decideProposedUpdate, getOpenRequestForMap, insertVersion, nextMajorVersion, setCurrentVersion } from '../db/index.js';
+import { decideProposedUpdate, getOpenRequestForMap, insertVersion, nextMajorVersion, nextVersion, setCurrentVersion } from '../db/index.js';
 import { carryExpertTuning, editablePoiKeysFromDir, preview, previewFrom, readOverrides, readRoutesMetaFromDir, renderVersion, swapInProposedData } from '../maps/engine.js';
 import { sanitizeOverrides } from '../maps/safeSubset.js';
 import { mapDataDir, proposedDataDir } from '../maps/store.js';
 import { changeSummary } from '../publish/index.js';
+import { isMajorChange } from '../refresh/index.js';
 import { logAudit } from '../audit/index.js';
 import { isSampleCustomer } from '../render/pilotStamp.js'; // PILOT: remove with docs/PILOT.md
 import { loadOwnedMap, loadPendingProposed, refreshNote, safeSubsetAllow, savedPoiTiers, visibleDownloadsForVersion, withMapLock } from '../maps/detail.js';
 import { parseJson, parseOutputs, RENDER_BUDGET_MESSAGE, renderBudgetSpent, requireUser, str } from '../http/helpers.js';
+
+/**
+ * The number accepting an update takes (buses-data OA-510). A MAJOR only when the
+ * update transforms at least half the map's routes, and at least two, or an admin
+ * staged it with --major; otherwise the next minor, as a save takes. Until
+ * 2026-09-29 every accept took a MAJOR, changed or not, and Wisbech reached v12.0.
+ * Exported so scripts/test-version-rule.mjs drives this choice, not a copy of it.
+ */
+export function acceptedVersionNumber(mapId, summary) {
+  return isMajorChange(summary) ? nextMajorVersion(mapId) : nextVersion(mapId);
+}
 
 export default async function proposedRoutes(app) {
   app.addHook('preHandler', async (req, reply) => {
@@ -82,7 +95,7 @@ export default async function proposedRoutes(app) {
     }
   });
 
-  // Accept the refresh: render the new major version FROM the staged data first
+  // Accept the refresh: render the new version FROM the staged data first
   // (so a failure leaves the live map untouched), then swap the data in, re-apply
   // the overrides, and record the new draft head + audit. The published pointer is
   // unchanged — the new version must be reviewed (P4) before it goes public.
@@ -106,10 +119,10 @@ export default async function proposedRoutes(app) {
     const stagedDir = pu.data_dir || proposedDataDir(id, pu.id);
     const outputs = parseOutputs(map.outputs);
     const saved = readOverrides(id);
-    const { major, minor } = nextMajorVersion(id);
-    const storageKey = `v${major}.${minor}`;
     const decisionNote = str((req.body || {}).note, 1000);
     const summary = parseJson(pu.summary_json);
+    const { major, minor } = acceptedVersionNumber(id, summary);
+    const storageKey = `v${major}.${minor}`;
 
     try {
       const applied = await withMapLock(id, async () => {

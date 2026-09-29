@@ -665,7 +665,7 @@ export function countMapsByKind(customerId) {
     .reduce((acc, r) => ((acc[r.kind] = r.c), acc), {});
 }
 
-/** Next version number: first is 1.0, later saves bump the minor (major bumps are for data refreshes, P5). */
+/** Next version number: first is 1.0, later saves bump the minor, and so does an accepted refresh unless isMajorChange() says it is big (buses-data OA-510). */
 export function nextVersion(mapId) {
   const row = db
     .prepare('SELECT major, minor FROM map_version WHERE map_id = ? ORDER BY major DESC, minor DESC LIMIT 1')
@@ -674,7 +674,7 @@ export function nextVersion(mapId) {
   return { major: row.major, minor: row.minor + 1 };
 }
 
-/** Next MAJOR version (x.0) — used when a monthly data refresh is accepted (P5). */
+/** Next MAJOR version (x.0) — used when an accepted data refresh is a big change, per isMajorChange() in src/refresh/index.js (P5, buses-data OA-510). */
 export function nextMajorVersion(mapId) {
   const row = db.prepare('SELECT MAX(major) AS m FROM map_version WHERE map_id = ?').get(Number(mapId));
   return { major: (row && row.m ? row.m : 0) + 1, minor: 0 };
