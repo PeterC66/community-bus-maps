@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer guide — BusMaps.uk</title>
+  <meta name="description" content="How BusMaps.uk looks after an organisation's bus maps: what you tell us, what we send, how publishing and monthly updates work, and the editor for those who want it.">
+  <link rel="canonical" href="https://busmaps.uk/guide.html">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
+  <script src="/js/csrf.js"></script>
+  <script src="/js/site-banner.js" defer></script>
+  <script src="/js/nav-current.js" defer></script>
+  <script src="/js/auth-status.js" defer></script>
+</head>
+<body>
+  <!-- GENERATED from docs/C1-customer-user-guide.md by scripts/build-guide.mjs. Edit C1 and run npm run guide:apply; an edit here is overwritten. -->
+  <!-- nav:start -->
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><div class="container"><nav class="nav">
+    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
+    <span class="spacer"></span>
+    <a class="navlink" href="/maps">Published maps</a>
+    <a class="navlink" href="/examples.html">Examples</a>
+    <a class="navlink" href="/pricing.html">Pricing</a>
+    <a class="navlink" href="/faq.html">FAQ</a>
+    <a class="navlink" href="/contact.html">Contact</a>
+    <a class="btn btn-primary" href="/apply.html">Apply to join</a>
+    <span class="nav-auth" id="navAuth"></span>
+  </nav></div></header>
+  <!-- nav:end -->
+
+  <main id="main" tabindex="-1">
+    <section><div class="container" style="max-width:760px">
+      <h2 class="mt-0">Using your bus maps — a guide for customers</h2>
+      <p><em>A plain guide for organisations whose bus maps we make. It is published at <a href="https://busmaps.uk/guide.html">busmaps.uk/guide.html</a>, and the letter that brings a new customer's sign-in links to it.</em></p>
+      <p><strong>Last reviewed:</strong> 2026-09-29 · <strong>Applies to:</strong> the portal at <code>0.10.0-pilot</code></p>
+      <blockquote><p><strong>This is a pilot.</strong> The system works end to end, but you would be among the first organisations to use it — there is no track record behind it yet, no service level, and no charge. Things may change, and we may pause or withdraw parts of it (with reasonable notice; you keep any sheets you have already downloaded). In exchange we want to hear what does not work. Everything below describes how the system is built to work.</p></blockquote>
+      <p>Welcome. Once your organisation is approved, we make <strong>printable bus maps</strong> for the places you care about and keep them up to date. Most organisations leave all of that to us, and that is how the service is meant to be used. If you would rather make changes yourself, there is an editor for that too, and the second half of this guide explains it.</p>
+      <h3 id="how-it-works-we-look-after-your-map">How it works: we look after your map</h3>
+      <ol>
+        <li><strong>You tell us the place.</strong> A town, a parish, part of a town, or one point such as a shop, a school or a station. A note about what you need helps.</li>
+        <li><strong>We build the map and send it to you by email.</strong> You get the sheets as attachments. There is nothing to sign in to and nothing to install.</li>
+        <li><strong>You tell us whether it is right.</strong> A reply saying yes is all we need. If something is wrong, say so in the email, or scribble on a print-out and send a photo. You know the place and we do not, so a stop, a landmark or a local name you correct is the most useful thing you can give us.</li>
+        <li><strong>We publish it.</strong> The map gets its own page on busmaps.uk, and we email you to say it is out. What that page does is explained under <a href="#your-map-online">Your map online</a>.</li>
+        <li><strong>We keep it up to date.</strong> When the buses change, we redraw the map and email you the new version with the same question: is it right? If it is not, we correct it and send it again.</li>
+      </ol>
+      <p>That is the whole of it. You do not need an account, and the portal itself never emails you: every message comes from a person. The sections from <a href="#your-map-online">Your map online</a> onwards apply to you as well. The ones before it are about the editor.</p>
+      <h3 id="if-you-would-rather-do-it-yourself-the-editor">If you would rather do it yourself: the editor</h3>
+      <p>Some organisations want to choose the colours, the landmarks and the outputs themselves, and to see a change the moment they make it. Ask us, and we will give you a sign-in to the editor. Everything below describes it. You can still ask us to make any change for you whenever you like.</p>
+      <h3 id="signing-in">Signing in</h3>
+      <p>There's <strong>no password</strong>. On the sign-in page enter your email and we send you a <strong>one-time link</strong> — click it and you're in. Your sign-in lasts a while on that device; use <strong>Sign out</strong> on a shared computer. If a link expires, just request another.</p>
+      <h3 id="your-dashboard">Your dashboard</h3>
+      <p>After signing in you see <strong>your maps</strong> and your <strong>quota</strong> (how many area and place maps you may hold — one area and a few places during the pilot). You only ever see your own organisation's maps.</p>
+      <ul>
+        <li><strong>Area map</strong> — a whole town, parish, or part of a town.</li>
+        <li><strong>Place map</strong> — centred on one point: a shop, school, station, venue or town centre.</li>
+      </ul>
+      <h3 id="asking-for-a-map">Asking for a map</h3>
+      <p>Use <strong>Request a map</strong>, choose area or place, and give it a name (and, if you like, a note about what you need). We build the map data for you centrally — bus and street data takes judgement, so that part isn't self-serve. When it's ready it appears on your dashboard, ready to edit.</p>
+      <h3 id="editing-a-map">Editing a map</h3>
+      <p>Open a map to make it yours. You can change:</p>
+      <ul>
+        <li><strong>Route colours</strong> — pick from a colour-blind-friendly palette.</li>
+        <li><strong>Landmarks (points of interest)</strong> — switch icons on or off here, or open <strong>Landmarks</strong> for the fuller version: your town's streets with every place marked on them, and three answers for each — <strong>Must show</strong>, <strong>Show if there is room</strong>, <strong>Do not show</strong>. You can answer a whole category at once, and give a place the name people locally use. Most kinds of place are always offered: supermarkets, doctors, pharmacies, hospitals, libraries, museums, theatres, cinemas, colleges, schools, leisure centres, parks, community centres and town halls. Five kinds can be switched on or off for the whole map with the boxes above the list: <strong>pubs</strong> and <strong>railway stations</strong> are on unless you switch them off, and <strong>allotments</strong>, <strong>post offices</strong> and <strong>industrial estates</strong> are off unless you switch them on. There are a lot of places, so the screen keeps count: <strong>the number sits on the buttons themselves</strong> — <em>Not looked at yet 12</em>, <em>Answered 133</em> — and <strong>Not looked at yet</strong> narrows the list to the rest. Leaving somewhere exactly as it is counts as an answer, so you can stop half way and pick up where you left off. Once you have been all the way through, that button reads <strong>0</strong> and stays there: it is not broken, it is empty, and what fills it later is a place OpenStreetMap has added since — so it is worth a glance after each monthly update. <strong>The map and the list are two views of the same thing.</strong> Click a symbol on the map and that place opens in the list, ready to answer; pick a place in the list and the map travels to it and zooms in, so you never have to hunt for the one you just chose. Zoom in and the plain dots become the actual symbols the printed sheet uses, so you are deciding about the thing you will see on the paper. Road names are drawn to help you get your bearings, and there is a <strong>Road names</strong> button if you would rather they were not. It is the one part of the map only you can get right: the places come from OpenStreetMap, which lists what somebody happened to map rather than what a bus passenger is looking for.<p>The two controls are not the same thing, and the difference is worth a sentence. Unticking a landmark above stops its icon being <em>drawn</em> but keeps its space reserved. Answering <strong>Do not show</strong> in the chooser takes it off the map altogether, which is what actually gives the room back to everything else — so a sheet re-arranges a little when you save that.</p><p>Three smaller things worth knowing. <strong>Your first draft deliberately has far too many places on it</strong> — every one is there because OpenStreetMap has it and nobody has yet said it does not belong, so taking places off is the most useful thing you can do and the answer we least often get. <strong>A row you answer disappears from <em>Not looked at yet</em> straight away</strong>, so that filter always shows what is genuinely left; the list holds its place while it goes, so you are not thrown back to the top. And <strong>a few places have no name in the map's data at all</strong> — chemists and surgeries, whose names the printed sheet never shows, so nobody ever recorded one. Those read <em>Unnamed pharmacy</em> in italics: click the row to see where it is on the map, and if you know the place, put its name in the box. That name is then the one the sheet will use.</p></li>
+        <li><strong>Which outputs it produces</strong> — the <strong>internal (geographic)</strong> street map, a straightened <strong>schematic</strong>, and the <strong>external</strong> &quot;where the buses go&quot; map are yours to switch on and off. One is the exception, and it shows an <strong>Ask us</strong> button instead of a tick-box. <strong>Where to board</strong> — a large-scale plan of one place with an index of destinations telling a reader which stop to stand at — can only be drawn where the national stop register names every stop around that place unambiguously, so we check your place before offering it. Press the button and we will come back to you with what it would involve.</li>
+      </ul>
+      <p>You see a <strong>live preview</strong> as you change things. When you're happy, <strong>Save new version</strong>. Your first version (1.0) is the map exactly as we built it; each save adds a new numbered version and keeps the earlier ones. Bigger changes — moving things, the geography — are done by us; ask if you need one.</p>
+      <h3 id="branding-your-public-page">Branding your public page</h3>
+      <p>Under <strong>Branding</strong> you can set how your organisation appears on your public map pages: a <strong>display name</strong>, <strong>website</strong>, a one-line <strong>blurb</strong>, a <strong>badge</strong> (an emoji or your initials) and an <strong>accent colour</strong>. This decorates the <em>web page around the map</em> — it is deliberately <strong>not</strong> printed on the map sheet, and no phone or email is shown publicly (enquiries reach you through the map's &quot;report a problem&quot; form).</p>
+      <h3 id="publishing-getting-it-checked-and-made-official">Publishing (getting it checked and made official)</h3>
+      <p>A version you save is a private <strong>draft</strong>. To make it official, open the <strong>Publish</strong> panel and hit <strong>Send ‹your version› for review</strong> (the button carries the version number). A reviewer then checks it against a safety checklist and either <strong>publishes</strong> it or sends it back with a note. <strong>You don't publish your own map</strong> — that second pair of eyes is deliberate, because people rely on the result. While a version is awaiting review, editing is paused so nothing changes underneath it; you can <strong>withdraw</strong> to keep editing.</p>
+      <h3 id="making-it-public-or-not">Making it public (or not)</h3>
+      <p>Publishing makes a version <em>official</em>; a separate <strong>listing</strong> switch controls whether it appears on the public site (<code>/maps</code>, your organisation page, and its own page). So you can have an official map that you keep unlisted until you're ready to announce it.</p>
+      <h3 id="your-map-online">Your map online</h3>
+      <p>Once a map is published <em>and</em> listed, it has its own page — <code>/m/&lt;your-map&gt;</code> — that you can link to from anywhere: your website, a newsletter, a QR code on a noticeboard. You don't have to host anything, and the page always shows the version currently published, so a correction or a monthly update reaches everyone who follows that link.</p>
+      <p>The page shows the map itself rather than a flat picture of it: readers can drag it about and zoom in for the detail, on a phone as well as a laptop, and it stays sharp however far they zoom. Both sheets are there (the one for within your area and the one for journeys out of it), and the print files are a click away.</p>
+      <p>Two things worth knowing:</p>
+      <ul>
+        <li><strong>Every map is also published as text.</strong> Below the map is a link to its <strong>service list</strong> — every route, its operator, the days it runs, the stops it serves and where it goes, written out. That is what a blind reader gets instead of the map, and it is what makes the page safe for a council or school to link to. Please link to it alongside the map if you put ours on your own site; <a href="/accessibility.html"><code>/accessibility.html</code></a> has a paragraph you can paste into your own accessibility statement.</li>
+        <li><strong>The page says how old the information is.</strong> It shows the month your map's data is correct as at, and after a while without an update it tells readers plainly that it may be out of date and to check with the operator. That's deliberate: a page on the internet looks current in a way a leaflet on a noticeboard doesn't. Answering the monthly updates, by email or in the editor, is what keeps the notice away.</li>
+      </ul>
+      <p>Putting the map <em>inside</em> a page on your own website — rather than linking to ours — isn't available yet. It's the next piece of work; tell us if you want it and we'll know it matters.</p>
+      <h3 id="downloading-print-ready-sheets">Downloading print-ready sheets</h3>
+      <p>The sheets we email you are print-ready, and the public page has the print files a click away. In the editor you can also download the <strong>print-ready files</strong> for any version — an SVG and a 300 dpi A4 JPG for each output. Print them, put them on a noticeboard, add them to a newsletter. <strong>Keep the credits</strong> that appear on the sheet, and always point people to the operator or bustimes.org for live times — a printed map is a guide, not today's departures.</p>
+      <p><strong>Where you put it up matters as much as what you print.</strong> Fix the sheet between 900 mm and 1800 mm above the ground — centred about chest height, and lower rather than higher, so that somebody seated can read it — ask whoever owns the shelter, post or board before you fix anything to it, and print on matt paper rather than glossy. <a href="/faq.html">The FAQ gives the detail and the source</a>.</p>
+      <h3 id="monthly-updates">Monthly updates</h3>
+      <p>Bus services change. When they do, we prepare an update for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed.</p>
+      <p><strong>If we look after your map</strong>, the update arrives as an email: what changed, the new sheets attached, and the question <em>is it right?</em> That is all there is to it.</p>
+      <p><strong>If you use the editor</strong>, the update arrives as a <strong>proposed update</strong> on your dashboard. You get an <strong>old-vs-new preview</strong>; <strong>Accept</strong> and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual review), or <strong>Decline</strong> to keep what you have. You stay in control of what gets published.</p>
+      <p>Accepting doesn't send the new version for review straight away — it lands back on your dashboard as a fresh draft, carrying your existing choices over. If you'd like to revise anything — colours, landmarks, which outputs it produces — this is your chance to edit before you submit it for review, just as you would with any other draft.</p>
+      <p><strong>The preview also tells you about new places.</strong> The places on your map come from OpenStreetMap, and people add to it all the time — a new surgery, a shop that has changed its name. Anything that has appeared since your last version is listed on the update, because until you say otherwise it will be <strong>shown if there is room</strong>, which means accepting the update can quietly put a new symbol on your sheet. They are the ones waiting under <strong>Not looked at yet</strong> in <em>Landmarks</em>, so answering them is a two-minute job and worth doing before you submit the new version for review. Places that have GONE from OpenStreetMap are listed too, and there is nothing to do about those: whatever you had said about them is kept, in case they come back.</p>
+      <h3 id="if-something-looks-wrong">If something looks wrong</h3>
+      <p>On any published map's public page there's a <strong>&quot;report a problem&quot;</strong> link — tell us and we'll look into it — though the pilot is run by one person alongside other work, so we can't promise how quickly. For anything else, use the <strong>contact</strong> form. Thank you for helping keep local bus information clear and correct.</p>
+    </div></section>
+  </main>
+
+  <!-- footer:start -->
+  <footer class="site-footer"><div class="container"><div class="cols">
+    <div class="attrib">
+      <strong>BusMaps.uk</strong> — a community project helping local organisations publish clear, printable bus maps.<br>
+      Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL); bus service data via <a href="https://www.gov.uk/government/publications/bus-services-act-2017-bus-open-data">BODS</a>, stop and stand data via <a href="https://www.gov.uk/government/publications/national-public-transport-access-node-schema">NaPTAN</a> (<a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence</a>). Always check live times with the operator or at bustimes.org.
+    </div>
+    <div>
+      <a href="/maps">Published maps</a> · <a href="/examples.html">Examples</a> · <a href="/pricing.html">Pricing</a> · <a href="/apply.html">Apply</a> · <a href="/faq.html">FAQ</a> · <a href="/guide.html">Customer guide</a> · <a href="/contact.html">Contact</a> · <a href="/contact.html?kind=issue">Report an issue</a> · <a href="/background.html">Background</a> · <a href="/opportunity.html">Take this on</a> · <a href="/accessibility.html">Accessibility</a> · <a href="/legal.html">Privacy &amp; licensing</a> · <a href="/terms.html">Terms</a> · <a href="/changelog.html">What's new</a><br>
+      <span class="muted">© BusMaps.uk</span>
+    </div>
+  </div></div></footer>
+  <!-- footer:end -->
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

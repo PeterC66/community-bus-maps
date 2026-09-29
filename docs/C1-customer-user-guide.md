@@ -1,9 +1,9 @@
 # Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.18 | 2026-09-29 | sha=ccd3f300 -->
-**v1.18** · updated 29 September 2026
+<!-- docstamp v1.19 | 2026-09-29 | sha=aabb612d -->
+**v1.19** · updated 29 September 2026
 
-*A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
+*A plain guide for organisations whose bus maps we make. It is published at [busmaps.uk/guide.html](https://busmaps.uk/guide.html), and the letter that brings a new customer's sign-in links to it.*
 
 **Last reviewed:** 2026-09-29 · **Applies to:** the portal at `0.10.0-pilot`
 

@@ -29,6 +29,7 @@ export const STATIC_PAGES = [
   '/examples.html',
   '/pricing.html',
   '/faq.html',
+  '/guide.html',
   '/apply.html',
   '/contact.html',
   '/background.html',

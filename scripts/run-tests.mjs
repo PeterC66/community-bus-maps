@@ -39,6 +39,9 @@ const PREFLIGHT = [
   'changelog-assemble.mjs --check',
   'check-compose-env.mjs',
   'check-chrome.mjs',
+  // The customer guide page is generated from docs/C1 (buses-data OA-337); an
+  // edit to C1 without `npm run guide:apply` leaves the public copy stale.
+  'build-guide.mjs',
   // The vendored-engine audit: UNLISTED / MISSING / EDITED / UNRESOLVED. It ran
   // in NO workflow and was no preflight until 2026-09-03 (the review's
   // portal-ops T8); the only thing exercising `auditVendored` against the real
