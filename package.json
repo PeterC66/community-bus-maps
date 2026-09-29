@@ -138,6 +138,7 @@
     "test:audit-2026-08-25": "node scripts/test-audit-2026-08-25.mjs",
     "test:backup-retention": "node scripts/test-backup-retention.mjs",
     "test:change-summary": "node scripts/test-change-summary.mjs",
+    "test:version-rule": "node scripts/test-version-rule.mjs",
     "test:prove-red-run-tests": "node scripts/prove-red-run-tests.mjs",
     "test:prove-red-portal-lib": "node scripts/prove-red-portal-lib.mjs",
     "test:prove-red-unlisted-draft": "node scripts/prove-red-unlisted-draft.mjs",

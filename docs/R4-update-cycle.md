@@ -1,7 +1,7 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.11 | 2026-09-27 | sha=39accce6 -->
-**v1.11** · updated 27 September 2026
+<!-- docstamp v1.12 | 2026-09-29 | sha=2cbd7c4d -->
+**v1.12** · updated 29 September 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -54,7 +54,7 @@ node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" --no
 
 ## Step 3 — The customer reviews + accepts
 
-The customer sees it on their dashboard: an **old-vs-new preview** plus the diff. They **Accept** — their colours + POI toggles are **re-applied onto the fresh data as a new major version** (which then goes through the normal **review**, R3) — or **Decline**.
+The customer sees it on their dashboard: an **old-vs-new preview** plus the diff. They **Accept** — their colours + POI toggles are **re-applied onto the fresh data as a new version** (which then goes through the normal **review**, R3). The version is a **major** only when at least half the map's routes, and at least two, are new, withdrawn or have a quarter of their stops changed, or when the update was staged with `--major` for a redesign; everything else is a **minor** (buses-data OA-510) — or **Decline**.
 
 - You can watch the queue at **`/app/admin` → Proposed updates**.
 - Accepting is **blocked while a publication awaits review** (withdraw that first).

@@ -71,10 +71,15 @@ const sortRoutes = (a, b) => String(a).localeCompare(String(b), undefined, { num
  *   unchanged:boolean,
  *   routesAdded:string[], routesRemoved:string[],
  *   descChanged:{id:string, from:any, to:any}[],
- *   stopsChanged:{id:string, added:number, removed:number}[],
+ *   stopsChanged:{id:string, added:number, removed:number, before:number}[],
  *   operatorsAdded:string[], operatorsRemoved:string[],
- *   validity:{from:string,to:string}|null, versionLabel:{from:string,to:string}|null
+ *   validity:{from:string,to:string}|null, versionLabel:{from:string,to:string}|null,
+ *   routeCount:number
  * }}
+ *
+ * `before` (a route's stop count in the CURRENT data) and `routeCount` (every
+ * route on either side) exist for isMajorChange() below; summaries stored before
+ * 2026-09-29 lack both.
  */
 export function diffRouteData(from, to) {
   const fromR = (from && from.routes) || {}, toR = (to && to.routes) || {};
@@ -98,7 +103,7 @@ export function diffRouteData(from, to) {
     const sf = new Set(asArray(fromA[r])), st = new Set(asArray(toA[r]));
     const added = [...st].filter((s) => !sf.has(s)).length;
     const removed = [...sf].filter((s) => !st.has(s)).length;
-    if (added || removed) stopsChanged.push({ id: r, added, removed });
+    if (added || removed) stopsChanged.push({ id: r, added, removed, before: sf.size });
   }
 
   const fromOps = new Set(operatorNames(fromR)), toOps = new Set(operatorNames(toR));
@@ -114,7 +119,53 @@ export function diffRouteData(from, to) {
     !routesAdded.length && !routesRemoved.length && !descChanged.length && !stopsChanged.length &&
     !operatorsAdded.length && !operatorsRemoved.length && !validity && !versionLabel;
 
-  return { unchanged, routesAdded, routesRemoved, descChanged, stopsChanged, operatorsAdded, operatorsRemoved, validity, versionLabel };
+  return { unchanged, routesAdded, routesRemoved, descChanged, stopsChanged, operatorsAdded, operatorsRemoved, validity, versionLabel,
+    routeCount: new Set([...fromRoutes, ...toRoutes]).size };
+}
+
+/**
+ * The routes an accepted update TRANSFORMS (buses-data OA-510): new, withdrawn,
+ * or with at least a quarter of its stops added or removed, measured against the
+ * stop count it had before. A stopsChanged row without `before` — every summary
+ * stored before this rule, and a route whose old stop list was empty — counts as
+ * not transformed, which errs toward the minor.
+ * @returns {string[]} route ids, sorted
+ */
+export function transformedRoutes(summary) {
+  const s = summary || {};
+  const ids = new Set([...asArray(s.routesAdded), ...asArray(s.routesRemoved)].map(String));
+  for (const c of asArray(s.stopsChanged)) {
+    const before = Number(c && c.before);
+    if (!(before > 0)) continue;
+    if (4 * ((Number(c.added) || 0) + (Number(c.removed) || 0)) >= before) ids.add(String(c.id));
+  }
+  return [...ids].sort(sortRoutes);
+}
+
+/**
+ * Does accepting this update take a new MAJOR version, or a minor? (buses-data
+ * OA-510, the rule Peter agreed on 2026-09-29.)
+ *
+ * A MAJOR only when at least half the routes on the map, and at least two, are
+ * transformed (see transformedRoutes). Everything else is a MINOR: one new or
+ * withdrawn route, some stop changes, a new operator or timetable date, new
+ * landmarks, an engine redraw. `forceMajor`, which `propose-update.mjs --major`
+ * writes into the stored summary, takes a MAJOR for a redesign whatever changed.
+ *
+ * "The routes on the map" is every route on EITHER side, `routeCount`, so a map
+ * that gains two routes to four is measured against six, not four. A summary
+ * with no `routeCount` (stored before this rule) takes a minor, unless forced.
+ *
+ * PURE, over the summary diffRouteData() wrote, so both sides of each threshold
+ * are tested without a data folder (scripts/test-version-rule.mjs).
+ */
+export function isMajorChange(summary) {
+  if (!summary) return false;
+  if (summary.forceMajor === true) return true;
+  const total = Number(summary.routeCount);
+  if (!(total > 0)) return false;
+  const n = transformedRoutes(summary).length;
+  return n >= 2 && 2 * n >= total;
 }
 
 /**

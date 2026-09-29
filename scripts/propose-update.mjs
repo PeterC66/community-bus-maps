@@ -5,10 +5,17 @@
 // customer. It does NOT touch the live map — it stages the fresh payload beside
 // it and computes a plain-language diff of what changed. The customer then
 // reviews an old-vs-new preview in the portal and Accepts (re-applies their
-// overrides as a new major version) or Declines.
+// overrides as a new version) or Declines.
 //
 //   node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" \
-//        [--note "BODS August 2026 refresh"] [--no-notify]
+//        [--note "BODS August 2026 refresh"] [--no-notify] [--major]
+//
+// --major (buses-data OA-510) makes accepting take a new MAJOR version whatever
+// the diff says — for a redesign the service facts cannot see. Without it the
+// diff decides: a MAJOR only when at least half the map's routes, and at least
+// two, are new, withdrawn or have a quarter of their stops changed; otherwise a
+// minor. The report ends by saying which, before anybody is emailed.
+// deliver-map.mjs forwards the flag as it forwards --no-notify.
 //
 // --map is a slug or numeric map id; --src must carry gen_internal.js /
 // gen_external.js + the *.json inputs (a Buses ".../S5-render/vX_..." folder).
@@ -40,7 +47,7 @@ import {
   insertProposedUpdate, setProposedDataDir, setProposedSummary,
 } from '../src/db/index.js';
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
-import { dataChangeSummary } from '../src/refresh/index.js';
+import { dataChangeSummary, isMajorChange, transformedRoutes } from '../src/refresh/index.js';
 import { notify, appUrl, isManaged } from '../src/email/notify.js';
 import { arg, has, confirm } from './lib/cli.mjs';
 
@@ -48,9 +55,10 @@ import { arg, has, confirm } from './lib/cli.mjs';
 const mapRef = arg('map');
 const src = arg('src');
 const noNotify = has('no-notify');
+const forceMajor = has('major');
 const { dryRun } = confirm('remote');
 if (!mapRef || !src) {
-  console.error('Usage: node scripts/propose-update.mjs --map <slug|id> --src "<fresh render dir>" [--note "..."] [--no-notify] [--dry-run]');
+  console.error('Usage: node scripts/propose-update.mjs --map <slug|id> --src "<fresh render dir>" [--note "..."] [--no-notify] [--major] [--dry-run]');
   process.exit(2);
 }
 
@@ -123,6 +131,11 @@ function printSummary(summary) {
   if (summary.landmarksKnown === false) {
     console.log('    landmarks:      NOT compared — one of the two payloads lists no POI candidates at all.');
   }
+  // OA-510: which number accepting this takes, said before anybody is emailed.
+  const t = transformedRoutes(summary);
+  const why = summary.forceMajor ? 'forced with --major'
+    : `${t.length} of ${summary.routeCount} route(s) transformed${t.length ? ': ' + t.join(', ') : ''}`;
+  console.log(`    accepting takes: a ${isMajorChange(summary) ? 'MAJOR' : 'minor'} version (${why})`);
 }
 
 const prior = getOpenProposedForMap(map.id);
@@ -142,7 +155,7 @@ if (dryRun) {
     if (framing) console.log(`· would stage ${framing} as ${BASE_OVERRIDES}`);
   }
   console.log('· the diff it would store (against --src, which the staged JSON is copied from):');
-  printSummary(dataChangeSummary(liveData, SRC));
+  printSummary({ ...dataChangeSummary(liveData, SRC), ...(forceMajor ? { forceMajor: true } : {}) });
   if (noNotify) console.log('· would email nobody: --no-notify was given.');
   else if (isManaged(map.customer_id)) console.log(`· would email nobody: "${who}" is a managed customer.`);
   else console.log(`· would email "${who}" that the update is waiting (update-ready).`);
@@ -183,7 +196,8 @@ if (declared) console.log(`· payload declares ${declared.length} sheet(s): ${de
 else console.warn('· note: --src holds no sheet SVGs, so this payload declares nothing — renderability falls back to which generators resolve');
 
 // 3) Diff the service facts (what the customer will see), and store it.
-const summary = dataChangeSummary(liveData, stagedData);
+// --major (OA-510) travels IN the summary, so accepting needs no second source.
+const summary = { ...dataChangeSummary(liveData, stagedData), ...(forceMajor ? { forceMajor: true } : {}) };
 setProposedDataDir(pid, stagedData);
 setProposedSummary(pid, summary);
 
