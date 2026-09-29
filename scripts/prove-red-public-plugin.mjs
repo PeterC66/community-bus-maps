@@ -111,8 +111,8 @@ const MUTATIONS = [
     what: 'a map page answers an unknown slug with the ROUTER 404 envelope instead of the page',
     why: "check-live-routes.mjs tells 'the route is gone' from 'the thing behind it is gone' by that envelope's code, so a handler that borrows it makes a live route indistinguishable from a lost one",
     file: 'src/routes/public.js',
-    find: "    if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));\n    return sendShell(reply, 'map.html', mapHead(req, publicMap(row)));",
-    to: "    if (!row) return reply.code(404).send({ ok: false, code: 'route_not_found' });\n    return sendShell(reply, 'map.html', mapHead(req, publicMap(row)));",
+    find: "    if (!row) return reply.code(404).type('text/html').send(notFoundPage('map'));\n    const m = publicMap(row);\n    // OA-501",
+    to: "    if (!row) return reply.code(404).send({ ok: false, code: 'route_not_found' });\n    const m = publicMap(row);\n    // OA-501",
     expect: 'and it is the app answering, not the router',
   },
   {
