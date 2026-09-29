@@ -3,7 +3,7 @@
   "engineCommit": "160a1994f78768538b6fcef1926451bb07eb46d2",
   "town": "St Ives",
   "validFrom": "3 August 2026",
-  "version": "6.89",
+  "version": "6.92",
   "externalHubLabel": "St Ives Bus Station/\nPark and Ride",
   "palette": {
     "9": "#009988",
@@ -305,8 +305,7 @@
     },
     "roadLabelExclude": [
       "High Street"
-    ],
-    "skeletonMaxW": 11.5
+    ]
   },
   "terminiLabels": {
     "9": "Hemingfords & Huntingdon",
@@ -484,7 +483,7 @@
       }
     },
     "laneOrientation": false,
-    "sheetVersion": "build 6.89 · 29 Sep 2026"
+    "sheetVersion": "build 6.92 · 29 Sep 2026"
   },
   "labels": {},
   "frequency": {
