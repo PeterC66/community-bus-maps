@@ -510,7 +510,8 @@ dialog.compare-dialog::backdrop { background: rgba(10, 15, 25, .5); }
 .lm-cat-list { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: .9rem; }
 .lm-cat-list label { display: inline-flex; align-items: center; gap: 6px; }
 .lm-cat-list .lm-cat-n { color: var(--muted); font-size: .84rem; }
-.lm-cat-list label.off { color: var(--muted); }
+.lm-cat-list label.off { color: var(--muted); cursor: not-allowed; }
+.lm-cat-list input:disabled { opacity: .45; cursor: not-allowed; }
 
 /* One colour vocabulary for the three answers, used by the legend, the radio
    pills, the tally and the dots on the map. A reader should be able to glance
