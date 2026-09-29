@@ -90,6 +90,27 @@ if (run(process.execPath, ['scripts/check-deploy-history.mjs', '--to', 'origin/m
 }
 console.log('');
 
+// 0b. Is a deploy needed at all? Read-only: compare the host's HEAD with the
+// origin/main just fetched. Equal means the site is already running it, and a
+// deploy would only take a backup, rebuild, restart and send Peter another
+// sign-in email for nothing. `--force` deploys anyway (e.g. to rebuild the
+// image). It runs on --dry-run too, so a rehearsal says the same.
+console.log('-- 0b. is a deploy needed? (host HEAD vs origin/main)');
+{
+  const wanted = spawnSync('git', ['rev-parse', 'origin/main'], { encoding: 'utf8' }).stdout.trim();
+  const live = sshCapture(`cd ${APP_DIR} && git rev-parse HEAD`).stdout;
+  if (!/^[0-9a-f]{40}$/.test(wanted) || !/^[0-9a-f]{40}$/.test(live)) {
+    console.error('✗ could not read both commits — cannot say whether a deploy is needed, so not deploying.');
+    process.exit(1);
+  }
+  if (live === wanted && !has('force')) {
+    console.log(`   host is already at ${wanted.slice(0, 7)} = origin/main — nothing to deploy. (--force to deploy anyway)`);
+    process.exit(0);
+  }
+  console.log(`   host ${live.slice(0, 7)} -> origin/main ${wanted.slice(0, 7)}${live === wanted ? '  (--force)' : ''}`);
+}
+console.log('');
+
 // 1. Backup, immediately before the release — not cron's 03:15 one.
 if (!SKIP_BACKUP) {
   console.log('-- 1. docker compose run --rm backup');
