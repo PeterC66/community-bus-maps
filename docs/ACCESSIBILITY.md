@@ -1,7 +1,7 @@
 # Accessibility — what we commit to, and how to check it
 
-<!-- docstamp v1.4 | 2026-09-13 | sha=c2a447e5 -->
-**v1.4** · updated 13 September 2026
+<!-- docstamp v1.5 | 2026-09-29 | sha=6135d8e1 -->
+**v1.5** · updated 29 September 2026
 
 *Operator-facing. The public statement is [`/accessibility.html`](../public/accessibility.html); this is the reasoning behind it and the checks that keep it true.*
 
@@ -49,8 +49,8 @@ So the target is WCAG 2.2 AA across the public pages, and the load-bearing piece
 
 The publish checklist has a required `alternative` item. To tick it honestly:
 
-1. Open `/m/<slug>/services`. Does every service on the sheet appear, with the right number, operator and days? Does anything appear that is *not* on the sheet?
-2. Back on `/m/<slug>`, press <kbd>Tab</kbd> to the map. Can you zoom with `+`/`−`, pan with the arrows, and reset with `0`? Is the focus ring visible?
+1. On the review card, open **↗ Open services and stops list** — the Service list preview of the version under review. Does every service on the sheet appear, with the right number, operator and days? Does anything appear that is *not* on the sheet? (Not `/m/<slug>/services`: that shows the version already published, and does not exist for a map that is unpublished or unlisted.)
+2. On the map page — `/m/<slug>` if the map is public, otherwise any published map, since the keyboard behaviour belongs to the page — press <kbd>Tab</kbd> to the map. Can you zoom with `+`/`−`, pan with the arrows, and reset with `0`? Is the focus ring visible?
 3. Switch sheets with the tabs using only the keyboard.
 4. Check the "correct as at" date is the one you expect.
 

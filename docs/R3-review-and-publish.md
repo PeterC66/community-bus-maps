@@ -1,7 +1,7 @@
 # Runbook R3 — Review & publish (approver review)
 
-<!-- docstamp v1.9 | 2026-09-27 | sha=be2b1641 -->
-**v1.9** · updated 27 September 2026
+<!-- docstamp v1.10 | 2026-09-29 | sha=f1dc3d0d -->
+**v1.10** · updated 29 September 2026
 
 **Serves:** managing updates · **Owner:** operator (as approver) · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
@@ -39,7 +39,7 @@ All three are **required** and **server-enforced** — you cannot publish with a
 
 1. **appearance** — at a glance, the services shown, route colours, and points of interest look right on every sheet: no obviously wrong route numbers or destinations, colours stay distinct and colour-blind friendly, nothing obvious is missing.
 2. **legible** — you have **viewed the full-size prints (JPG)** and all text is legible.
-3. **alternative** — you have opened the map's **services and stops list** (its text alternative, `/m/<slug>/services`), it matches the map, and the map page works from the keyboard. Arrived with P8a, when published maps got a public page worth reading online — see [`ACCESSIBILITY.md`](ACCESSIBILITY.md#before-publishing-a-map-part-of-the-sign-off).
+3. **alternative** — you have opened the submission's **services and stops list** (its text alternative) with **↗ Open services and stops list** on the review card, it matches the sheets, and the map page works from the keyboard. That link opens the **Service list preview** (`/app/review-services.html?id=<request id>`), built from the version under review. Do not use the public `/m/<slug>/services` for this: it describes the version already *published*, the one you are about to replace, and it 404s for a map that has never been published or is not listed. The keyboard half is a property of the map page rather than of one version, so on a map that is not yet public check it on any published map page. Arrived with P8a, when published maps got a public page worth reading online — see [`ACCESSIBILITY.md`](ACCESSIBILITY.md#before-publishing-a-map-part-of-the-sign-off).
 
 **A managed customer's map needs one thing more: their emailed yes** (buses-data OA-468). The portal sends a managed customer nothing, so they agree to a version by answering Peter's email, and that answer is the evidence the publication rests on. On a managed customer's map the screen asks for the **date they confirmed** and the **correspondence message** that holds it, as `CORR-nnn/nnn`, and holds **Publish** until both are filled; the server refuses a managed publication without them (`400 customer-confirmation`) and stores them in the evidence and the audit row as `customerConfirmed`. On any other map the fields do not appear. The batch script takes the same thing per map as `--confirmed "<map id>:<YYYY-MM-DD>:<CORR-nnn/nnn>"`. A map is managed when its customer's **Plan** on the admin Customers screen reads `managed`.
 
