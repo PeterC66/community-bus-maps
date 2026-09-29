@@ -113,7 +113,11 @@ jobs:
       # Falsify it first — 24 cases, each exemption class broken in BOTH
       # directions, because widening an exemption produces a false PASS rather
       # than a false finding.
+      # Capped for the same reason as the step below (OA-513): it runs the same
+      # checker once per case, over tiny fixtures where the hang was never measured,
+      # and a stall here would otherwise also sit until the job cap.
       - name: prove the file-hygiene checker can go red
+        timeout-minutes: 3
         run: node claude-skills/tools/prove-red-file-hygiene.mjs
 
       # NOT the mixed-line-ending half, which cannot fire here and is not meant
@@ -145,8 +149,38 @@ jobs:
       # findings in a captured file, which is the right way round: those are the
       # two faults that would make a fixture differ from what the engine wrote
       # in a way no diff shows.
+      #
+      # timeout-minutes AT THE STEP (buses-data OA-513). This step takes under a
+      # second, and on 2026-09-28 it printed "all clean" and then sat for 13
+      # minutes until the JOB cap cancelled it, twice (runs 36376386881 and
+      # 36474498886). The stuck process was the checker's own `node`, deadlocked
+      # in native teardown after its verdict — reproduced on this runner image at
+      # about 1 run in 80, and never by a trivial `node -e`. The cause was
+      # `process.exit()` racing a V8 GC worker, and the checker now ends by
+      # `process.exitCode` instead (claude-skills #221, 0 hangs in 1,600). This
+      # cap is for the NEXT hang: three minutes makes it a red step in minutes
+      # rather than a cancelled job at fifteen.
       - name: files carry no BOM, no trailing whitespace, no missing newline
+        timeout-minutes: 3
         run: node claude-skills/tools/check-file-hygiene.mjs --root .
+
+      # WHAT WAS STILL ALIVE when a step above timed out or the job was cancelled.
+      # The two stalls of 2026-09-28 left one line of evidence — "Terminate orphan
+      # process: pid (12382) (MainThread)" — which only says a `node` (Node 24
+      # names its main thread MainThread) outlived its step. This names it, with
+      # its arguments and where each of its threads is parked, so the next stall
+      # of any step here arrives diagnosed. It runs only on a red or cancelled job.
+      # Both names are matched because a `node -e` in the proof run was `node`,
+      # while the hung checker was `MainThread`; kernel threads (children of pid
+      # 2) are left out, or they are most of the listing.
+      - name: What was still running when this job failed?
+        if: failure() || cancelled()
+        run: |
+          ps --ppid 2 -p 2 --deselect -o pid,ppid,etimes,stat,wchan:24,comm,args --forest | grep -v -E 'Runner\.|hosted-compute|provjob' || true
+          for p in $(pgrep -x 'node|MainThread'); do
+            echo "--- node $p: $(tr '\0' ' ' < /proc/$p/cmdline)"
+            for t in /proc/$p/task/*; do echo "    $(cat $t/comm) $(cat $t/wchan)"; done
+          done
 
   # NOTHING HAD EVER READ THIS REPOSITORY'S DOCUMENTS (buses-data OA-227,
   # 2026-09-04). `check-tables.mjs` and `check-doc-links.mjs` were widened eight
