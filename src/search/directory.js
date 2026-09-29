@@ -197,9 +197,25 @@ export function searchDirectory(q, opts = {}) {
  * `others` lists the remaining places of that name, each with its district and
  * county and the query that lands on exactly that one, for decision 5 of the plan.
  *
+ * `near` is the subjects of the maps our own grid has just returned for the same
+ * query ("St Ives, Cambridgeshire"). Where several places share the name, the
+ * first one whose county or district is a comma-separated part of one of those
+ * subjects leads, and the rest keep their order (buses-data OA-382). Without it,
+ * "Hilton" put the St Ives map — whose route 9 goes to Hilton, Huntingdonshire —
+ * above a panel saying Hilton is in Shropshire. Only an area map's subject names
+ * a county; a place map's names a town, which matches nothing and changes nothing.
+ *
  * @returns {{ rows: { offer: object, reason: string, matched: object }[], place: object|null }}
  */
-export function searchDirectoryWithPlace(q, { file = DIRECTORY_FILE, cap = RESULT_CAP, places } = {}) {
+function preferNear(hits, near) {
+  if (hits.length < 2 || !near || !near.length) return hits;
+  const parts = new Set();
+  for (const s of near) for (const p of String(s || '').split(',')) if (p.trim()) parts.add(normalize(p));
+  const i = hits.findIndex((h) => (h.county && parts.has(normalize(h.county))) || parts.has(normalize(h.district)));
+  return i > 0 ? [hits[i], ...hits.slice(0, i), ...hits.slice(i + 1)] : hits;
+}
+
+export function searchDirectoryWithPlace(q, { file = DIRECTORY_FILE, cap = RESULT_CAP, places, near = [] } = {}) {
   const qn = normalize(q);
   if (qn.length < 2) return { rows: [], place: null };
   const { terms, rows: allRows } = loadDirectory(file);
@@ -239,7 +255,7 @@ export function searchDirectoryWithPlace(q, { file = DIRECTORY_FILE, cap = RESUL
   if (found.kind === 'none') return { rows: [], place: { kind: 'none', source } };
   if (found.kind === 'short') return { rows: [], place: { kind: 'short', count: found.count, source } };
 
-  const [first, ...rest] = found.hits;
+  const [first, ...rest] = preferNear(found.hits, near);
   const others = rest.map(describeHit);
   const d = describeHit(first);
   if (first.country !== 'England') {

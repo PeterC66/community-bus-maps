@@ -181,7 +181,8 @@ export default async function publicRoutes(app) {
       // OA-312 — `place` is where the reader's place IS (district, county,
       // country), from the Index of Place Names, when the directory's own names
       // did not answer. The panel renders it; the tally below does not read it.
-      ({ rows: directory, place } = searchDirectoryWithPlace(q));
+      // OA-382 — the panel prefers the namesake our own grid has just placed.
+      ({ rows: directory, place } = searchDirectoryWithPlace(q, { near: results.map((r) => r.map.subject) }));
       // OA-380 (e) — the sentence above the grid, from the SAME function the
       // browser uses. `corrected` was computed and thrown away here until
       // 2026-09-16, and #searchMeta was left `hidden` in the shell, so
@@ -445,7 +446,7 @@ export default async function publicRoutes(app) {
     // OA-312 — `place` says where the query IS when the directory's own names
     // did not answer; the client hands it to the same directoryBlock() the server
     // renders with, so the two paintings of the panel cannot differ.
-    const { rows: directory, place } = searchDirectoryWithPlace(q);
+    const { rows: directory, place } = searchDirectoryWithPlace(q, { near: results.map((r) => r.map.subject) });
     return { ok: true, results, corrected, directory, place, directorySize: directorySize() };
   });
 
