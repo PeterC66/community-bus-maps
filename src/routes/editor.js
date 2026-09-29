@@ -192,8 +192,12 @@ export default async function editorRoutes(app) {
       ...Object.keys(tiers || {}),
     ]);
     // The category switch (OA-439 item 3). Passed to the enumerator so the list
-    // is what the sheet would draw — pubs appear here only once they are on —
-    // and returned per category so the page can draw the switches themselves.
+    // is what the sheet would draw, and returned per category so the page can
+    // draw the switches themselves. Since buses-data OA-517 a category that is
+    // off by the map's pack or the engine default is still listed, each place
+    // as "Do not show", because a tier on one place beats the map's switch; a
+    // category the CUSTOMER switched off is not listed, because their switch
+    // beats every tier.
     const include = savedPoiInclude(id);
     const cand = enumerateCandidatesFromDir(mapDataDir(id), tiers, include).map((p) => ({
       key: p.key, cat: p.cat, name: p.name, ll: p.ll,
