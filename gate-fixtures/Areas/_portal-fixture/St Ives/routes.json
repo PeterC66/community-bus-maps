@@ -1,9 +1,9 @@
 {
-  "engine": "10bb846c2a",
-  "engineCommit": "d45171b68af13495117fe6dd9c98bdc434f310ed",
+  "engine": "cc39f5dbae",
+  "engineCommit": "b4f50d9b0b122df37587eb9fb2db301c9e0190bf",
   "town": "St Ives",
   "validFrom": "3 August 2026",
-  "version": "6.87",
+  "version": "6.88",
   "externalHubLabel": "St Ives Bus Station/\nPark and Ride",
   "palette": {
     "9": "#009988",
@@ -484,7 +484,7 @@
       }
     },
     "laneOrientation": false,
-    "sheetVersion": "build 6.87 · 28 Sep 2026"
+    "sheetVersion": "build 6.88 · 29 Sep 2026"
   },
   "labels": {},
   "frequency": {
