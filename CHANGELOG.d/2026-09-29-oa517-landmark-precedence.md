@@ -1,0 +1,8 @@
+---
+date: 2026-09-29
+title: "A landmark the map leaves out can be brought back one place at a time"
+---
+
+- **Re-vendors `engine/poi_select.js` from PeterC66/claude-skills#228 (buses-data OA-517), which puts Peter's landmark precedence of 29 September into the engine.** Strongest first: the customer's category switch, both ways; then a per-place answer (Show / Show if room / Do not show), the customer's before the map pack's; then the map pack's own category switches; then the engine default. Before, a category that was off was dropped before any per-place answer was read, so no answer could bring one place of it back — High Wycombe Aldi lost the industrial estate it was built to show. `force` on a POI still means only *print this name*.
+- **The landmark chooser now lists more rows, and that is the change a customer sees.** A category that is off by the map pack or by default — industrial estates, allotments, post offices — is listed place by place as *Do not show*, so the customer can bring one place in without switching the whole category on. Measured over the 23 committed maps: the drawn list is identical on every one, and the chooser gains rows on 10. A category the customer has switched off is still not listed, because their switch beats every answer. `scripts/test-landmark-tiers.mjs` holds the new behaviour and `prove-red-landmark-tiers` catches all 28 mutations it runs here. `verify:place` is byte-identical.
+- **Deploy history, written before the deploy per [DEPLOY §3b](docs/DEPLOY.md#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it).** This pull request's merge is the commit that goes live. No schema or route change; the Landmarks page gains rows as described above, and no published sheet changes.

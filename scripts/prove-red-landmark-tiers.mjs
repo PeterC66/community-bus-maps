@@ -233,12 +233,12 @@ const MUTATIONS = [
     what: 'the chooser stops passing the category switch to the engine merge',
     why: 'OA-439: the candidates are merged by the engine\'s mergePoiOverlay() so a switched-on category is offered exactly where the sheet would draw it; dropping the overlay here leaves the chooser offering the pack\'s categories while the sheet draws the customer\'s',
     edits: [[ENGINE, '{ poiTiers: tiersOverlay, poiInclude: includeOverlay }', '{ poiTiers: tiersOverlay, poiInclude: null }']],
-    expect: 'the customer switching allotments on offers it',
+    expect: 'the customer switching allotments on offers it to be drawn',
   },
   {
-    what: 'the key universe follows the category switch as saved',
-    why: 'OA-439. A customer who answers a pub and then switches pubs off has not withdrawn the answer; validate against the switch as saved and the next save refuses the key, so switching pubs back on brings every pub back unanswered',
-    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);\n', '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay)) keys.add(p.key);\n']],
+    what: 'the key universe follows a customer\'s switch-off',
+    why: 'OA-439. A customer who answers a pub and then switches pubs off has not withdrawn the answer; validate against the switch as saved and the next save refuses the key, so switching pubs back on brings every pub back unanswered. Since buses-data OA-517 only the CUSTOMER\'s off takes a category out of the candidates, so that is the switch this arm enumerates under',
+    edits: [[ENGINE, '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);\n', '  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, { allotments: false })) keys.add(p.key);\n']],
     expect: 'and an allotment answer survives the switch being off, because the editable universe holds every switchable category',
   },
   {

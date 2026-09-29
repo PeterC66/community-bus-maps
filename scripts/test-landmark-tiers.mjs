@@ -354,14 +354,24 @@ console.log('\nthe editable key universe, on a fixture — the half CI can run')
     // what the chooser offers exactly as it moves what the sheet draws. Allotments
     // are off unless switched on; since buses-data OA-500 pubs are ON unless
     // switched off, so each direction has its own category here.
+    //
+    // AND SINCE buses-data OA-517 (Peter's landmark precedence, 2026-09-29) a
+    // category that is off by the PACK or the engine default is still OFFERED,
+    // place by place, as "Do not show" — a tier on one place beats the map's
+    // switch, so the customer can bring one allotment in without the rest. Only
+    // the CUSTOMER'S OWN off switch takes a category out of the list: it beats
+    // every tier, theirs and ours.
     writePack(null);
     writeFileSync(path.join(fixture, 'osm2.json'), JSON.stringify({ elements: [...OSM2,
       node(6, 52.550, 0.150, { landuse: 'allotments', name: 'Broad Leas' }),
       node(7, 52.552, 0.152, { amenity: 'pub', name: 'The Crown' })] }));
     const has = (list, k) => list.some((c) => c.key === k);
+    const tierOf = (list, k) => (list.find((c) => c.key === k) || {}).tier;
     const AL = 'allotments:Broad Leas', PUB = 'pub:The Crown';
-    check('an allotment is not offered on a town that never switched allotments on', !has(enumerateCandidatesFromDir(fixture), AL), `${AL} offered unasked`);
-    check('the customer switching allotments on offers it', has(enumerateCandidatesFromDir(fixture, null, { allotments: true }), AL), `${AL} not offered`);
+    eq('OA-517: an allotment on a town that never switched allotments on is offered as Do not show', tierOf(enumerateCandidatesFromDir(fixture), AL), 'miss');
+    eq('the customer switching allotments on offers it to be drawn', tierOf(enumerateCandidatesFromDir(fixture, null, { allotments: true }), AL), 'may');
+    eq('OA-517: and a tier on one allotment brings it in while allotments stay off',
+      tierOf(enumerateCandidatesFromDir(fixture, { [AL]: { tier: 'may' } }), AL), 'may');
     check('and an allotment answer survives the switch being off, because the editable universe holds every switchable category',
       editablePoiKeysFromDir(fixture).includes(AL), `${AL} is refused while allotments are off`);
     eq('and a tier answered in the same save still applies to it',
@@ -369,11 +379,14 @@ console.log('\nthe editable key universe, on a fixture — the half CI can run')
     check('OA-500: a pub IS offered on a town that said nothing, because pubs are on by default', has(enumerateCandidatesFromDir(fixture), PUB), `${PUB} not offered`);
     check('OA-500: and the customer switching pubs OFF takes it away', !has(enumerateCandidatesFromDir(fixture, null, { pubs: false }), PUB), `${PUB} still offered`);
     writeFileSync(path.join(fixture, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: { include: ['allotments'] } }));
-    check('a pack that switched allotments on offers it', has(enumerateCandidatesFromDir(fixture), AL), `${AL} not offered`);
+    eq('a pack that switched allotments on offers it to be drawn', tierOf(enumerateCandidatesFromDir(fixture), AL), 'may');
     check('and the customer switching allotments OFF takes it away', !has(enumerateCandidatesFromDir(fixture, null, { allotments: false }), AL), `${AL} still offered`);
+    check('OA-517: and a tier of theirs does not bring it back, because their switch beats every tier',
+      !has(enumerateCandidatesFromDir(fixture, { [AL]: { tier: 'must' } }, { allotments: false }), AL), `${AL} offered`);
     writeFileSync(path.join(fixture, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: { exclude: ['pubs'] } }));
-    check('OA-500: a pack that switched pubs off does not offer them', !has(enumerateCandidatesFromDir(fixture), PUB), `${PUB} offered`);
-    check('OA-500: and the customer switching them back on does', has(enumerateCandidatesFromDir(fixture, null, { pubs: true }), PUB), `${PUB} not offered`);
+    eq('OA-517: a pack that switched pubs off still offers them, as Do not show', tierOf(enumerateCandidatesFromDir(fixture), PUB), 'miss');
+    eq('OA-517: and a tier on one pub beats the pack\'s switch', tierOf(enumerateCandidatesFromDir(fixture, { [PUB]: { tier: 'must' } }), PUB), 'must');
+    eq('OA-500: and the customer switching them back on draws them', tierOf(enumerateCandidatesFromDir(fixture, null, { pubs: true }), PUB), 'may');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
