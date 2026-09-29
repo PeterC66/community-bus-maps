@@ -226,6 +226,15 @@ console.log('\nthe place lookup — a village is not an authority (buses-data OA
   check('"St Neots" leads with Huntingdonshire, not Bedford',
     stneots.place && stneots.place.district === 'Huntingdonshire' && stneots.place.authority === 'Cambridgeshire and Peterborough Combined Authority', JSON.stringify(stneots.place && stneots.place.district));
   check('…and names the Bedford half as the other', stneots.place && stneots.place.others.length === 1 && stneots.place.others[0].district === 'Bedford');
+  // OA-382 — the namesake our own grid has just placed leads the panel.
+  const hiltonBare = searchDirectoryWithPlace('Hilton');
+  const hilton = searchDirectoryWithPlace('Hilton', { near: ['St Ives, Cambridgeshire'] });
+  check('"Hilton" beside the St Ives map leads with Huntingdonshire, not Shropshire',
+    hiltonBare.place && hiltonBare.place.district !== 'Huntingdonshire' && hilton.place && hilton.place.district === 'Huntingdonshire', JSON.stringify([hiltonBare.place && hiltonBare.place.district, hilton.place && hilton.place.district]));
+  check('…and the namesake it displaced is still listed, first among the others',
+    hilton.place && hilton.place.others.length === hiltonBare.place.others.length && hilton.place.others[0].district === hiltonBare.place.district);
+  check('…while a place map\'s subject, which names a town, changes nothing',
+    searchDirectoryWithPlace('Hilton', { near: ['Tesco Extra, St Neots'] }).place.district === hiltonBare.place.district);
   check('"St. Ives" with a stop and "St Ives" without are one query', searchDirectoryWithPlace('St. Ives').place.district === searchDirectoryWithPlace('St Ives').place.district);
   check('half of a compound built-up area answers — "Great Shelford"', searchDirectoryWithPlace('Great Shelford').place && searchDirectoryWithPlace('Great Shelford').place.kind === 'england');
 
