@@ -1,15 +1,29 @@
 # Using your bus maps — a guide for customers (C1)
 
-<!-- docstamp v1.17 | 2026-09-28 | sha=bf4c9027 -->
-**v1.17** · updated 28 September 2026
+<!-- docstamp v1.18 | 2026-09-29 | sha=ccd3f300 -->
+**v1.18** · updated 29 September 2026
 
 *A plain guide for approved organisations. If you run the service, this is the document you hand to each new customer.*
 
-**Last reviewed:** 2026-08-24 · **Applies to:** the portal at `0.10.0-pilot`
+**Last reviewed:** 2026-09-29 · **Applies to:** the portal at `0.10.0-pilot`
 
 > **This is a pilot.** The system works end to end, but you would be among the first organisations to use it — there is no track record behind it yet, no service level, and no charge. Things may change, and we may pause or withdraw parts of it (with reasonable notice; you keep any sheets you have already downloaded). In exchange we want to hear what does not work. Everything below describes how the system is built to work.
 
-Welcome. Once your organisation is approved you can generate, tweak and keep up to date **printable bus maps** for the places you care about. Here's how.
+Welcome. Once your organisation is approved, we make **printable bus maps** for the places you care about and keep them up to date. Most organisations leave all of that to us, and that is how the service is meant to be used. If you would rather make changes yourself, there is an editor for that too, and the second half of this guide explains it.
+
+## How it works: we look after your map
+
+1. **You tell us the place.** A town, a parish, part of a town, or one point such as a shop, a school or a station. A note about what you need helps.
+2. **We build the map and send it to you by email.** You get the sheets as attachments. There is nothing to sign in to and nothing to install.
+3. **You tell us whether it is right.** A reply saying yes is all we need. If something is wrong, say so in the email, or scribble on a print-out and send a photo. You know the place and we do not, so a stop, a landmark or a local name you correct is the most useful thing you can give us.
+4. **We publish it.** The map gets its own page on busmaps.uk, and we email you to say it is out. What that page does is explained under [Your map online](#your-map-online).
+5. **We keep it up to date.** When the buses change, we redraw the map and email you the new version with the same question: is it right? If it is not, we correct it and send it again.
+
+That is the whole of it. You do not need an account, and the portal itself never emails you: every message comes from a person. The sections from [Your map online](#your-map-online) onwards apply to you as well. The ones before it are about the editor.
+
+## If you would rather do it yourself: the editor
+
+Some organisations want to choose the colours, the landmarks and the outputs themselves, and to see a change the moment they make it. Ask us, and we will give you a sign-in to the editor. Everything below describes it. You can still ask us to make any change for you whenever you like.
 
 ## Signing in
 
@@ -61,19 +75,23 @@ The page shows the map itself rather than a flat picture of it: readers can drag
 Two things worth knowing:
 
 - **Every map is also published as text.** Below the map is a link to its **service list** — every route, its operator, the days it runs, the stops it serves and where it goes, written out. That is what a blind reader gets instead of the map, and it is what makes the page safe for a council or school to link to. Please link to it alongside the map if you put ours on your own site; [`/accessibility.html`](../public/accessibility.html) has a paragraph you can paste into your own accessibility statement.
-- **The page says how old the information is.** It shows the month your map's data is correct as at, and after a while without an update it tells readers plainly that it may be out of date and to check with the operator. That's deliberate: a page on the internet looks current in a way a leaflet on a noticeboard doesn't. Accepting the monthly updates is what keeps the notice away.
+- **The page says how old the information is.** It shows the month your map's data is correct as at, and after a while without an update it tells readers plainly that it may be out of date and to check with the operator. That's deliberate: a page on the internet looks current in a way a leaflet on a noticeboard doesn't. Answering the monthly updates, by email or in the editor, is what keeps the notice away.
 
 Putting the map *inside* a page on your own website — rather than linking to ours — isn't available yet. It's the next piece of work; tell us if you want it and we'll know it matters.
 
 ## Downloading print-ready sheets
 
-For any version you can download the **print-ready files** — an SVG and a 300 dpi A4 JPG for each output. Print them, put them on a noticeboard, add them to a newsletter. **Keep the credits** that appear on the sheet, and always point people to the operator or bustimes.org for live times — a printed map is a guide, not today's departures.
+The sheets we email you are print-ready, and the public page has the print files a click away. In the editor you can also download the **print-ready files** for any version — an SVG and a 300 dpi A4 JPG for each output. Print them, put them on a noticeboard, add them to a newsletter. **Keep the credits** that appear on the sheet, and always point people to the operator or bustimes.org for live times — a printed map is a guide, not today's departures.
 
 **Where you put it up matters as much as what you print.** Fix the sheet between 900 mm and 1800 mm above the ground — centred about chest height, and lower rather than higher, so that somebody seated can read it — ask whoever owns the shelter, post or board before you fix anything to it, and print on matt paper rather than glossy. [The FAQ gives the detail and the source](../public/faq.html).
 
 ## Monthly updates
 
-Bus services change. When they do, we prepare a **proposed update** for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed. You get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual review), or **Decline** to keep what you have. You stay in control of what gets published.
+Bus services change. When they do, we prepare an update for your map from fresh data. The intention is monthly; during the pilot the cadence is not guaranteed.
+
+**If we look after your map**, the update arrives as an email: what changed, the new sheets attached, and the question *is it right?* That is all there is to it.
+
+**If you use the editor**, the update arrives as a **proposed update** on your dashboard. You get an **old-vs-new preview**; **Accept** and your colours and landmark choices are re-applied to the new data as a new version (which then goes for the usual review), or **Decline** to keep what you have. You stay in control of what gets published.
 
 Accepting doesn't send the new version for review straight away — it lands back on your dashboard as a fresh draft, carrying your existing choices over. If you'd like to revise anything — colours, landmarks, which outputs it produces — this is your chance to edit before you submit it for review, just as you would with any other draft.
 
