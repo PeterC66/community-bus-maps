@@ -83,6 +83,11 @@ check('it says what the first screen will be, named as that page names itself',
 check('it gives permission to ignore it, and an address to ask a person at',
   has(invite.text, 'you can ignore it') && has(invite.text, 'info@busmaps.uk'), invite.text);
 check('no bare “expires shortly” urgency line', !has(invite.text, 'expires shortly'), invite.text);
+// buses-data OA-337: the customer guide C1 had no home a customer could find.
+check('it names the customer guide on this deployment',
+  has(invite.text, `${new URL(LINK).origin}/guide.html`) && has(invite.html, '/guide.html'), invite.text);
+check('  …and the adviser letter does not, because the guide is for customers',
+  !has(adviser.text, '/guide.html'), adviser.text);
 check('the html is the same content, not a second copy that can drift',
   has(invite.html, ORG) && has(invite.html, TO) && has(invite.html, 'My maps'));
 
