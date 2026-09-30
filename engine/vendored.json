@@ -143,8 +143,8 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "af9a4ddcb4826b11f2d6a78d37ac6f787f0077d2aaa53735dd093a2dcc631cc1",
-      "vendoredOn": "2026-09-29",
+      "sha256": "b890fef13c5c4261aa3b8f9d8dbbcfeba35e551d818510f031f620a10c92012e",
+      "vendoredOn": "2026-09-30",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
