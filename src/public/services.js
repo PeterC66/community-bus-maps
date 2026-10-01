@@ -17,7 +17,7 @@
 // src/db/index.js has not already declared publicly visible.
 
 import { mapDataDir, versionDir } from '../maps/store.js';
-import { buildFacts, readFactsSnapshot, parseValidFrom, stripLeadingId } from '../maps/facts.js';
+import { buildFacts, readFactsSnapshot, parseValidFrom, stripLeadingId, splitJourneyNote } from '../maps/facts.js';
 import { staleAfterMonths } from '../config.js';
 import { parseDbDate } from '../db/dates.js';
 
@@ -103,7 +103,9 @@ export function publicServices(row, facts) {
       operator: r.operator,
       terminus: r.terminus,
       stopsInArea: r.stopsInArea || [],
-      journeys: r.journeys || [],
+      // On read too, so a snapshot written before OA-529 drops its bracketed
+      // "(some via …)" entries from the place list as well.
+      journeys: (r.journeys || []).map(splitJourneyNote),
       goesTo: r.goesTo || [],
     })),
   };
