@@ -95,7 +95,7 @@ function routeSection(r, services) {
   }
   for (const j of r.journeys) {
     blocks.push(`<h4>${j.label ? `Towards ${esc(j.label)}` : 'Where it goes'}${j.limited ? ' <span class="tag">limited</span>' : ''}</h4>
-        ${j.days ? `<p class="muted small">${esc(j.days)}</p>` : ''}
+        ${j.days || j.note ? `<p class="muted small">${[j.days, j.note].filter(Boolean).map(esc).join(' · ')}</p>` : ''}
         <ol class="stop-list wrap">${list(j.places)}</ol>`);
   }
   if (r.goesTo.length) {

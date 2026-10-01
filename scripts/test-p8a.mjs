@@ -54,7 +54,7 @@ const areaDir = payload('area', {
     fareNote: 'Maximum £3 single fare.',
     external: [
       { route: '9', label: 'Elsewhere', days: 'Mon & Fri', stops: ['Testbury', 'Midville', 'Elsewhere'] },
-      { route: '9', label: 'Elsewhere (via Backwater)', days: 'Fri only', limited: true, stops: ['Testbury', 'Backwater', 'Elsewhere'] },
+      { route: '9', label: 'Elsewhere (via Backwater)', days: 'Fri only', limited: true, stops: ['Testbury', 'Backwater', '(some via Gransden)', 'Elsewhere'] },
     ],
   },
   'routes_intown_atco.json': { 9: ['S1', 'S2', 'S2', 'S3'], A: ['S1'] },
@@ -129,6 +129,11 @@ console.log('\nfacts — area payload');
   eq('both journeys of one route are kept', r9.journeys.length, 2);
   eq('a limited working is flagged', r9.journeys[1].limited, true);
   eq('journey places in order', r9.journeys[0].places, ['Testbury', 'Midville', 'Elsewhere']);
+  // OA-529: the external sheet's "(some via Gransden)" is a note on the line,
+  // not a place the bus goes.
+  eq('a bracketed stop is not a place', r9.journeys[1].places, ['Testbury', 'Backwater', 'Elsewhere']);
+  eq('…it becomes the journey note, brackets dropped', r9.journeys[1].note, 'some via Gransden');
+  eq('a journey with no bracketed stop has no note', r9.journeys[0].note, null);
   check('a route with no journeys still appears', f.routes.some((r) => r.id === 'A' && !r.journeys.length));
   eq('fare note carried', f.fareNote, 'Maximum £3 single fare.');
 }
@@ -156,6 +161,22 @@ console.log('\npublic shaping');
   eq('a title that does not start with the number is untouched', stripLeadingId('March Town Service', '33A'), 'March Town Service');
   eq('a longer number is not mistaken for the route', stripLeadingId('1020 Something', '102'), '1020 Something');
   eq('no payload ⇒ no services', publicServices(row, null), null);
+
+  // OA-529, on read: a snapshot written before the fix still lists the
+  // bracketed entry as a place, and the page must not.
+  const old = { kind: 'area', routes: [{ id: '18', journeys: [
+    { label: 'Cambourne', days: 'Mon–Sat', limited: false, places: ['St Neots', '(some via Gransden)', 'Cambourne'] },
+    { label: 'Cambridge', days: '', limited: false, places: ['St Neots', '(express via A428)', '(term-time)', 'Cambridge'] },
+  ] }] };
+  const j = publicServices(row, old).routes[0].journeys;
+  eq('an old snapshot loses its bracketed place on read', j[0].places, ['St Neots', 'Cambourne']);
+  eq('…and gains the note', j[0].note, 'some via Gransden');
+  eq('two bracketed entries join into one note', j[1].note, 'express via A428; term-time');
+  const again = publicServices(row, { kind: 'area', routes: [{ id: '18', journeys: j }] }).routes[0].journeys;
+  eq('running it twice changes nothing', again, j);
+  const html = servicesHtml({ name: 'x', org: {}, url: '/m/x' }, publicServices(row, old));
+  check('the page prints the note beside the days', html.includes('Mon–Sat · some via Gransden'));
+  check('the page lists no bracketed place', !html.includes('(some via Gransden)'));
 }
 
 // --- 3b. the boarding index (OA-010) ----------------------------------------
