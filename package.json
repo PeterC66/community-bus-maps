@@ -60,6 +60,8 @@
     "test:newest-render": "node scripts/test-newest-render.mjs",
     "test:local-decisions": "node scripts/test-local-decisions.mjs",
     "test:prove-red-local-decisions": "node scripts/prove-red-local-decisions.mjs",
+    "test:engine-live": "node scripts/test-engine-live.mjs",
+    "test:prove-red-engine-live": "node scripts/prove-red-engine-live.mjs",
     "test:fixture-freshness": "node scripts/test-fixture-freshness.mjs",
     "test:prove-red-delete-map": "node scripts/prove-red-delete-map.mjs",
     "test:prove-red-newest-render": "node scripts/prove-red-newest-render.mjs",
