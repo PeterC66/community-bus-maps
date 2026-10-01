@@ -94,7 +94,7 @@
       "path": "area/gen_external_radial.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_external_radial.js",
-      "sha256": "c11628604793fd76def7e9e29de6d600f14b12a9f95e23bef7aa7192965b9db0",
+      "sha256": "d84ccf7e7fc891c06416dd917f6fd7f638f00b13255d1ae8e0bc8cfd2c7b2860",
       "vendoredOn": "2026-10-01",
       "note": "The DEFAULT external template for an area payload that carries no generators. Was stale from 2026-08-21 to 2026-08-25 because no check named it."
     },
@@ -136,7 +136,7 @@
       "path": "place/gen_external_places.js",
       "kind": "vendored",
       "source": "make-place-bus-leaflet/assets/gen_external_places.js",
-      "sha256": "39d09ca5d7cc98c9d9d95a12d303a8bc5cecc0b9c3e62c855fd6e0cd1d0b9e83",
+      "sha256": "802bc663e8c0ade57fa3d1ba631145899c7a2b92db805c0b3b2626d6c36d1f91",
       "vendoredOn": "2026-10-01"
     },
     {
@@ -319,6 +319,13 @@
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/place_pointer.js",
       "sha256": "2613724ae2f67aaa00ec5b7fcf5d2c230481ce2e4c7604985f79c7f8eb792479",
+      "vendoredOn": "2026-10-01"
+    },
+    {
+      "path": "legend_key.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/legend_key.js",
+      "sha256": "45b67f27749c16d07702d268fefd791bf030dfc687592aaec6003b3d253a4e34",
       "vendoredOn": "2026-10-01"
     }
   ]
