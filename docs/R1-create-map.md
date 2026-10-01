@@ -1,7 +1,7 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.23 | 2026-09-27 | sha=d3c0dbf7 -->
-**v1.23** · updated 27 September 2026
+<!-- docstamp v1.24 | 2026-10-01 | sha=5af5f23e -->
+**v1.24** · updated 1 October 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -45,6 +45,8 @@ node assets/status.js --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claud
 The map's own `manifest.json` carries the same answer in `stages.S5.latest`, and since 2026-09-20 `deliver-map.mjs` asks it: step 0b refuses a `--src` the manifest does not call current, before anything leaves the laptop. `--render-superseded "<reason>"` is the escape hatch for a deliberate older delivery.
 
 **Since 2026-09-26 step 0c refuses a map with a blocking local question still open** (buses-data OA-083). It reads the `local-decisions.json` beside the map's `manifest.json` and refuses while any decision with `severity: "blocking"` has an answer state other than `answered` or `dont-know`. The question goes to the customer by letter; record the answer in that file and deliver again. A dated deferral, per decision and never per map, goes in `scripts/local-decision-waivers.json`, and `--local-decisions-unchecked "<reason>"` is the one-off escape hatch. A map with no `local-decisions.json` passes as N/A.
+
+**Since 2026-10-01 step 0d refuses when the live host runs an older engine than origin/main.** Step 2 verifies a render with the engine in the host's checkout, so a render drawn by a newer re-vendor cannot pass there; that day every St Neots delivery died with `Cannot find module '/app/engine/legend_key.js'` until the portal was deployed. Step 0d reads the host's HEAD over ssh and refuses, before the scp, when `engine/` differs from a freshly fetched origin/main, naming the files. Run `npm run deploy` and deliver again; `--engine-unchecked "<reason>"` is the one-off escape hatch.
 
 **Run `npm run deliver -- --dry-run …` before the delete, whatever you are doing.** It runs the local gates and prints the exact `import-map.mjs` argument vector without an `scp`, an `ssh` or a write of any kind, so a refusal that would otherwise land *after* a row has been deleted costs nothing to buy in advance. It also shows how a customer name with an apostrophe survives the shell, which is worth reading rather than hoping about.
 

@@ -54,6 +54,11 @@
 //      the scp. Per-decision deferrals with expiry dates live in
 //      scripts/local-decision-waivers.json; --local-decisions-unchecked
 //      "<reason>" is the one-off escape hatch.
+//   0d. LIVE ENGINE — refuse when the host's checkout differs from a freshly
+//      fetched origin/main under engine/, naming `npm run deploy`. One ssh
+//      `git rev-parse HEAD`, before the scp: step 2 verifies with the host's
+//      engine, so a render drawn by a newer one cannot pass there (2026-10-01,
+//      St Neots). --engine-unchecked "<reason>" is the one-off escape hatch.
 //   1. scp --src up to a scratch dir on the host (rsync isn't reliably
 //      available on Windows/Git Bash laptops, so this uses scp instead).
 //   2. PRE-FLIGHT VERIFY there, inside a throwaway container, BEFORE touching
@@ -104,6 +109,7 @@ import { fileURLToPath } from 'node:url';
 import { checkS6, findWaiver, refuses } from './lib/s6-freshness.mjs';
 import { checkNewestRender } from './lib/newest-render.mjs';
 import { checkLocalDecisions, findDecisionWaiver } from './lib/local-decisions.mjs';
+import { checkEngineLive } from './lib/engine-live.mjs';
 import { arg, has } from './lib/cli.mjs';
 
 
@@ -163,6 +169,8 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
   if (all[i - 1] === '--render-superseded') return false;
   if (a === '--local-decisions-unchecked') return false;
   if (all[i - 1] === '--local-decisions-unchecked') return false;
+  if (a === '--engine-unchecked') return false;
+  if (all[i - 1] === '--engine-unchecked') return false;
   return true;
 });
 
@@ -493,6 +501,78 @@ if (LOCAL_DECISIONS_UNCHECKED) {
   console.log('   Nothing has established that no blocking local question is open on this map.');
 } else {
   gateLocalDecisions();
+}
+
+// ---------------------------------------------------------------------------
+// STEP 0d — does the live host run the engine origin/main vendors?
+// scripts/lib/engine-live.mjs carries the incident: on 2026-10-01 the host was
+// at a96a758, origin/main had re-vendored legend_key.js and place_pointer.js,
+// and step 2 died with `Cannot find module '/app/engine/legend_key.js'` on every
+// St Neots render. Step 2 verifies with the HOST's engine, so a render drawn by
+// a newer one cannot pass until `npm run deploy` has shipped it.
+//
+// The first step that needs the host: one ssh `git rev-parse HEAD`, and a local
+// `git diff` of engine/ against a freshly fetched origin/main — the ref the
+// host's `git pull` takes, so a laptop main that lags (buses-data OA-540) does
+// not hide the gap. Still before the scp, so a refusal has uploaded nothing and
+// stopped nothing. It runs on --dry-run too: it only reads. CANNOT TELL refuses,
+// as steps 0–0c do; --engine-unchecked "<reason>" is the one-off escape hatch,
+// for the day a deploy is blocked and the render is known to predate the change.
+// ---------------------------------------------------------------------------
+const ENGINE_UNCHECKED = (() => {
+  const i = process.argv.indexOf('--engine-unchecked');
+  return i === -1 ? null : (process.argv[i + 1] || '(no reason given)');
+})();
+
+function gateEngineLive() {
+  let r;
+  if (spawnSync('git', ['fetch', '--quiet', 'origin', 'main'], { stdio: 'inherit' }).status !== 0) {
+    r = { verdict: 'cannot-tell', message: 'git fetch origin main failed, so what the host would deploy is unknown' };
+  } else {
+    const remote = `cd ${APP_DIR} && git rev-parse HEAD`;
+    console.log(`$ ssh ${HOST} ${remote}`);
+    const h = spawnSync(SSH[0], [...SSH.slice(1), remote], { encoding: 'utf8' });
+    r = h.status === 0
+      ? checkEngineLive({ hostHead: h.stdout })
+      : { verdict: 'cannot-tell', message: `ssh could not read the host's HEAD (exit ${h.status}): ${(h.stderr || '').trim().slice(0, 200)}` };
+  }
+
+  if (r.verdict === 'current') {
+    console.log(`-- 0d. Live engine: OK — ${r.message}`);
+    return;
+  }
+  if (r.verdict === 'cannot-tell') {
+    console.error('\n✗ 0d. Live engine: CANNOT TELL — nothing has been uploaded.');
+    console.error(`  ${r.message}`);
+    console.error('  Refusing rather than assuming, as steps 0–0c do. Fix what stopped the read, or add');
+    console.error('  --engine-unchecked "<reason>" if you mean to deliver regardless.');
+    process.exit(1);
+  }
+  if (r.verdict !== 'behind') {
+    console.error(`\n✗ 0d. Live engine: UNKNOWN VERDICT "${r.verdict}" — nothing has been uploaded.`);
+    console.error('  scripts/lib/engine-live.mjs produced a verdict this gate does not know how to');
+    console.error('  judge. Teach gateEngineLive() what it means rather than widening the pass.');
+    process.exit(1);
+  }
+
+  console.error('\n✗ 0d. Live engine: REFUSED (HOST BEHIND) — nothing has been uploaded and the live service is untouched.');
+  console.error(`  ${r.message}:`);
+  for (const f of r.files) console.error(`    ${f.status}  ${f.path}`);
+  console.error('\n  Step 2 verifies with the host\'s engine, so a render drawn by origin/main\'s cannot');
+  console.error('  pass there — on 2026-10-01 it died with "Cannot find module /app/engine/legend_key.js".');
+  console.error('\n  Do one of these:');
+  console.error('   1. npm run deploy   (from this folder), then re-run this delivery (the right answer).');
+  console.error('   2. --engine-unchecked "<reason>" if the render is known to predate the change. It is');
+  console.error('      recorded in this log and nowhere else.');
+  process.exit(1);
+}
+
+if (ENGINE_UNCHECKED) {
+  console.log('!! 0d. Live engine: SKIPPED BY HAND');
+  console.log(`   reason: ${ENGINE_UNCHECKED}`);
+  console.log('   Nothing has established that the host runs the engine origin/main vendors.');
+} else {
+  gateEngineLive();
 }
 console.log('');
 
