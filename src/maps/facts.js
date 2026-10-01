@@ -55,6 +55,24 @@ export function stripLeadingId(title, id) {
   return /^[\s–—-]/.test(rest) ? rest.replace(/^[\s–—-]+/, '') : t;
 }
 
+/**
+ * The external sheet draws a bracketed entry on a line — "(some via Gransden)",
+ * "(term-time)" — as a label among the places, but it is a note about the
+ * journey, not somewhere the bus goes (buses-data OA-529). Move each one out of
+ * `places` into `note`, brackets dropped, joined with "; " when there are two.
+ * Idempotent, so it can run on read over a snapshot that already went through it.
+ */
+export function splitJourneyNote(journey) {
+  const j = obj(journey);
+  const places = [];
+  const notes = str(j.note) ? [str(j.note)] : [];
+  for (const p of arr(j.places)) {
+    const m = /^\((.*)\)$/.exec(str(p));
+    if (m) { if (str(m[1])) notes.push(str(m[1])); } else places.push(p);
+  }
+  return { ...j, places, note: notes.length ? notes.join('; ') : null };
+}
+
 /** Drop consecutive repeats (a circular route passes the same stop twice). */
 function dedupeRun(names) {
   const out = [];
@@ -197,12 +215,12 @@ export function buildFacts(dataDir, { kind } = {}) {
     const r = String(e && e.route != null ? e.route : '');
     if (!r) continue;
     if (!journeysByRoute.has(r)) journeysByRoute.set(r, []);
-    journeysByRoute.get(r).push({
+    journeysByRoute.get(r).push(splitJourneyNote({
       label: str(e.label),
       days: str(e.days),
       limited: !!e.limited,
       places: arr(e.stops).map(str).filter(Boolean),
-    });
+    }));
   }
 
   // Place: each `destinations[]` entry is somewhere you can get to, and lists
