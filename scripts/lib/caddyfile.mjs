@@ -59,3 +59,44 @@ export function primaryHost(text) {
   const blocks = siteBlocks(text);
   return blocks.length ? blocks[0].addresses[0] : null;
 }
+
+/**
+ * The value a Caddyfile gives a response header, quotes removed, or null when it
+ * sets none. Looks at `Name "value"` / `Name value` lines anywhere in the file;
+ * a `-Name` line (which deletes a header) never matches.
+ */
+export function declaredHeader(text, name) {
+  const want = name.toLowerCase();
+  for (const raw of String(text).split('\n')) {
+    const m = raw.trim().match(/^(\S+)\s+(.+)$/);
+    if (!m || m[1].toLowerCase() !== want) continue;
+    const v = m[2].trim();
+    return v.startsWith('"') && v.endsWith('"') && v.length >= 2 ? v.slice(1, -1) : v;
+  }
+  return null;
+}
+
+/** The value of a header in the raw text `curl -sI` prints, or null when absent. */
+export function liveHeader(rawHeaders, name) {
+  const want = name.toLowerCase();
+  for (const line of String(rawHeaders).split(/\r?\n/)) {
+    const i = line.indexOf(':');
+    if (i > 0 && line.slice(0, i).trim().toLowerCase() === want) return line.slice(i + 1).trim();
+  }
+  return null;
+}
+
+/**
+ * How many commits `origin/main` has that the checkout lacks. `git` is a
+ * function (args) => {status, stdout}, so a test can drive it without a remote.
+ * Fails CLOSED: if git cannot answer, the answer is "unknown", not "none".
+ * Returns {behind: number} or {error: string}.
+ */
+export function commitsBehindOrigin(git) {
+  const f = git(['fetch', '--quiet', 'origin']);
+  if (f.status !== 0) return { error: 'git fetch origin failed' };
+  const c = git(['rev-list', '--count', 'HEAD..origin/main']);
+  const n = Number(String(c.stdout).trim());
+  if (c.status !== 0 || !Number.isInteger(n)) return { error: 'git rev-list HEAD..origin/main gave no count' };
+  return { behind: n };
+}
