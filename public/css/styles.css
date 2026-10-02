@@ -1,39 +1,47 @@
 /* BusMaps.uk — shopfront styles. Light/dark aware, responsive, no deps. */
 
+/* The BusMaps.uk brand (buses-data BusMapsUK/brand, chosen 2026-09-29): green
+   #24594A, marigold #E8A33D, ink #1E2925, muted #5C6B64, paper #FAF6EE, set in
+   Atkinson Hyperlegible. Dark mode has no brand value of its own, so its green
+   is lifted until it clears AA on every dark surface (test-contrast.mjs). */
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/AtkinsonHyperlegible-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/AtkinsonHyperlegible-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-style: italic; font-display: swap; src: url("/fonts/AtkinsonHyperlegible-Italic.ttf") format("truetype"); }
+
 :root {
-  --bg: #ffffff;
-  --surface: #f6f8fb;
-  --surface-2: #eef2f8;
-  --text: #17202e;
-  --muted: #59626f;
-  --border: #e2e7ef;
-  --primary: #1b4db3;
+  --bg: #faf6ee;
+  --surface: #ffffff;
+  --surface-2: #f1ece0;
+  --text: #1e2925;
+  --muted: #5c6b64;
+  --border: #e3dccb;
+  --primary: #24594a;
   --primary-ink: #ffffff;
-  --primary-soft: #e8eefb;
-  --accent: #e08a00;
-  --accent-ink: #17202e;
-  --accent-tint-ink: #8a5700;
+  --primary-soft: #e3eee9;
+  --accent: #e8a33d;
+  --accent-ink: #1e2925;
+  --accent-tint-ink: #7a4b00;
   --ok: #157347;
   --err: #b42318;
   --radius: 14px;
-  --shadow: 0 1px 2px rgba(20, 30, 50, .06), 0 8px 24px rgba(20, 30, 50, .06);
-  --tab-lift: 0 1px 2px rgba(20, 30, 50, .12);
+  --shadow: 0 1px 2px rgba(30, 41, 37, .06), 0 8px 24px rgba(30, 41, 37, .06);
+  --tab-lift: 0 1px 2px rgba(30, 41, 37, .12);
   --maxw: 1080px;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f141b;
-    --surface: #161d27;
-    --surface-2: #1c2430;
-    --text: #e7ecf3;
-    --muted: #9aa6b6;
-    --border: #273240;
-    --primary: #5a8dff;
-    --primary-ink: #0b1017;
-    --primary-soft: #182238;
-    --accent: #f4b451;
+    --bg: #121917;
+    --surface: #19221f;
+    --surface-2: #1f2a26;
+    --text: #e9efeb;
+    --muted: #9fb0a8;
+    --border: #2b3833;
+    --primary: #6cc3a3;
+    --primary-ink: #0b1411;
+    --primary-soft: #17302a;
+    --accent: #f0b556;
     --accent-tint-ink: #ffd78a;
     --ok: #4ac07e;
     --err: #ff7a6b;
@@ -103,7 +111,10 @@ main:focus { outline: none; }
   color: var(--text);
 }
 .brand:hover { text-decoration: none; }
-.brand .logo { font-size: 1.4rem; }
+/* The logo file carries its own wordmark, so the link holds only the image. The
+   reversed file is the same drawing in white for the dark scheme, chosen by
+   <picture> in the nav block (scripts/lib/site-chrome.mjs). */
+.brand .logo { display: block; height: 34px; width: auto; }
 .nav .spacer { flex: 1; }
 .nav a.navlink {
   color: var(--muted);

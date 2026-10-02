@@ -158,8 +158,10 @@ busmaps.uk {
 	#     with `canvas.innerHTML = svg` and could carry a style attribute. It no
 	#     longer can — `style` is not on the allowlist and neither is <style> — so
 	#     the relaxation now applies only to markup we wrote ourselves.
-	#   img-src allows data: for one reason — the favicon is an inline
-	#     data:image/svg+xml URI in every page's <head>.
+	#   img-src is 'self' alone. It allowed data: until the BusMaps.uk brand
+	#     (buses-data OA-527) because the favicon was an inline data:image/svg+xml
+	#     URI in every page's <head>; that reason went with the emoji, the favicon
+	#     set now being files under /brand and /favicon.ico. Do not put data: back.
 	#
 	# No 'preload' on the HSTS header: preloading is effectively irreversible and
 	# should be a deliberate separate decision, not a side effect of this change.
@@ -173,7 +175,7 @@ busmaps.uk {
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Frame-Options "DENY"
 		Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'"
 		# Caddy's own advert; nothing downstream needs it.
 		-Server
 	}

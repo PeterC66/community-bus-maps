@@ -1,49 +1,49 @@
-<!-- docstamp v1.1 | 2026-09-10 | sha=8892863c -->
-**v1.1** · updated 10 September 2026
+<!-- docstamp v1.2 | 2026-10-02 | sha=3496a742 -->
+**v1.2** · updated 2 October 2026
 
 ---
 name: BusMaps.uk
 description: Self-serve portal that lets approved UK councils and organisations generate printable bus maps
 colors:
-  bg: "#ffffff"
-  surface: "#f6f8fb"
-  surface-2: "#eef2f8"
-  text: "#17202e"
-  muted: "#59626f"
-  border: "#e2e7ef"
-  civic-blue: "#1b4db3"
-  civic-blue-ink: "#ffffff"
-  civic-blue-soft: "#e8eefb"
-  notice-amber: "#e08a00"
+  bg: "#faf6ee"
+  surface: "#ffffff"
+  surface-2: "#f1ece0"
+  text: "#1e2925"
+  muted: "#5c6b64"
+  border: "#e3dccb"
+  brand-green: "#24594a"
+  brand-green-ink: "#ffffff"
+  brand-green-soft: "#e3eee9"
+  marigold: "#e8a33d"
   ok-green: "#157347"
   err-red: "#b42318"
 typography:
   display:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     fontSize: "clamp(2rem, 4.5vw, 3.1rem)"
     fontWeight: 400
     lineHeight: 1.1
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     fontSize: "clamp(1.4rem, 3vw, 1.9rem)"
     fontWeight: 400
     lineHeight: 1.25
     letterSpacing: "-0.01em"
   title:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 400
     lineHeight: 1.3
     letterSpacing: "normal"
   body:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.6
     letterSpacing: "normal"
   label:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     fontSize: "0.72rem"
     fontWeight: 700
     lineHeight: 1
@@ -61,13 +61,13 @@ spacing:
   xl: "40px"
 components:
   button-primary:
-    backgroundColor: "{colors.civic-blue}"
-    textColor: "{colors.civic-blue-ink}"
+    backgroundColor: "{colors.brand-green}"
+    textColor: "{colors.brand-green-ink}"
     rounded: "{rounded.pill}"
     padding: "11px 20px"
   button-primary-hover:
-    backgroundColor: "{colors.civic-blue}"
-    textColor: "{colors.civic-blue-ink}"
+    backgroundColor: "{colors.brand-green}"
+    textColor: "{colors.brand-green-ink}"
     rounded: "{rounded.pill}"
     padding: "11px 20px"
   button-ghost:
@@ -81,8 +81,8 @@ components:
     rounded: "{rounded.lg}"
     padding: "22px"
   badge:
-    backgroundColor: "{colors.civic-blue-soft}"
-    textColor: "{colors.civic-blue}"
+    backgroundColor: "{colors.brand-green-soft}"
+    textColor: "{colors.brand-green}"
     rounded: "{rounded.pill}"
     padding: "3px 9px"
   field-input:
@@ -96,9 +96,9 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Council Noticeboard"**
+**Creative North Star: "The Community Noticeboard"**
 
-BusMaps.uk looks like a well-run parish noticeboard, not a startup product. The system is plain, legible, and official-feeling on purpose: the audience is town/parish council clerks first, then schools, shops and community organisations, and several of those audiences carry their own public-sector accessibility duty. Nothing here is decorative. Colour is spent only where it means something — Civic Blue for the one actionable thing on a page, Notice Amber for "read this before you continue," green and red strictly for outcome (approved/published vs. rejected/error). Everything else stays a shade of ink, border, or paper.
+BusMaps.uk looks like a well-run parish noticeboard, not a startup product. The system is plain, legible, and official-feeling on purpose: the audience is town/parish council clerks first, then schools, shops and community organisations, and several of those audiences carry their own public-sector accessibility duty. Nothing here is decorative. Colour is spent only where it means something — Brand Green for the one actionable thing on a page, Marigold for "read this before you continue," green and red strictly for outcome (approved/published vs. rejected/error). Everything else stays a shade of ink, border, or paper.
 
 The system is genuinely flat: one soft ambient shadow lifts cards, panels and dialogs off the page; nothing else casts one. Corners are gently rounded (14px on containers) and controls — buttons, badges, tabs, status pills — go all the way to a pill (999px), which is the system's one recurring geometric signature. Typography leans on the operating system's own font stack rather than a branded typeface: this is a tool for getting a job done, not a place to notice the type.
 
@@ -106,29 +106,29 @@ The system already runs two registers convincingly on the same tokens: the publi
 
 **Key Characteristics:**
 - Plain, procedural, official — never decorative or "product marketing" in tone
-- Colour is semantic only: blue = act, amber = attention/pilot/in-progress, green = good, red = bad
+- Colour is semantic only: brand green = act, marigold = attention/pilot/in-progress, approved green = good, red = bad (the two greens are distinct hues on purpose and never sit side by side without a text label)
 - Fully light/dark aware via `prefers-color-scheme`, same token names in both
 - Pills everywhere controls and status live; 14px rounded rectangles everywhere containers live
 - One soft shadow, used consistently, never escalated into a shadow scale
-- System font stack; no webfont load, no display typeface
+- One typeface, Atkinson Hyperlegible, self-hosted from `/fonts`; no display typeface
 
 ## Colors
 
-The palette is small and disciplined: one primary (Civic Blue), one secondary/warning accent (Notice Amber), two outcome colors (green/red), and a five-step neutral ramp that does almost all the work. Every non-neutral color is used sparingly enough that its appearance is itself a signal.
+The palette is small and disciplined: one primary (Brand Green), one secondary/warning accent (Marigold), two outcome colors (green/red), and a five-step neutral ramp that does almost all the work. Every non-neutral color is used sparingly enough that its appearance is itself a signal.
 
 ### Primary
-- **Civic Blue** (`#1b4db3` / dark: `#5a8dff`): the one actionable color. Primary buttons, links, active tab state, focus rings (`box-shadow: 0 0 0 3px` at 22% mix), the "area" map-type tag, the step-number badges on the shopfront's how-it-works section, current-node styling in the status strip.
+- **Brand Green** (`#24594a` / dark: `#6cc3a3`): the one actionable color. Primary buttons, links, active tab state, focus rings (`box-shadow: 0 0 0 3px` at 22% mix), the "area" map-type tag, the step-number badges on the shopfront's how-it-works section, current-node styling in the status strip.
 
 ### Secondary
-- **Notice Amber** (`#e08a00` / dark: `#f4b451`): the "pay attention" color. The pilot banner and pilot badge, the "by arrangement" badge on the where-to-board plan (and on the hand-pinned diagram output while that was offered — parked 2026-09-10, buses-data OA-297), the "place" map-type tag, in-progress/requested status pills, warning notices, the editor's-eye-view admin banner. Never used for a primary action — amber marks state, it doesn't trigger one.
+- **Marigold** (`#e8a33d` / dark: `#f0b556`): the brand accent and the "pay attention" color — one colour doing both jobs, decided in buses-data OA-527 so the page has a single accent rather than a brand marigold beside a separate warning amber. Its text ink on a tint is `--accent-tint-ink` (`#7a4b00`), because marigold itself is 2.0:1 on paper and is never text. The pilot banner and pilot badge, the "by arrangement" badge on the where-to-board plan (and on the hand-pinned diagram output while that was offered — parked 2026-09-10, buses-data OA-297), the "place" map-type tag, in-progress/requested status pills, warning notices, the editor's-eye-view admin banner. Never used for a primary action — amber marks state, it doesn't trigger one.
 
 ### Neutral
-- **Paper** (`#ffffff` / dark: `#0f141b`, `--bg`): page and card background.
-- **Notice Surface** (`#f6f8fb` / dark: `#161d27`, `--surface`): section backgrounds, table headers, panel headers — one step off paper.
-- **Notice Surface Deep** (`#eef2f8` / dark: `#1c2430`, `--surface-2`): image/media placeholders, inset chips, a second step off paper.
-- **Ink** (`#17202e` / dark: `#e7ecf3`, `--text`): body text, headings.
-- **Ink Muted** (`#59626f` / dark: `#9aa6b6`, `--muted`): secondary text, captions, hints, disabled-reading labels.
-- **Border** (`#e2e7ef` / dark: `#273240`): the only line-weight in the system; 1px, everywhere.
+- **Paper** (`#faf6ee` / dark: `#121917`, `--bg`): page and card background.
+- **Notice Surface** (`#ffffff` / dark: `#19221f`, `--surface`): section backgrounds, table headers, panel headers — one step off paper.
+- **Notice Surface Deep** (`#f1ece0` / dark: `#1f2a26`, `--surface-2`): image/media placeholders, inset chips, a second step off paper.
+- **Ink** (`#1e2925` / dark: `#e9efeb`, `--text`): body text, headings.
+- **Ink Muted** (`#5c6b64` / dark: `#9fb0a8`, `--muted`): secondary text, captions, hints, disabled-reading labels.
+- **Border** (`#e3dccb` / dark: `#2b3833`): the only line-weight in the system; 1px, everywhere.
 
 ### Outcome colors (not full roles — used only for status)
 - **Approved Green** (`#157347` / dark: `#4ac07e`, `--ok`): published/approved status pills, success form messages, the checklist-item "checked" border.
@@ -141,7 +141,7 @@ The palette is small and disciplined: one primary (Civic Blue), one secondary/wa
 
 ## Typography
 
-**Display Font:** System UI stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`)
+**Display Font:** Atkinson Hyperlegible (Braille Institute, SIL Open Font License), self-hosted as three TTFs in `public/fonts/` (Regular, Bold, Italic) with `font-display: swap`; the OS stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`) is only the fallback while it loads
 **Body Font:** Same stack — one family for everything, no separate display/body pairing
 **Label/Mono Font:** None distinct; labels use the same stack at small size, bold, uppercase, tracked out
 
@@ -170,7 +170,7 @@ Vertical rhythm: sections on the shopfront use `padding: 46px 0`; cards/panels u
 *(Open question — confirmed as observed, not yet settled as a locked invariant.)* The system is flat at rest and uses exactly one shadow token (`--shadow`) for every raised surface: cards, panels, dialogs, the sheet viewer, status strip, review queue items. Nothing escalates to a second, heavier shadow for "more elevated" surfaces — a modal dialog and a small card use the identical shadow value. Depth beyond that one lift is conveyed by the neutral ramp (surface → surface-2 → bg) and borders, not by shadow intensity. Buttons never cast a shadow, at rest or hover; the only "lift" feedback on interactive elements is a 1px `translateY` press effect on `:active`. Worth revisiting in a future `/impeccable audit` or `polish` pass: whether a second, more prominent shadow step would help distinguish a modal (`dialog.dialog`, `dialog.compare-dialog`) from an ordinary card, since both currently share the same ambient shadow despite one blocking the whole page.
 
 ### Shadow Vocabulary
-- **Ambient lift** (`box-shadow: 0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.06)`; dark: `0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35)`): the system's only shadow. Used on cards, panels, dialogs, the map viewer stage, tabs' active state, status strip, review-queue items — every raised surface, regardless of how modal or how minor.
+- **Ambient lift** (`box-shadow: 0 1px 2px rgba(30,41,37,.06), 0 8px 24px rgba(30,41,37,.06)`; dark: `0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35)`): the system's only shadow. Used on cards, panels, dialogs, the map viewer stage, tabs' active state, status strip, review-queue items — every raised surface, regardless of how modal or how minor.
 
 ## Shapes
 
@@ -185,7 +185,7 @@ Every component reads as procedural and unadorned: clear affordance, no flourish
 
 ### Buttons
 - **Shape:** full pill (`border-radius: 999px`), `11px 20px` padding (`8px 15px` for the small variant `.btn-sm`, `5px 10px` for `.btn-xs`).
-- **Primary:** Civic Blue fill, white text (`--primary-ink`). Hover darkens the fill by mixing 12% black (`color-mix(in srgb, var(--primary) 88%, black)`); no shadow change on hover, only a `translateY(1px)` on active/press.
+- **Primary:** Brand Green fill, white text (`--primary-ink`). Hover darkens the fill by mixing 12% black (`color-mix(in srgb, var(--primary) 88%, black)`); no shadow change on hover, only a `translateY(1px)` on active/press.
 - **Ghost:** transparent background, ink text, `1px` border in `--border`. Hover fills with `--surface`, the one-step-off-paper neutral.
 - **Disabled:** `opacity: .45`, `cursor: not-allowed`, hover states explicitly neutralized so a disabled button never looks live — this was a deliberate fix (see the code comment in `styles.css`) after a disabled button silently reading as clickable caused real confusion.
 
@@ -202,14 +202,14 @@ Every component reads as procedural and unadorned: clear affordance, no flourish
 
 ### Inputs / Fields
 - **Style:** `1px solid var(--border)`, `10px` radius, `11px 13px` padding, background `--bg`, inherits font.
-- **Focus:** border shifts to Civic Blue plus a `3px` glow ring (`box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent)`) — no outline removal without a replacement focus indicator.
+- **Focus:** border shifts to Brand Green plus a `3px` glow ring (`box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent)`) — no outline removal without a replacement focus indicator.
 - **Error / Disabled:** `.field.invalid` shifts the border to `--err`; disabled poi-list items desaturate to `--muted` text with strikethrough where the whole item (not just the input) is unavailable.
 
 ### Navigation
 - Sticky header, `62px` tall, translucent paper (`color-mix` at 88% + backdrop blur), `1px` bottom border. Nav links are muted by default, ink on hover, no underline. On mobile (≤720px) the nav wraps to a second row rather than collapsing into a hamburger — the link count is small enough that this stays legible.
 
 ### Status Strip (signature component)
-A horizontal rail of connected nodes (done / here / blocked / skipped) reporting exactly where a map version sits in its review lifecycle and whose turn it is to act next. Each node is a dot-on-a-line with a label, a timestamp, and an actor tag; the "here" node gets a glow ring in Civic Blue, a "blocked" node gets Notice Amber instead of red — blocked-but-recoverable is treated as a warning, not a failure. This is the system's clearest expression of "plain and procedural": no icons, no illustration, just state made legible as position on a line.
+A horizontal rail of connected nodes (done / here / blocked / skipped) reporting exactly where a map version sits in its review lifecycle and whose turn it is to act next. Each node is a dot-on-a-line with a label, a timestamp, and an actor tag; the "here" node gets a glow ring in Brand Green, a "blocked" node gets Marigold instead of red — blocked-but-recoverable is treated as a warning, not a failure. This is the system's clearest expression of "plain and procedural": no icons, no illustration, just state made legible as position on a line.
 
 ## Do's and Don'ts
 
@@ -222,7 +222,7 @@ A horizontal rail of connected nodes (done / here / blocked / skipped) reporting
 - **Do** preserve `:focus-visible` rings on every interactive element; this audience includes public bodies with a statutory accessibility duty.
 
 ### Don't:
-- **Don't** introduce a second typeface or a display font. One system font stack, differentiated by size/weight/spacing only.
+- **Don't** introduce a second typeface or a display font. One family, Atkinson Hyperlegible, differentiated by size/weight/spacing only; the OS stack is a fallback, never a design choice.
 - **Don't** use amber or red for anything that isn't reporting an actual warning or failure state — they're load-bearing, not decorative.
 - **Don't** give a disabled control any hover, press, or color feedback that could read as "still live."
 - **Don't** add shadow escalation, gradients (beyond the single existing hero radial-gradient wash), textures, or skeuomorphic treatment — the noticeboard stays flat.
