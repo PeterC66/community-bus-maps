@@ -143,7 +143,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "97a012ae28825793ce9112bdebc6bdd05bb0502d81963b58e75614444f58a978",
+      "sha256": "2319137043e8fc40a0fe1ad5eca9570e2ed9ab843b48a76f3d15b36e4df529d8",
       "vendoredOn": "2026-10-02",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -318,8 +318,8 @@
       "path": "place_pointer.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/place_pointer.js",
-      "sha256": "2613724ae2f67aaa00ec5b7fcf5d2c230481ce2e4c7604985f79c7f8eb792479",
-      "vendoredOn": "2026-10-01"
+      "sha256": "4522fa8b7bfb59af2f37dd8ec37f44e6aadda3d9606732d1d7be7f6a4e905d1f",
+      "vendoredOn": "2026-10-02"
     },
     {
       "path": "legend_key.js",
@@ -327,6 +327,13 @@
       "source": "make-bus-leaflet/assets/legend_key.js",
       "sha256": "45b67f27749c16d07702d268fefd791bf030dfc687592aaec6003b3d253a4e34",
       "vendoredOn": "2026-10-01"
+    },
+    {
+      "path": "trunk_segments.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/trunk_segments.js",
+      "sha256": "162d78b4b82d29e70018ada01e645f0c76d62c25429456a76d39aae55cc92cbe",
+      "vendoredOn": "2026-10-02"
     }
   ]
 }
