@@ -168,6 +168,19 @@
           </div>
         </div>
 
+        <!-- ---------------- the map's own description (OA-545) ---------------- -->
+        <div class="panel" id="descriptionPanel" style="margin-top:16px">
+          <header>Description <span class="count" id="descriptionCount"></span></header>
+          <div class="body">
+            <p class="hint-line">One or two sentences about this map, shown under its title on the public page and used as the page’s description in search results. Say what this map covers and, if it has a companion map of the same place, point to it. Changes show on the public page at once; they are not part of a version.</p>
+            <textarea class="field" id="descriptionText" maxlength="400" rows="3" placeholder="e.g. Buses across the whole town. For the town centre close-up, see busmaps.uk/m/example-centre."></textarea>
+            <div class="control-actions" style="margin-top:8px">
+              <button class="btn btn-primary btn-sm" id="descriptionSaveBtn" type="button">Save description</button>
+              <button class="btn btn-ghost btn-sm" id="descriptionClearBtn" type="button">Clear description</button>
+            </div>
+          </div>
+        </div>
+
         <!-- ---------------- "changes coming" banner (P8) ---------------- -->
         <div class="panel" id="bannerPanel" style="margin-top:16px" hidden>
           <header>“Changes coming” banner <span class="count" id="bannerSourceTag"></span></header>
