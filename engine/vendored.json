@@ -143,8 +143,8 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "12c5a8c0c04f0f49e209cdaf0077f3d2c6399e9e4ccd841808dc8cb92ac19ee4",
-      "vendoredOn": "2026-10-01",
+      "sha256": "ea4b35c29334684d436e73a1e4f307a96884b00631b22d340cda33540453ac54",
+      "vendoredOn": "2026-10-02",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
@@ -231,8 +231,8 @@
       "path": "complexity_ladder.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/complexity_ladder.js",
-      "sha256": "d550191ff31508fadb7e25e5cd6e62a3c966acced86435602e0741ffaa2c6af5",
-      "vendoredOn": "2026-10-01",
+      "sha256": "fa6ab5e3be946c33af4f5705802cc2b188cba0b001217b620f72650ade29517c",
+      "vendoredOn": "2026-10-02",
       "note": "The four rungs that make a big town readable: internalCorridors, coreBox, stopThinning, corridorPalette. Required at load by gen_internal.js."
     },
     {
