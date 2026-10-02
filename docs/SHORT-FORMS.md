@@ -1,12 +1,13 @@
 # Short forms used in these documents
 
-<!-- docstamp v1.0 | 2026-09-21 | sha=dbb41633 -->
-**v1.0** · updated 21 September 2026
+<!-- docstamp v1.1 | 2026-10-02 | sha=335bfd31 -->
+**v1.1** · updated 2 October 2026
 
 The short forms a reader meets in this repository's live documents that are ours, or particular to buses and public data. Standard computing words — PR, SVG, CI, DNS and the like — are not listed; `.doc-acronyms.json` at the repository root says why, and `check-doc-acronyms.mjs` fails when a document uses a short form that is in neither place. The changelog and `docs/_archive/` are dated history and are not checked.
 
 | Short form | In full | What it means here |
 |---|---|---|
+| **AMBER** | (a colour word, not initials) | The middle of the three complexity bands a town is scored into after S2, between GREEN and RED: buildable, with known difficulties |
 | **BODS** | Bus Open Data Service | The Department for Transport's national feed of bus timetables, routes and fares, which every map is built from |
 | **CIC** | Community Interest Company | The not-for-profit company form BusMaps.uk is being set up as |
 | **CTA** | Call To Action | The button or link a page asks a visitor to press |
