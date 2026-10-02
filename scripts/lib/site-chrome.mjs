@@ -19,7 +19,7 @@
 
 export const NAV_HTML = `  <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header"><div class="container"><nav class="nav">
-    <a class="brand" href="/"><span class="logo" aria-hidden="true">🚌</span> BusMaps.uk</a>
+    <a class="brand" href="/"><picture><source media="(prefers-color-scheme: dark)" srcset="/brand/busmaps-logo-reversed.svg"><img class="logo" src="/brand/busmaps-logo-colour.svg" alt="BusMaps.uk" width="159" height="34"></picture></a>
     <span class="spacer"></span>
     <a class="navlink" href="/maps">Published maps</a>
     <a class="navlink" href="/examples.html">Examples</a>

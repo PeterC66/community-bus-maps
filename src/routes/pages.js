@@ -141,7 +141,7 @@ export default async function pageRoutes(app) {
   <link rel="stylesheet" href="/app/app.css">
   <script src="/js/site-banner.js" defer></script></head>
   <body><header class="site-header"><div class="container"><nav class="nav">
-  <a class="brand" href="/"><span class="logo">🚌</span> BusMaps.uk</a><span class="spacer"></span>
+  <a class="brand" href="/"><picture><source media="(prefers-color-scheme: dark)" srcset="/brand/busmaps-logo-reversed.svg"><img class="logo" src="/brand/busmaps-logo-colour.svg" alt="BusMaps.uk" width="159" height="34"></picture></a><span class="spacer"></span>
   <a class="navlink" href="/app/admin">Admin</a></nav></div></header>
   <main class="app-main"><div class="app-sub"><h1>Changelog (admin)</h1><span class="spacer"></span></div>
   <p class="hint-line">The raw developer CHANGELOG.md, for reference only — not shown to visitors. The public "What's new" is /changelog.html, edited separately.</p>

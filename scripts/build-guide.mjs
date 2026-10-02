@@ -157,7 +157,10 @@ export function page(md) {
   <title>Customer guide — BusMaps.uk</title>
   <meta name="description" content="How BusMaps.uk looks after an organisation's bus maps: what you tell us, what we send, how publishing and monthly updates work, and the editor for those who want it.">
   <link rel="canonical" href="https://busmaps.uk/guide.html">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/brand/busmaps-symbol-small.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/brand/busmaps-symbol-180.png">
+  <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/css/styles.css">
   <!-- PILOT: pilot banner + title marker. Delete with docs/PILOT.md. -->
   <script src="/js/csrf.js"></script>
