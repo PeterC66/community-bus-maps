@@ -41,8 +41,9 @@
 import path from 'node:path';
 import { tubeDiagramOffered } from '../config.js';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { getCustomer, getMap, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
+import { getCustomer, getMap, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapDescription, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
 import { mapPageUrl } from '../public/index.js';
+import { cleanDescription } from '../maps/description.js';
 import { categorySwitchesFromDir, chooseOutputs, editablePoiKeysFromDir, enumerateCandidatesFromDir, outputsForClient, outputsNeedingRender, packPoiTiers, preview, readOverrides, readRoutesMeta, renderVersion } from '../maps/engine.js';
 import { sanitizeOverrides } from '../maps/safeSubset.js';
 import { mergeGenWarnings } from '../render/genWarnings.js';
@@ -548,6 +549,21 @@ export default async function editorRoutes(app) {
     req.log.info({ mapId: map.id, by: user.email }, 'banner note updated');
     logAudit(req, 'banner.update', { mapId: map.id, detail: { note } });
     return { ok: true, bannerNote: note || null };
+  });
+
+  // OA-545: the map's own description — a sentence or two about this map, shown on
+  // its public page and used as that page's meta description. The owning customer
+  // or an admin may set or clear it; an empty body clears it. Takes effect on the
+  // public page at once, because it is not part of any version.
+  app.patch('/:id/description', async (req, reply) => {
+    const user = req.user;                       // the plugin guard above proved it
+    const { map, code, error } = loadOwnedMap(Number(req.params.id), user);
+    if (!map) return reply.code(code).send({ ok: false, error });
+    const description = cleanDescription((req.body || {}).description);
+    setMapDescription(map.id, description || null);
+    req.log.info({ mapId: map.id, by: user.email }, 'map description updated');
+    logAudit(req, 'description.update', { mapId: map.id, detail: { description } });
+    return { ok: true, description: description || null };
   });
 
   app.get('/:id/versions/:key/:file', async (req, reply) => {

@@ -291,6 +291,7 @@ function mapDetail(m) {
     publicUrl: getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
     org: m.customer_id ? brandingForPublic(getCustomer(m.customer_id)) : null,
     // --- P8: "changes coming" banner ---
+    description: m.description || null,
     bannerNote: m.banner_note || null,
     bannerNoteSource: m.banner_note_source || 'auto',
   };

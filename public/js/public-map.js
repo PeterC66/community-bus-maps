@@ -68,6 +68,10 @@
     </div>
     ${map.org.blurb ? `<p class="section-intro">${esc(map.org.blurb)}</p>` : ''}`;
 
+  // OA-545: the map's own description, plain text, above the sheets. The same
+  // sentence is the page's <meta> description, written server-side.
+  if (map.description) $('lead').textContent = map.description;
+
   if (map.bannerNote) {
     $('bannerNote').innerHTML = `⚠ <strong>Changes coming:</strong> ${esc(map.bannerNote)}`;
     $('bannerNote').hidden = false;

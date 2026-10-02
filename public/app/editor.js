@@ -614,6 +614,32 @@ function buildPublic() {
   });
 }
 
+// ---- the map's own description (OA-545) --------------------------------------
+function buildDescription() {
+  $('descriptionText').value = detail.description || '';
+  $('descriptionCount').textContent = detail.description ? `${detail.description.length} of 400` : '';
+}
+
+async function saveDescription(description) {
+  const saveBtn = $('descriptionSaveBtn'), clearBtn = $('descriptionClearBtn');
+  saveBtn.disabled = true; clearBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/maps/${MAP_ID}/description`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description }),
+    });
+    const b = await res.json().catch(() => ({}));
+    if (res.ok && b.ok) {
+      detail.description = b.description;
+      notice('ok', b.description ? 'Description saved.' : 'Description cleared.');
+      buildDescription();
+    } else { notice('err', (b && b.error) || 'Could not update the description.'); }
+  } catch { notice('err', 'Network error updating the description.'); }
+  finally { saveBtn.disabled = false; clearBtn.disabled = false; }
+}
+
+$('descriptionSaveBtn').addEventListener('click', () => saveDescription(($('descriptionText').value || '').trim()));
+$('descriptionClearBtn').addEventListener('click', () => { $('descriptionText').value = ''; saveDescription(''); });
+
 // ---- "changes coming" banner (P8) --------------------------------------------
 function buildBanner() {
   const panel = $('bannerPanel');
@@ -656,9 +682,9 @@ async function reloadPublish() {
       publishedDownloads: d.publishedDownloads, pendingRequest: d.pendingRequest, editable: d.editable,
       currentVersion: d.currentVersion, downloads: d.downloads, versions: d.versions, status: d.status,
       publicListed: d.publicListed, publicUrl: d.publicUrl,
-      bannerNote: d.bannerNote, bannerNoteSource: d.bannerNoteSource,
+      bannerNote: d.bannerNote, bannerNoteSource: d.bannerNoteSource, description: d.description,
     });
-    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDownloads(); buildVersionList(); buildStatusStrip();
+    applyLock(); buildPublish(); buildPublic(); buildBanner(); buildDescription(); buildDownloads(); buildVersionList(); buildStatusStrip();
   } catch { /* leave as-is */ }
 }
 
@@ -1377,7 +1403,7 @@ async function buildOwnerPanel() {
       el.style.display = '';
     }
     buildOutputs(); buildRoutes(); buildOperators(); buildPois(); buildDownloads(); buildVersionList();
-    buildPublish(); buildPublic(); buildBanner(); buildUpdatePanel(); buildStatusStrip(); applyLock();
+    buildPublish(); buildPublic(); buildBanner(); buildDescription(); buildUpdatePanel(); buildStatusStrip(); applyLock();
     buildExpertLinks();
 
     await loadSavedSvg();

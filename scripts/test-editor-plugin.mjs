@@ -2,7 +2,7 @@
 // (OA-231, Tier 4.4).
 //
 // The fourth and largest cut along server.js's banners — 14 routes under
-// /api/maps at the cut, 15 since GET /api/maps/:id/poi-tiers (OA-233) —
+// /api/maps at the cut, 15 since GET /api/maps/:id/poi-tiers (OA-233), 16 since PATCH /api/maps/:id/description (OA-545) —
 // /api/maps — and it is the same shape as src/routes/proposed.js rather than the
 // admin or review ones: the plugin's `requireUser` hook establishes only that
 // somebody is signed in. Everything that matters is decided per request, because
@@ -88,7 +88,7 @@ const send = (method, url, token, body) => app.inject({
   payload: body === undefined ? undefined : JSON.stringify(body),
 });
 
-// Enumerated from the LIVE table so the fifteenth route is checked like the
+// Enumerated from the LIVE table so the sixteenth route is checked like the
 // first. The monthly-acceptance subtree sits below /api/maps and is a plugin of
 // its own with its own test, so it is excluded here rather than tested twice.
 const editorRoutes = table
@@ -96,7 +96,7 @@ const editorRoutes = table
   .filter(([m, u]) => m !== 'HEAD' && u.startsWith('/api/maps') && !u.includes('/proposed/'));
 
 console.log('\nthe plugin door');
-check('the table holds the editor spine', editorRoutes.length === 15,
+check('the table holds the editor spine', editorRoutes.length === 16,
   `${editorRoutes.length}: ${editorRoutes.map(([m, u]) => m + ' ' + u).join(', ')}`);
 // Fastify's default for a route path of '/' inside a prefixed plugin is
 // prefixTrailingSlash:'both', which registers /api/maps/ as well — a route the

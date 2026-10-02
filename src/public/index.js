@@ -133,6 +133,7 @@ export function publicMap(row) {
     version: row.pub_key,
     publishedAt: row.published_at,
     bannerNote: row.banner_note || null,
+    description: row.description || null,
     url: mapPageUrl(row.slug),
     provenance: provenanceFor(row, facts),
     // The sheet's text alternative — only offered when the payload actually has

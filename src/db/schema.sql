@@ -174,7 +174,8 @@ CREATE TABLE IF NOT EXISTS map (
   public_listed       INTEGER NOT NULL DEFAULT 1,    -- P6: show the published version on the public site (customer's choice)
   banner_note         TEXT,                          -- P8: "changes coming" banner shown above the public map image; NULL = no banner
   banner_note_source  TEXT NOT NULL DEFAULT 'auto',   -- auto (from the GTFS upcoming-changes scan) | manual (admin/customer edited the wording)
-  banner_note_set_at  TEXT                            -- when the current banner_note was set
+  banner_note_set_at  TEXT,                           -- when the current banner_note was set
+  description         TEXT                            -- OA-545: one or two sentences about THIS map, shown on its public page and used as its meta description; NULL = none
 );
 
 CREATE TABLE IF NOT EXISTS map_version (

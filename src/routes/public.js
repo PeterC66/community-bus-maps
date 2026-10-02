@@ -268,7 +268,9 @@ export default async function publicRoutes(app) {
     // left singular on purpose: that one really is one picture.
     const desc = services
       ? `Every bus service on the ${m.name} bus maps, written out as text: route, operator, days and the places served. An accessible alternative to the map image.`
-      : m.org.isDemo
+      : m.description
+        ? m.description            // OA-545: the map's own sentence beats the generated one
+        : m.org.isDemo
         ? `Sample bus maps${m.subject ? ' for ' + m.subject : ''}, made to demonstrate BusMaps.uk.`
         : `Bus maps published by ${m.org.name}${m.subject ? ' for ' + m.subject : ''}, free to view, print and share.`;
     const canonical = base + (services ? servicesPageUrl(m.slug) : mapPageUrl(m.slug));

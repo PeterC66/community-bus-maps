@@ -129,6 +129,7 @@
   "PATCH /api/customer/branding",
   "PATCH /api/customer/settings",
   "PATCH /api/maps/:id/banner-note",
+  "PATCH /api/maps/:id/description",
   "PATCH /api/maps/:id/outputs",
   "PATCH /api/maps/:id/public",
   "POST /api/admin/applications/:id/approve",

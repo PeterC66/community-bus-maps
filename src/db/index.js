@@ -140,8 +140,12 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     at all — so it bands every sheet, which is exactly the behaviour this
  *     version replaced. A rollback therefore over-labels rather than publishing
  *     a real organisation's sheet as nobody's.
+ * 6 = 2026-10-02, buses-data OA-545: one new nullable column, `map.description`,
+ *     a sentence or two about one map. Additive in the plain sense: a v5
+ *     release opens a v6 database, `SELECT *` hands it a column it ignores, and
+ *     the public page falls back to the generated description it always had.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
@@ -229,6 +233,9 @@ export function recordedSchemaVersion() {
   if (!mapCols.includes('banner_note')) db.exec('ALTER TABLE map ADD COLUMN banner_note TEXT');
   if (!mapCols.includes('banner_note_source')) db.exec("ALTER TABLE map ADD COLUMN banner_note_source TEXT NOT NULL DEFAULT 'auto'");
   if (!mapCols.includes('banner_note_set_at')) db.exec('ALTER TABLE map ADD COLUMN banner_note_set_at TEXT');
+
+  // OA-545: a per-map description, so two maps of one town can each say what the other is for.
+  if (!mapCols.includes('description')) db.exec('ALTER TABLE map ADD COLUMN description TEXT');
 
   // A version created by accepting a data refresh records WHAT the refresh changed.
   // Before this column the answer existed only in the audit log, so every screen that
@@ -656,6 +663,11 @@ export function clearMapBannerNote(mapId) {
   db.prepare(
     "UPDATE map SET banner_note = NULL, banner_note_source = 'auto', banner_note_set_at = NULL WHERE id = ?",
   ).run(Number(mapId));
+}
+
+/** OA-545: set (or clear, with null) a map's description. The caller has already cleaned the text. */
+export function setMapDescription(mapId, description) {
+  db.prepare('UPDATE map SET description = ? WHERE id = ?').run(description ? String(description) : null, Number(mapId));
 }
 
 export function countMapsByKind(customerId) {
@@ -1479,7 +1491,7 @@ const PUBLIC_WHERE = `m.published_version_id IS NOT NULL
 // created 8 Sep, published 10 Sep). A version with no approved request (a direct
 // re-import) falls back to its creation time. buses-data OA-295.
 const PUBLIC_COLUMNS = `m.id, m.slug, m.name, m.kind, m.subject, m.outputs,
-              m.banner_note,
+              m.banner_note, m.description,
               c.id AS customer_id, c.name AS customer_name, c.type AS customer_type,
               c.slug AS customer_slug, c.branding_json, c.is_demo, c.watermark_enabled,
               pv.storage_key AS pub_key,
