@@ -614,15 +614,37 @@ function buildPublic() {
   });
 }
 
-// ---- the map's own description (OA-545) --------------------------------------
+// ---- the map's own description (OA-545, OA-550) ------------------------------
+// The panel says when it is unsaved (the branding.js shape): Save waits for a
+// difference from the saved value, Clear waits for something to clear, the count
+// span carries the state next to the buttons, and leaving while dirty is guarded.
+let savedDescription = '';
+let descriptionSaving = false;
+let descriptionFailed = false;
+const descriptionNow = () => ($('descriptionText').value || '').trim();
+const descriptionDirty = () => descriptionNow() !== savedDescription;
+
+function paintDescription() {
+  const dirty = descriptionDirty();
+  const state = descriptionSaving ? 'Saving…'
+    : descriptionFailed ? 'Not saved — try again'
+      : dirty ? 'Not saved yet'
+        : (savedDescription ? `Saved · ${savedDescription.length} of 400` : '');
+  $('descriptionCount').textContent = state;
+  $('descriptionSaveBtn').disabled = descriptionSaving || !dirty;
+  $('descriptionClearBtn').disabled = descriptionSaving || (!savedDescription && !$('descriptionText').value);
+  $('descriptionSaveBtn').title = dirty ? '' : 'Nothing has changed since the last save.';
+}
+
 function buildDescription() {
+  savedDescription = (detail.description || '').trim();
+  descriptionFailed = false;
   $('descriptionText').value = detail.description || '';
-  $('descriptionCount').textContent = detail.description ? `${detail.description.length} of 400` : '';
+  paintDescription();
 }
 
 async function saveDescription(description) {
-  const saveBtn = $('descriptionSaveBtn'), clearBtn = $('descriptionClearBtn');
-  saveBtn.disabled = true; clearBtn.disabled = true;
+  descriptionSaving = true; descriptionFailed = false; paintDescription();
   try {
     const res = await fetch(`/api/maps/${MAP_ID}/description`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description }),
@@ -630,15 +652,21 @@ async function saveDescription(description) {
     const b = await res.json().catch(() => ({}));
     if (res.ok && b.ok) {
       detail.description = b.description;
-      notice('ok', b.description ? 'Description saved.' : 'Description cleared.');
+      descriptionSaving = false;
       buildDescription();
-    } else { notice('err', (b && b.error) || 'Could not update the description.'); }
-  } catch { notice('err', 'Network error updating the description.'); }
-  finally { saveBtn.disabled = false; clearBtn.disabled = false; }
+      $('descriptionCount').textContent = b.description ? `Saved · ${b.description.length} of 400` : 'Cleared';
+      notice('ok', b.description ? 'Description saved.' : 'Description cleared.');
+      return;
+    }
+    descriptionFailed = true; notice('err', (b && b.error) || 'Could not update the description.');
+  } catch { descriptionFailed = true; notice('err', 'Network error updating the description.'); }
+  descriptionSaving = false; paintDescription();
 }
 
-$('descriptionSaveBtn').addEventListener('click', () => saveDescription(($('descriptionText').value || '').trim()));
+$('descriptionText').addEventListener('input', () => { descriptionFailed = false; paintDescription(); });
+$('descriptionSaveBtn').addEventListener('click', () => saveDescription(descriptionNow()));
 $('descriptionClearBtn').addEventListener('click', () => { $('descriptionText').value = ''; saveDescription(''); });
+window.addEventListener('beforeunload', (e) => { if (descriptionDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---- "changes coming" banner (P8) --------------------------------------------
 function buildBanner() {
