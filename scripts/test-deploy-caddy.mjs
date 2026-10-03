@@ -39,6 +39,9 @@ const SHIMS = process.platform !== 'win32';
 const baseEnv = { ...process.env };
 delete baseEnv.DEPLOY_HOST;
 delete baseEnv.DEPLOY_SSH_KEY;
+// The behind-origin guard has its own section below; every other case is about
+// the scp path and must not depend on what origin/main holds today.
+baseEnv.DEPLOY_CADDY_ALLOW_BEHIND = '1';
 if (SHIMS) {
   for (const cmd of ['scp', 'ssh', 'curl']) {
     const p = path.join(scratch, cmd);
@@ -93,6 +96,34 @@ try {
   check('exits 1', nohost.status === 1, `exit ${nohost.status}`);
   check('names DEPLOY_HOST', /DEPLOY_HOST must be set/.test(nohost.out));
   check('prints no plan', !/Dry run:/.test(nohost.out));
+
+  console.log('\na checkout behind origin/main refuses before it connects');
+  const g = (cwd, ...a) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...a], { cwd, encoding: 'utf8' });
+  const origin = path.join(scratch, 'origin.git');
+  const mine = path.join(scratch, 'mine');
+  const other = path.join(scratch, 'other');
+  g(scratch, 'init', '--bare', '-b', 'main', origin);
+  g(scratch, 'clone', '-q', origin, mine);
+  writeFileSync(path.join(mine, 'Caddyfile'), readFileSync(path.join(ROOT, 'Caddyfile')));
+  g(mine, 'add', 'Caddyfile'); g(mine, 'commit', '-q', '-m', 'one'); g(mine, 'push', '-q', 'origin', 'HEAD:main');
+  g(scratch, 'clone', '-q', origin, other);
+  g(other, 'commit', '-q', '--allow-empty', '-m', 'two'); g(other, 'push', '-q', 'origin', 'HEAD:main');
+  const guarded = (args) => {
+    const env = { ...baseEnv, DEPLOY_HOST: HOST };
+    delete env.DEPLOY_CADDY_ALLOW_BEHIND;
+    const r = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: mine, env, encoding: 'utf8', timeout: 60_000 });
+    return { status: r.status, out: (r.stdout || '') + (r.stderr || '') };
+  };
+  const behind = guarded([]);
+  check('exits 1', behind.status === 1, `exit ${behind.status}: ${behind.out.slice(0, 300)}`);
+  check('says it is behind', /1 commit\(s\) behind origin\/main/.test(behind.out), behind.out.slice(0, 300));
+  check('never takes the scp step', !STEP.test(behind.out));
+  check('--dry-run is not stopped by it', guarded(['--dry-run']).status === 0);
+  const allowed = guarded(['--allow-behind']);
+  check('--allow-behind goes on to the scp step', STEP.test(allowed.out), allowed.out.slice(0, 300));
+  g(mine, 'pull', '-q', '--ff-only', 'origin', 'main');
+  const current = guarded([]);
+  check('once up to date it goes on to the scp step', STEP.test(current.out), current.out.slice(0, 300));
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

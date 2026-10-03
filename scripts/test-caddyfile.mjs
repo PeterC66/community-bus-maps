@@ -40,7 +40,7 @@
 //      numbers being typed here twice.
 
 import { readFileSync } from 'node:fs';
-import { siteBlocks, primaryHost } from './lib/caddyfile.mjs';
+import { siteBlocks, primaryHost, declaredHeader, liveHeader, commitsBehindOrigin } from './lib/caddyfile.mjs';
 import { IP_MASK_BITS } from '../src/public/logRedaction.js';
 
 let failures = 0;
@@ -129,6 +129,25 @@ check('a file of only snippets has no primary host', primaryHost('(a) {\n\tencod
 check('a comment ending in { is not a site', primaryHost('# not a site {\nreal.example {\n\tencode gzip\n}\n') === 'real.example');
 check('a nested block does not end the site block', siteBlocks('a.example {\n\theader {\n\t\tX 1\n\t}\n\timport access_log\n}\n')[0].imports.includes('access_log'),
   'if `}` on the header block closed the site, the import would be read as top-level');
+
+console.log('the CSP comparison reads both sides the same way:');
+const declared = declaredHeader(text, 'Content-Security-Policy');
+check('the Caddyfile declares a CSP', typeof declared === 'string' && declared.startsWith("default-src 'self'"), String(declared));
+check('quotes are stripped, an unquoted value is kept', declaredHeader('X-A "a b"', 'x-a') === 'a b' && declaredHeader('X-A a', 'X-A') === 'a');
+check('a header the file removes with -Name is not declared', declaredHeader('-Server', 'Server') === null);
+check('a live header is found whatever its case', liveHeader('HTTP/2 200\r\ncontent-security-policy: default-src none\r\n', 'Content-Security-Policy') === 'default-src none');
+check('an absent live header is null', liveHeader('HTTP/2 200\r\nserver: x\r\n', 'Content-Security-Policy') === null);
+// The falsification arm: the OLD check was "the name appears", and it passes for a stale policy.
+const stale = 'HTTP/2 200\r\ncontent-security-policy: default-src *\r\n';
+check('a stale policy has the header (the old check passed it)', stale.toLowerCase().includes('content-security-policy:'));
+check('a stale policy does not equal the declared one (the new check fails it)', liveHeader(stale, 'Content-Security-Policy') !== declared);
+
+console.log('the behind-origin guard fails closed:');
+const fakeGit = (fetch, count) => (a) => (a[0] === 'fetch' ? fetch : count);
+check('0 behind is reported as 0', commitsBehindOrigin(fakeGit({ status: 0 }, { status: 0, stdout: '0\n' })).behind === 0);
+check('3 behind is reported as 3', commitsBehindOrigin(fakeGit({ status: 0 }, { status: 0, stdout: '3\n' })).behind === 3);
+check('a failed fetch is an error, not 0', 'error' in commitsBehindOrigin(fakeGit({ status: 1 }, { status: 0, stdout: '0' })));
+check('an unreadable count is an error, not 0', 'error' in commitsBehindOrigin(fakeGit({ status: 0 }, { status: 0, stdout: 'fatal' })));
 
 if (failures) { console.error(`\n${failures} check(s) failed.`); process.exit(1); }
 console.log('\nAll Caddyfile checks passed.');

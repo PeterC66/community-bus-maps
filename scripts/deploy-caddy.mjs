@@ -30,7 +30,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { primaryHost, siteBlocks } from './lib/caddyfile.mjs';
+import { primaryHost, siteBlocks, declaredHeader, liveHeader, commitsBehindOrigin } from './lib/caddyfile.mjs';
 import { confirm, has } from './lib/cli.mjs';
 
 const HOST = process.env.DEPLOY_HOST;
@@ -74,6 +74,20 @@ function verify() {
     const present = got.includes(h + ':');
     console.log(`  ${present ? 'yes' : 'NO '}  ${h}`);
     if (!present) ok = false;
+  }
+  // Present is not the same as RIGHT: an old policy still answers with the header.
+  const wantCsp = declaredHeader(caddyfile, 'Content-Security-Policy');
+  const gotCsp = liveHeader(r.stdout, 'Content-Security-Policy');
+  if (wantCsp === null) {
+    console.error('  NO   content-security-policy value: ./Caddyfile declares none to compare with');
+    ok = false;
+  } else if (gotCsp === wantCsp) {
+    console.log('  yes  content-security-policy value matches ./Caddyfile');
+  } else {
+    console.error('  NO   content-security-policy value differs from ./Caddyfile');
+    console.error(`         Caddyfile: ${wantCsp}`);
+    console.error(`         live:      ${gotCsp === null ? '(absent)' : gotCsp}`);
+    ok = false;
   }
   if (!ok) {
     console.error('\nFAILED: the live site is NOT sending the full header set.');
@@ -138,6 +152,20 @@ if (!HOST) {
 const remote = 'sudo cp ~/Caddyfile /etc/caddy/Caddyfile'
   + ' && sudo caddy validate --config /etc/caddy/Caddyfile'
   + ' && sudo systemctl reload caddy';
+// This script copies the LOCAL Caddyfile up, so a checkout behind origin/main
+// would put an older file on the live host and the header check below would
+// still pass. --allow-behind is the deliberate override.
+if (!printOnly && !has('allow-behind') && !process.env.DEPLOY_CADDY_ALLOW_BEHIND) {
+  const b = commitsBehindOrigin((args) => spawnSync('git', args, { encoding: 'utf8' }));
+  if (b.error || b.behind > 0) {
+    console.error(b.error
+      ? `Refusing to deploy: ${b.error}, so whether this checkout is current is unknown.`
+      : `Refusing to deploy: this checkout is ${b.behind} commit(s) behind origin/main, and the Caddyfile it would copy up may be out of date.`);
+    console.error('Update the checkout (git merge --ff-only origin/main) and re-run, or pass --allow-behind to deploy this file anyway.');
+    process.exit(1);
+  }
+}
+
 const scpArgs = [...(KEY ? ['-i', KEY] : []), 'Caddyfile', `${HOST}:`];
 const sshArgs = [...(KEY ? ['-i', KEY] : []), '-t', HOST, remote];
 
