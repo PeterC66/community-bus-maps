@@ -143,8 +143,8 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "2319137043e8fc40a0fe1ad5eca9570e2ed9ab843b48a76f3d15b36e4df529d8",
-      "vendoredOn": "2026-10-02",
+      "sha256": "d0013ef3b2af649fc004eda079a262857230c3e3f584f7513707fc70eccf58e5",
+      "vendoredOn": "2026-10-03",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
     {
@@ -334,6 +334,13 @@
       "source": "make-bus-leaflet/assets/trunk_segments.js",
       "sha256": "162d78b4b82d29e70018ada01e645f0c76d62c25429456a76d39aae55cc92cbe",
       "vendoredOn": "2026-10-02"
+    },
+    {
+      "path": "road_labels.js",
+      "kind": "vendored",
+      "source": "make-bus-leaflet/assets/road_labels.js",
+      "sha256": "320c3b9a08857a412c0f0949751673de59aaa74cfcb74d94432a0578d9045d5a",
+      "vendoredOn": "2026-10-03"
     }
   ]
 }
