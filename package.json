@@ -57,6 +57,7 @@
     "test:seed-demo": "node scripts/test-seed-demo.mjs",
     "test:delete-map": "node scripts/test-delete-map.mjs",
     "test:map-description": "node scripts/test-map-description.mjs",
+    "test:description-unsaved": "node scripts/test-description-unsaved.mjs",
     "test:propose-no-notify": "node scripts/test-propose-update-no-notify.mjs",
     "test:newest-render": "node scripts/test-newest-render.mjs",
     "test:local-decisions": "node scripts/test-local-decisions.mjs",

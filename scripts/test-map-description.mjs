@@ -27,6 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cleanDescription, DESCRIPTION_MAX } from '../src/maps/description.js';
+import { linkifyDescription } from '../public/js/shared/linkify.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -101,7 +102,19 @@ check('the PATCH route is registered', /app\.patch\('\/:id\/description'/.test(r
 check('and recorded in the route table', JSON.parse(read('scripts', 'route-table.json')).includes('PATCH /api/maps/:id/description'));
 check('the public meta description prefers the stored sentence', /m\.description\s*\?\s*m\.description/.test(read('src', 'routes', 'public.js')));
 check('the public listing carries it', /description: row\.description/.test(read('src', 'public', 'index.js')));
-check('the public page shows it', /\$\('lead'\)\.textContent = map\.description/.test(read('public', 'js', 'public-map.js')));
+check('the public page shows it, through the linkifier', /\$\('lead'\)\.innerHTML = linkifyDescription\(map\.description\)/.test(read('public', 'js', 'public-map.js')));
+
+console.log('');
+console.log('5  a URL in the sentence becomes a link, and nothing else becomes markup');
+const L = linkifyDescription;
+check('plain text is only escaped', L('Tom & Jerry "x"') === 'Tom &amp; Jerry &quot;x&quot;');
+check('a bare busmaps.uk path is a link to this site, with no rel', L('see busmaps.uk/m/high-wycombe-town-centre.') === 'see <a href="https://busmaps.uk/m/high-wycombe-town-centre">busmaps.uk/m/high-wycombe-town-centre</a>.');
+check('a full https URL on this site is the same', L('https://busmaps.uk/m/x') === '<a href="https://busmaps.uk/m/x">https://busmaps.uk/m/x</a>');
+check('another host gets nofollow noopener', L('at https://example.org/a?b=1&c=2, ok') === 'at <a href="https://example.org/a?b=1&amp;c=2" rel="nofollow noopener">https://example.org/a?b=1&amp;c=2</a>, ok');
+check('a lookalike host is not this site', /rel="nofollow noopener"/.test(L('https://busmaps.uk.evil.example/x')));
+check('markup is escaped, not passed', L('<script>alert(1)</script>') === '&lt;script&gt;alert(1)&lt;/script&gt;');
+check('a quote cannot open an attribute', !/<a [^>]*onmouseover/.test(L('https://example.org/"onmouseover="x')));
+check('empty and non-strings are empty', L('') === '' && L(null) === '');
 
 console.log('');
 if (failures) { console.error(`${failures} check(s) failed`); process.exit(1); }
