@@ -143,7 +143,7 @@
       "path": "place/gen_internal.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/gen_internal.js",
-      "sha256": "d0013ef3b2af649fc004eda079a262857230c3e3f584f7513707fc70eccf58e5",
+      "sha256": "c4ca991fae810f97854589b2030acc9b161d61b74920b84a7f446af84f1fc0dc",
       "vendoredOn": "2026-10-03",
       "note": "Shared by area and place maps and vendored ONCE, here — engine/area/README.md explains why it is deliberately not copied a second time."
     },
@@ -199,8 +199,8 @@
       "path": "svg_primitives.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/svg_primitives.js",
-      "sha256": "fb4910e237f62da7b1d97ebabb8d27db045cf3f5048a1e91d9bb43fa239f631d",
-      "vendoredOn": "2026-09-02",
+      "sha256": "0ec2fe19ae6ce073d842e9fe623d8ea931650f315e660649a79ce824a4213758",
+      "vendoredOn": "2026-10-03",
       "note": "The eight small marks the internal sheet is drawn out of — esc, gk, the badge measurements, badge/badgeStack/cross. Required at load by gen_internal.js."
     },
     {
