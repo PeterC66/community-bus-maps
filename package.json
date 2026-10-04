@@ -178,6 +178,8 @@
     "test:adviser-seat": "node scripts/test-adviser-seat.mjs",
     "test:prove-red-adviser-seat": "node scripts/prove-red-adviser-seat.mjs",
     "test:client-scripts": "node scripts/test-client-scripts.mjs",
+    "test:route-focus": "node scripts/test-route-focus.mjs",
+    "test:prove-red-route-focus": "node scripts/prove-red-route-focus.mjs",
     "test:magic-link-email": "node scripts/test-magic-link-email.mjs"
   },
   "dependencies": {

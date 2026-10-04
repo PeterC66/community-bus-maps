@@ -612,6 +612,13 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 8px; letter-spacing: -0.
 .viewer-btn:disabled { opacity: .45; cursor: default; }
 .viewer-btn-wide { font-weight: 600; font-size: .92rem; }
 .viewer-hint { color: var(--muted); font-size: .85rem; }
+/* Route focus (buses-data OA-551): one route's ink and badges stay at full
+   strength, every other route's drop back. Only a sheet built with
+   design.routeTags has anything to match, so an older sheet is unchanged. */
+.viewer-routes { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.viewer-route[aria-pressed="true"] { background: var(--primary); color: #fff; border-color: var(--primary); }
+.viewer-canvas svg.routes-live g[data-route]:not([data-kind]) { cursor: pointer; }
+.viewer-canvas svg[data-active] g[data-route]:not(.route-on) { opacity: .15; }
 .viewer-stage {
   position: relative; overflow: hidden;
   /* A4 landscape, capped so a tall window does not hand over a stage taller than

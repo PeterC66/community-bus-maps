@@ -45,6 +45,47 @@
     return _metric;
   }
 
+  // Route focus (buses-data OA-551). A sheet built with design.routeTags keeps a
+  // `data-route` on every route's ink and wraps every badge in `<g data-route>`;
+  // this dims all of them but one route's. Ink also carries `data-kind`, a badge
+  // does not, which is how a click on a badge is told from one on a line. An
+  // older sheet has no such element, `keys` comes back empty and the viewer
+  // offers nothing, so an unrebuilt map degrades to exactly what it was.
+  var INK = 'g[data-route]', BADGE = 'g[data-route]:not([data-kind])';
+  function each(list, fn) { for (var i = 0; i < list.length; i++) fn(list[i], i); }
+  function routeFocus(root) {
+    var all = root.querySelectorAll(INK), keys = [], active = null;
+    each(all, function (n) {
+      var k = n.getAttribute('data-route');
+      if (k && keys.indexOf(k) < 0) keys.push(k);
+    });
+    function clear() {
+      active = null;
+      root.removeAttribute('data-active');
+      each(all, function (n) { n.classList.remove('route-on'); });
+    }
+    function set(key) {
+      active = key;
+      root.setAttribute('data-active', key);
+      each(all, function (n) {
+        if (n.getAttribute('data-route') === key) n.classList.add('route-on');
+        else n.classList.remove('route-on');
+      });
+    }
+    if (keys.length) root.classList.add('routes-live');
+    return {
+      keys: keys,
+      active: function () { return active; },
+      clear: clear,
+      toggle: function (key) { if (active === key) clear(); else set(key); return active; },
+      // The route a click landed on, or null when it was not on a badge.
+      badgeAt: function (target) {
+        var b = target && target.closest ? target.closest(BADGE) : null;
+        return b ? b.getAttribute('data-route') : null;
+      }
+    };
+  }
+
   function el(tag, cls, html) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -87,11 +128,59 @@
     var hint = el('span', 'viewer-hint', 'Drag to move · pinch or use + and &minus; to zoom · arrow keys work too');
     bar.appendChild(hint);
 
+    // One real button per route, for the keyboard and a screen reader: the badges
+    // in the SVG can be clicked, but the picture itself has no tab stops.
+    var routesBar = el('div', 'viewer-routes');
+    routesBar.setAttribute('role', 'group');
+    routesBar.setAttribute('aria-label', 'Show one route only');
+    routesBar.hidden = true;
+
     host.appendChild(bar);
+    host.appendChild(routesBar);
     host.appendChild(stage);
     host.appendChild(live);
 
-    var scale = 1, tx = 0, ty = 0, raster = false;
+    var scale = 1, tx = 0, ty = 0, raster = false, focus = null;
+
+    function syncRoutes() {
+      var on = focus ? focus.active() : null;
+      each(routesBar.children, function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-route') === on ? 'true' : 'false');
+      });
+    }
+    function pickRoute(key) {
+      if (!focus) return;
+      var on = focus.toggle(key);
+      syncRoutes();
+      live.textContent = on ? 'Showing route ' + on + ' only; the other routes are dimmed.' : 'All routes shown.';
+    }
+    function clearRoute() {
+      if (!focus || focus.active() === null) return false;
+      focus.clear();
+      syncRoutes();
+      live.textContent = 'All routes shown.';
+      return true;
+    }
+    function startRoutes(svg) {
+      try {
+        focus = routeFocus(svg);
+        if (!focus.keys.length) { focus = null; return; }
+        focus.keys.forEach(function (k) {
+          var b = el('button', 'viewer-btn viewer-route', null);
+          b.type = 'button';
+          b.textContent = k;
+          b.setAttribute('data-route', k);
+          b.setAttribute('aria-pressed', 'false');
+          b.setAttribute('aria-label', 'Show route ' + k + ' only');
+          b.addEventListener('click', function () { pickRoute(k); });
+          routesBar.appendChild(b);
+        });
+        routesBar.hidden = false;
+      } catch (e) { focus = null; routesBar.innerHTML = ''; routesBar.hidden = true; }
+    }
+    routesBar.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && clearRoute()) e.preventDefault();
+    });
 
     function apply() {
       // Keep at least a third of the sheet on screen in each direction.
@@ -126,8 +215,9 @@
     resetB.addEventListener('click', function () { reset(); stage.focus(); });
 
     // --- pointer drag + pinch ---
-    var pointers = new Map(), lastMid = null, lastDist = 0, moved = false;
+    var pointers = new Map(), lastMid = null, lastDist = 0, moved = false, downRoute = null;
     stage.addEventListener('pointerdown', function (e) {
+      downRoute = focus ? focus.badgeAt(e.target) : null;
       if (raster && scale === 1) return;             // nothing to drag yet
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       stage.setPointerCapture(e.pointerId);
@@ -155,7 +245,15 @@
       pointers.delete(e.pointerId);
       if (pointers.size < 2) { lastDist = 0; lastMid = null; }
     }
-    stage.addEventListener('pointerup', endPointer);
+    // A press on a badge that did not turn into a drag is a click on its route.
+    // It is read here, not from `click`, because the stage holds pointer capture
+    // and some browsers then aim the click at the stage instead of the badge.
+    stage.addEventListener('pointerup', function (e) {
+      var hit = !moved && downRoute && pointers.size === 1 ? downRoute : null;
+      downRoute = null;
+      endPointer(e);
+      if (hit) pickRoute(hit);
+    });
     stage.addEventListener('pointercancel', endPointer);
     function pts() { return Array.from(pointers.values()); }
     function spread() { var p = pts(); return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); }
@@ -184,6 +282,7 @@
       if (k === '+' || k === '=') zoomTo(scale * STEP);
       else if (k === '-' || k === '_') zoomTo(scale / STEP);
       else if (k === '0') reset();
+      else if (k === 'Escape') { if (!clearRoute()) return; }
       else if (k === 'ArrowLeft') { tx += pan; apply(); }
       else if (k === 'ArrowRight') { tx -= pan; apply(); }
       else if (k === 'ArrowUp') { ty += pan; apply(); }
@@ -199,6 +298,9 @@
       reset();
       canvas.innerHTML = '';
       raster = false;
+      focus = null;
+      routesBar.innerHTML = '';
+      routesBar.hidden = true;
       stage.setAttribute('aria-label', label + ' — zoomable map. Use the arrow keys to move and plus or minus to zoom.');
       var useSvg = o.inlineUrl && (hasMetricFont() || opts.noRaster);
       if (!useSvg) return showRaster(o, label);
@@ -207,6 +309,8 @@
         .then(function (svg) {
           canvas.innerHTML = svg;
           host.classList.add('is-vector');
+          var root = canvas.querySelector('svg');
+          if (root) startRoutes(root);
         })
         .catch(function () {
           if (opts.noRaster) { if (opts.onFail) opts.onFail(label); return; }
@@ -228,5 +332,5 @@
     return { show: show, reset: reset, useRaster: function (o, l) { showRaster(o, l); } };
   }
 
-  window.CBMViewer = { create: create, hasMetricFont: hasMetricFont };
+  window.CBMViewer = { create: create, hasMetricFont: hasMetricFont, routeFocus: routeFocus };
 })();
