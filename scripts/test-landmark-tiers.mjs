@@ -334,7 +334,7 @@ console.log('\nthe editable key universe, on a fixture — the half CI can run')
     eq('an unnamed sports centre is offered but not selected',
       (cand.find((c) => c.key === 'leisure:Leisure') || {}).tier, 'miss');
 
-    eq('the editable universe is every one of them', editablePoiKeysFromDir(fixture).sort(), [...ALL].sort());
+    eq('the editable universe is every one of them (and an osm: key beside each)', editablePoiKeysFromDir(fixture).filter((k) => !k.startsWith('osm:')).sort(), [...ALL].sort());
     check('and it does not admit a key the fixture never described',
       !editablePoiKeysFromDir(fixture).includes('shop:Nothing Here'), 'the universe admits invented keys');
 
@@ -390,6 +390,51 @@ console.log('\nthe editable key universe, on a fixture — the half CI can run')
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
+}
+
+// ---------------------------------------------------------------------------
+// OA-250: a same-name pair is answered by its OpenStreetMap element id. The
+// chooser's key is `<cat>:<name>` for every place nobody shares a name with, so
+// no answer a customer has already given moves; it becomes `osm:<type>/<id>`
+// only for a candidate whose `<cat>:<name>` another candidate also carries. The
+// engine reads the `osm:` key first (poi_select.js keyedAnswer), and the safe
+// subset accepts it because editablePoiKeysFromDir() lists it.
+// ---------------------------------------------------------------------------
+console.log('\na same-name pair is told apart by osm: (OA-250)');
+{
+  const { enumerateCandidatesFromDir, editablePoiKeysFromDir, answerKeys } = await import('../src/maps/engine.js');
+  const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs');
+  const os = (await import('node:os')).default;
+  const node = (id, lat, lon, tags) => ({ type: 'node', id, lat, lon, tags });
+  // Two Aldis a kilometre apart, so de-duplication keeps both, and a Boots alone.
+  const OSM = [
+    node(11, 52.500, 0.100, { shop: 'supermarket', name: 'Aldi' }),
+    node(12, 52.520, 0.120, { shop: 'supermarket', name: 'Aldi' }),
+    node(13, 52.540, 0.140, { amenity: 'pharmacy', name: 'Boots' }),
+  ];
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cbm-osmkey-'));
+  try {
+    writeFileSync(path.join(dir, 'osm.json'), JSON.stringify({ elements: OSM }));
+    writeFileSync(path.join(dir, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: {} }));
+    const cand = enumerateCandidatesFromDir(dir);
+    const keys = answerKeys(cand);
+    const keyOfName = (name) => cand.filter((c) => c.name === name).map((c) => keys.get(c)).sort();
+    eq('each Aldi is keyed by its own element id', keyOfName('Aldi'), ['osm:node/11', 'osm:node/12']);
+    eq('a name nobody shares keeps its cat:name key', keyOfName('Boots'), ['pharmacy:Boots']);
+    const uni = editablePoiKeysFromDir(dir);
+    check('the safe subset universe admits both osm: keys',
+      uni.includes('osm:node/11') && uni.includes('osm:node/12'), 'an osm: key is not in the editable universe');
+    check('...and still the shared cat:name', uni.includes('shop:Aldi'), 'shop:Aldi left the universe');
+    const { sanitizeOverrides: sanitize } = await import('../src/maps/safeSubset.js');
+    const out = sanitize({ internal: { poiTiers: { 'osm:node/12': { tier: 'must' }, 'osm:node/99': { tier: 'must' } } } },
+      { palette, poiKeys: uni });
+    eq('an answer for one Aldi is kept', Object.keys((out.overrides.internal || {}).poiTiers || {}), ['osm:node/12']);
+    // The engine honours it, for the one place and not its twin.
+    writeFileSync(path.join(dir, 'routes.json'), JSON.stringify({ town: 'Fixture', poi: { tiers: { 'osm:node/12': { tier: 'must' } } } }));
+    const after = enumerateCandidatesFromDir(dir);
+    eq('the answered Aldi is must', (after.find((c) => c.osm === 'node/12') || {}).tier, 'must');
+    check('its twin is not', (after.find((c) => c.osm === 'node/11') || {}).tier !== 'must', 'the twin took the answer');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
 // ---------------------------------------------------------------------------

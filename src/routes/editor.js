@@ -44,7 +44,7 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { getCustomer, getMap, getMapBySlug, getOpenRequestForMap, getPublicMapBySlug, getVersion, insertMap, insertMessage, insertPublishRequest, insertVersion, listMaps, nextVersion, quotaUsage, setCurrentVersion, setMapBannerNote, setMapDescription, setMapOutputs, setMapPublicListed, setVersionState, withdrawPublishRequest } from '../db/index.js';
 import { mapPageUrl } from '../public/index.js';
 import { cleanDescription } from '../maps/description.js';
-import { categorySwitchesFromDir, chooseOutputs, editablePoiKeysFromDir, enumerateCandidatesFromDir, outputsForClient, outputsNeedingRender, packPoiTiers, preview, readOverrides, readRoutesMeta, renderVersion } from '../maps/engine.js';
+import { answerKeys, categorySwitchesFromDir, chooseOutputs, editablePoiKeysFromDir, enumerateCandidatesFromDir, outputsForClient, outputsNeedingRender, packPoiTiers, preview, readOverrides, readRoutesMeta, renderVersion } from '../maps/engine.js';
 import { sanitizeOverrides } from '../maps/safeSubset.js';
 import { mergeGenWarnings } from '../render/genWarnings.js';
 import { OUTPUTS, OUTPUT_FILES, mapDataDir, versionDir } from '../maps/store.js';
@@ -200,13 +200,15 @@ export default async function editorRoutes(app) {
     // category the CUSTOMER switched off is not listed, because their switch
     // beats every tier.
     const include = savedPoiInclude(id);
-    const cand = enumerateCandidatesFromDir(mapDataDir(id), tiers, include).map((p) => ({
-      key: p.key, cat: p.cat, name: p.name, ll: p.ll,
+    const raw = enumerateCandidatesFromDir(mapDataDir(id), tiers, include);
+    const keyOf = answerKeys(raw);       // `osm:` only where cat:name is shared (OA-250)
+    const cand = raw.map((p) => ({
+      key: keyOf.get(p), cat: p.cat, name: p.name, ll: p.ll,
       tier: p.tier === 'may' && hidden.has(p.key) ? 'miss' : p.tier,
       as: p.as || null,
       printsName: !!p.printsName,
       fromHide: p.tier === 'may' && hidden.has(p.key),
-      answered: answeredKeys.has(p.key) || hidden.has(p.key),
+      answered: answeredKeys.has(keyOf.get(p)) || answeredKeys.has(p.key) || hidden.has(p.key),
     }));
     return {
       ok: true,
