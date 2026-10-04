@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.8 | 2026-09-21 | sha=1216b1aa -->
-**v1.8** · updated 21 September 2026
+<!-- docstamp v1.9 | 2026-10-04 | sha=b1fe7f58 -->
+**v1.9** · updated 4 October 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -23,6 +23,7 @@ In **Applications → Approve**, you can set:
 
 - **Quota** — area maps (default **1**) + place maps (default **3**), per Pol1.
 - **Editor name** — defaults to the applicant's contact name.
+- **How we serve them** — `free` (the default: self-service, they have the editor and the portal's own emails) or `managed` (we look after the map and the portal emails them nothing). It is a choice from a list, and the same list is the **Plan** column on the Customers screen, where it can be changed later. **Choosing `managed` does not stop the sign-in invite this step issues**, which is not one of the five emails a managed customer is spared; if the customer is never to receive an invitation, say so before you press the button.
 
 Approving, in one action:
 

@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS customer (
   name          TEXT NOT NULL,
   type          TEXT NOT NULL DEFAULT 'other',   -- council|shop|business|school|function-organiser|charity-nt|other
   status        TEXT NOT NULL DEFAULT 'active',  -- active|suspended
-  plan          TEXT NOT NULL DEFAULT 'free',    -- dormant (payments off until later)
+  plan          TEXT NOT NULL DEFAULT 'free',    -- free|managed — how we serve them; src/db/enums.js; payments off until later
   quota_areas   INTEGER NOT NULL DEFAULT 1,      -- how many area maps this customer may hold
   quota_places  INTEGER NOT NULL DEFAULT 3,      -- how many place maps
   branding_json TEXT NOT NULL DEFAULT '{}',      -- P6: public-facing branding (public name, website, blurb, emoji, accent)

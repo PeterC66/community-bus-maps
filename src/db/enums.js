@@ -61,11 +61,33 @@ export const REVIEW_STATES = ['draft', 'pending', 'published', 'superseded', 're
  */
 export const USER_ROLES = ['adviser', 'editor', 'approver', 'admin'];
 
+/**
+ * `customer.plan` — how a customer is served. It JOINED THIS FILE on 2026-10-04
+ * (buses-data OA-468's follow-up), after being a free-text box on the admin
+ * Customers screen since the column was added.
+ *
+ * WHY IT IS NOT FREE TEXT ANY MORE. `managed` is the one value the code reads
+ * (src/email/notify.js `isManaged()`): it silences five emails and makes a
+ * publication ask for the customer's emailed yes. A typed `managd` or `Managed `
+ * therefore did not fail — it quietly made the customer NON-managed, and the
+ * portal then emailed a customer Peter had promised would hear only from him.
+ * That is the same fault this file was written for, on a column where the wrong
+ * value sends mail rather than hides a map.
+ *
+ * `free` is the default and means the self-service pilot: the customer has the
+ * editor, and gets the portal's own emails. `managed` means we look after the
+ * map and the portal emails them nothing. The word is a service mode that has
+ * borrowed the billing column; no price is attached to either value (payments
+ * are off), and a price, when there is one, is a separate decision.
+ */
+export const CUSTOMER_PLANS = ['free', 'managed'];
+
 /** Every enum this module owns, keyed by `table.column`. One place to iterate. */
 export const ENUMS = {
   'map.status': MAP_STATUSES,
   'map_version.review_state': REVIEW_STATES,
   'user.role': USER_ROLES,
+  'customer.plan': CUSTOMER_PLANS,
 };
 
 const quote = (v) => `'${String(v).replace(/'/g, "''")}'`;

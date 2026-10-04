@@ -94,8 +94,13 @@ check('an unknown kind is swallowed, not thrown', bad.sent === 0);
   for (const kind of MANAGED_SILENT_KINDS) {
     eq(`${kind}: a managed customer is not sent it`, await notify(kind, { customerId: mgdId, log: quiet, ...fields }), { sent: 0, skipped: 0, managed: true });
   }
-  db.updateCustomerAdmin(mgdId, { plan: ' Managed ' });
-  check('a typed " Managed " still counts', isManaged(mgdId));
+  // A padded or mis-cased spelling used to be storable and was read as managed.
+  // customer.plan is an enum now (scripts/test-customer-plan.mjs), so it is refused
+  // at the door, and the customer is exactly as managed as before the attempt.
+  let refused = null;
+  try { db.updateCustomerAdmin(mgdId, { plan: ' Managed ' }); } catch (e) { refused = e.message; }
+  check('a typed " Managed " is refused, not stored', /must be one of: free, managed/.test(refused || ''), String(refused));
+  check('…and the customer is still managed', isManaged(mgdId));
   db.updateCustomerAdmin(mgdId, { plan: 'free' });
   eq('control: the same customer on plan free IS sent it (one attempt)', await notify('published', { customerId: mgdId, log: quiet, ...fields }), { sent: 0, skipped: 1 });
   db.updateCustomerAdmin(mgdId, { plan: 'managed' });
