@@ -182,26 +182,42 @@ export function isMajorChange(summary) {
  * really does need answering again. The generator says the same thing from the
  * other side, by putting the orphaned key in `unknownTierKeys`.
  *
- * @param {{key:string,cat:string,name:string}[]} from  the live build's candidates
+ * A SAME-NAME PAIR is told apart by its element id (OA-250): where a key is
+ * shared, a second Aldi arriving beside the first is an arrival.
+ *
+ * @param {{key:string,cat:string,name:string,osm?:string}[]} from  the live build's candidates
  * @param {{key:string,cat:string,name:string}[]} to    the staged build's candidates
  * @returns {{added:{key:string,cat:string,name:string}[], removed:{...}[]}}
  */
 export function diffLandmarks(from, to) {
-  const list = (v) => (Array.isArray(v) ? v : []);
-  const pick = (p) => ({ key: String(p.key), cat: String(p.cat || ''), name: String(p.name || '') });
-  const byKey = (a, b) => a.key.localeCompare(b.key);
-  const fromKeys = new Set(list(from).map((p) => String(p && p.key)));
-  const toKeys = new Set(list(to).map((p) => String(p && p.key)));
+  const list = (v) => (Array.isArray(v) ? v.filter(Boolean) : []);
+  const f = list(from), t = list(to);
+  const pick = (p) => ({ key: String(p.key), cat: String(p.cat || ''), name: String(p.name || ''), ...(p.osm ? { osm: String(p.osm) } : {}) });
+  const byKey = (a, b) => a.key.localeCompare(b.key) || String(a.osm || '').localeCompare(String(b.osm || ''));
+  // A key shared by two or more candidates on either side is a same-name pair
+  // (OA-250). Presence of the key cannot see one of them arrive beside the other,
+  // so for those keys, and only those, the element id is the identity. Every other
+  // key stays `<cat>:<name>`, so an element that merely changed id between builds
+  // is not reported as a departure plus an arrival.
+  const count = new Map();
+  for (const side of [f, t]) {
+    const n = new Map();
+    for (const p of side) n.set(String(p.key), (n.get(String(p.key)) || 0) + 1);
+    for (const [k, c] of n) if (c > 1) count.set(k, c);
+  }
+  const idOf = (p) => (count.has(String(p.key)) && p.osm ? `${p.key} ${p.osm}` : String(p.key));
+  const fromIds = new Set(f.map(idOf));
+  const toIds = new Set(t.map(idOf));
   // De-duplicated on the way out: two candidates really can share one key since
   // OA-234 (two unnamed pharmacies), and one arrival should be reported once.
   const uniq = (arr) => {
     const seen = new Set(); const out = [];
-    for (const p of arr) { if (seen.has(p.key)) continue; seen.add(p.key); out.push(p); }
+    for (const p of arr) { const id = idOf(p); if (seen.has(id)) continue; seen.add(id); out.push(p); }
     return out;
   };
   return {
-    added: uniq(list(to).filter((p) => p && !fromKeys.has(String(p.key))).map(pick)).sort(byKey),
-    removed: uniq(list(from).filter((p) => p && !toKeys.has(String(p.key))).map(pick)).sort(byKey),
+    added: uniq(t.filter((p) => !fromIds.has(idOf(p)))).map(pick).sort(byKey),
+    removed: uniq(f.filter((p) => !toIds.has(idOf(p)))).map(pick).sort(byKey),
   };
 }
 

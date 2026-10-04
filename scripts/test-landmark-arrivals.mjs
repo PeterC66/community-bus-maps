@@ -87,6 +87,23 @@ console.log('\ndiffLandmarks() — the pure half');
 }
 
 {
+  // OA-250: a second same-name place arriving beside the first is invisible to a
+  // diff on the key alone — the key was present before.
+  const aldi = (osm) => ({ ...p('shop:Aldi', 'Aldi'), osm });
+  const d = diffLandmarks([aldi('node/1')], [aldi('node/1'), aldi('way/2')]);
+  eq('a twin arriving beside the first Aldi is an arrival', d.added.map((x) => x.osm), ['way/2']);
+  eq('…and nothing is removed', keys(d.removed), []);
+  const same = diffLandmarks([aldi('node/1'), aldi('way/2')], [aldi('way/2'), aldi('node/1')]);
+  check('an unchanged pair, in another order, reports nothing', !same.added.length && !same.removed.length);
+  const swap = diffLandmarks([aldi('node/1'), aldi('way/2')], [aldi('node/1'), aldi('way/3')]);
+  eq('one of a pair replaced is one arrival', swap.added.map((x) => x.osm), ['way/3']);
+  eq('…and one departure', swap.removed.map((x) => x.osm), ['way/2']);
+  const lone = diffLandmarks([aldi('node/1')], [aldi('way/9')]);
+  check('a lone place whose element id changed is NOT an arrival plus a departure',
+    !lone.added.length && !lone.removed.length, JSON.stringify(lone));
+}
+
+{
   const d = diffLandmarks(null, undefined);
   check('null inputs are empty rather than a throw', d.added.length === 0 && d.removed.length === 0);
 }
