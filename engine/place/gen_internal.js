@@ -1022,14 +1022,14 @@ function reserveIcon(s){
 }
 // OA-522: an opt-in symbol gives way, placed LAST and clear of route ink, badges and all reserved (poi_select.js).
 const optInFree=(x,y)=>{ const b=[x-POI_HALF, y-POI_HALF, x+POI_HALF, y+POI_HALF]; return inFrame([x,y]) && !inCore([x,y]) && !overlapsRound(b) && !BADGE_MARKS.some(m=>hit(b,[m.x-m.w, m.y-m.h, m.x+m.w, m.y+m.h])); };
+const optInInkFree=(()=>{ let INK=null; return (x,y)=>{ if(!INK){ const pal=new Set(Object.values(C||{}).map(v=>String(v).toLowerCase())); INK=new Labeller({ page:[W,H] }).stampSvg(s, st=>pal.has(st)).ink; } return optInFree(x,y) && !INK.any([x-POI_HALF+0.3, y-POI_HALF+0.3, x+POI_HALF-0.3, y+POI_HALF-0.3]); }; })();   // route ink read once, shared by both looks
 function placeOptIns(){
   const mine=pois.map(p=>({p,t:poiSite(p)})).filter(e=>e.t && givesWay(e.p,e.t.o)); if(!mine.length) return;
-  const pal=new Set(Object.values(C||{}).map(v=>String(v).toLowerCase())), INK=new Labeller({ page:[W,H] }).stampSvg(s, st=>pal.has(st)).ink;
-  const off=placeOptInSymbols(mine, { free:(x,y)=>optInFree(x,y) && !INK.any([x-POI_HALF+0.3, y-POI_HALF+0.3, x+POI_HALF-0.3, y+POI_HALF-0.3]), place:(e,at)=>{ optInNudge(poiNudge,e,at); reserveIcon(poiSite(e.p)); } });
+  const off=placeOptInSymbols(mine, { free:optInInkFree, place:(e,at)=>{ optInNudge(poiNudge,e,at); reserveIcon(poiSite(e.p)); } });
   for(const e of off){ OPTIN_OFF.add(e.t.u); STRANDED.push(e); }
 }
-// OA-559: once every label is queued, a NAMED symbol left off is seated where it unseats no label and its own name seats (poi_select.js).
-const seatStranded=()=>optInNote(seatStrandedSymbols(STRANDED, { free:optInFree, ctx:{ LAB, labelRequest, poiBox, notToScale:RJ.notToScale, half:POI_HALF },
+// OA-559: once every label is queued, a NAMED symbol left off is seated where it unseats no label and its own name seats (poi_select.js). Route ink is allowed unless a map sets design.strandedOnInk:false (Godmanchester Co-op Cambridge Road v1.30 seated two pubs on the X3 ribbon; Beaconsfield's The Chiltern and Ely's The High Flyer are seated on ink on purpose).
+const seatStranded=()=>optInNote(seatStrandedSymbols(STRANDED, { free:DESIGN.strandedOnInk===false ? optInInkFree : optInFree, ctx:{ LAB, labelRequest, poiBox, notToScale:RJ.notToScale, half:POI_HALF },
   seat:(e,at)=>{ optInNudge(poiNudge,e,at); OPTIN_OFF.delete(e.t.u); reserveIcon(poiSite(e.p)); poiMark(e.p); } }).map(e=>e.p.name||e.p.cat));
 /* The `must` tier (poi.tiers — OA-202, and the key OA-066 had been waiting for).
  * Three things follow from a customer saying a place matters, and they are one
@@ -2549,7 +2549,7 @@ if(IR && TRIM){
           const only = DESIGN.exitDevice ? inboardKeys(-dx,-dy) : null;
           pendingTermini.push({ id:'term:'+gidx+':'+g.ms.map(m=>m.r).join('-')+'@'+bx.toFixed(1)+','+ry.toFixed(1),
             at:[(rx0+rx1)/2, ry], leaderFrom:rowMarks, text, size:sz, fill:col, priority:20, wrap:false, mustPlace:true,
-            ...(EXIT_IN_PANEL?{bounds:{x0:1, y0:1, x1:297-(PRINT_SAFE!=null?PRINT_SAFE:1), y1:FOOTER_PLATE_TOP-0.4}}:{}),
+            ...(EXIT_IN_PANEL?{bounds:{x0:1, y0:1, x1:297-(PRINT_SAFE!=null?PRINT_SAFE:1), y1:FOOTER_PLATE_TOP-0.4}}:LAB&&DESIGN.exitInFrame?{bounds:{x0:MX0, y0:MY0, x1:MX1, y1:MY1}}:{}), // exitInFrame (OA-561)
             ...(only?{only, leader:false}:{}) });
           return;
         }
