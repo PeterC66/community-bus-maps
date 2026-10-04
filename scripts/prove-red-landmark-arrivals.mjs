@@ -122,14 +122,20 @@ const MUTATIONS = [
   {
     what: 'arrivals are measured against the wrong side',
     why: 'the set difference is the whole of this feature; inverted, a steady map reports its entire landmark list as new every month',
-    edits: [[REFRESH, 'added: uniq(list(to).filter((p) => p && !fromKeys.has(String(p.key))).map(pick)).sort(byKey),',
-      'added: uniq(list(to).filter((p) => p && !toKeys.has(String(p.key))).map(pick)).sort(byKey),']],
+    edits: [[REFRESH, 'added: uniq(t.filter((p) => !fromIds.has(idOf(p)))).map(pick).sort(byKey),',
+      'added: uniq(t.filter((p) => !toIds.has(idOf(p)))).map(pick).sort(byKey),']],
     expect: 'two arrivals, sorted by key',
+  },
+  {
+    what: 'a same-name pair is told apart by key alone again',
+    why: 'a second Aldi arriving beside the first shares a key already present, so no arrival is reported and the customer is never told a new place has no answer (OA-250)',
+    edits: [[REFRESH, 'count.has(String(p.key)) && p.osm ?', 'false && p.osm ?']],
+    expect: 'a twin arriving beside the first Aldi is an arrival',
   },
   {
     what: 'two candidates sharing one key are reported twice',
     why: 'a key really can be shared since OA-234 (two unnamed pharmacies), and one arrival counted twice is a number a customer cannot reconcile with the list',
-    edits: [[REFRESH, 'if (seen.has(p.key)) continue; seen.add(p.key); out.push(p);', 'out.push(p);']],
+    edits: [[REFRESH, 'if (seen.has(id)) continue; seen.add(id); out.push(p);', 'out.push(p);']],
     expect: 'two candidates sharing a key are one arrival',
   },
   {
