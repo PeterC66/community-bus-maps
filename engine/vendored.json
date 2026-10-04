@@ -346,7 +346,7 @@
       "path": "note_place.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/note_place.js",
-      "sha256": "459397d86b90e7ac1f2597f52460d38136b5443152b6f2ce0ed743d3296bc156",
+      "sha256": "97464eeebc787e03507b51942e33d97b75df52d29bc2a5d9325df6d3f61951f8",
       "vendoredOn": "2026-10-04"
     }
   ]
