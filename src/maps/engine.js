@@ -503,9 +503,37 @@ export function editablePoiKeysFromDir(dataDir, tiersOverlay = null) {
   const keys = new Set();
   let everyCat = null;
   try { everyCat = allSwitchedOn(poiSelectRequire(path.join(ENGINE_DIR, 'poi_select.js')).OPT_IN_CATS); } catch { everyCat = null; }
-  for (const p of enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat)) keys.add(p.key);
+  const cands = enumerateCandidatesFromDir(dataDir, tiersOverlay, everyCat);
+  for (const p of cands) {
+    keys.add(p.key);
+    // The stable key a customer may answer ONE place of a same-name pair by
+    // (buses-data OA-250). Accepted for every candidate that carries an element
+    // id, though the chooser only writes it where `<cat>:<name>` collides.
+    if (p.osm) keys.add('osm:' + p.osm);
+  }
   for (const p of enumeratePoisFromDir(dataDir)) keys.add(p.key);
   return [...keys];
+}
+
+/**
+ * The key the chooser answers a candidate by (buses-data OA-250): `osm:<type>/<id>`
+ * where its `<cat>:<name>` is shared with another candidate and it carries an
+ * element id, else the `<cat>:<name>` every answer has always been keyed by.
+ *
+ * Only a collision earns the longer key, so no existing answer moves: a customer
+ * who answered Aldi before there was a second Aldi keeps their key, and the pair
+ * is what needed telling apart. The engine reads the `osm:` key first
+ * (poi_select.js keyedAnswer), so the answer lands on the one place it names.
+ *
+ * @param {{ key:string, osm?:string }[]} cands  report.candidates
+ * @returns {Map<object,string>} candidate -> the key to answer it by
+ */
+export function answerKeys(cands) {
+  const n = new Map();
+  for (const p of cands) n.set(p.key, (n.get(p.key) || 0) + 1);
+  const out = new Map();
+  for (const p of cands) out.set(p, p.osm && n.get(p.key) > 1 ? 'osm:' + p.osm : p.key);
+  return out;
 }
 
 // The drawn-POI universe is static for an imported map (it only changes if the
