@@ -59,6 +59,7 @@ const areaDir = payload('area', {
   },
   'routes_intown_atco.json': { 9: ['S1', 'S2', 'S2', 'S3'], A: ['S1'] },
   'atco2name.json': { S1: 'Bus Station', S2: 'High Street', S3: 'The Green' },
+  'minority.json': { A: { long: 'some journeys via Eynesbury', short: 'some journeys vary' } },
 });
 
 const placeDir = payload('place', {
@@ -135,6 +136,10 @@ console.log('\nfacts — area payload');
   eq('…it becomes the journey note, brackets dropped', r9.journeys[1].note, 'some via Gransden');
   eq('a journey with no bracketed stop has no note', r9.journeys[0].note, null);
   check('a route with no journeys still appears', f.routes.some((r) => r.id === 'A' && !r.journeys.length));
+  // OA-529 fix 1: the panel's "some via" words are copied from minority.json.
+  eq('a route named in minority.json gets its words after its days', f.routes.find((r) => r.id === 'A').days, 'daily · some journeys via Eynesbury');
+  eq('a route it does not name keeps its days', r9.days, 'Mon & Fri');
+  eq('a payload with no minority.json is unchanged', buildFacts(placeDir).routes[0].days, 'Daily · via Midville');
   eq('fare note carried', f.fareNote, 'Maximum £3 single fare.');
 }
 
