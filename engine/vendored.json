@@ -223,8 +223,8 @@
       "path": "services_panel.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/services_panel.js",
-      "sha256": "836ab19f6d7848a44324870a35229be97aca95ec2c69807e39d242a63ec54775",
-      "vendoredOn": "2026-09-28",
+      "sha256": "6291180d98cec86f7580bf317a3bab08b71a43edec227ad0d6d9389830c4aaae",
+      "vendoredOn": "2026-10-05",
       "note": "The sheet's right-hand column: the Services list in its four layouts, the pictogram Key, the frequency-tier rows and the fare note. Required at load by gen_internal.js."
     },
     {
@@ -255,8 +255,8 @@
       "path": "engine_paths.js",
       "kind": "vendored",
       "source": "make-bus-leaflet/assets/engine_paths.js",
-      "sha256": "44a8223a310e3a0ad95086e448fc9db62317d957168f9753d22ec333cba98f91",
-      "vendoredOn": "2026-09-29"
+      "sha256": "394db8b5dc9abb3e1be337a181806032d5705ec15356e32bc2229181a2f34955",
+      "vendoredOn": "2026-10-05"
     },
     {
       "path": "page.js",
