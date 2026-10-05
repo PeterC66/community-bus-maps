@@ -3,7 +3,7 @@
   "engineCommit": "70a7b6c98d4c8b58577f0f905618d2bd90c2c0bc",
   "town": "St Ives",
   "validFrom": "3 August 2026",
-  "version": "6.95",
+  "version": "7.0",
   "externalHubLabel": "St Ives Bus Station/\nPark and Ride",
   "palette": {
     "9": "#009988",
@@ -322,6 +322,19 @@
       "text": "300, 301 and 9 stop at Morrisons",
       "dx": 8,
       "dy": -4
+    },
+    {
+      "text": "Also serving St Ives, not on this map:",
+      "size": 2.6,
+      "color": "#333",
+      "then": [
+        {
+          "fact": "SF-011",
+          "text": "Dial-a-Ride (FACT), a pre-booked shopper bus: members only, join first, 01354 661234",
+          "size": 2.4,
+          "color": "#555"
+        }
+      ]
     }
   ],
   "panelGroups": true,
@@ -483,7 +496,7 @@
       }
     },
     "laneOrientation": false,
-    "sheetVersion": "build 6.95 · 5 Oct 2026"
+    "sheetVersion": "build 7.0 · 5 Oct 2026"
   },
   "labels": {},
   "frequency": {
