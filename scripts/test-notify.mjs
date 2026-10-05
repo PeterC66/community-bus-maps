@@ -99,10 +99,10 @@ check('an unknown kind is swallowed, not thrown', bad.sent === 0);
   // at the door, and the customer is exactly as managed as before the attempt.
   let refused = null;
   try { db.updateCustomerAdmin(mgdId, { plan: ' Managed ' }); } catch (e) { refused = e.message; }
-  check('a typed " Managed " is refused, not stored', /must be one of: free, managed/.test(refused || ''), String(refused));
+  check('a typed " Managed " is refused, not stored', /must be one of: self-service, managed/.test(refused || ''), String(refused));
   check('…and the customer is still managed', isManaged(mgdId));
-  db.updateCustomerAdmin(mgdId, { plan: 'free' });
-  eq('control: the same customer on plan free IS sent it (one attempt)', await notify('published', { customerId: mgdId, log: quiet, ...fields }), { sent: 0, skipped: 1 });
+  db.updateCustomerAdmin(mgdId, { plan: 'self-service' });
+  eq('control: the same customer on plan self-service IS sent it (one attempt)', await notify('published', { customerId: mgdId, log: quiet, ...fields }), { sent: 0, skipped: 1 });
   db.updateCustomerAdmin(mgdId, { plan: 'managed' });
 }
 

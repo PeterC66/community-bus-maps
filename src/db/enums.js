@@ -74,13 +74,18 @@ export const USER_ROLES = ['adviser', 'editor', 'approver', 'admin'];
  * That is the same fault this file was written for, on a column where the wrong
  * value sends mail rather than hides a map.
  *
- * `free` is the default and means the self-service pilot: the customer has the
- * editor, and gets the portal's own emails. `managed` means we look after the
+ * `self-service` is the default: the customer has the editor, and gets the
+ * portal's own emails. It was called `free` until 2026-10-06 and is renamed before
+ * this enum ships; the version-7 tidy in src/db/index.js rewrites any stored
+ * `free`. `managed` means we look after the
  * map and the portal emails them nothing. The word is a service mode that has
  * borrowed the billing column; no price is attached to either value (payments
  * are off), and a price, when there is one, is a separate decision.
  */
-export const CUSTOMER_PLANS = ['free', 'managed'];
+export const CUSTOMER_PLANS = ['self-service', 'managed'];
+
+/** Values this list used to hold, and what each is now. The version-7 tidy in src/db/index.js rewrites them. */
+export const CUSTOMER_PLAN_RENAMES = { free: 'self-service' };
 
 /** Every enum this module owns, keyed by `table.column`. One place to iterate. */
 export const ENUMS = {

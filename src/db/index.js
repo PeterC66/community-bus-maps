@@ -3,7 +3,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
-import { ENUMS, USER_ROLES, CUSTOMER_PLANS, allEnumGuardSql } from './enums.js';   // the state enums (OA-224 Tier 4.5) and customer.plan
+import { ENUMS, USER_ROLES, CUSTOMER_PLANS, CUSTOMER_PLAN_RENAMES, allEnumGuardSql } from './enums.js';   // the state enums (OA-224 Tier 4.5) and customer.plan
 import { adviserGuardSql } from './guards.js';   // an adviser holds no customer_id (OA-154 D1)
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -145,9 +145,11 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     release opens a v6 database, `SELECT *` hands it a column it ignores, and
  *     the public page falls back to the generated description it always had.
  * 7 = 2026-10-04, buses-data OA-468's follow-up: `customer.plan` joins the enum
- *     guards (`free|managed`), and a one-off, idempotent tidy lower-cases and
- *     trims any stored plan that is a legal value in other spelling (` Managed `
- *     becomes `managed`) before the guard goes on. No column, no table. The
+ *     guards (`self-service|managed`; the first was `free` until 2026-10-06, before
+ *     this shipped), and a one-off, idempotent tidy lower-cases and trims any
+ *     stored plan that is a legal value in other spelling (` Managed ` becomes
+ *     `managed`) and rewrites a stored `free` to `self-service` before the guard
+ *     goes on. No column, no table. The
  *     rollback direction is NOT as clean as v3 to v6, and it is said plainly: a
  *     v6 release opens a v7 database and reads every row as before, but its
  *     admin Plan box is still free text, so typing a value outside the list
@@ -281,10 +283,20 @@ export function recordedSchemaVersion() {
   // becomes legal is touched: anything else is left alone and named by the
   // warning loop below, because guessing what `managd` meant is the fault this
   // enum exists to end. Idempotent, and it changes no behaviour.
+  //
+  // The first value, `free`, was renamed `self-service` before this enum shipped
+  // (2026-10-06), so every stored `free` (in any spelling) is rewritten here too.
+  // A database that already holds the old guard would refuse that very UPDATE
+  // (its list still says `free`), so the two plan triggers are dropped first; they
+  // are reinstalled a few lines down, on the same boot.
   {
-    const plans = CUSTOMER_PLANS.map((p) => `'${p}'`).join(', ');
-    db.exec(`UPDATE customer SET plan = lower(trim(plan))
-              WHERE plan <> lower(trim(plan)) AND lower(trim(plan)) IN (${plans})`);
+    db.exec('DROP TRIGGER IF EXISTS customer_plan_valid_insert; DROP TRIGGER IF EXISTS customer_plan_valid_update;');
+    const quoted = (list) => list.map((p) => `'${p}'`).join(', ');
+    const renames = Object.entries(CUSTOMER_PLAN_RENAMES);
+    const canonical = `CASE lower(trim(plan)) ${renames.map(([o, n]) => `WHEN '${o}' THEN '${n}'`).join(' ')} ELSE lower(trim(plan)) END`;
+    db.exec(`UPDATE customer SET plan = ${canonical}
+              WHERE lower(trim(plan)) IN (${quoted([...CUSTOMER_PLANS, ...renames.map(([o]) => o)])})
+                AND plan <> ${canonical}`);
   }
 
   // Reinstalled on every boot rather than created once: the trigger body carries
@@ -1096,7 +1108,7 @@ export function insertCustomer(c) {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
-      c.name, c.type || 'other', c.status || 'active', c.plan || 'free',
+      c.name, c.type || 'other', c.status || 'active', c.plan || 'self-service',
       c.quota_areas != null ? c.quota_areas : 1,
       c.quota_places != null ? c.quota_places : 3,
       c.is_demo ? 1 : 0,

@@ -352,11 +352,11 @@ LOADERS.customers = async () => {
 // as a third legal one, so saving that row forces a decision instead of re-sending
 // a typo.
 function planSelect(plan) {
-  const known = plan === 'free' || plan === 'managed';
+  const known = plan === 'self-service' || plan === 'managed';
   const opt = (v, label) => `<option value="${v}"${plan === v ? ' selected' : ''}>${label}</option>`;
   return `<select data-q="plan" class="planin" aria-label="Plan">`
     + (known ? '' : `<option value="" selected>Choose… (was “${esc(plan)}”)</option>`)
-    + opt('free', 'free') + opt('managed', 'managed') + '</select>';
+    + opt('self-service', 'self-service') + opt('managed', 'managed') + '</select>';
 }
 function rowCust(c) {
   const overA = c.usedAreas > c.quotaAreas ? ' over' : '', overP = c.usedPlaces > c.quotaPlaces ? ' over' : '';

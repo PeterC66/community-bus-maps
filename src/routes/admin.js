@@ -128,7 +128,7 @@ export default async function adminRoutes(app) {
     if (b.plan !== undefined && !CUSTOMER_PLANS.includes(b.plan)) {
       return reply.code(400).send({ ok: false, error: `Plan must be one of: ${CUSTOMER_PLANS.join(', ')}.` });
     }
-    const plan = b.plan || 'free';
+    const plan = b.plan || 'self-service';
 
     // ONE TRANSACTION OVER THE THREE WRITES (OA-367 face 3). They ran in bare
     // sequence, so a throw between the first and the third — a UNIQUE collision

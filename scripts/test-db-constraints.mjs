@@ -122,7 +122,7 @@ function commentedValues(table, column) {
   const block = schema.slice(start, end < 0 ? undefined : end);
   const line = block.split('\n').find((l) => l.trimStart().startsWith(`${column} `) && l.includes('--'));
   if (!line) return { error: `no commented ${column} line inside ${table}` };
-  const listed = (line.split('--')[1].match(/[a-z_]+(?:\|[a-z_]+)+/) || [''])[0].split('|').filter(Boolean);
+  const listed = (line.split('--')[1].match(/[a-z_-]+(?:\|[a-z_-]+)+/) || [''])[0].split('|').filter(Boolean);
   return { line: line.trim(), listed };
 }
 

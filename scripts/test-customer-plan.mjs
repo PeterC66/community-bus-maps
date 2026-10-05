@@ -60,6 +60,9 @@ const seed = child(`
   add.run('Loud Free', 'FREE');
   add.run('Typo', 'managd');
   add.run('Plain Managed', 'managed');
+  add.run('Plain Free', 'free');
+  add.run('Spaced Free', ' Free ');
+  add.run('Hobby', 'free plan');
   db.close();
 `);
 eq('the stand-in for the old release wrote its rows', seed.status, 0);
@@ -75,12 +78,60 @@ eq('the new code boots against them', boot.status, 0);
 const rows = JSON.parse((boot.stdout.match(/ROWS (.*)/) || [, '[]'])[1]);
 const planOf = (n) => (rows.find((r) => r.name === n) || {}).plan;
 eq('"  Managed " becomes managed, which is what isManaged() already read it as', planOf('Padded Managed'), 'managed');
-eq('"FREE" becomes free', planOf('Loud Free'), 'free');
+eq('"FREE" becomes self-service', planOf('Loud Free'), 'self-service');
+eq('a plain stored free becomes self-service', planOf('Plain Free'), 'self-service');
+eq('" Free " becomes self-service', planOf('Spaced Free'), 'self-service');
+check('no row is left holding free', !rows.some((r) => /^\s*free\s*$/i.test(r.plan)), JSON.stringify(rows));
 eq('an already-canonical row is untouched', planOf('Plain Managed'), 'managed');
 eq('a value that is NOT a spelling of a legal one is left exactly as it was, not guessed at', planOf('Typo'), 'managd');
-check('…and is named out loud, with the legal list, rather than left silent',
-  /customer\.plan holds 1 row\(s\) with the unrecognised value "managd"/.test(boot.stderr) && /free, managed/.test(boot.stderr),
+eq('…which includes one that merely contains the word free', planOf('Hobby'), 'free plan');
+check('…and each is named out loud, with the legal list, rather than left silent',
+  /customer\.plan holds 1 row\(s\) with the unrecognised value "managd"/.test(boot.stderr)
+    && /customer\.plan holds 1 row\(s\) with the unrecognised value "free plan"/.test(boot.stderr)
+    && /self-service, managed/.test(boot.stderr),
   boot.stderr);
+
+// A second boot changes nothing and says the same: the tidy is idempotent.
+const boot2 = child(`
+  const { db } = await import(${JSON.stringify(dbUrl)});
+  console.log('ROWS ' + JSON.stringify(db.prepare('SELECT name, plan FROM customer ORDER BY name').all()));
+  db.close();
+`);
+eq('a second boot also succeeds', boot2.status, 0);
+eq('…and leaves every row exactly as the first boot did', (boot2.stdout.match(/ROWS (.*)/) || [, ''])[1], JSON.stringify(rows));
+
+// A database that already ran the earlier form of this change holds a guard whose
+// list still says `free`, and that guard would refuse the very UPDATE that renames
+// the rows. Its rows are all legal under it (the guard saw to that), so a second
+// scenario: the old guard in place, only `free` and `managed` rows, new code boots.
+const oldDir = path.join(scratch, 'old-guard');
+const oldEnv = { ...childEnv, DATA_DIR: oldDir, DB_PATH: path.join(oldDir, 'portal.sqlite') };
+const oldChild = (code) => spawnSync(process.execPath, ['--input-type=module', '-e', code], { env: oldEnv, encoding: 'utf8' });
+const oldSeed = oldChild(`
+  import { mkdirSync } from 'node:fs'; mkdirSync(${JSON.stringify(oldDir)}, { recursive: true });
+  const { db } = await import(${JSON.stringify(dbUrl)});
+  db.exec('DROP TRIGGER IF EXISTS customer_plan_valid_insert; DROP TRIGGER IF EXISTS customer_plan_valid_update;');
+  const add = db.prepare("INSERT INTO customer (name, plan) VALUES (?, ?)");
+  add.run('Old Free', 'free');
+  add.run('Old Managed', 'managed');
+  for (const op of ['INSERT', 'UPDATE']) {
+    db.exec("CREATE TRIGGER customer_plan_valid_" + op.toLowerCase() + " BEFORE " + op + " ON customer FOR EACH ROW WHEN NEW.plan NOT IN ('free', 'managed') BEGIN SELECT RAISE(ABORT, 'old guard'); END");
+  }
+  db.close();
+`);
+eq('the stand-in for a database holding the old guard was written', oldSeed.status, 0);
+if (oldSeed.status !== 0) console.error(oldSeed.stderr);
+const oldBoot = oldChild(`
+  const { db } = await import(${JSON.stringify(dbUrl)});
+  console.log('ROWS ' + JSON.stringify(db.prepare('SELECT name, plan FROM customer ORDER BY name').all()));
+  console.log('GUARD ' + db.prepare("SELECT sql FROM sqlite_master WHERE name = 'customer_plan_valid_update'").get().sql.includes('self-service'));
+  db.close();
+`);
+eq('the new code boots against the old guard', oldBoot.status, 0);
+if (oldBoot.status !== 0) console.error(oldBoot.stderr);
+eq('…the stored free is renamed under it', JSON.parse((oldBoot.stdout.match(/ROWS (.*)/) || [, '[]'])[1]),
+  [{ name: 'Old Free', plan: 'self-service' }, { name: 'Old Managed', plan: 'managed' }]);
+check('…and the guard now carries the new list', /GUARD true/.test(oldBoot.stdout), oldBoot.stdout);
 
 // ===========================================================================
 console.log('\nThe database refuses a plan off the list, and accepts both on it');
@@ -97,27 +148,28 @@ const { app } = await import('../src/server.js');
 const { isManaged } = await import('../src/email/notify.js');
 const { CUSTOMER_PLANS } = await import('../src/db/enums.js');
 
-eq('the list is the two values the code knows', CUSTOMER_PLANS, ['free', 'managed']);
+eq('the list is the two values the code knows', CUSTOMER_PLANS, ['self-service', 'managed']);
 
 const tryInsert = (plan) => { try { db.insertCustomer({ name: `C-${plan}`, plan }); return null; } catch (e) { return e.message; } };
 for (const bad of ['managd', 'Managed', 'managed ', 'paid']) {
   check(`inserting plan ${JSON.stringify(bad)} is refused by the database`,
-    /customer\.plan must be one of: free, managed/.test(tryInsert(bad) || ''), String(tryInsert(bad)));
+    /customer\.plan must be one of: self-service, managed/.test(tryInsert(bad) || ''), String(tryInsert(bad)));
 }
 // insertCustomer has always read an empty plan as "the default", so '' never
 // reaches the guard through it; the guard itself is asked in raw SQL.
 let rawEmpty = null;
 try { db.db.prepare("INSERT INTO customer (name, plan) VALUES ('Raw Empty', '')").run(); } catch (e) { rawEmpty = e.message; }
-check('a raw INSERT of an empty plan is refused by the database', /customer\.plan must be one of: free, managed/.test(rawEmpty || ''), String(rawEmpty));
-eq('inserting free is accepted', tryInsert('free'), null);
+check('a raw INSERT of an empty plan is refused by the database', /customer\.plan must be one of: self-service, managed/.test(rawEmpty || ''), String(rawEmpty));
+eq('inserting self-service is accepted', tryInsert('self-service'), null);
+check('…and the retired name free is now refused', /must be one of: self-service, managed/.test(tryInsert('free') || ''));
 eq('inserting managed is accepted', tryInsert('managed'), null);
 const dflt = db.insertCustomer({ name: 'Default Plan' });
-eq('a customer given no plan is free, as before', db.getCustomer(dflt).plan, 'free');
+eq('a customer given no plan is self-service, as before', db.getCustomer(dflt).plan, 'self-service');
 
 const helperId = db.insertCustomer({ name: 'Helper Target' });
 let threw = null; try { db.updateCustomerAdmin(helperId, { plan: 'managd' }); } catch (e) { threw = e.message; }
-check('updateCustomerAdmin THROWS on a bad plan rather than quietly dropping it', /must be one of: free, managed/.test(threw || ''), String(threw));
-eq('…and nothing was saved', db.getCustomer(helperId).plan, 'free');
+check('updateCustomerAdmin THROWS on a bad plan rather than quietly dropping it', /must be one of: self-service, managed/.test(threw || ''), String(threw));
+eq('…and nothing was saved', db.getCustomer(helperId).plan, 'self-service');
 db.updateCustomerAdmin(helperId, { plan: 'managed' });
 eq('a legal plan saves', db.getCustomer(helperId).plan, 'managed');
 check('…and isManaged() reads it as managed', isManaged(helperId) === true);
@@ -149,8 +201,8 @@ const adminTok = openSession(adminId);
 const patchId = db.insertCustomer({ name: 'Patch Target', quota_areas: 2 });
 const bad = await call('PATCH', `/api/admin/customers/${patchId}`, adminTok, { plan: 'managd' });
 eq('PATCH with a typo is 400', bad.status, 400);
-check('…and says what the legal values are', /free, managed/.test(bad.error), bad.error);
-eq('…and saved nothing, quota included', [db.getCustomer(patchId).plan, db.getCustomer(patchId).quota_areas], ['free', 2]);
+check('…and says what the legal values are', /self-service, managed/.test(bad.error), bad.error);
+eq('…and saved nothing, quota included', [db.getCustomer(patchId).plan, db.getCustomer(patchId).quota_areas], ['self-service', 2]);
 const blank = await call('PATCH', `/api/admin/customers/${patchId}`, adminTok, { plan: '' });
 eq('PATCH with an empty plan (the screen\'s "Choose…" left alone) is 400 too', blank.status, 400);
 const good = await call('PATCH', `/api/admin/customers/${patchId}`, adminTok, { plan: 'managed', quotaAreas: 3 });
@@ -174,13 +226,13 @@ check('…so the portal will send it nothing', isManaged(db.getCustomerByName('M
 const frId = apply('Default Town Council', 'clerk@default.example');
 const fr = await call('POST', `/api/admin/applications/${frId}/approve`, adminTok, {});
 eq('approving with no plan is 200, as every caller before this change', fr.status, 200);
-eq('…and the customer is free', db.getCustomerByName('Default Town Council').plan, 'free');
+eq('…and the customer is self-service', db.getCustomerByName('Default Town Council').plan, 'self-service');
 
 const customersBefore = db.listCustomers().length;
 const typoId = apply('Typo Town Council', 'clerk@typo.example');
 const typo = await call('POST', `/api/admin/applications/${typoId}/approve`, adminTok, { plan: 'managd' });
 eq('approving with a typo is 400', typo.status, 400);
-check('…naming the legal values', /free, managed/.test(typo.error), typo.error);
+check('…naming the legal values', /self-service, managed/.test(typo.error), typo.error);
 eq('…and wrote no customer', db.listCustomers().length, customersBefore);
 eq('…and left the application pending', db.getApplication(typoId).status, 'pending');
 
