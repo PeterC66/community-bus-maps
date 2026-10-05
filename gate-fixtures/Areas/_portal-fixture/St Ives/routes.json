@@ -1,9 +1,9 @@
 {
-  "engine": "703585ecf4",
-  "engineCommit": "25d4fae80afbf7afffe629b3e8066b7b60700957",
+  "engine": "a79ac84559",
+  "engineCommit": "70a7b6c98d4c8b58577f0f905618d2bd90c2c0bc",
   "town": "St Ives",
   "validFrom": "3 August 2026",
-  "version": "6.94",
+  "version": "6.95",
   "externalHubLabel": "St Ives Bus Station/\nPark and Ride",
   "palette": {
     "9": "#009988",
@@ -483,7 +483,7 @@
       }
     },
     "laneOrientation": false,
-    "sheetVersion": "build 6.94 · 29 Sep 2026"
+    "sheetVersion": "build 6.95 · 5 Oct 2026"
   },
   "labels": {},
   "frequency": {
@@ -524,5 +524,11 @@
         }
       ]
     }
-  }
+  },
+  "localLoops": [
+    {
+      "route": "300",
+      "label": "town circular (Bus Station – Morrisons)"
+    }
+  ]
 }
