@@ -113,7 +113,7 @@ if (seed.status !== 0) {
   check('and the run says why nobody was told', /is a managed customer/.test(managed.out), managed.out.split('\n').slice(-3).join(' | '));
   const afterManaged = proposed();
   check('the update is still staged', afterManaged && afterManaged.length === 3, JSON.stringify(afterManaged));
-  setPlan('free');
+  setPlan('self-service');
 
   console.log('3  deliver-map.mjs forwards the flag rather than swallowing it');
   const { readFileSync } = await import('node:fs');

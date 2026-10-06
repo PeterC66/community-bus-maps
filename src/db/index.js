@@ -3,7 +3,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { tokenHash } from '../hash.js';   // the ONE token hash (OA-224 Tier 3.3)
-import { ENUMS, USER_ROLES, allEnumGuardSql } from './enums.js';   // the three state enums (OA-224 Tier 4.5)
+import { ENUMS, USER_ROLES, CUSTOMER_PLANS, CUSTOMER_PLAN_RENAMES, allEnumGuardSql } from './enums.js';   // the state enums (OA-224 Tier 4.5) and customer.plan
 import { adviserGuardSql } from './guards.js';   // an adviser holds no customer_id (OA-154 D1)
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -144,8 +144,19 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     a sentence or two about one map. Additive in the plain sense: a v5
  *     release opens a v6 database, `SELECT *` hands it a column it ignores, and
  *     the public page falls back to the generated description it always had.
+ * 7 = 2026-10-04, buses-data OA-468's follow-up: `customer.plan` joins the enum
+ *     guards (`self-service|managed`; the first was `free` until 2026-10-06, before
+ *     this shipped), and a one-off, idempotent tidy lower-cases and trims any
+ *     stored plan that is a legal value in other spelling (` Managed ` becomes
+ *     `managed`) and rewrites a stored `free` to `self-service` before the guard
+ *     goes on. No column, no table. The
+ *     rollback direction is NOT as clean as v3 to v6, and it is said plainly: a
+ *     v6 release opens a v7 database and reads every row as before, but its
+ *     admin Plan box is still free text, so typing a value outside the list
+ *     there is refused by the trigger with the database's own message rather
+ *     than saved. `isManaged()` reads the normalised value identically.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
@@ -264,6 +275,30 @@ export function recordedSchemaVersion() {
   // for triggers rather than CHECK, and the SQL; scripts/test-db-constraints.mjs
   // holds schema.sql's comments to it.
   //
+  // `customer.plan` was free text until 2026-10-04, and `isManaged()` has always
+  // read it trimmed and lower-cased, so a row holding ` Managed ` IS managed today.
+  // The guard below would refuse every later write to that row (a trigger fires
+  // on any UPDATE of the row, not only one that touches `plan`), so a legal value
+  // in another spelling is put in its canonical form FIRST. Only a value that
+  // becomes legal is touched: anything else is left alone and named by the
+  // warning loop below, because guessing what `managd` meant is the fault this
+  // enum exists to end. Idempotent, and it changes no behaviour.
+  //
+  // The first value, `free`, was renamed `self-service` before this enum shipped
+  // (2026-10-06), so every stored `free` (in any spelling) is rewritten here too.
+  // A database that already holds the old guard would refuse that very UPDATE
+  // (its list still says `free`), so the two plan triggers are dropped first; they
+  // are reinstalled a few lines down, on the same boot.
+  {
+    db.exec('DROP TRIGGER IF EXISTS customer_plan_valid_insert; DROP TRIGGER IF EXISTS customer_plan_valid_update;');
+    const quoted = (list) => list.map((p) => `'${p}'`).join(', ');
+    const renames = Object.entries(CUSTOMER_PLAN_RENAMES);
+    const canonical = `CASE lower(trim(plan)) ${renames.map(([o, n]) => `WHEN '${o}' THEN '${n}'`).join(' ')} ELSE lower(trim(plan)) END`;
+    db.exec(`UPDATE customer SET plan = ${canonical}
+              WHERE lower(trim(plan)) IN (${quoted([...CUSTOMER_PLANS, ...renames.map(([o]) => o)])})
+                AND plan <> ${canonical}`);
+  }
+
   // Reinstalled on every boot rather than created once: the trigger body carries
   // the value list, so a list that gains a value has to reach the database.
   for (const stmt of allEnumGuardSql()) db.exec(stmt);
@@ -1073,7 +1108,7 @@ export function insertCustomer(c) {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
-      c.name, c.type || 'other', c.status || 'active', c.plan || 'free',
+      c.name, c.type || 'other', c.status || 'active', c.plan || 'self-service',
       c.quota_areas != null ? c.quota_areas : 1,
       c.quota_places != null ? c.quota_places : 3,
       c.is_demo ? 1 : 0,
@@ -1108,13 +1143,24 @@ export function listCustomersAdmin() {
     )
     .all();
 }
-/** Whitelisted admin update of a customer's quota / status / plan. */
+/**
+ * Whitelisted admin update of a customer's quota / status / plan.
+ *
+ * A `plan` outside CUSTOMER_PLANS THROWS. The sibling `status` check silently
+ * drops an unknown value, and that is the wrong habit for a column where a
+ * dropped or mistyped value changes who gets emailed: the caller must hear that
+ * nothing was saved. The admin route validates first and answers 400 with the
+ * legal list; this throw is the backstop for any other caller.
+ */
 export function updateCustomerAdmin(id, f) {
   const sets = [], args = [];
   if (f.quota_areas != null) { sets.push('quota_areas = ?'); args.push(Math.max(0, Number(f.quota_areas) | 0)); }
   if (f.quota_places != null) { sets.push('quota_places = ?'); args.push(Math.max(0, Number(f.quota_places) | 0)); }
   if (f.status && ['active', 'suspended'].includes(f.status)) { sets.push('status = ?'); args.push(f.status); }
-  if (f.plan) { sets.push('plan = ?'); args.push(String(f.plan).slice(0, 40)); }
+  if (f.plan != null) {
+    if (!CUSTOMER_PLANS.includes(f.plan)) throw new Error(`customer.plan must be one of: ${CUSTOMER_PLANS.join(', ')}`);
+    sets.push('plan = ?'); args.push(f.plan);
+  }
   if (f.hide_operators_enabled != null) { sets.push('hide_operators_enabled = ?'); args.push(f.hide_operators_enabled ? 1 : 0); }
   if (f.watermark_enabled != null) { sets.push('watermark_enabled = ?'); args.push(f.watermark_enabled ? 1 : 0); }
   // PILOT: delete with docs/PILOT.md. Turning this OFF is what makes an

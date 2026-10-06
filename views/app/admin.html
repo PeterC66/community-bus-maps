@@ -140,6 +140,12 @@
         <div class="field"><label for="qPlaces">Place maps</label><input id="qPlaces" name="quotaPlaces" type="number" min="0" max="99" value="3"></div>
       </div>
       <div class="field"><label for="editorName">Editor name</label><input id="editorName" name="editorName" type="text" maxlength="120"></div>
+      <div class="field"><label for="planChoice">How we serve them</label>
+        <select id="planChoice" name="plan">
+          <option value="self-service" selected>self-service: they have the editor and the portal's own emails</option>
+          <option value="managed">managed — we look after the map; the portal emails them nothing</option>
+        </select>
+      </div>
       <div class="notice" id="approveMsg"></div>
       <div class="dialog-actions">
         <button class="btn btn-ghost btn-sm" type="button" id="approveCancel">Cancel</button>

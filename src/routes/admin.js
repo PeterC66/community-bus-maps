@@ -21,7 +21,7 @@
 // for the operator's laptop that 404s to a session, the opposite of this guard,
 // and it stays in server.js with the other token-authorised ops routes.
 import { adminSummary, deleteSessionByHash, deleteSessionsForUser, getApplication, getCustomer, getCustomerByName, getMap, getMessage, getUser, getUserByEmail, grantAdviser, insertCustomer, insertUser, listAdviserGrantsForMapIncludingRevoked, listAdviserGrantsForUser, listAdvisers, listApplications, listAudit, listAwaitingBuild, listCustomersAdmin, listMapsByStatus, listMessages, listPendingProposedUpdates, listSessions, listUsersAdmin, publicCounts, quotaUsage, revokeAdviserGrant, setApplicationReviewed, setMapCustomer, setMapStatus, setMessageStatus, updateCustomerAdmin, updateUserAdmin, withTransaction } from '../db/index.js';
-import { USER_ROLES } from '../db/enums.js';
+import { USER_ROLES, CUSTOMER_PLANS } from '../db/enums.js';
 import { buildWorklist } from '../worklist/index.js';
 import { orgPageUrl } from '../public/index.js';
 import { opsSnapshot } from '../ops/index.js';
@@ -120,6 +120,15 @@ export default async function adminRoutes(app) {
     const type = ORG_TYPES.includes(appn.org_type) ? appn.org_type : 'other';
     const quota_areas = b.quotaAreas != null ? Math.max(0, Number(b.quotaAreas) | 0) : 1;
     const quota_places = b.quotaPlaces != null ? Math.max(0, Number(b.quotaPlaces) | 0) : 3;
+    // How we serve them is chosen HERE, at the one moment the customer is created,
+    // because it used to be a word an admin had to remember to type afterwards and
+    // a typo silently switched the emails back on. Omitted means the default, so a
+    // caller that never heard of the field behaves as it always did; a value off
+    // the list is refused before anything is written.
+    if (b.plan !== undefined && !CUSTOMER_PLANS.includes(b.plan)) {
+      return reply.code(400).send({ ok: false, error: `Plan must be one of: ${CUSTOMER_PLANS.join(', ')}.` });
+    }
+    const plan = b.plan || 'self-service';
 
     // ONE TRANSACTION OVER THE THREE WRITES (OA-367 face 3). They ran in bare
     // sequence, so a throw between the first and the third — a UNIQUE collision
@@ -132,7 +141,7 @@ export default async function adminRoutes(app) {
     // link issued for a customer row that never committed is worse than a link
     // that arrives a moment late.
     const customerId = withTransaction(() => {
-      const id = insertCustomer({ name: appn.org_name, type, quota_areas, quota_places });
+      const id = insertCustomer({ name: appn.org_name, type, plan, quota_areas, quota_places });
       insertUser({ customer_id: id, email, name: str(b.editorName, 120) || appn.contact_name, role: 'editor' });
       setApplicationReviewed(appn.id, 'approved', id);
       return id;
@@ -357,6 +366,11 @@ export default async function adminRoutes(app) {
     // organisation gets and whether its maps stay public, so the whole route is
     // step-up gated rather than picking fields out of the body.
     if (!requireStepUp(req, reply, "changing an organisation's settings")) return;
+    // Refused with the legal list, not silently dropped: a plan that did not save
+    // is a customer who is still getting (or not getting) the wrong emails.
+    if (b.plan !== undefined && !CUSTOMER_PLANS.includes(b.plan)) {
+      return reply.code(400).send({ ok: false, error: `Plan must be one of: ${CUSTOMER_PLANS.join(', ')}.` });
+    }
     const ok = updateCustomerAdmin(cust.id, {
       quota_areas: b.quotaAreas, quota_places: b.quotaPlaces, status: b.status, plan: b.plan,
       hide_operators_enabled: b.hideOperatorsEnabled, watermark_enabled: b.watermarkEnabled,
