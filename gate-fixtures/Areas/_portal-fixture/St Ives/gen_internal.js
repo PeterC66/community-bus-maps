@@ -86,6 +86,10 @@
 //                                      // centroid, which can land spuriously inside the town
 //                                      // where no such road exists. Drops the label only, not
 //                                      // any drawn road line.
+//     roadLabelPin:["OSM name"...],    // place these names BEFORE the badges along the lines,
+//                                      // so a badge gives way to them rather than the reverse
+//                                      // (OA-176, Ramsey's Great Whyte under laneTrim). Also
+//                                      // label-eligible. Absent => byte-identical (road_labels.js)
 //     northArrow:false|{x,y,len?,angle?}, // compass for the rotated map — DRAWN BY DEFAULT on
 //                                      // every internalRoads map; set false to suppress, or pass
 //                                      // {x,y,len,angle} to position. Direction is the
@@ -188,7 +192,7 @@ const { Labeller } = require(_LABELLER);
 const _from = siblingOf(_LABELLER);   // see engine_paths.js: the metrics table follows the labeller
 const FONT = require(_from('font_metrics.js'));
 const LN = require(_dep('lane_normals.js'));
-const { selectPois, placerIds, mergePoiOverlay, printsName, labelPriority, poiLabelOverride, culledAfterTiers, culledAfterTiersNote, poiOverride, givesWay, placeOptInSymbols, optInNote, pushOffBoxes } = require(_dep('poi_select.js'));
+const { selectPois, placerIds, mergePoiOverlay, printsName, labelPriority, poiLabelOverride, culledAfterTiers, culledAfterTiersNote, poiOverride, givesWay, placeOptInSymbols, seatStrandedSymbols, optInNudge, optInNote, pushOffBoxes } = require(_dep('poi_select.js'));
 const { fitSet } = require(_dep('fit_set.js'));
 const { projection } = require(_dep('projection.js'));
 const { internalRoadsConfig } = require(_dep('internal_roads_config.js'));
@@ -196,11 +200,15 @@ const { svgPrimitives } = require(_dep('svg_primitives.js'));
 const { linearFeatures } = require(_dep('linear_features.js'));
 const { labelPlacer } = require(_dep('label_placer.js'));
 const { drawServicesPanel, readMinorityNotes } = require(_dep('services_panel.js'));
-const { complexityLadder, coreBoxGeometry, thinKeep } = require(_dep('complexity_ladder.js'));
+const { complexityLadder, coreBoxGeometry, partnerBoxFit, partnerBoxGeometry, drawPartnerBox, thinKeep } = require(_dep('complexity_ladder.js'));
 const { northArrow } = require(_dep('north_arrow.js'));
-const { smoothCasingWidths } = require(_dep('casing_width.js'));
+const { smoothCasingWidths, drawnLaneCasings } = require(_dep('casing_width.js'));
 const { findGapCuts, gapEvents, gapLabel } = require(_dep('frame_gaps.js'));
+const TS = require(_dep('trunk_segments.js'));
 const { featureLabels } = require(_dep('feature_labels.js'));
+const { placePointer, pointerOn, inkFromSvg } = require(_dep('place_pointer.js'));
+const { placeSearchedNotes } = require(_dep('note_place.js'));
+const { roadLabels } = require(_dep('road_labels.js'));
 // wcag.js — the three DIFFERENT questions asked with the 0.2126/0.7152/0.0722
 // coefficients, named apart (OA-135). This file asks two of them: rawLumHex for
 // the two ink tests below, whose 0.62 threshold is calibrated against the RAW
@@ -754,6 +762,18 @@ const { CORR, CPAL, laneKey, colourShared, CBOX, THIN } = complexityLadder({ RJ,
       +'sheet, so it reads as a railway rather than as a bus.' : '')+' Give it a hue from the '
       +'palette (node pick_route_colour.js --town "'+(RJ.town||'?')+'" --route '+r+').');
   }
+  /* DARK AND DASHED IS A RAILWAY (#333333, L* 21), whatever the hue (Peter 2026-09-29,
+   * buses-data OA-521: Ely Co-op v1.29's sparse 12 in #332288, L* 22.4). L* < 35 takes
+   * #332288 #004488 #882255 and leaves #994455 (40.5) up. Greys: the check above. */
+  for(const r of order){ const c=C[r], t=ftier(r);
+    if(!(t && t.dash) || !/^#[0-9a-f]{6}$/i.test(c||'')) continue;
+    const R=_lab(c);
+    if(Math.hypot(R[1],R[2])<8 || R[0]>=35) continue;
+    console.error('PALETTE WARNING route '+r+' is drawn DASHED in '+c+', which is very dark '
+      +'(L* '+R[0].toFixed(1)+', below 35) — dark and dashed reads as a railway rather than '
+      +'as a bus. Give it a lighter colour from the palette (node pick_route_colour.js --town "'
+      +(RJ.town||'?')+'" --route '+r+').');
+  }
 }
 
 // Internal Services-panel descriptions {route:[title,subtitle]}.
@@ -843,7 +863,7 @@ if((poiReport.namelessKeptByTier||[]).length) process.stderr.write('poi.tiers: '
 // measurement that produced the off-path rule. The warning stays here so it sits
 // with the other build messages, and so the module itself writes nothing.
 const _fit = fitSet({ routes, atco2ll, ir: IR, intownCfg: ICFG, routePaths: RP, prefix: PREFIX });
-const stopPts = _fit.stopPts;
+const stopPts = partnerBoxFit({ PBOX: DESIGN.partnerBox, atco2ll, refuse, say: m=>console.error(m), core: _fit.stopPts.length }) || _fit.stopPts;  // OA-089
 if (_fit.excluded) {
   process.stderr.write('fit: '+_fit.excluded+' core stop'+(_fit.excluded>1?'s':'')+' more than '
     +_fit.limit+' m from any drawn route line — excluded from the fit, which would otherwise '
@@ -903,7 +923,7 @@ let s=''; const out=x=>{s+=x+'\n';};
 // through `out` and return measurements, so the document stays here.
 const { esc, gk, badgeHalfW, badgeXW, badgeXWs, badge, badgeStack } = svgPrimitives({
   out, palette: C, textOn: TXT, badgeLabel: blab, font: FONT,
-  badgeFit: BADGE_FIT, editorKeys: EDK,
+  badgeFit: BADGE_FIT, editorKeys: EDK, routeTags: DESIGN.routeTags === true,  // OA-551
 });
 
 // ---- linear features: paths + labels (honour overrides.features[key]) ----
@@ -918,7 +938,7 @@ const { featOv, featStyle, featSegs, drawFeature } = linearFeatures({
 // In label_placer.js, which owns the shared `placed` list every pass on this
 // sheet reserves into, both placers, and — as a lodger — the route-ink
 // contrast floor.
-const { placed, iconBoxes, hit, overlaps, overlapsNoIcons, overlapsRound, LAB, reserve, whatBlocks, whatBlocksInk, placeLabel, inkOnWhite } = labelPlacer({
+const { placed, iconBoxes, hit, overlaps, overlapsNoIcons, overlapsRound, LAB, reserve, whatBlocks, whatBlocksInk, placeLabel, labelRequest, inkOnWhite } = labelPlacer({
   out, esc, Labeller, DESIGN, V2, IR, MX0, MY0, MX1, MY1, FOOTER_PLATE_TOP,
 });
 // Where a POI's symbol lands, and whether it is drawn at all — split out of poiMark so
@@ -938,7 +958,7 @@ function poiSite(p){
 }
 const poiBox=new Map();                         // poi key -> its reserved icon box (design.reserveIcons)
 const poiNudge=new Map();                       // poi key -> [dx,dy] from spreadIcons
-const OPTIN_OFF=new Set(), BADGE_MARKS=[];      // OA-522: opt-in symbols left off; every badge noteBadge() drew
+const OPTIN_OFF=new Set(), BADGE_MARKS=[], STRANDED=[];      // OA-522: opt-in symbols left off; every badge noteBadge() drew
 /* WHY poiSite() REFUSED A POI, recorded above rather than re-derived (OA-250
  * item 2): a second function asking the same three questions would be free to
  * drift from them, which is why poiSite exists at all. Written on every call and
@@ -1002,16 +1022,16 @@ function reserveIcon(s){
   if(LAB){ LAB.block(b, 'icon'); LAB.anchor(s.x, s.y, 'poi:'+s.u); }
 }
 // OA-522: an opt-in symbol gives way, placed LAST and clear of route ink, badges and all reserved (poi_select.js).
+const optInFree=(x,y)=>{ const b=[x-POI_HALF, y-POI_HALF, x+POI_HALF, y+POI_HALF]; return inFrame([x,y]) && !inCore([x,y]) && !overlapsRound(b) && !BADGE_MARKS.some(m=>hit(b,[m.x-m.w, m.y-m.h, m.x+m.w, m.y+m.h])); };
+const optInInkFree=(()=>{ let INK=null; return (x,y)=>{ if(!INK){ const pal=new Set(Object.values(C||{}).map(v=>String(v).toLowerCase())); INK=new Labeller({ page:[W,H] }).stampSvg(s, st=>pal.has(st)).ink; } return optInFree(x,y) && !INK.any([x-POI_HALF+0.3, y-POI_HALF+0.3, x+POI_HALF-0.3, y+POI_HALF-0.3]); }; })();   // route ink read once, shared by both looks
 function placeOptIns(){
-  const mine=pois.map(p=>({p,t:poiSite(p)})).filter(e=>e.t && givesWay(e.p,e.t.o)); if(!mine.length) return '';
-  const pal=new Set(Object.values(C||{}).map(v=>String(v).toLowerCase())), INK=new Labeller({ page:[W,H] }).stampSvg(s, st=>pal.has(st)).ink;
-  const free=(x,y)=>{ const b=[x-POI_HALF, y-POI_HALF, x+POI_HALF, y+POI_HALF]; return inFrame([x,y]) && !inCore([x,y]) && !overlapsRound(b)
-    && !INK.any([b[0]+0.3, b[1]+0.3, b[2]-0.3, b[3]-0.3]) && !BADGE_MARKS.some(m=>hit(b,[m.x-m.w, m.y-m.h, m.x+m.w, m.y+m.h])); };
-  const off=placeOptInSymbols(mine, { free, place:({p,t},at)=>{ const n=poiNudge.get(t.u)||[0,0];
-    poiNudge.set(t.u,[n[0]+at[0]-t.x, n[1]+at[1]-t.y]); reserveIcon(poiSite(p)); } });
-  for(const e of off) OPTIN_OFF.add(e.t.u);
-  return optInNote(off.map(e=>e.p.name||e.p.cat));
+  const mine=pois.map(p=>({p,t:poiSite(p)})).filter(e=>e.t && givesWay(e.p,e.t.o)); if(!mine.length) return;
+  const off=placeOptInSymbols(mine, { free:optInInkFree, place:(e,at)=>{ optInNudge(poiNudge,e,at); reserveIcon(poiSite(e.p)); } });
+  for(const e of off){ OPTIN_OFF.add(e.t.u); STRANDED.push(e); }
 }
+// OA-559: once every label is queued, a NAMED symbol left off is seated where it unseats no label and its own name seats (poi_select.js). Route ink is allowed unless a map sets design.strandedOnInk:false (Godmanchester Co-op Cambridge Road v1.30 seated two pubs on the X3 ribbon; Beaconsfield's The Chiltern and Ely's The High Flyer are seated on ink on purpose).
+const seatStranded=()=>optInNote(seatStrandedSymbols(STRANDED, { free:DESIGN.strandedOnInk===false ? optInInkFree : optInFree, ctx:{ LAB, labelRequest, poiBox, notToScale:RJ.notToScale, half:POI_HALF },
+  seat:(e,at)=>{ optInNudge(poiNudge,e,at); OPTIN_OFF.delete(e.t.u); reserveIcon(poiSite(e.p)); poiMark(e.p); } }).map(e=>e.p.name||e.p.cat));
 /* The `must` tier (poi.tiers — OA-202, and the key OA-066 had been waiting for).
  * Three things follow from a customer saying a place matters, and they are one
  * decision rather than three switches: the name is PRINTED whatever the category
@@ -1055,6 +1075,8 @@ for(const f of FEATURES) drawFeature(f);
 let rseq={};                      // classic model's filtered sequences (old termini block)
 let TRIM=null, SKEL=null;         // internalRoads artefacts used later (arrows/badges/labels)
 let CORUN=null;                   // MEMR: r -> {segIdx:[routes physically co-running there]}
+const TRUNKCFG=TS.trunkConfig(IR&&IR.trunkSegments); let TRUNKS=null;   // OA-549, opt-in: trunk_segments.js says why
+const trunkOf=(r,si)=>(TRUNKS&&TRUNKS.hidden[r]&&TRUNKS.hidden[r][si])||null, inTrunk=(r,tr,i)=>trunkOf(r,segIdxOf(tr,i));
 const inFrame=p=>p[0]>=MX0&&p[0]<=MX1&&p[1]>=MY0&&p[1]<=MY1;
 
 // ---- the ladder in page space: the coreBox rectangle and the stop-tick set --
@@ -1168,6 +1190,7 @@ if(IR){
     (MEMR[s.r]=MEMR[s.r]||{})[s.i]=here;
     (MEM[s.r]=MEM[s.r]||{})[s.i]=laneList(here); }
   CORUN=MEMR;                    // published for the badge logic further below
+  if(TRUNKCFG) TRUNKS=TS.findTrunks({order,RPP,MEM,MEMR,cfg:TRUNKCFG,CD,gap:IR.gap});
   const segIdxByRoute={};                          // r -> its own SEG indices
   for(let si=0;si<SEG.length;si++){ (segIdxByRoute[SEG[si].r]=segIdxByRoute[SEG[si].r]||[]).push(si); }
   // design.laneOrientation — opt in to the corridor orientation field.
@@ -1427,7 +1450,7 @@ if(IR){
       // lobe. Set it to about what the widest real road in the frame measures on the
       // page; below the ceiling nothing changes at all.
       const wRaw=span + IR.stroke + IR.skeletonPad;
-      let w=wRaw;
+      let w=wRaw; if(trunkOf(r,i)) w=Math.min(w,TRUNKCFG.width+IR.skeletonPad);   // OA-549: the casing under a trunk is the ribbon's
       if(IR.skeletonMaxW!=null && w>IR.skeletonMaxW){ w=+IR.skeletonMaxW; _capped++; }
       const [rdx,rdy]=refDir(bundle[0],M[0],M[1],Pp[i+1][0]-Pp[i][0],Pp[i+1][1]-Pp[i][1]);
       const Ln=Math.hypot(rdx,rdy)||1, nX=-rdy/Ln*mid, nY=rdx/Ln*mid;
@@ -1446,6 +1469,8 @@ if(IR){
   // into a lobe; casing_width.js has the measurement. Default 1 since 2026-09-28; 0 opts out.
   const _ks = IR.casingSmooth===true ? 1 : +IR.casingSmooth;
   const casW = _ks>0 ? smoothCasingWidths(CAS, _ks) : CAS.map(g=>g.w);
+  // internalRoads.caseDrawnLanes (OA-518, opt-in): casing_width.js says why; SKEL above is unchanged
+  if(IR.caseDrawnLanes===true) drawnLaneCasings(TRIM, order, IR, clipOutCore).forEach(p=>out(p)); else
   CAS.forEach((g,j)=>out(`<path d="M${g.x0.toFixed(2)} ${g.y0.toFixed(2)}L${g.x1.toFixed(2)} ${g.y1.toFixed(2)}" fill="none" stroke="${IR.skeleton}" stroke-width="${casW[j].toFixed(2)}" stroke-linecap="round"/>`));
   if(process.env.DBG_CASE) console.error('CASE max casing width '+_wmax.toFixed(2)+' mm (uncapped)'
     + (IR.skeletonMaxW!=null ? '; skeletonMaxW '+IR.skeletonMaxW+' mm clamped '+_capped+' segment(s)' : ''));
@@ -1513,7 +1538,8 @@ if(IR){
   for(const r of order){ const tr=TRIM[r]; if(!tr||tr.pts.length<2)continue;
     // coreBox: draw the runs OUTSIDE the box as subpaths of one path element, so
     // each end stops flush on the boundary. No box => one run, byte-identical.
-    const runs=clipOutCore(tr.pts); if(!runs.length)continue;
+    const runs=TRUNKS ? [].concat(...TS.laneRuns(tr.pts,i=>inTrunk(r,tr,i),TRUNKCFG,fw(r)).map(clipOutCore)) : clipOutCore(tr.pts); if(!runs.length)continue;
+    if(TRUNKS) TS.markExits(TRUNKS.trunks,r,runs,TRUNKCFG);   // a route seen leaving a trunk in its colour needs no stack there
     if(CORERUNS) CORERUNS[r]=[].concat(...runs.map(rn=>[rn[0],rn[rn.length-1]]));
     const d=runs.map(rn=>pathD(rn)).join(' ');
     RLINES.push({r,d}); }
@@ -1551,7 +1577,7 @@ if(IR){
   // (frequencyTiers.dash) is not carried onto the shared stretch.
   if(CORR && CORR.style) for(const r of order){ const tr=TRIM[r]; if(!tr||tr.pts.length<2)continue;
     const st=CORR.lead[r] && CORR.style[CORR.lead[r]]; if(!st)continue;
-    const runs=LN.sharedRuns(tr.pts.length-1, i=>{ const g=famAt(r,segIdxOf(tr,i)); return (g[0]===r && g.length>1) ? g : null; });
+    const runs=LN.sharedRuns(tr.pts.length-1, i=>{ const g=famAt(r,segIdxOf(tr,i)); return (g[0]===r && g.length>1 && !inTrunk(r,tr,i)) ? g : null; });
     for(const run of runs){ const g=run.group;
       for(const rn of clipOutCore(tr.pts.slice(run.i0, run.i1+2))){ if(rn.length<2)continue;
         if(st.kind==='alternate'){ const W=Math.max(...g.map(fw)), d=pathD(rn);
@@ -1560,6 +1586,9 @@ if(IR){
           for(const m of g){ const o=at+fw(m)/2; at+=fw(m);
             out(gk('shared',g[0]+'/'+m,`<path d="${pathD(LN.offsetPolyline(rn,o))}" fill="none" stroke="${C[m]}" stroke-width="${fw(m)}" stroke-linecap="round" stroke-linejoin="round"/>`)); } }
       } } }
+  // OA-549: each trunk once, over the lanes it hides, as one neutral ribbon (trunk_segments.js)
+  if(TRUNKS) for(const t of TRUNKS.trunks){ t.w=TRUNKCFG.width; t.runs=[].concat(...t.polys.map(clipOutCore)).filter(rn=>rn.length>1); if(!t.runs.length)continue; const d=t.runs.map(pathD).join(' ');
+    for(const [c,w] of [['#fff',t.w+2*TRUNKCFG.casing],[TRUNKCFG.color,t.w]]) out(`<path d="${d}" fill="none" stroke="${c}" stroke-width="${w.toFixed(2)}" stroke-linecap="butt" stroke-linejoin="round"/>`); }
   // -- stop ticks ON the route lines (one per physical stop, first route wins;
   //    stops[ATCO].pos override moves the tick)
   const tickSeen=new Set();
@@ -1573,6 +1602,7 @@ if(IR){
   for(const r of order){ const tr=TRIM[r]; if(!tr||!tr.sh)continue;
     for(const a in tr.st){ if(tickSeen.has(a))continue; const o=tr.st[a]; if(o.i>=tr.sh.length-1)continue;
       let p=baseOv[a] || [tr.sh[o.i][0]+(tr.sh[o.i+1][0]-tr.sh[o.i][0])*o.t, tr.sh[o.i][1]+(tr.sh[o.i+1][1]-tr.sh[o.i][1])*o.t];
+      if(!baseOv[a] && trunkOf(r,o.i)) p=TS.squeeze(p,trunkOf(r,o.i),TRUNKCFG,fw(r));   // OA-549: a stop on a trunk is on its ribbon
       if(!inFrame(p))continue; if(inCore(p))continue; if(!keepStop(a))continue; tickSeen.add(a);
       if(IDKEEP && !IDKEEP.has(a) && !IDPOI.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<=IDPD)) continue;
       out(gk('stop',a,`<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="0.8" fill="#fff" stroke="#555" stroke-width="0.4"/>`)); } }
@@ -1641,6 +1671,11 @@ if(CORE){
   if(CORE.sublabel) out(`<text x="${cx.toFixed(2)}" y="${(cy+ts*0.95).toFixed(2)}" font-family="Arial" font-size="${(ts*0.66).toFixed(2)}" fill="#555" text-anchor="middle">${esc(CORE.sublabel)}</text>`);
   reserve(CORE.x0-0.5,CORE.y0-0.5,CORE.x1+0.5,CORE.y1+0.5,'the core box');
 }
+// ---- design.partnerBox (OA-534): another sheet's coreBox, dashed, blanking nothing. complexity_ladder.js
+//      says why it is exact. The label asks POI sites (drawn, not all reserved yet) and route ink, as placeOptIns does.
+let PB_INK=null; const PB_INKF=()=>PB_INK||(PB_INK=new Labeller({ page:[W,H] }).stampSvg(s, st=>new Set(Object.values(C||{}).map(v=>String(v).toLowerCase())).has(st)).ink);
+drawPartnerBox({ PARTNER: partnerBoxGeometry({ PBOX: DESIGN.partnerBox, atco2ll, XY, refuse }), PB: DESIGN.partnerBox, out, gk, esc, reserve, textWidth: FONT.textWidth, say: m=>console.error(m),
+  blocked: b=>!inFrame([b[0],b[1]]) || !inFrame([b[2],b[3]]) || overlaps(b) || PB_INKF().any(b) || pois.some(p=>{ const t=poiSite(p); return t && hit(b,[t.x-POI_HALF,t.y-POI_HALF,t.x+POI_HALF,t.y+POI_HALF]); }) });
 out(`</g>`);
 
 // ---- reserve protected areas so labels avoid them ----
@@ -1958,14 +1993,14 @@ for(const f of FEATURES){ const ov=featOv(f);           // linear-feature label 
 // baseline counted 190 labels sitting on a foreign symbol across the 31 shipped sheets.
 // Claiming the boxes here, before the first label is placed, is what stops it. Absent
 // the key nothing is reserved and every placer behaves exactly as it did.
-const ANCHOR_SQ=(atco2ll[ANCHOR]||baseOv[ANCHOR]) && !CORE && !(ID && (ID.interchanges||[]).some(ic=>ic.atco===ANCHOR)) ? XYS(ANCHOR) : null;
+const ANCHOR_SQ=(atco2ll[ANCHOR]||baseOv[ANCHOR]) && !(CORE && inCore(XYS(ANCHOR))) && !(ID && (ID.interchanges||[]).some(ic=>ic.atco===ANCHOR)) ? XYS(ANCHOR) : null;
 const ANCHOR_BOX=ANCHOR_SQ && [ANCHOR_SQ[0]-2, ANCHOR_SQ[1]-2, ANCHOR_SQ[0]+2.6+FONT.textWidth(ANCHOR_LABEL,3.0,true)+0.5, ANCHOR_SQ[1]+2];
 if(SPREAD_ICONS) spreadIcons(ANCHOR_BOX?[ANCHOR_BOX]:[]);
 if(DESIGN.reserveIcons) reserveIcons();
 // Central interchange / bus-station label (the ANCHOR) drawn + reserved first
 // (suppressed when internalDiagram draws a lozenge for the anchor instead)
-// (also suppressed by coreBox — the box IS the interchange, and its own label
-//  says so; drawing both puts two names on the same square centimetre)
+// (also suppressed by a coreBox that CONTAINS the anchor — the box IS the interchange then;
+//  a box recentred with `at` leaves it drawn: test/corebox_anchor.test.js, buses-data OA-549)
 if(ANCHOR_SQ){const[x,y]=ANCHOR_SQ;
   const _a=[`<rect x="${x-1.7}" y="${y-1.7}" width="3.4" height="3.4" rx="0.5" fill="#111"/>`,
     `<rect x="${x-1.0}" y="${y-1.0}" width="2.0" height="2.0" rx="0.3" fill="#fff"/>`,
@@ -2004,8 +2039,10 @@ if(ANCHOR_SQ){const[x,y]=ANCHOR_SQ;
  * panel, the footer plate, the core box — it says so, by name, on stderr. A note
  * that lands on the services panel cannot be fixed by anything in this file.
  */
-const MAPNOTES=[];                              // resolved layout; drawn with the map, below
+const SEARCHED_NOTES=[];                        // OA-437 A1: notes with no x, y or `at`, placed after the labels (note_place.js)
+const MAPNOTES=[];                            // resolved layout; drawn with the map, below
 for(const n of (RJ.mapNotes||[])){
+  if(n.x==null && n.y==null && !n.at){ SEARCHED_NOTES.push(n); continue; }
   let x,y;
   if(n.at && (atco2ll[n.at]||baseOv[n.at])){ const p=XYS(n.at); x=p[0]; y=p[1]; } else { x=n.x||0; y=n.y||0; }
   x+=(n.dx||0); y+=(n.dy||0);
@@ -2085,6 +2122,10 @@ if(ID && IR) for(const ic of (ID.interchanges||[])){
   reserve(box[0],box[1],box[2],box[3],'an "'+label+'" interchange lozenge');
   LOZENGES.push({ ic, x, y, w, h, label, sz, fill: ic.fill||'#1e7a46' });
 }
+// design.placePointer (buses-data OA-509): the red arrow at a place map's marker claims its bearing here; place_pointer.js.
+const POINTER=pointerOn(DESIGN,RJ) ? placePointer({ on:true, sq:ANCHOR_SQ, symbols:LAB?LAB.anchors:[], inkCover:inkFromSvg(s,C,rawLumHex,Labeller), overlaps, reserve,
+  nameBox:ANCHOR_SQ&&[ANCHOR_SQ[0]+2.6, ANCHOR_SQ[1]+1.0-3.0*FONT.CAP_HEIGHT, ANCHOR_SQ[0]+2.6+FONT.textWidth(ANCHOR_LABEL,3.0,true), ANCHOR_SQ[1]+1.0+3.0*FONT.DESCENDER],
+  frame:{x0:MX0,y0:MY0,x1:MX1,y1:MY1}, footerTop:FOOTER_PLATE_TOP, warn:m=>process.stderr.write(m+'\n') }) : null;
 
 // The eight compass keys labeller.js knows, 45° apart, anticlockwise from East in
 // PAGE coordinates (y points down, so North is -y). `inboardKeys` snaps a
@@ -2128,6 +2169,22 @@ function inboardKeys(ox,oy){
   // 21 defects across the eight towns, nearly all of them "label over route ink".
   return [2,6,3,5,4].map(k=>COMPASS8[(i+k)%8]);
 }
+// ---- road-name labels: placement lives in road_labels.js ------------------
+// The road-label block further down calls it at its own place in the draw order;
+// internalRoads.roadLabelPin calls it HERE, before any badge along a line is placed
+// (OA-176). A pinned name is placed and RESERVED now and painted later with the
+// others, so the paint order does not change. Absent key => byte-identical.
+const { roadNameAgg, placeRoadName } = (IR && SKEL) ? roadLabels({ IR, SKEL, RG, XY, FONT, iconBoxes, overlaps, overlapsNoIcons, inFrame, inCore, reserve, esc }) : {};
+const ROAD_PINNED=new Map();
+if(IR && SKEL && (IR.roadLabelPin||[]).length){
+  const {agg,ren}=roadNameAgg();
+  for(const n of IR.roadLabelPin){
+    if(!agg[n]){ process.stderr.write(`roadLabelPin: no road named "${n}" is drawn or in roads_geo, so nothing is pinned`+GUARD_NL); continue; }
+    const r=placeRoadName(n,agg[n],ren); ROAD_PINNED.set(n,r);
+    if(process.env.DBG_LABELS) console.error('  '+(r.ok?'pinned  ':'PIN-SKIP('+(r.anyInFrame?'overlap':'off-frame')+')')+' '+n);
+  }
+}
+
 // ---- internalRoads: terminus arrows at the frame cuts + badges along lines --
 if(IR && TRIM){
   const TL=RJ.terminiLabels||{};
@@ -2427,10 +2484,10 @@ if(IR && TRIM){
     }
     aplaced.push([bx,by]);
     let bxMin=Infinity,bxMax=-Infinity,byMin=Infinity,byMax=-Infinity;
-    const pendingTermini=[];
+    const pendingTermini=[], clusterMarks=[];
     groups.forEach((g,gidx)=>{
       const ry=by+(gidx-(groups.length-1)/2)*RH;
-      let lastX=bx;
+      let lastX=bx; const rowMarks=[];
       g.ms.forEach((m,i)=>{ const bxi=bx+(i-(g.ms.length-1)/2)*BSx; badge(bxi,ry,m.r,3.0); lastX=bxi;
         // REGISTERED, as of 2026-08-28 (OA-147). Until now this pass drew badges and
         // told `bboxes` nothing, so the two passes that read that register — the
@@ -2439,7 +2496,7 @@ if(IR && TRIM){
         // Five of the seven badge overprints left on the internal sheets were one
         // 3.0mm frame-cut badge under one 2.6mm in-town one, including St Neots'
         // diagram where two of them share a centre EXACTLY.
-        noteBadge(bxi,ry,3.0+CXW,3.0,3.0);
+        noteBadge(bxi,ry,3.0+CXW,3.0,3.0); { const mk=[bxi-3.2-CXW,ry-3.2,bxi+3.2+CXW,ry+3.2]; clusterMarks.push(mk); rowMarks.push(mk); } // OA-302: ownMarks / leaderFrom, see labeller.js
         bxMin=Math.min(bxMin,bxi); bxMax=Math.max(bxMax,bxi); byMin=Math.min(byMin,ry); byMax=Math.max(byMax,ry); });
       if(!g.label) return;
       // A "to X" shared by 2+ differently-coloured routes (e.g. 18 + 905 both to
@@ -2494,9 +2551,9 @@ if(IR && TRIM){
            * the wrong place, not a way of getting it to the right one. */
           const only = DESIGN.exitDevice ? inboardKeys(-dx,-dy) : null;
           pendingTermini.push({ id:'term:'+gidx+':'+g.ms.map(m=>m.r).join('-')+'@'+bx.toFixed(1)+','+ry.toFixed(1),
-            at:[(rx0+rx1)/2, ry], text, size:sz, fill:col, priority:20, wrap:false, mustPlace:true,
-            ...(EXIT_IN_PANEL?{bounds:{x0:1, y0:1, x1:297-(PRINT_SAFE!=null?PRINT_SAFE:1), y1:FOOTER_PLATE_TOP-0.4}}:{}),
-            ...(only?{only, leader:false}:{}) });
+            at:[(rx0+rx1)/2, ry], leaderFrom:rowMarks, text, size:sz, fill:col, priority:20, wrap:false, mustPlace:true,
+            ...(EXIT_IN_PANEL?{bounds:{x0:1, y0:1, x1:297-(PRINT_SAFE!=null?PRINT_SAFE:1), y1:FOOTER_PLATE_TOP-0.4}}:LAB&&DESIGN.exitInFrame?{bounds:{x0:MX0, y0:MY0, x1:MX1, y1:MY1}}:{}), // exitInFrame (OA-561)
+            ...(only?{only, leader:false}:{}), ...(DESIGN.exitAvoidsInk?{maxInk:0.02}:{}) }); // exitAvoidsInk (OA-561)
           return;
         }
         const rcands=[[rx1+3.7+CXW,ry+0.9,'start'],[rx0-3.7-CXW,ry+0.9,'end'],[bx,ry-4.4,'middle'],[bx,ry+5.4,'middle']];
@@ -2519,8 +2576,12 @@ if(IR && TRIM){
     // ribbon (3 -> 5 defects); left alone, one of them keeps a clean spot (3 -> 4)
     // and neither is dropped, because both are mustPlace.
     if(LAB) for(const t of pendingTermini)
-      LAB.add(Object.assign({own:[bxMin-3.6,byMin-3.6,bxMax+3.6,byMax+3.6]}, t));
+      LAB.add(Object.assign({own:[bxMin-3.6,byMin-3.6,bxMax+3.6,byMax+3.6], ownMarks:clusterMarks}, t));
   }
+  // OA-549: a badge grid at each end of every trunk, naming every route in it (trunk_segments.js)
+  if(TRUNKS) TS.placeStacks(TRUNKS.trunks, TRUNKCFG, { inFrame, inCore, badgeClash, overlaps, hit, badge, badgeXWs, noteBadge, reserve, out,
+    symbols:pois.map(poiSite).filter(Boolean).map(q=>[q.x-POI_HALF,q.y-POI_HALF,q.x+POI_HALF,q.y+POI_HALF]),
+    ink:new Labeller({ page:[W,H] }).stampSvg(s, (st,w)=>new Set(Object.values(C).concat(TRUNKCFG.color).map(v=>String(v).toLowerCase())).has(String(st).toLowerCase())||(w>=0.5&&rawLumHex(st)<0.62)).ink });
   for(const r of order){ const tr=TRIM[r]; if(!tr)continue;
     const closed = tr.pts.length>2 && Math.hypot(tr.pts[0][0]-tr.pts[tr.pts.length-1][0], tr.pts[0][1]-tr.pts[tr.pts.length-1][1])<2;
     if(!closed){
@@ -2547,6 +2608,7 @@ if(IR && TRIM){
         next+=IR.badgeEvery;
         if(!inFrame(p))continue;
         if(inCore(p))continue;                       // coreBox: nothing inside the box
+        if(inTrunk(r,tr,i))continue;                 // OA-549: a trunk's stacks name it
         // On a bundled corridor only the group leader badges, and it badges the
         // WHOLE stack; a sibling that has left the bundle badges its own branch.
         const grp=badgeGroup(r,segIdxOf(tr,i));
@@ -2604,16 +2666,16 @@ if(IR && TRIM){
         if(done) break;
         for(const s of segs){
           const p=[(tr.pts[s.i][0]+tr.pts[s.i+1][0])/2, (tr.pts[s.i][1]+tr.pts[s.i+1][1])/2];
-          if(!inFrame(p)||inCore(p)) continue;
+          if(!inFrame(p)||inCore(p)||inTrunk(r,tr,s.i)) continue;
           const grp=badgeGroup(r,segIdxOf(tr,s.i)) || [r];
           if(avoid){
-            // Badges against badges, the same set drawTermBadges() uses and for the
-            // same measured reason — this comment claimed the wider set until
-            // 2026-08-30 and the call below never used it. The guarantee is the
-            // part that matters and is unchanged: the second pass still forces, so
-            // a line that needs identifying still gets a badge.
+            // Badges against badges, as drawTermBadges() does (this claimed the wider set until 2026-08-30 and
+            // never used it); the second pass still forces, so a line that needs identifying still gets a badge.
             const gxw=badgeXWs(grp,2.4), gh=(grp.length-1)/2*5.3+2.3;
             if(badgeClash(p[0],p[1],2.4+gxw,gh,2.4)) continue;
+            // Nor, by its drawn extent, on the anchor's own name (OA-531): High Wycombe Town Centre's 102/103/104/
+            // 105/M40/X74 stack printed over "Oxford Street" at five badgeEvery pitches of six. Forcing is unchanged.
+            if(ANCHOR_BOX && p[0]-2.4-gxw<ANCHOR_BOX[2] && p[0]+2.4+gxw>ANCHOR_BOX[0] && p[1]-gh-0.1<ANCHOR_BOX[3] && p[1]+gh+0.1>ANCHOR_BOX[1]) continue;
           }
           const bs=badgeStack(p[0],p[1],grp,2.4);
           noteBadge(p[0],p[1],2.4+bs.xw,bs.h,2.4);
@@ -2646,7 +2708,7 @@ if(IR && TRIM){
 // (b) Page-space coincidence of the DRAWN lines is circular: bundling is exactly
 // what removes the lane offset between members, so measuring after it inflates
 // every family towards 1.0 (two unrelated High Wycombe routes read 0.70).
-if((CORR || CPAL) && RP && RP.routes){
+if((CORR || CPAL || TRUNKS) && RP && RP.routes){
   const CELL=0.001;                                   // ~111 m of latitude
   let laMin=90, laMax=-90;
   for(const k of Object.keys(RP.routes)) for(const p of (RP.routes[k].pts||[])){
@@ -2734,6 +2796,7 @@ if((CORR || CPAL) && RP && RP.routes){
       +'unrelated groups ('+cl.groups.join(', ')+') — a reader will read them as one corridor. '
       +'Give each corridor its own hue, or group them in corridorPalette.');
   }
+  if(TRUNKS) rep.trunks=TS.trunkReport(TRUNKS.trunks, r=>laneKey(r));   // OA-549: S6 checks each stack against its trunk
   fs.writeFileSync(DIR+'/corridors_report.json', JSON.stringify(rep,null,2));
   console.log('corridors: '+rep.families.length+' bundled famil'+(rep.families.length===1?'y':'ies')
     +(CPAL?', '+Object.keys(CPAL.fam).length+' colour group(s)':'')
@@ -2778,98 +2841,20 @@ if(IR && SKEL){
   // labels along the USED road geometry (length-weighted centroid + axial mean
   // angle per road name); roadLabelInclude forces a road in (from roads_geo if
   // no bus uses it), roadRename maps OSM names to display names.
-  const agg={};
-  for(const e of SKEL){ if(!e.name)continue;
-    const L=Math.hypot(e.q[0]-e.p[0], e.q[1]-e.p[1]); if(!L)continue;
-    (agg[e.name]=agg[e.name]||{len:0,segs:[]}).len+=L; agg[e.name].segs.push([e.p,e.q]); }
-  const rn=IR.roadRename||[];
-  const ren=n=>{ for(const [a,b] of rn) if(n===a) return b; return n; };
-  // keyRoads are implicitly label-eligible too (one name, not two config arrays).
-  const incl=(IR.roadLabelInclude||[]).concat(IR.keyRoads||[]);
-  for(const n of incl){ if(agg[n])continue;            // not bus-used: pull from roads_geo
-    for(const w of RG.ways){ if(w.tags.name!==n)continue;
-      for(let i=0;i<w.geometry.length-1;i++){ const p=XY(w.geometry[i]), q=XY(w.geometry[i+1]);
-        const L=Math.hypot(q[0]-p[0],q[1]-p[1]); if(!L)continue;
-        (agg[n]=agg[n]||{len:0,segs:[]}).len+=L; agg[n].segs.push([p,q]); } } }
-  // roadLabelExclude: never label these names. A road name shared by several
-  // out-of-frame localities (e.g. every village's "High Street") aggregates to
-  // ONE label at their combined centroid, which can fall spuriously inside the
-  // town where no such road exists — this drops it. Removes only the LABEL, not
-  // any drawn road line.
-  for(const n of (IR.roadLabelExclude||[])) delete agg[n];
+  const {agg,incl,ren}=roadNameAgg();
   const names=Object.entries(agg).sort((a,b)=>b[1].len-a[1].len);
   const chosen=[];
   for(const e of names){ if(incl.includes(e[0])) chosen.push(e); }
   for(const e of names){ if(chosen.length>=IR.roadLabelMax)break; if(!chosen.includes(e)) chosen.push(e); }
   if(process.env.DBG_LABELS) console.error('chosen ('+chosen.length+'/'+IR.roadLabelMax+'): '+chosen.map(e=>e[0]).join(', '));
   for(const [n,a] of chosen){
-    let sw=0,cx0=0,cy0=0,vx=0,vy=0;
-    for(const [p,q] of a.segs){ const L=Math.hypot(q[0]-p[0],q[1]-p[1]);
-      sw+=L; cx0+=(p[0]+q[0])/2*L; cy0+=(p[1]+q[1])/2*L;
-      const an=Math.atan2(q[1]-p[1],q[0]-p[0]); vx+=Math.cos(2*an)*L; vy+=Math.sin(2*an)*L; }
-    cx0/=sw; cy0/=sw;
-    let ang=Math.atan2(vy,vx)/2*180/Math.PI; if(ang>90)ang-=180; if(ang<-90)ang+=180;
-    const label=ren(n);
-    // Measured, for the same reason as the anchor label above: a character-count
-    // guess put "Ramsey Road" at 13.75 mm when it draws 15.84, and the badge sitting
-    // in the 2.09 mm nobody claimed was one of OA-148's thirteen.
-    const w=FONT.textWidth(label,2.5,false);
-    // multi-candidate search (same fallback pattern as placeLabel()): try the
-    // whole-road weighted centroid first, then points spread along the road's
-    // used length (projected onto its own mean bearing), so ONE local collision
-    // (a badge, another label) no longer drops the entire label.
-    const ux=Math.cos(ang*Math.PI/180), uy=Math.sin(ang*Math.PI/180);
-    const mids=a.segs.map(([p,q])=>({x:(p[0]+q[0])/2, y:(p[1]+q[1])/2, L:Math.hypot(q[0]-p[0],q[1]-p[1])}))
-      .sort((m1,m2)=>(m1.x*ux+m1.y*uy)-(m2.x*ux+m2.y*uy));
-    let acc=0; for(const m of mids){ m.t=acc+m.L/2; acc+=m.L; }
-    const along=frac=>{ const target=frac*sw; let best=mids[0];
-      for(const m of mids) if(Math.abs(m.t-target)<Math.abs(best.t-target)) best=m;
-      return [best.x,best.y]; };
-    /* THE SEVEN, THEN EVERY OTHER MIDPOINT (2026-08-30, OA-148 / OA-176).
-     *
-     * Measuring the box properly (above) makes it 2 mm wider than the guess, and
-     * on the first dry run that cost St Ives its "Ramsey Road" and "Somersham
-     * Road" outright — the pass drops a name when all its candidates are blocked,
-     * and a wider box blocks more easily. A truthful measurement that loses a
-     * named road is not an improvement, and the drop count is a number this
-     * project has already been blind to once.
-     *
-     * So the pass gets more places to look rather than a smaller box. The seven
-     * it always had come FIRST and in the same order, so any road name that
-     * placed at one of them still does; the rest of the road's own segment
-     * midpoints follow, in the along-bearing order `mids` is already sorted into,
-     * which is deterministic and costs nothing on a road that placed at its
-     * centroid. */
-    const seen7=new Set();
-    const cands=[[cx0,cy0]].concat([0.3,0.7,0.15,0.85,0.42,0.58].map(along))
-      .concat(mids.map(m=>[m.x,m.y]))
-      .filter(([px2,py2])=>{ const k=px2.toFixed(3)+','+py2.toFixed(3);
-        if(seen7.has(k)) return false; seen7.add(k); return true; });
-    let ok=false, anyInFrame=false;
-    // Two sweeps when design.reserveIcons is on: honour the symbols first, and only if
-    // every candidate is blocked, repeat ignoring them — the same "gain, never lose"
-    // fallback placeLabel() uses, so no road name that printed before disappears now.
-    for(const pass of (iconBoxes.size?[0,1]:[0])){
-    if(ok) break;
-    const blocked = pass ? overlapsNoIcons : (b=>overlaps(b));
-    for(const [cx,cy] of cands){
-      if(!inFrame([cx,cy]))continue; if(inCore([cx,cy]))continue; anyInFrame=true;
-      // reserve the ROTATED footprint (rect rotated by `ang`, then its axis-
-      // aligned bounding box) -- the old axis-aligned-only box ignored rotation
-      // entirely, so a steeply-angled road name (e.g. -35 deg) could visually
-      // swing well outside its own reservation and cover something the collision
-      // check thought was clear (caught: it hid a terminus badge once a nearby
-      // reservation moved). Reduces to the exact old box when ang=0.
-      const rad=ang*Math.PI/180, ca=Math.cos(rad), sa=Math.sin(rad), hw=w/2+1, hh=2;
-      const corners=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([lx,ly])=>[cx+lx*ca-ly*sa, cy+lx*sa+ly*ca]);
-      const b=[Math.min(...corners.map(c=>c[0])), Math.min(...corners.map(c=>c[1])),
-                Math.max(...corners.map(c=>c[0])), Math.max(...corners.map(c=>c[1]))];
-      if(blocked(b))continue; reserve(...b);
-      out(`<text x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" font-family="Arial" font-size="2.5" fill="#666" text-anchor="middle" transform="rotate(${ang.toFixed(1)} ${cx.toFixed(2)} ${cy.toFixed(2)})" stroke="#fff" stroke-width="0.8" paint-order="stroke">${esc(label)}</text>`);
-      ok=true; break;
-    }
-    }
-    if(process.env.DBG_LABELS) console.error('  '+(ok?'placed  ':'SKIP('+(anyInFrame?'overlap':'off-frame')+')')+' '+n);
+    // A name pinned before the badges prints where it was reserved; one that found
+    // no room then gets the ordinary pass, so a pin never loses a name that would
+    // otherwise have printed.
+    let r=ROAD_PINNED.get(n); const pinned=!!(r&&r.ok);
+    if(!pinned) r=placeRoadName(n,a,ren);
+    if(r.ok) out(r.svg);
+    if(process.env.DBG_LABELS) console.error('  '+(pinned?'pinned  ':r.ok?'placed  ':'SKIP('+(r.anyInFrame?'overlap':'off-frame')+')')+' '+n);
   }
 } else {
 // classic: group stops by road (from stop names), label along route direction
@@ -2900,7 +2885,7 @@ for(const [road,as] of roads){
 }
 
 // POIs (on top of lines)
-{ const note=placeOptIns(); pois.forEach(poiMark); if(note) process.stderr.write(note+GUARD_NL); }
+{ placeOptIns(); pois.forEach(poiMark); const note=seatStranded(); if(note) process.stderr.write(note+GUARD_NL); }
 
 // ---- map notes — drawn here, on top of the map; CLAIMED far above ----------
 // The layout, the wrap, the footer warning and the reservation all happened in the
@@ -3068,6 +3053,10 @@ if(LAB){
     NORTH.resite((boxOf,wx,wy,tol)=>spotSearch(boxOf,wx,wy,tol,hitsLabel),
                  hitsLabel, m=>process.stderr.write(m));
   }
+  // OA-437 A1: the searched notes, now that the river, the labels and the exit captions are all down.
+  { const LB = LAB.solve().filter(r=>r.placed && r.b).map(r=>r.b);
+    placeSearchedNotes({ notes:SEARCHED_NOTES, frame:{x0:MX0,y0:MY0,x1:MX1,y1:MY1}, footerTop:FOOTER_PLATE_TOP, svg:s, IR, Labeller, esc, reserve, overlaps,
+      measure:(ln,z)=>FONT.textWidth(ln,z,false), labelBoxes:LB, warn:m=>process.stderr.write(m) }).forEach(out); }
   // design.exitDevice: a continuation that could not take any of its five inboard
   // positions took a foreign one instead, and that is the sheet quietly going back
   // to seven designs. Nothing measures it — the text IS placed and it is not over
@@ -3108,6 +3097,7 @@ out(`<text x="6" y="16" font-family="Arial" font-weight="bold" font-size="11" fi
 // which sets validFrom; this only changes what a map that FORGETS it would say.
 if(RJ.validFrom) out(`<text x="6" y="23" font-family="Arial" font-size="5" fill="#444">(from ${esc(RJ.validFrom)})</text>`);
 for(const f of FEATURES) drawFeatureLabel(f);
+if(POINTER) out(POINTER.svg);                   // last on the map, so nothing paints over it
 
 // ---------- right service panel ----------
 // The whole right-hand column is in services_panel.js: the Services list in its

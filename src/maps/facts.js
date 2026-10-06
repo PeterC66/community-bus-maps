@@ -73,6 +73,13 @@ export function splitJourneyNote(journey) {
   return { ...j, places, note: notes.length ? notes.join('; ') : null };
 }
 
+/** The sheet's row reads "<days> · <words>"; so does the text version (OA-529). */
+function withMinority(days, note) {
+  const words = str(obj(note).long);
+  if (!words) return days || null;
+  return days ? `${days} · ${words}` : words;
+}
+
 /** Drop consecutive repeats (a circular route passes the same stop twice). */
 function dedupeRun(names) {
   const out = [];
@@ -207,6 +214,10 @@ export function buildFacts(dataDir, { kind } = {}) {
   // internal sheet actually draws; fall back to the full list when absent.
   const intown = obj(readJson(dataDir, 'routes_intown_atco.json', null) || readJson(dataDir, 'routes_atco.json', {}));
   const atco2name = obj(readJson(dataDir, 'atco2name.json', {}));
+  // The panel's "some journeys via X" words, resolved by the engine and written
+  // beside the sheet (buses-data OA-529 fix 1). Copied, never re-derived, and
+  // absent on a map built before the engine wrote it, which then reads as before.
+  const minority = obj(readJson(dataDir, 'minority.json', {}));
 
   // Area: each `external[]` entry is one drawn journey (a route can have more
   // than one — a variant "via Old Hurst", a limited school working).
@@ -252,7 +263,7 @@ export function buildFacts(dataDir, { kind } = {}) {
       colour: str(palette[id]) || null,
       textOn: str(textOn[id]) || null,
       title: str(d[0]) || null,
-      days: str(d[1]) || null,
+      days: withMinority(str(d[1]), minority[id]),
       operator: operatorOf.get(id) || null,
       terminus: str(termini[id]) || null,
       stopsInArea: dedupeRun(arr(intown[id]).map((a) => str(atco2name[a]) || '')),
