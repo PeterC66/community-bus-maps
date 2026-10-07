@@ -1,7 +1,7 @@
 # Runbook R4 — Monthly update cycle
 
-<!-- docstamp v1.12 | 2026-09-29 | sha=2cbd7c4d -->
-**v1.12** · updated 29 September 2026
+<!-- docstamp v1.13 | 2026-10-07 | sha=b83727f6 -->
+**v1.13** · updated 7 October 2026
 
 > **Pilot.** A monthly cadence is the **intention**, not a commitment — the public FAQ and the customer guide are both worded that way, and no customer is relying on it yet. Don't let the docs or the site promise a rhythm the pilot cannot keep. See [`PILOT.md`](PILOT.md).
 
@@ -9,17 +9,17 @@
 
 **Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
-**Purpose.** Keep published maps current as bus services change — the central refresh → **proposed update** → customer **accept** flow (P5). Run monthly (with the BODS cycle), or when a service you know about changes.
+**Purpose.** What the portal does with a refreshed map — the **proposed update** → customer **accept** flow (P5): its checks, its refusals, its flags. **The procedure for doing a refresh — which towns, the rebuild, the month's ink review, and the one gated command that delivers — is the `refresh` playbook in the `bus-work` skill** (`bus-work/references/playbooks.md` in the skills repository); this page does not repeat it, and where the two disagree about what the portal does, this page is right.
 
 > **The plain-English counterpart.** R1, R3 and this runbook are also told as one continuous story for the operator — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\u3a St Ives\Using AI\Buses\Documentation\README - How to publish a map to the portal.md` (the Buses repo). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
 
-The split again: **you** regenerate a town's data centrally (live sources + judgement); the **portal** stages it as a proposed update the customer reviews. Published maps keep serving untouched until the customer accepts — nothing changes under them.
+The split again: the Buses side regenerates a town's data centrally (live sources + judgement); the **portal** stages it as a proposed update the customer reviews. Published maps keep serving untouched until the customer accepts — nothing changes under them.
 
 ## What triggers it
 
 The monthly BODS refresh.
 
-> **Claude-assisted shortcut:** the Buses side mines **upcoming changes** (`gtfs_upcoming.py` — the ≥42-day-ahead feed + a month-over-month diff → a per-town upcoming-changes report) so you know *which* towns actually changed before regenerating anything. Work those first; skip the unchanged. `npm run check-upcoming` cross-references that report against the portal's own maps and queues a `refresh-flag` message (Admin → Messages) for every LIVE map — demo or real customer, treated the same — whose town/place shows upcoming changes, so you don't have to remember which towns have a portal map while reading the report; `npm run check-upcoming -- --dry-run` names every flag and banner it would write and writes neither. It does not regenerate anything itself: Step 1 below is still a human (+ Claude) job.
+The Buses side mines **upcoming changes** (`gtfs_upcoming.py`) so only the towns that actually changed are rebuilt; that is the playbook's first step. `npm run check-upcoming` is the portal's half: it cross-references that report against the portal's own maps and queues a `refresh-flag` message (Admin → Messages) for every LIVE map — demo or real customer, treated the same — whose town/place shows upcoming changes; `npm run check-upcoming -- --dry-run` names every flag and banner it would write and writes neither. It does not regenerate anything.
 
 ## S6 freshness gates delivery
 
@@ -33,13 +33,13 @@ A refusal costs nothing: it happens first, locally, before the `scp`, so the hos
 
 The one-off escape hatch is `npm run deliver -- … --s6-unchecked "<reason>"`, which prints the reason and is recorded nowhere else. Use it when you know what you are doing and nowhere near a customer's map.
 
-## Step 1 — Regenerate the map data (central)
+## Step 1 — Regenerate the map data (central, not here)
 
-For each map that changed, re-run its skill (`make-bus-leaflet` / `make-place-bus-leaflet`) to produce a **fresh S5-render dir** for the new month. Same making step as R1, for an existing map.
+Done on the Buses side, by the `bus-work` `refresh` playbook. It ends in a fresh **S5-render dir** and, for a town in the month's ink review, in the playbook's gated staging command — the only form that enforces the ink gate.
 
-## Step 2 — Stage it as a proposed update
+## Step 2 — Staging: what `propose-update.mjs` does
 
-**Stop the dev server** (one SQLite writer). Then, per map:
+**This script is an internal.** On the live site the playbook's staging command runs `npm run deliver`, which runs this inside a throwaway container; run it directly only against a local dev portal, or for a place map the playbook says a person delivers. **Stop the dev server** (one SQLite writer). Then, per map:
 
 ```bash
 node scripts/propose-update.mjs --map st-ives --src "<fresh S5-render dir>" --note "BODS August 2026 refresh"
