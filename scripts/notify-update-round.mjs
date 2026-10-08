@@ -16,7 +16,7 @@
 // container. From the laptop, with the slugs of the round in place of the example
 // ones (there are no other placeholders):
 //
-//   npm --prefix "C:/Claude/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/notify-update-round.mjs --map st-ives,ramsey"
+//   npm --prefix "C:/Buses/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/notify-update-round.mjs --map st-ives,ramsey"
 //
 // THE ROUND. Stage every map with `npm run deliver -- … --no-notify`, which
 // emails nobody, then run this once. Grouping and wording are the server's own

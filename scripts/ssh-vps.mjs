@@ -2,7 +2,7 @@
 // details already in .env - so "do X on the VPS" never requires remembering a
 // hostname, a key path or where the app lives.
 //
-// Run these FROM THE REPO ROOT on the laptop (C:\Claude\community-bus-maps):
+// Run these FROM THE REPO ROOT on the laptop (C:\Buses\community-bus-maps):
 //
 //   npm run ssh                              open an interactive shell, already
 //                                            cd'd into the app directory
@@ -39,7 +39,7 @@ if (!HOST || !APP_DIR) {
 if (!APP_DIR.startsWith('/')) {
   console.error(`DEPLOY_APP_DIR is "${APP_DIR}", which is not an absolute POSIX path.`);
   console.error('If you set it inline in Git Bash, MSYS rewrote it -- put it in .env instead');
-  console.error('and run `npm run ssh` from the repo root (C:/Claude/community-bus-maps).');
+  console.error('and run `npm run ssh` from the repo root (C:/Buses/community-bus-maps).');
   process.exit(1);
 }
 

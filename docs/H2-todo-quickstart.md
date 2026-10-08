@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.8 | 2026-09-21 | sha=4159027f -->
-**v1.8** · updated 21 September 2026
+<!-- docstamp v1.9 | 2026-10-08 | sha=306ccd89 -->
+**v1.9** · updated 8 October 2026
 
 **For:** the operator (Peter), doing an ordinary daily/weekly pass. **Assumes:** you're working against the **live portal — `busmaps.uk`** — signed in there as admin. That's the normal case now the pilot is deployed; every command below defaults to it.
 
@@ -29,17 +29,17 @@ Two places to look, never more:
 2. **The `bus-work` skill on the laptop** — same list, plus laptop-only signals the portal can't see (stale renders, missing verification). It talks to the **live** portal by default. Run it in Claude Code:
 
 ```powershell
-node "C:\u3a St Ives\.claude\skills\bus-work\assets\worklist.mjs"
+node "C:\Buses\claude-skills\bus-work\assets\worklist.mjs"
 ```
 That is the whole command, from any folder, with nothing to substitute. Or just say **"what's next on the buses"** — Claude runs the same thing.
 
-**How it reaches the live portal: a read-only token, set once (OA-203, 2026-08-31).** `worklist.mjs` reads two lines from the portal checkout's own `.env` (`C:\Claude\community-bus-maps\.env`, which is gitignored): `BUSMAPS_URL=https://busmaps.uk` and `BUSMAPS_TOKEN=`, the latter holding the same value as `OPERATOR_TOKEN` on the host. That token is sent as a bearer header, is good for `GET` on the worklist, the map list and each map's landmark answer, and for nothing else — it cannot approve, publish or invite anyone. With neither line set and no `--local`, the tool refuses and prints the two lines to add rather than guessing which portal you meant. The same value can be given for one run as `--token <OPERATOR_TOKEN>`, where `<OPERATOR_TOKEN>` is that value.
+**How it reaches the live portal: a read-only token, set once (OA-203, 2026-08-31).** `worklist.mjs` reads two lines from the portal checkout's own `.env` (`C:\Buses\community-bus-maps\.env`, which is gitignored): `BUSMAPS_URL=https://busmaps.uk` and `BUSMAPS_TOKEN=`, the latter holding the same value as `OPERATOR_TOKEN` on the host. That token is sent as a bearer header, is good for `GET` on the worklist, the map list and each map's landmark answer, and for nothing else — it cannot approve, publish or invite anyone. With neither line set and no `--local`, the tool refuses and prints the two lines to add rather than guessing which portal you meant. The same value can be given for one run as `--token <OPERATOR_TOKEN>`, where `<OPERATOR_TOKEN>` is that value.
 
 There is no cookie to fetch any more. Until OA-203 this page told you to copy a `cbm_session` value out of DevTools once a month and keep it in a file; that was a person's whole admin session, and it has been retired. `--cookie` / `BUSMAPS_COOKIE` still work for a portal deployed before OA-203, which none is. If a live call comes back 401, the token on the laptop and `OPERATOR_TOKEN` on the host disagree — most likely because the host's was rotated (`npm run rotate:secret -- OPERATOR_TOKEN`, [DEPLOY.md](DEPLOY.md#rotating-a-token)) — and the fix is to copy the new value into `BUSMAPS_TOKEN`.
 
 ▸ **Testing locally instead?** Say so with `--local`:
 ```powershell
-node "C:\u3a St Ives\.claude\skills\bus-work\assets\worklist.mjs" --local
+node "C:\Buses\claude-skills\bus-work\assets\worklist.mjs" --local
 ```
 That reads the local dev checkout's own SQLite directly (faster, and read-only either way) — but it is **not** the live site's data, so don't act on a local-mode list as if it were the real queue.
 
@@ -122,7 +122,7 @@ This is the one with real terminal steps. Let `bus-work` walk you through it, or
 ```
 Ask Claude: *"build the map for `<request>`"* — it runs S1→S6 and hands you a dated **S5-render** folder plus a verification `.docx`. Keep that `.docx`.
 
-**Step 2 — deliver to the live portal.** One laptop command, `ssh`-based (from `C:\Claude\community-bus-maps`):
+**Step 2 — deliver to the live portal.** One laptop command, `ssh`-based (from `C:\Buses\community-bus-maps`):
 ```powershell
 npm run deliver -- --src "<the S5-render dir>" --name "<Town/Place name>" --slug <slug> --kind area --request <id>
 # place map instead: --kind place
@@ -148,7 +148,7 @@ Must print **PASS** with byte counts. If it doesn't, stop — don't hand over a 
 
 **Step 1 — regenerate** (laptop, same either way): re-run the same skill (`make-bus-leaflet` / `make-place-bus-leaflet`) for that town/place, producing a fresh S5-render folder.
 
-**Step 2 — deliver it to the live portal.** One laptop command, `ssh`-based, the same script a new-map build uses (§4) — run it from `C:\Claude\community-bus-maps`:
+**Step 2 — deliver it to the live portal.** One laptop command, `ssh`-based, the same script a new-map build uses (§4) — run it from `C:\Buses\community-bus-maps`:
 ```powershell
 npm run deliver -- --src "<the fresh S5-render dir>" --map <slug> --kind area --note "BODS <date> refresh"
 # place map instead: --kind place
@@ -159,7 +159,7 @@ It `scp`'s the render up, pre-flight verifies it byte-identically in a throwaway
 
 *(Proven end to end on 18 Aug 2026 — all 13 sample maps were refreshed this way from the laptop in one pass. Expect two side effects per call: the portal is briefly stopped and restarted, and the customer is emailed an "update is ready" notification.)*
 
-▸ **Testing locally instead?** Skip `npm run deliver`, stop the dev server, and run the proposer straight against the local checkout (from `C:\Claude\community-bus-maps`):
+▸ **Testing locally instead?** Skip `npm run deliver`, stop the dev server, and run the proposer straight against the local checkout (from `C:\Buses\community-bus-maps`):
 ```powershell
 node scripts/propose-update.mjs --map <slug> --src "<the fresh S5-render dir>" --note "BODS <date> refresh"
 ```
@@ -175,7 +175,7 @@ Laptop-only, no import step, and no live/local distinction — this row never ta
 # re-run S1-S5 for the town via make-bus-leaflet, then:
 node "%SK%\refresh_latest.js"
 ```
-(`SK` = `C:\u3a St Ives\.claude\skills\make-bus-leaflet\assets`.) Commit the change in the Buses repo, noting the version bump.
+(`SK` = `C:\Buses\claude-skills\make-bus-leaflet\assets`.) Commit the change in the Buses repo, noting the version bump.
 
 ---
 
@@ -204,7 +204,7 @@ Nothing to do if it's recent. If it's been **2+ weeks**: send a nudge email nami
 
 Something the byte-identical check used to pass now fails. This is a laptop-only proof — it always regenerates from the local engine and compares against what's committed, regardless of whether busmaps.uk is up. Reproduce it:
 ```powershell
-node "C:/u3a St Ives/.claude/skills/make-bus-leaflet/assets/status.js" --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claude/community-bus-maps"
+node "C:/Buses/claude-skills/make-bus-leaflet/assets/status.js" --buses "C:/Buses/buses-data" --portal "C:/Buses/community-bus-maps"
 ```
 - If a **town** fails: either it's an *intended* engine change (fix it via `housekeeping` → `rollout.js` above) or a genuine regression (fix the generator, don't ship until it's clean).
 - If the **portal vendoring row** fails: re-vendor the changed file into `community-bus-maps/engine/`, then:
@@ -220,12 +220,12 @@ Must show **PASS** with byte counts before you touch anything else. This is exac
 
 After each item: re-run `bus-work` (or `worklist.mjs`) and confirm the row is gone. Occasionally — or whenever you've just fixed a `gate`/`housekeeping` item — push the result to the live portal so it shows up there too:
 ```powershell
-node "C:\u3a St Ives\.claude\skills\bus-work\assets\push-status.mjs" --url https://busmaps.uk --token <STATUS_TOKEN>
+node "C:\Buses\claude-skills\bus-work\assets\push-status.mjs" --url https://busmaps.uk --token <STATUS_TOKEN>
 ```
 `<STATUS_TOKEN>` is the value of `STATUS_TOKEN` in the host's `.env`.
 ▸ **Testing locally instead?** Drop `--url`/`--token` — it writes to the local checkout's own `status-snapshot.json` file instead of POSTing anywhere:
 ```powershell
-node "C:\u3a St Ives\.claude\skills\bus-work\assets\push-status.mjs"
+node "C:\Buses\claude-skills\bus-work\assets\push-status.mjs"
 ```
 
 ## Rules that always apply, whichever type you're doing
@@ -242,4 +242,4 @@ This page is deliberately just the steps. Background and reasoning live in:
 - [H1 — Operations Handbook](H1-operations-handbook.md) — the full picture, roles, vocabulary
 - [GO-LIVE.md](_archive/GO-LIVE.md) — historic go-live record: why the laptop/host split exists, what `npm run deliver` does step by step, and what wasn't yet built at the time (§2.1 Phase 2 — a refresh delivery path)
 - [R1](R1-create-map.md) / [R2](R2-onboarding.md) / [R3](R3-review-and-publish.md) / [R4](R4-update-cycle.md) — the detailed runbooks each section above is a shortcut for
-- `C:\u3a St Ives\.claude\skills\bus-work\references\playbooks.md` — the same procedures, written for Claude to follow
+- `C:\Buses\claude-skills\bus-work\references\playbooks.md` — the same procedures, written for Claude to follow

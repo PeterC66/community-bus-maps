@@ -1,7 +1,7 @@
 # The Dummy's Guide — developing, testing, and demonstrating the portal
 
-<!-- docstamp v1.10 | 2026-09-21 | sha=b975187a -->
-**v1.10** · updated 21 September 2026
+<!-- docstamp v1.11 | 2026-10-08 | sha=82ffab3a -->
+**v1.11** · updated 8 October 2026
 
 You know cmd/PowerShell, FTP and GitHub already. This guide fills the gap: the handful of **git** and **node** commands you need, how to run the portal on your own laptop, and how to show it to someone else without touching your 20i webspace.
 
@@ -18,14 +18,14 @@ It deliberately repeats nothing that's explained well elsewhere — each section
 **Short answer: one folder, almost the whole time —**
 
 ```
-C:\Claude\community-bus-maps
+C:\Buses\community-bus-maps
 ```
 
 Open PowerShell, `cd` into it once, and every `git`, `npm` and `node` command in Parts 1–5 below is run from there (or a subfolder under it — git and npm both find the project root automatically, so being one level down, e.g. in `src\`, is fine too). You don't switch folders to go from "editing code" to "running git" to "starting the server" — it's the same window, same place, the whole time.
 
 Two things that break that rule, both called out where they happen:
 
-- **Opening a brand-new PowerShell window** — it starts you somewhere else (usually your home folder), so the very first command in that window needs to be `cd C:\Claude\community-bus-maps` again. Every code block below starts with that `cd` line so it works even pasted into a fresh window — if you're already there, `cd` to the folder you're in is harmless.
+- **Opening a brand-new PowerShell window** — it starts you somewhere else (usually your home folder), so the very first command in that window needs to be `cd C:\Buses\community-bus-maps` again. Every code block below starts with that `cd` line so it works even pasted into a fresh window — if you're already there, `cd` to the folder you're in is harmless.
 - **Part 6's Render.com steps** — after the first `git push`, everything else happens in your **web browser** on render.com, not in a PowerShell folder at all.
 
 ---
@@ -40,16 +40,16 @@ Already installed and working — nothing to set up:
 | npm | 11.9.0 | installs the portal's dependencies, and runs its scripts (`npm run dev`, `npm test`, …) |
 | Git | 2.53.0 | tracks changes to the code, talks to GitHub |
 
-The project already lives at `C:\Claude\community-bus-maps`, its `main` branch already tracks `https://github.com/PeterC66/community-bus-maps` on GitHub, and the working copy is currently clean (no uncommitted changes). You don't need to "install" or "clone" anything to get started.
+The project already lives at `C:\Buses\community-bus-maps`, its `main` branch already tracks `https://github.com/PeterC66/community-bus-maps` on GitHub, and the working copy is currently clean (no uncommitted changes). You don't need to "install" or "clone" anything to get started.
 
 ---
 
 ## 1. The bare minimum git you actually need
 
-You know GitHub (the website) already. Git is the *command-line tool* that talks to it. All of it runs **from `C:\Claude\community-bus-maps`** (see "Which folder do I need to be in?" above). Four commands cover almost everything you'll do yourself:
+You know GitHub (the website) already. Git is the *command-line tool* that talks to it. All of it runs **from `C:\Buses\community-bus-maps`** (see "Which folder do I need to be in?" above). Four commands cover almost everything you'll do yourself:
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 git status              # "what's changed since the last commit?" — run this often, it's always safe
 git add <file>           # "stage" a changed file, ready to commit (or: git add -A for everything)
 git commit -m "message"  # save a snapshot of the staged files, with a short note about why
@@ -59,7 +59,7 @@ git push                 # send your commits up to GitHub
 And one more for pulling down changes made elsewhere (e.g. by Claude in a different session, or by you on another PC) — same folder:
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 git pull                 # fetch and merge the latest from GitHub into your local copy
 ```
 
@@ -79,7 +79,7 @@ If you're ever unsure what a command will do, `git status` first and ask before 
 This runs the portal *only on your own PC*, reachable at a `127.0.0.1` address that nothing outside your laptop can see. Same folder as always.
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 npm install                     # only needed once, or after pulling changes that touch package.json
 copy .env.example .env          # only needed once — creates your local config file
 npm run dev
@@ -90,7 +90,7 @@ Then open **http://127.0.0.1:5180** in your browser. Leave that PowerShell windo
 **Exception: `package.json`-only changes don't auto-reload.** The version badge in the footer (and anything else that reads `package.json` directly, like the app version) is only re-read when the server process restarts — and auto-reload only watches actual code files (`.js` files that get `import`ed), not `package.json` itself. So if you bump the version number, or change a dependency, and the page still shows the old value after a refresh, that's why. Fix it either by going to that PowerShell window and pressing **Ctrl+C**, then `npm run dev` again — or, without touching that window, force a reload from anywhere by "touching" a real code file so `--watch` notices a change:
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 (Get-Item src\server.js).LastWriteTime = Get-Date
 ```
 
@@ -105,8 +105,8 @@ This is exactly the "Quick start" in [`README.md`](../README.md) — see that fi
 A fresh `npm run dev` shows an empty shopfront — no customers, no maps. To get something worth looking at (sample councils, maps, pending approvals, a public gallery), seed the demo data. **Stop the server first** (Ctrl+C) — the seed script and the server both write to the same database file, and only one thing can write at a time. This can be the *same* PowerShell window you just ran `npm run dev` in (Ctrl+C stops it and gives you the prompt back — no need to `cd` again), or a fresh one if you'd rather keep the server's window untouched:
 
 ```powershell
-cd C:\Claude\community-bus-maps
-$env:BUSES_DIR = "C:\u3a St Ives\Using AI\Buses"
+cd C:\Buses\community-bus-maps
+$env:BUSES_DIR = "C:\Buses\buses-data"
 node scripts/seed-demo.mjs
 npm run dev
 ```
@@ -132,7 +132,7 @@ Each editor sees **only** their own organisation's maps — that's enforced on t
 To check who actually exists in your database right now (roles change, and you may have added people), run this with the server up or down — it only reads:
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('./data/portal.sqlite',{readOnly:true});for(const r of db.prepare('SELECT u.id,u.email,u.role,u.status,c.name AS org FROM user u LEFT JOIN customer c ON c.id=u.customer_id ORDER BY u.id').all())console.log([r.id,r.email,r.role,r.status,r.org||'(platform)'].join('  |  '))"
 ```
 
@@ -141,7 +141,7 @@ Same quoting rule as §3a: **single quotes, never backticks.** This lists the **
 To reset back to empty, delete the database file and start again (server stopped, same folder):
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 Remove-Item .\data\portal.sqlite* -ErrorAction SilentlyContinue
 node scripts/seed-demo.mjs
 ```
@@ -161,7 +161,7 @@ saw the window at all. You don't need to hunt for it. Read the token straight ou
 instead, in a **fresh** PowerShell window (this doesn't disturb the running server):
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('./data/portal.sqlite',{readOnly:true});const row=db.prepare('SELECT token FROM magic_link WHERE used_at IS NULL ORDER BY rowid DESC LIMIT 1').get();console.log(row ? row.token : 'no unused token yet - submit the sign-in form first')"
 ```
 
@@ -185,7 +185,7 @@ No need to track down the other window, and no need to stop/restart the server t
 
 ## 4. Everyday development loop
 
-All of this is one PowerShell window, `cd C:\Claude\community-bus-maps`, staying put:
+All of this is one PowerShell window, `cd C:\Buses\community-bus-maps`, staying put:
 
 1. `git pull` (pick up anything changed elsewhere).
 2. `npm run dev` (leave it running — it auto-reloads on save).
@@ -202,7 +202,7 @@ If you're working *with* Claude Code in a session, it will normally do steps 4�
 Same folder again:
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 npm test       # the quick checks (public front, lifecycle, etc.)
 npm run verify # the byte-identical gate, against the fixtures committed under gate-fixtures/
 ```
@@ -227,7 +227,7 @@ Neither is a reason to avoid reusing the account for a low-traffic demo like thi
 
 1. Make sure your latest work is pushed — same folder, same as always:
    ```powershell
-   cd C:\Claude\community-bus-maps
+   cd C:\Buses\community-bus-maps
    git push
    ```
 2. Everything from here on happens in your **web browser** at render.com, not in PowerShell — there's no folder to be "in" for these steps. Sign in to your existing account (or create one if you don't have one yet — that's the only step that involves creating an account, do it yourself in the browser) and make sure it's connected to your GitHub account.
@@ -276,7 +276,7 @@ GitHub, never the public.
 work like a plan document's Part A/B items:
 
 ```powershell
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 git checkout -b my-change-name     # once, at the start of the work
 # ... edit, test locally with npm run dev ...
 git add <files>
@@ -328,12 +328,12 @@ Everything here is one folder (`cd` there once, stay put — re-run the `cd` if 
 
 ```powershell
 # Start working
-cd C:\Claude\community-bus-maps
+cd C:\Buses\community-bus-maps
 git pull
 npm run dev                       # http://127.0.0.1:5180 — Ctrl+C to stop
 
 # Seed demo data (server must be stopped first)
-$env:BUSES_DIR = "C:\u3a St Ives\Using AI\Buses"
+$env:BUSES_DIR = "C:\Buses\buses-data"
 node scripts/seed-demo.mjs
 
 # Save your work

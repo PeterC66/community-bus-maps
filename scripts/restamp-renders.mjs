@@ -23,7 +23,7 @@
 // server. pilotReconcile.js itself still imports paths only, and takes the
 // answer as an argument, so nothing that merely renders pulls a database in.
 //
-// Usage — folder: the repository root (C:\Claude\community-bus-maps on the
+// Usage — folder: the repository root (C:\Buses\community-bus-maps on the
 // laptop, /opt/community-bus-maps — DEPLOY_APP_DIR — on the host). No placeholders in either line.
 //   node scripts/restamp-renders.mjs            # report what would change
 //   node scripts/restamp-renders.mjs --apply    # do it

@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.126 | 2026-09-27 | sha=32c266cf -->
-**v1.126** · updated 27 September 2026
+<!-- docstamp v1.127 | 2026-10-08 | sha=0ce20185 -->
+**v1.127** · updated 8 October 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -100,7 +100,7 @@ Put nginx/Caddy in front for TLS and the public hostname. Two proxy details the 
 
 The `Caddyfile` in this repo carries the site's security headers - HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a strict Content-Security-Policy (added 2026-08-19; until then every response carried none of them, `technical-audit_2026-08-19` S1). **This file is not deployed by `deliver-map.mjs`, `deploy.mjs` or the container build.** Caddy runs on the host, outside Docker, so shipping a new app image does nothing to it. If you change the `Caddyfile` you must copy and reload it yourself, or the change simply never happens.
 
-**The whole thing is one command.** From `C:\Claude\community-bus-maps` (the repo root):
+**The whole thing is one command.** From `C:\Buses\community-bus-maps` (the repo root):
 
 ```bash
 npm run deploy:caddy
@@ -122,7 +122,7 @@ npm run deploy:caddy -- --dry-run
 
 The manual sequence below is what that command does, kept for when something goes wrong in the middle of it.
 
-**Getting onto the VPS from the laptop.** From `C:\Claude\community-bus-maps` (the repo root):
+**Getting onto the VPS from the laptop.** From `C:\Buses\community-bus-maps` (the repo root):
 
 ```bash
 npm run ssh
@@ -134,7 +134,7 @@ That reads `DEPLOY_HOST`, `DEPLOY_SSH_KEY` and `DEPLOY_APP_DIR` out of `.env` an
 npm run ssh -- "docker compose ps"
 ```
 
-**Copying the Caddyfile up.** Also from `C:\Claude\community-bus-maps`, and note the trailing `:` on the destination - it means "your home directory on that host". `%DEPLOY_HOST%` is a placeholder for whatever `DEPLOY_HOST` is set to in `.env` (of the form `user@host`); substitute it by hand, since `scp` does not read `.env`:
+**Copying the Caddyfile up.** Also from `C:\Buses\community-bus-maps`, and note the trailing `:` on the destination - it means "your home directory on that host". `%DEPLOY_HOST%` is a placeholder for whatever `DEPLOY_HOST` is set to in `.env` (of the form `user@host`); substitute it by hand, since `scp` does not read `.env`:
 
 ```bash
 scp Caddyfile %DEPLOY_HOST%:
@@ -165,7 +165,7 @@ There is a way to test the whole header block without touching the live site or 
 **Who runs this.** Since 2026-09-17 (buses-data OA-394, R1 of the process review) a Claude session or the scheduled loop may merge a green pull request and run the deploy itself, from any folder on the laptop, with no placeholders:
 
 ```bash
-npm --prefix "C:/Claude/community-bus-maps" run deploy
+npm --prefix "C:/Buses/community-bus-maps" run deploy
 ```
 
 It does so only when CI is green on `main` for the commit being deployed, only after the history entry below has been merged, and only if it then reads the result back: `X-App-Version` from `https://busmaps.uk/` and `/health?deep=1` (§4). If the read-back fails, the fix is a **revert by a second pull request**, merged and deployed the same way — never a hand edit on the host. **Every raw `ssh` or `scp` to the VPS stays Peter's**, because Claude Code's auto-mode classifier refuses them to sessions: the token-holding `/health` read-back in §4, the `scp` of the §5 drills, and any `npm run ssh -- …` such as R1's `delete-map`. `npm run deploy` wraps its own `ssh` calls and is the one route a session uses, and since 2026-09-26 it also runs the §4a tracking itself, so a re-vendor no longer owes Peter a hand step. **A deploy that is pending is a chore, not a fault**: the bus-work worklist carries it as a row (`deploy_pending.mjs` in the `bus-work` skill), and the board never goes red for it.
@@ -174,7 +174,7 @@ Adopted 7 September 2026 (buses-data OA-266, retired the same day). **Write the 
 
 **The sha an entry names is the change, and the sha that gets deployed is the merge carrying the entry.** Those are two different commits and always will be; say which is which in the entry rather than leaving a reader to work it out. Where the change is small enough to share a pull request with its own history entry, put both in one PR and the two collapse into one.
 
-**The entry is a `CHANGELOG.d/` fragment in the change's own pull request, and the deploy refuses a commit that has none** (buses-data OA-377, adopted 2026-09-26). This ordering fixes where an entry sits against ITS OWN change and used to say nothing about every other commit that merged between the writing and the deploy: twice in September 2026 those went live described by nothing (#295–#297, then #301–#303, the owner picker among them), and both times it was the next entry's author who noticed. So `npm run deploy` now fetches and runs `scripts/check-deploy-history.mjs` as its step 0, before the backup, and stops if any first-parent commit on `origin/main` after the check's baseline neither adds a fragment, nor edits this file, nor is named by `#NNN` or short sha in one of them. When it stops, it names each commit; the remedy is a fragment naming them, in its own pull request, merged and then deployed. To ask the same question without deploying, from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
+**The entry is a `CHANGELOG.d/` fragment in the change's own pull request, and the deploy refuses a commit that has none** (buses-data OA-377, adopted 2026-09-26). This ordering fixes where an entry sits against ITS OWN change and used to say nothing about every other commit that merged between the writing and the deploy: twice in September 2026 those went live described by nothing (#295–#297, then #301–#303, the owner picker among them), and both times it was the next entry's author who noticed. So `npm run deploy` now fetches and runs `scripts/check-deploy-history.mjs` as its step 0, before the backup, and stops if any first-parent commit on `origin/main` after the check's baseline neither adds a fragment, nor edits this file, nor is named by `#NNN` or short sha in one of them. When it stops, it names each commit; the remedy is a fragment naming them, in its own pull request, merged and then deployed. To ask the same question without deploying, from the repository root (`C:\Buses\community-bus-maps`), with no placeholders:
 
 ```bash
 npm run check:deploy-history
@@ -218,9 +218,9 @@ This URL is monitored from outside: an **Uptime Robot** check polls `https://bus
 npm run smoke:signin
 ```
 
-from the repo root on the laptop (`C:\Claude\community-bus-maps`). It POSTs one real sign-in request for `ADMIN_EMAIL` to the running service and then reads the **server log** for `magic link emailed` — the HTTP response is deliberately identical whether or not the address is registered, so it cannot be the evidence. It exits non-zero on a 503, on a provider that threw, on a link that went to the console instead of an inbox, and on no matching log line at all. `npm run deploy -- --skip-signin` skips it, and then nothing has proved a real sign-in email can be sent.
+from the repo root on the laptop (`C:\Buses\community-bus-maps`). It POSTs one real sign-in request for `ADMIN_EMAIL` to the running service and then reads the **server log** for `magic link emailed` — the HTTP response is deliberately identical whether or not the address is registered, so it cannot be the evidence. It exits non-zero on a 503, on a provider that threw, on a link that went to the console instead of an inbox, and on no matching log line at all. `npm run deploy -- --skip-signin` skips it, and then nothing has proved a real sign-in email can be sent.
 
-**And ask whether every route is still there, because nothing else can.** `/health?deep=1` asks whether the process came up, the byte gates ask whether the drawn output still matches, and `npm test` asks the laptop's build — none of them can see a route that stopped being registered, and a route that stops being registered does not throw. It 404s, quietly, to whoever asks for it next. Run this from the repository root (`C:\Claude\community-bus-maps`); it defaults to the live site and takes no placeholders:
+**And ask whether every route is still there, because nothing else can.** `/health?deep=1` asks whether the process came up, the byte gates ask whether the drawn output still matches, and `npm test` asks the laptop's build — none of them can see a route that stopped being registered, and a route that stops being registered does not throw. It 404s, quietly, to whoever asks for it next. Run this from the repository root (`C:\Buses\community-bus-maps`); it defaults to the live site and takes no placeholders:
 
 ```bash
 npm run check:live-routes
@@ -230,7 +230,7 @@ It asks the RUNNING site, anonymously, about every route in `scripts/route-table
 
 **It was written after doing it by hand twice** — four routes after `94773e3` and twenty-eight after `fd438a6`, both times because OA-231 had moved routes between files and no gate in any of the three repositories could see a lost one.
 
-**And ask the same question of the URLs the site OFFERS a crawler, which is a different population from the route table.** The check above asks whether every route we registered still answers; this one asks whether every URL `sitemap.xml` advertises answers, on this host, saying which URL it is. Run it from the repository root (`C:\Claude\community-bus-maps`); it defaults to the live site and takes no placeholders:
+**And ask the same question of the URLs the site OFFERS a crawler, which is a different population from the route table.** The check above asks whether every route we registered still answers; this one asks whether every URL `sitemap.xml` advertises answers, on this host, saying which URL it is. Run it from the repository root (`C:\Buses\community-bus-maps`); it defaults to the live site and takes no placeholders:
 
 ```bash
 npm run check:sitemap
@@ -289,15 +289,15 @@ The database is copied with SQLite's `VACUUM INTO`, which writes a **consistent*
 **Step 1 — copy a snapshot down from the host.** It is read, never modified. `maps/` is most of a snapshot's half-gigabyte and is not encrypted anyway, so for a decryption drill copy just the manifest and the database. Run from any folder; the only thing to change is the timestamp folder name, which you can list with `ssh -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87 "ls /opt/community-bus-maps/backups"`:
 
 ```bash
-scp -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87:/opt/community-bus-maps/backups/2026-09-02T22-29-58/manifest.json ubuntu@51.38.80.87:/opt/community-bus-maps/backups/2026-09-02T22-29-58/portal.sqlite.age C:/Claude/community-bus-maps/backups/live-2026-09-02T22-29-58/
+scp -i C:/Users/Peter/.ssh/busmaps_vps ubuntu@51.38.80.87:/opt/community-bus-maps/backups/2026-09-02T22-29-58/manifest.json ubuntu@51.38.80.87:/opt/community-bus-maps/backups/2026-09-02T22-29-58/portal.sqlite.age C:/Buses/community-bus-maps/backups/live-2026-09-02T22-29-58/
 ```
 
 **Step 2 — put the private key in a file.** From the password manager, into a plain text file. `age` reads the file itself, so the key never passes through Node, is never printed and is never logged. Put it somewhere outside the repository — `C:/Users/Peter/age-backup-key.txt` below — and delete it when you are done.
 
-**Step 3 — run the drill**, from the repository root (`C:\Claude\community-bus-maps`):
+**Step 3 — run the drill**, from the repository root (`C:\Buses\community-bus-maps`):
 
 ```bash
-node scripts/restore-drill.mjs --snapshot C:/Claude/community-bus-maps/backups/live-2026-09-02T22-29-58 --identity C:/Users/Peter/age-backup-key.txt --db-only
+node scripts/restore-drill.mjs --snapshot C:/Buses/community-bus-maps/backups/live-2026-09-02T22-29-58 --identity C:/Users/Peter/age-backup-key.txt --db-only
 ```
 
 **The two things to change** are the snapshot folder (whatever you called it in step 1) and the identity file (wherever you put the key in step 2). Nothing else in that line is a placeholder.
@@ -368,7 +368,7 @@ the round trip.
 node scripts/personal-data.mjs --retention
 ```
 
-Run that from the repo root — `C:\Claude\community-bus-maps` on the laptop, or `docker compose exec portal node scripts/personal-data.mjs --retention` from `/opt/community-bus-maps` on the VPS. It is a dry run; `--yes` makes it delete.
+Run that from the repo root — `C:\Buses\community-bus-maps` on the laptop, or `docker compose exec portal node scripts/personal-data.mjs --retention` from `/opt/community-bus-maps` on the VPS. It is a dry run; `--yes` makes it delete.
 
 **Answering a request.** Four steps, in this order:
 
@@ -390,10 +390,10 @@ Sessions expire themselves (the server purges hourly). Nothing else grows unboun
 **Who has used the portal, and what they did.** `scripts/activity-report.mjs` prints one block per person for the last 28 days: their account and organisation, the sign-in links they were sent and used, every change the audit log holds for them with the maps it touched, and any application or message they sent. Command-line actors such as `cli:delete-map` are listed apart. It reads the database read-only and prints real names and addresses, so read it and do not paste it into a file under git. It counts **used sign-in links, not sessions**, because the hourly purge above deletes a session once it expires, and it cannot see page views: *no actions* means nothing was changed, not that nothing was looked at. From the laptop, from any folder, with no placeholders:
 
 ```bash
-npm --prefix "C:/Claude/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/activity-report.mjs"
+npm --prefix "C:/Buses/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/activity-report.mjs"
 ```
 
-Add `--days 90` inside the quoted command for a longer window (any whole number of days), or `--json` for the same figures as JSON. Run on the laptop instead, as `npm run activity:report` from `C:\Claude\community-bus-maps`, it reports the local portal, whose seeded demo accounts read like real customers.
+Add `--days 90` inside the quoted command for a longer window (any whole number of days), or `--json` for the same figures as JSON. Run on the laptop instead, as `npm run activity:report` from `C:\Buses\community-bus-maps`, it reports the local portal, whose seeded demo accounts read like real customers.
 
 ## 7. Upgrading the app
 
@@ -407,7 +407,7 @@ The Dockerfile's `FROM` is now **pinned by digest** (`node:24-slim@sha256:3638d9
 npm run ssh -- "cd /opt/community-bus-maps && docker compose run --rm portal node scripts/rerasterize-stored.mjs --check"
 ```
 
-Run from the repo root on the laptop (`C:\Claude\community-bus-maps`); `/opt/community-bus-maps` is `DEPLOY_APP_DIR` on the host. It writes nothing — it re-rasterises each stored SVG to a scratch file and reports whether the bytes would change. If any would, **look at one of the changed sheets before doing anything else**: the Liberation Mono incident moved bytes too, and every sheet was wrong. Then `--apply` to bring the stored files back in line, and record it in `CHANGELOG.md`.
+Run from the repo root on the laptop (`C:\Buses\community-bus-maps`); `/opt/community-bus-maps` is `DEPLOY_APP_DIR` on the host. It writes nothing — it re-rasterises each stored SVG to a scratch file and reports whether the bytes would change. If any would, **look at one of the changed sheets before doing anything else**: the Liberation Mono incident moved bytes too, and every sheet was wrong. Then `--apply` to bring the stored files back in line, and record it in `CHANGELOG.md`.
 
 **Run for `sharp` `0.34.5` → `0.35.3` on 2026-08-22, against the real store: 152 stored JPGs, 0 would change, 0 failed.** That closes the question the bump left open — it had been shown to move no bytes on Windows, which is not the same claim as no bytes on `node:24-slim`, and until this run nobody had asked the host. No `--apply` was needed and no re-baseline follows.
 
@@ -462,7 +462,7 @@ Then check `/health?deep=1` for the expected `version` + `gitSha` and four green
 
 **Two traps for an AI assistant driving this:**
 
-- **Claude Code's auto-mode classifier refuses a raw `ssh` or `scp` to this host** (as it refuses `curl` POSTs to production). Since 2026-09-17 (R1) an agent may run the deploy itself, as `npm --prefix "C:/Claude/community-bus-maps" run deploy`, under the conditions in [§3b](#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it) — CI green on `main`, the history entry merged first, `X-App-Version` and `/health?deep=1` read back, a failed read-back reverted by a second pull request. Every hand-run `ssh`/`scp` step, including the recipe in this section, stays with the operator: hand over the command and read back the output. Do not attempt to work around a refusal.
+- **Claude Code's auto-mode classifier refuses a raw `ssh` or `scp` to this host** (as it refuses `curl` POSTs to production). Since 2026-09-17 (R1) an agent may run the deploy itself, as `npm --prefix "C:/Buses/community-bus-maps" run deploy`, under the conditions in [§3b](#3b-the-deploy-history-entry-is-written-before-the-deploy-and-merged-with-it) — CI green on `main`, the history entry merged first, `X-App-Version` and `/health?deep=1` read back, a failed read-back reverted by a second pull request. Every hand-run `ssh`/`scp` step, including the recipe in this section, stays with the operator: hand over the command and read back the output. Do not attempt to work around a refusal.
 - **Windows PowerShell 5.1 strips embedded double quotes** when calling a native exe like `ssh`, so a remote command containing `grep -iE "a|b"` arrives at bash as `grep -iE a|b` and bash reads those `|` as pipes ("command not found"). Keep the remote command in a **single-quoted** PowerShell string (so `$(…)` and `$VAR` survive for the remote shell), and inside it avoid double quotes entirely — use `grep -i -e pat1 -e pat2`, where each pattern is its own argument. Also: `$host` is a reserved PowerShell variable; use `$target`.
 
 - **Known gotcha if you ever recreate the data volume:** it defaults to `root:root`, but the

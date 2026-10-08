@@ -34,13 +34,13 @@
 // in the suite that fires when its SUBJECT changes, and the subject of "has the
 // vendored copy fallen behind" is the fixture in buses-data.
 //
-// Run from this repository's root (C:\Claude\community-bus-maps). There are no
+// Run from this repository's root (C:\Buses\community-bus-maps). There are no
 // placeholders; `--buses` is only needed when buses-data is somewhere this script
 // cannot guess:
 //
 //     npm run fixtures:vendor                 -- says what would change, writes nothing
 //     npm run fixtures:vendor -- --apply      -- rewrites gate-fixtures/
-//     npm run fixtures:vendor -- --buses "C:/u3a St Ives/Using AI/Buses"
+//     npm run fixtures:vendor -- --buses "C:/Buses/buses-data"
 //
 // EXIT CODES follow the house convention: 0 in step, 1 BEHIND (a --check finding),
 // 2 used wrongly or no source to compare against. `--allow-skip` turns the third

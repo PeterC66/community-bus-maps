@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.36 | 2026-09-21 | sha=b0607a80 -->
-**v1.36** · updated 21 September 2026
+<!-- docstamp v1.37 | 2026-10-08 | sha=51273d96 -->
+**v1.37** · updated 8 October 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -11,7 +11,7 @@ free for non-commercial/internal use, competing commercial use needs a separate 
 `LICENSE`). The licence half of this sentence was always right and the visibility half said
 `Private repo` until 2026-09-11.
 
-**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
+**Every command on this page runs from the repository root** (`C:\Buses\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 Node + Fastify + `node:sqlite`, no template engine, no framework.
 
 ## Read this first: the system is a PILOT
@@ -84,7 +84,7 @@ Two structural facts that catch people out:
 
 There is an existing review — do not start from scratch, and do not re-derive its findings.
 **`Buses/Development Docs/portal-update-flow-findings_2026-08-11.md`** (the private `buses-data`
-repo, `C:\u3a St Ives\Using AI\Buses\` on Peter's machine) documents the whole
+repo, `C:\Buses\buses-data\` on Peter's machine) documents the whole
 proposed-update → accept → submit → approve → public chain as it actually behaves, with every
 screen quoted verbatim, a ranked backlog, and a **section J written specifically for a cold start**:
 which files each item touches, how to run an isolated seeded instance instead of experimenting on

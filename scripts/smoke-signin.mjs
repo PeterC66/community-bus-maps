@@ -18,7 +18,7 @@
 // the HTTP response — which is deliberately identical whether the address is
 // registered or not, and so cannot be the evidence.
 //
-// RUN IT FROM THE LAPTOP, in the repo root (C:\\Claude\\community-bus-maps):
+// RUN IT FROM THE LAPTOP, in the repo root (C:\\Buses\\community-bus-maps):
 //
 //     npm run smoke:signin
 //

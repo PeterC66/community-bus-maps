@@ -3,7 +3,7 @@
 // asked for exactly this and only the skills half was ever built.)
 //
 //   node scripts/check-vendored.mjs                 (run from the repo root)
-//   node scripts/check-vendored.mjs --skills "C:/u3a St Ives/.claude/skills"
+//   node scripts/check-vendored.mjs --skills "C:/Buses/claude-skills"
 //   node scripts/check-vendored.mjs --no-skills     (hash check only, as CI runs it)
 //   node scripts/check-vendored.mjs --update        (after a deliberate re-vendor)
 //   node scripts/check-vendored.mjs --json

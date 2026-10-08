@@ -1,7 +1,7 @@
 // Build public/guide.html — the customer guide on the public site — from
 // docs/C1-customer-user-guide.md, which stays the one copy anybody edits.
 //
-// Run from the repository root (C:\Claude\community-bus-maps), no placeholders:
+// Run from the repository root (C:\Buses\community-bus-maps), no placeholders:
 //     node scripts/build-guide.mjs            (says whether the page is stale, writes nothing; exit 1 if it is)
 //     node scripts/build-guide.mjs --apply    (writes public/guide.html)
 //     npm run guide:apply                     (the same, with --apply)

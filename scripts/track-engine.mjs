@@ -33,7 +33,7 @@
 // town external reached nothing until the map was re-imported, while the ten place
 // maps got the same fix for free.
 //
-// Usage, from the repository root (C:\Claude\community-bus-maps on the laptop,
+// Usage, from the repository root (C:\Buses\community-bus-maps on the laptop,
 // /opt/community-bus-maps inside the container on the VPS). No placeholders:
 //   node scripts/track-engine.mjs            # report; exit 1 if any pack is behind
 //   node scripts/track-engine.mjs --apply    # bring them forward

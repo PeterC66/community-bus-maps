@@ -11,7 +11,7 @@
 // and by nothing else. That separation is exactly how the security headers came
 // to be merged, deployed and still absent from the live site on 2026-08-20.
 //
-// Run FROM THE REPO ROOT on the laptop (C:\Claude\community-bus-maps):
+// Run FROM THE REPO ROOT on the laptop (C:\Buses\community-bus-maps):
 //
 //   npm run deploy:caddy              copy up, validate, reload, then verify
 //   npm run deploy:caddy -- --check   verify the live headers only, change nothing

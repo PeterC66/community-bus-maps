@@ -7,7 +7,7 @@
 //   node scripts/personal-data.mjs --retention --yes          # run the purge now
 //
 // RUN IT FROM the repo root on whichever box holds the database — on the laptop
-// that is C:\Claude\community-bus-maps against a local DATA_DIR, and on the VPS
+// that is C:\Buses\community-bus-maps against a local DATA_DIR, and on the VPS
 // it is `docker compose exec portal node scripts/personal-data.mjs …`. The
 // runbook around it, including the backups and the laptop mirror, is
 // docs/DEPLOY.md §5b; this script is only the database half.
