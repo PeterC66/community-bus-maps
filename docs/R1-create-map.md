@@ -1,17 +1,17 @@
 # Runbook R1 — Create a new area or place map
 
-<!-- docstamp v1.24 | 2026-10-01 | sha=5af5f23e -->
-**v1.24** · updated 1 October 2026
+<!-- docstamp v1.25 | 2026-10-08 | sha=c068895b -->
+**v1.25** · updated 8 October 2026
 
 **Serves:** generating maps · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
 **Purpose.** Turn "we need a map of X" into a **byte-identical v1.0 baseline** in the portal, owned by the right customer and ready for editing + review.
 
-**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
+**Every command on this page runs from the repository root** (`C:\Buses\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 Two halves, and the split is the point (see the Handbook): **making** the map (stages S1–S6 — live data + judgement, the central pipeline) is done by the map skills; **importing** it (deterministic, no external calls) is done here. Every map still has to pass the publish gate (R3) before it's public.
 
-> **The plain-English counterpart.** This runbook, R3 and R4 are also summarised for the operator as one continuous story — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\u3a St Ives\Using AI\Buses\Documentation\README - How to publish a map to the portal.md` (the Buses repo, alongside the guides for the map skills themselves). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
+> **The plain-English counterpart.** This runbook, R3 and R4 are also summarised for the operator as one continuous story — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\Buses\buses-data\Documentation\README - How to publish a map to the portal.md` (the Buses repo, alongside the guides for the map skills themselves). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
 
 > **Pilot.** Step 3's byte-identical check compares the **generator's** output, which the pilot band does not touch — but the map's rendered sheets *will* carry the band. That is correct for our own demo maps; for a real customer's map, see the note in [R3](R3-review-and-publish.md).
 
@@ -36,10 +36,10 @@ Keep the skill's verification `.docx` with the job — it's your red-team eviden
 
 Every `<S5-render dir>` placeholder below names a folder like `Areas/St Neots/Places/St Neots Co-op/S5-render/v1.19_2026-09-13_2027`, and **the answer to which one comes from the map, not from a directory listing.** A listing sorted as text puts `v1.9` after `v1.19` and `v2.9` after `v2.32`, which on 2026-09-15 delivered three of one customer's four maps from renders 10, 10 and 23 builds old; the byte gate caught one of the three and passed the other two, because a stale render that still reproduces looks exactly like a current one to it. Two of those sheets are publicly live and a fortnight stale (buses-data OA-368).
 
-Ask a tool that knows. The board prints the current build for every map — run it from the engine's own folder, `C:\u3a St Ives\.claude\skills\make-bus-leaflet`, where both arguments are real paths on this machine rather than placeholders:
+Ask a tool that knows. The board prints the current build for every map — run it from the engine's own folder, `C:\Buses\claude-skills\make-bus-leaflet`, where both arguments are real paths on this machine rather than placeholders:
 
 ```bash
-node assets/status.js --buses "C:/u3a St Ives/Using AI/Buses" --portal "C:/Claude/community-bus-maps"
+node assets/status.js --buses "C:/Buses/buses-data" --portal "C:/Buses/community-bus-maps"
 ```
 
 The map's own `manifest.json` carries the same answer in `stages.S5.latest`, and since 2026-09-20 `deliver-map.mjs` asks it: step 0b refuses a `--src` the manifest does not call current, before anything leaves the laptop. `--render-superseded "<reason>"` is the escape hatch for a deliberate older delivery.
@@ -50,7 +50,7 @@ The map's own `manifest.json` carries the same answer in `stages.S5.latest`, and
 
 **Run `npm run deliver -- --dry-run …` before the delete, whatever you are doing.** It runs the local gates and prints the exact `import-map.mjs` argument vector without an `scp`, an `ssh` or a write of any kind, so a refusal that would otherwise land *after* a row has been deleted costs nothing to buy in advance. It also shows how a customer name with an apostrophe survives the shell, which is worth reading rather than hoping about.
 
-**The board command above is the one exception on this page**, and everything from here on returns to the repository root (`C:\Claude\community-bus-maps`), as the note at the top of this page says.
+**The board command above is the one exception on this page**, and everything from here on returns to the repository root (`C:\Buses\community-bus-maps`), as the note at the top of this page says.
 
 ## Step 2 — Import into the portal (deterministic)
 
@@ -192,7 +192,7 @@ Fulfilment is written to the audit log as `maprequest.fulfil` (who/when/which ve
 - **Wrong customer** → the owner was recorded wrongly and the map is otherwise theirs. Repair it in place: sign in as an admin, open `/app/maps/<id>`, and use the **Who owns this map** picker. It confirms first, naming what that particular move costs — the badge on the public sheet, a quota slot, who can sign in and edit it, and where notifications and *Spotted a problem?* reports go. The route under it is `POST /api/admin/maps/<id>/owner` with `{"customerId": <id>}` (admin, needs a sign-in from the last 30 minutes, refuses a move that would overspend the receiving organisation's quota, writes a `map.reassign` audit row, and re-stamps the stored sheets for the new owner's sample band). Pass `null`, or pick “nobody”, to un-own it deliberately — which takes it off the public site at once, because both public queries JOIN the owning organisation.
   Use this when the map has history worth keeping: published versions the customer made, adviser grants, feedback. It keeps the map id, the slug and the whole version series.
   The route was added 2026-08-30, before which the only repair was a re-import plus an archive or a hand-written `UPDATE` against the live database; **the picker was added 2026-09-14, before which the route had no caller anywhere in the client** (buses-data OA-364).
-- **A REAL CUSTOMER TAKING OVER ONE OF OUR SAMPLES** → a different job, and **not** the picker. Delete the sample row and re-import it owned by them: `node scripts/delete-map.mjs --slug <slug>` to see what goes (it is a dry run by default), then the same with `--yes`, then `node scripts/import-map.mjs --src "<S5-render dir>" --name "<Name>" --slug <slug> --customer "<Organisation>"`. Both from the repository root (`C:\Claude\community-bus-maps`); `<slug>` is the map's slug, `<S5-render dir>` the staged run folder in the Buses repo, `<Organisation>` the customer's name as the `customer` table holds it.
+- **A REAL CUSTOMER TAKING OVER ONE OF OUR SAMPLES** → a different job, and **not** the picker. Delete the sample row and re-import it owned by them: `node scripts/delete-map.mjs --slug <slug>` to see what goes (it is a dry run by default), then the same with `--yes`, then `node scripts/import-map.mjs --src "<S5-render dir>" --name "<Name>" --slug <slug> --customer "<Organisation>"`. Both from the repository root (`C:\Buses\community-bus-maps`); `<slug>` is the map's slug, `<S5-render dir>` the staged run folder in the Buses repo, `<Organisation>` the customer's name as the `customer` table holds it.
   **Peter's decision, 2026-09-14.** This is cheaper than the picker for this case and it is the only one that answers the version number. A sample we have rebuilt eight times reads **“Version 8.0”** on the sheet and on its public page, because `major` counts accepted data refreshes — our development history, presented to a reader who reads it as an edition. A fresh import renders **v1.0** with empty overrides and, because `import-map.mjs` passes `sample: isSampleCustomer(<the new owner>)`, the sheet comes out **without the pilot band from the first byte** rather than being re-stamped afterwards. The councillor in the St Neots reel had already written *“Bus Map 1.0”* on her own poster; this is what lets the sheet agree with her. Renumbering in place is not available: `UNIQUE (map_id, major, minor)` and every map already owns a v1.0.
   **A RE-IMPORTED MAP IS A DRAFT, AND A DRAFT IS A 404. This is the largest cost and it is not obvious.** `import-map.mjs` sets `current_version_id` and **never** `published_version_id`; `PUBLIC_WHERE` requires the latter. So the map leaves every public query the moment the old row is deleted and does **not** come back when the import succeeds — it comes back when somebody publishes v1.0. The tool is `scripts/publish-baseline.mjs --actor <an admin or approver email> --slug <the map's slug>` (add `--dry-run` to see which map it would publish and write nothing), a real trip through submit → review → publish pointer → audit rather than a shortcut round it, run like every other writer: in a throwaway container with the portal stopped. Learned on 2026-09-15, from the first customer's first map answering 404 after a delivery that had reported success at every step (buses-data OA-358 and OA-368).
   **So the sequence is SIX steps per map, not five**, and the last one is a question rather than a command: dry-run the delete (service up, changes nothing) → stop → delete `--yes` → start → `npm run deliver … --customer "<exact org name>"` → stop → `publish-baseline` → start → **check the public page answers `200` before looking at anything else**. Check the status code FIRST: grepping the sheet for the pilot band returns nothing when the sheet is a 404, and that empty result reads exactly like success.

@@ -1,7 +1,7 @@
 # Runbook R2 — Customer onboarding
 
-<!-- docstamp v1.10 | 2026-10-06 | sha=9d44382a -->
-**v1.10** · updated 6 October 2026
+<!-- docstamp v1.11 | 2026-10-08 | sha=ad4e36cb -->
+**v1.11** · updated 8 October 2026
 
 **Serves:** accepting customers · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`
 
@@ -48,7 +48,7 @@ In **Admin → Customers**, on that organisation's row:
 
 **What happens to sheets that already exist.** If you are handing an organisation a map we published ourselves, **reassign the map's owner** rather than rebuilding it: the reassignment reconciles that map's stored renders as part of the same action, so the band comes off the sheets already in the object store, and any version they render afterwards is drawn without the band from the start. **There is no button for this in the admin console** — it is the API call in [R1, *What-if / rollback*](R1-create-map.md#what-if--rollback): `POST /api/admin/maps/<id>/owner`, admin, needing a sign-in from the last 30 minutes. **Read the `restamped` object in its reply rather than assuming**, because the owner change is committed before the reconciliation is attempted: `{"error": true}` means the map moved and its stored sheets did not, which leaves the old band over its new owner's badge and looks exactly like success.
 
-**If that reports an error — or you have flipped `is_sample` directly in the database —** reconcile the whole store by hand. One line, run from the repository root on the laptop (`C:\Claude\community-bus-maps`), with no placeholders:
+**If that reports an error — or you have flipped `is_sample` directly in the database —** reconcile the whole store by hand. One line, run from the repository root on the laptop (`C:\Buses\community-bus-maps`), with no placeholders:
 
 ```bash
 npm run ssh -- "cd /opt/community-bus-maps && docker compose run --rm portal node scripts/restamp-renders.mjs"

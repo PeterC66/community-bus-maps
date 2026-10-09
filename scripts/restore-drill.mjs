@@ -31,7 +31,7 @@
 // database by accident. What this removes is the *unknown* — after a green run,
 // the remaining risk in a real restore is `docker compose stop` and `cp`.
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`):
+// Run it from the repository root (`C:\Buses\community-bus-maps`):
 //
 //     node scripts/restore-drill.mjs --snapshot <folder> --identity <age key file>
 //

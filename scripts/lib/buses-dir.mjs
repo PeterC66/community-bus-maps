@@ -1,8 +1,8 @@
 // Where the buses-data checkout is, resolved once.
 //
 // OA-232 Tier 1.6, from the 2026-09-03 review's portal-ops T6.
-// `scripts/test-build-warnings.mjs` had `const TREE = 'C:/u3a St Ives/Using AI/
-// Buses/Areas'` written into it, bare, with no environment read at all -- so the
+// `scripts/test-build-warnings.mjs` had `const TREE = '<the laptop's estate>/Areas'`
+// written into it, bare, with no environment read at all -- so the
 // half of that test which runs against the REAL corpus was silently off on every
 // machine but this laptop, and would have stayed off if the folder ever moved.
 // `scripts/lib/upcoming-report.mjs` had already answered the same question, one
@@ -19,4 +19,4 @@
 // `prove-red-fixture-drift.mjs` strips the environment to prove those guesses
 // work. Giving it a laptop-shaped last resort would make that harness pass here
 // for the wrong reason.
-export const BUSES_DIR = process.env.BUSES_DIR || 'C:/u3a St Ives/Using AI/Buses';
+export const BUSES_DIR = process.env.BUSES_DIR || 'C:/Buses/buses-data';

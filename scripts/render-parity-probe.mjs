@@ -27,7 +27,7 @@
 // Both are rasterised through the PRODUCTION rasterise() so this tests the real
 // code path, at the real sheet geometry (3508x2480, viewBox 0 0 297 210).
 //
-// Usage (from the repository root, C:\Claude\community-bus-maps):
+// Usage (from the repository root, C:\Buses\community-bus-maps):
 //   node scripts/render-parity-probe.mjs                  # print this platform's result
 //   node scripts/render-parity-probe.mjs --write-baseline # record it as the baseline
 //   node scripts/render-parity-probe.mjs --strict         # exit 1 if it differs from the baseline

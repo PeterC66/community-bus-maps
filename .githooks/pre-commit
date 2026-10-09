@@ -164,7 +164,7 @@ fi
 # A MISSING CHECKER MUST NOT BLOCK COMMITTING, the same rule the stamper below
 # follows: claude-skills is not part of this repository, and a hook that dies on a
 # machine without it teaches whoever hits that to bypass the hook for good.
-SKILLS=$(git config --get hooks.skillsPath || echo "/c/u3a St Ives/.claude/skills")
+SKILLS=$(git config --get hooks.skillsPath || echo "/c/Buses/claude-skills")
 HYGIENE="$SKILLS/tools/check-file-hygiene.mjs"
 if [ -f "$HYGIENE" ] && command -v node >/dev/null 2>&1; then
   hygiene_out=$(node "$HYGIENE" --staged --root "$(git rev-parse --show-toplevel)" 2>&1) || {

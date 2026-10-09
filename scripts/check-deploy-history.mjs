@@ -2,7 +2,7 @@
 // check-deploy-history.mjs — would this deploy put anything live that no
 // deploy-history entry describes? (buses-data OA-377, DEPLOY.md §3b)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`):
+// Run it from the repository root (`C:\Buses\community-bus-maps`):
 //     node scripts/check-deploy-history.mjs
 //     node scripts/check-deploy-history.mjs --to <ref>
 //

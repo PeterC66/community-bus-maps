@@ -5,13 +5,13 @@
 //   node scripts/activity-report.mjs --days 90     a longer window
 //   node scripts/activity-report.mjs --json        the same figures as JSON
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). There are no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). There are no
 // placeholders in those commands, and `--days` takes a whole number of days. It
 // reads DATA_DIR's database, so the answer about busmaps.uk comes from the VPS,
 // not from a laptop whose database is seeded with demo accounts that read like
 // real customers. From the laptop, with no placeholders:
 //
-//   npm --prefix "C:/Claude/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/activity-report.mjs"
+//   npm --prefix "C:/Buses/community-bus-maps" run ssh -- "docker compose exec -T portal node scripts/activity-report.mjs"
 //
 // WHY IT EXISTS. Asked on 2026-09-25 — "who, apart from me, has accessed the
 // portal in the past four weeks, and what did they do?" — and answered with a

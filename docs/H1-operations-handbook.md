@@ -1,7 +1,7 @@
 # Operations Handbook (H1) — BusMaps.uk portal
 
-<!-- docstamp v1.32 | 2026-09-27 | sha=fd06d044 -->
-**v1.32** · updated 27 September 2026
+<!-- docstamp v1.33 | 2026-10-08 | sha=c5c83e85 -->
+**v1.33** · updated 8 October 2026
 
 **For:** the operator (Peter today; anyone running the service later), working with Claude. **Last reviewed:** 2026-07-25 · **Against:** `0.8.1`.
 
@@ -24,7 +24,7 @@ A self-serve portal that lets **approved organisations** (councils first, then s
 
 ## 2. Vocabulary
 
-**One glossary, and it is not in this repo.** `Documentation/README - Glossary of terms.md` in **buses-data** (`C:\u3a St Ives\Using AI\Buses\Documentation\`) is the shared vocabulary for the whole system — every part of every sheet, the pipeline stages, the portal's own words, and the phrase to use instead when writing to a customer. Read it there. Every term this section used to define is in it, with more detail and an audience label saying who the word is safe with.
+**One glossary, and it is not in this repo.** `Documentation/README - Glossary of terms.md` in **buses-data** (`C:\Buses\buses-data\Documentation\`) is the shared vocabulary for the whole system — every part of every sheet, the pipeline stages, the portal's own words, and the phrase to use instead when writing to a customer. Read it there. Every term this section used to define is in it, with more detail and an audience label saying who the word is safe with.
 
 **This section was a second, shorter glossary of fifteen terms until 26 August 2026, and the reason it is gone is that it had drifted.** It said a map produces *four* outputs; there are **five** — `boarding_plan` landed on 2026-08-23 and `src/maps/OUTPUTS` in `src/maps/store.js` is the authority. Six other terms it defined (*Editor*, *Approver*, *Admin*, *Area map*, *Place map*, *Proposed update*) had been reworded in the glossary and not here. **Two vocabularies that overlap by half do not stay in step**, and the drift is invisible from either side, because each document stays perfectly consistent with itself.
 
@@ -150,7 +150,7 @@ Everything, and where it lives. Keep this current: a new doc that isn't here is 
 | **Pol1** vetting & quota policy | `docs/Pol1-vetting-and-quota-policy.md` | who qualifies, default quotas | ✅ |
 | **P1–P4** register / logs / notes | `ops/` (local-only) | customers, vetting, incidents, business | ⏳ templates created (Tier 0) |
 
-**And the half of the system that is not in this repo.** The index above called itself canonical while listing nothing at all from **buses-data**, which is where the maps, the map-making guides and the shared vocabulary actually live — so a reader following it would never find them. Paths below are under `C:\u3a St Ives\Using AI\Buses\`.
+**And the half of the system that is not in this repo.** The index above called itself canonical while listing nothing at all from **buses-data**, which is where the maps, the map-making guides and the shared vocabulary actually live — so a reader following it would never find them. Paths below are under `C:\Buses\buses-data\`.
 
 | Doc | Home (buses-data) | What it's for | Status |
 |---|---|---|---|
@@ -200,7 +200,7 @@ If someone (or a future session) has to pick this up:
 
 ## Appendix — quick command reference
 
-Run these from the repository root (`C:\Claude\community-bus-maps`). There are no placeholders except the quoted paths, which are explained beside each command.
+Run these from the repository root (`C:\Buses\community-bus-maps`). There are no placeholders except the quoted paths, which are explained beside each command.
 
 ```bash
 npm run dev              # run locally → http://127.0.0.1:5180  (shopfront) and /app

@@ -20,7 +20,7 @@
 // Exit codes follow the house rule: 0 ok, 1 a test failed, 2 the runner was
 // used wrongly or its own invariants are broken.
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`):
+// Run it from the repository root (`C:\Buses\community-bus-maps`):
 //     npm test
 //     npm test -- --only search        # substring filter on the file name
 //     npm test -- --list               # print the plan and exit, run nothing

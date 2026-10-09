@@ -7,11 +7,11 @@
 
 **Serves:** managing updates · **Owner:** operator · **Last reviewed:** 2026-07-25 · **Against:** `0.8.0-P7`
 
-**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
+**Every command on this page runs from the repository root** (`C:\Buses\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 **Purpose.** What the portal does with a refreshed map — the **proposed update** → customer **accept** flow (P5): its checks, its refusals, its flags. **The procedure for doing a refresh — which towns, the rebuild, the month's ink review, and the one gated command that delivers — is the `refresh` playbook in the `bus-work` skill** (`bus-work/references/playbooks.md` in the skills repository); this page does not repeat it, and where the two disagree about what the portal does, this page is right.
 
-> **The plain-English counterpart.** R1, R3 and this runbook are also told as one continuous story for the operator — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\u3a St Ives\Using AI\Buses\Documentation\README - How to publish a map to the portal.md` (the Buses repo). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
+> **The plain-English counterpart.** R1, R3 and this runbook are also told as one continuous story for the operator — *ask for a map → it gets built → it goes in → you review it → it goes live → a month later it needs refreshing* — in `C:\Buses\buses-data\Documentation\README - How to publish a map to the portal.md` (the Buses repo). That guide is deliberately command-free and defers to these three on anything technical; **if you change a step here, check whether it changed the story there.**
 
 The split again: the Buses side regenerates a town's data centrally (live sources + judgement); the **portal** stages it as a proposed update the customer reviews. Published maps keep serving untouched until the customer accepts — nothing changes under them.
 

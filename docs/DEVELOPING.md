@@ -1,13 +1,13 @@
 # Developing the portal — how to change it safely
 
-<!-- docstamp v1.30 | 2026-09-21 | sha=59914e20 -->
-**v1.30** · updated 21 September 2026
+<!-- docstamp v1.31 | 2026-10-08 | sha=2ca55c86 -->
+**v1.31** · updated 8 October 2026
 
 This is the **developer** counterpart to the operator documentation. The [Operations Handbook](H1-operations-handbook.md) and the runbooks tell you how to *run* the service; this tells you how to *change* it without breaking the two things the product rests on: the deterministic render, and the approval gates.
 
 `README.md` covers architecture and quick start — read that first. Start here when you are about to edit code.
 
-**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
+**Every command on this page runs from the repository root** (`C:\Buses\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 ## Three separate copies of the code — none of them update each other automatically
 
@@ -15,7 +15,7 @@ This section didn't exist in earlier drafts of this doc, written before there wa
 
 | Copy | Where | Who can see it | How it gets updated |
 |---|---|---|---|
-| **Your working copy** | `C:\Claude\community-bus-maps` on the laptop | only you, and only while `npm run dev` is running (`127.0.0.1:5180`) | you edit files directly |
+| **Your working copy** | `C:\Buses\community-bus-maps` on the laptop | only you, and only while `npm run dev` is running (`127.0.0.1:5180`) | you edit files directly |
 | **GitHub `main`** (+ other branches) | `github.com/PeterC66/community-bus-maps` | anyone with repo access; it's the shared history | `git push` from the laptop, or merging a PR on GitHub |
 | **The live VPS** | OVHcloud, serves the real public site with 13 real published maps (`docs/DEPLOY.md` §9) | the public, once DNS/Caddy is pointed at it | someone runs `git pull && docker compose up -d --build` **on the VPS itself**, by hand |
 
@@ -166,7 +166,7 @@ Every `.js` file under `engine/` is either a byte-for-byte copy of a file in one
 
 **It only ever moves forward, and only inside the live render tree the env variable already chose** — which is what preserves the property the override exists for. It is not a fallback to the committed pack. Everything it cannot place is passed through exactly as written and still reaches the `BEHIND` warning above: no `manifest.json`, a `latest` the manifest lists no folder for, a run folder that is not on this disk (`S5-render/` is gitignored, so a fresh clone has none), or a path with no `S5-render` segment at all — which is why `PLACE_FIXTURE_DIR`, pointing straight at a committed `_portal-fixture` pack, is untouched. The first two say out loud why they could not resolve; the last two are correct silences.
 
-Run the gate from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
+Run the gate from the repository root (`C:\Buses\community-bus-maps`), with no placeholders:
 
 ```bash
 npm run verify:area

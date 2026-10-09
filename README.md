@@ -1,11 +1,11 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.23 | 2026-09-21 | sha=2dc1a6bf -->
-**v1.23** · updated 21 September 2026
+<!-- docstamp v1.24 | 2026-10-08 | sha=5963fa73 -->
+**v1.24** · updated 8 October 2026
 
 A self-serve web portal that lets approved organisations — town/parish councils first, then shops, businesses, schools, function organisers, the National Trust and others — generate, tweak and keep up to date **printable bus maps** for the places they care about.
 
-**Every command on this page runs from the repository root** (`C:\Claude\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
+**Every command on this page runs from the repository root** (`C:\Buses\community-bus-maps`) unless its own block says otherwise. Placeholders are written `<like this>` and each is explained where it appears.
 
 > **The project is BusMaps.uk; the repository is still `community-bus-maps`.** The repo name predates the brand and is deliberately not being changed — renaming it would break existing clones, the links in these docs, and every local path, for no benefit. The same goes for the `package.json` name and the `/healthz` service id. Anything a *user* sees says BusMaps.uk.
 
@@ -120,7 +120,7 @@ Three conditions make a map public, and they are enforced **in SQL**, not at the
 
 Customers set their public identity at **/app/branding** — public name, one-line blurb, website, badge (emoji or initials) and an accent colour from a fixed list. It is server-validated by a whitelist (`src/branding/index.js`) in the same spirit as the safe subset, and it decorates the public *page*: the printed sheet is untouched. No email or phone is brandable, so a public page never exposes contact details — feedback comes back through our own form (and lands in the admin **Messages** tab against that map).
 
-Run the suite from the repository root (`C:\Claude\community-bus-maps`); it takes no arguments:
+Run the suite from the repository root (`C:\Buses\community-bus-maps`); it takes no arguments:
 
 ```bash
 npm test

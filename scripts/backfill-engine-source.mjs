@@ -32,7 +32,7 @@
  * row exists to refuse; two signals agreeing is evidence, one signal overruling
  * the other is a coin toss with extra steps.
  *
- * Run from the repository root — `C:\\Claude\\community-bus-maps` on the laptop,
+ * Run from the repository root — `C:\\Buses\\community-bus-maps` on the laptop,
  * `/opt/community-bus-maps` inside the container on the VPS. No placeholders:
  *
  *   node scripts/backfill-engine-source.mjs            # report; writes nothing

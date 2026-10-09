@@ -7,7 +7,7 @@
 //   node scripts/demand-report.mjs --limit 100     the top 100
 //   node scripts/demand-report.mjs --json          the same figures as JSON
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). There are no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). There are no
 // placeholders in those commands. It reads DATA_DIR's database, so on the VPS it
 // is run there and not on a laptop, where the tally is whatever local testing
 // put in it.

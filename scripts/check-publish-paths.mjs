@@ -4,7 +4,7 @@
 //
 //   node scripts/check-publish-paths.mjs        (or: npm run check:publish-paths)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments and there are no placeholders.
 //
 // WHY THIS EXISTS, which is the only part worth reading.

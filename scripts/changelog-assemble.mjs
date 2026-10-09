@@ -43,7 +43,7 @@
  * route needs the same ones and only src/ ships in the image by contract. This
  * file is the CLI around them.
  *
- * Run from the repository root (C:\Claude\community-bus-maps), no placeholders:
+ * Run from the repository root (C:\Buses\community-bus-maps), no placeholders:
  *     npm run changelog                 build the local CHANGELOG.md
  *     npm run changelog:check           validate the fragments (CI, npm test)
  *

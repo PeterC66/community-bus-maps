@@ -7,7 +7,7 @@
 //                                              …and pass, loudly, when the source
 //                                              repository is not on this machine
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). There are no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). There are no
 // placeholders in those commands.
 //
 // WHY THE PORTAL CARRIES A COPY AT ALL. The directory lives in buses-data, which

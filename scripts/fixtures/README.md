@@ -1,7 +1,7 @@
 # Captured engine output, committed so the tests that read it run everywhere
 
-<!-- docstamp v1.0 | 2026-09-14 | sha=bcf1eed2 -->
-**v1.0** · updated 14 September 2026
+<!-- docstamp v1.1 | 2026-10-08 | sha=f5684444 -->
+**v1.1** · updated 8 October 2026
 
 Everything under this folder is **verbatim output of the bus engine**, copied off the map tree in `buses-data` and committed here unchanged. Nothing in it was written by hand, and nothing in it may be tidied: the whole value of a captured fixture is that it is the format the engine actually produced on a real town, rather than the format whoever wrote the parser believed it produced.
 
@@ -29,7 +29,7 @@ Five directories, one per shape found in a sweep of all 900 files on the tree on
 | `no-warnings/` | `No warnings — every generator ran clean.` | The zero-warning line carries no digits to read. A file that says zero is a zero, and must not be confused with the absent file, which stays `null` |
 | `no-summary-line/` | *(raw entries, no header)* | Five real files have no summary line at all. `null` is the right answer here, and asserting it on a real file rather than on an invented "garbage" string is what stops a widened parser quietly guessing |
 
-Source of each capture, all under `C:\u3a St Ives\Using AI\Buses` in `buses-data`:
+Source of each capture, all under `C:\Buses\buses-data` in `buses-data`:
 
 | Directory | Copied from |
 |---|---|
@@ -45,14 +45,14 @@ One directory per town, holding that town's `complexity.json` from its newest S2
 
 ## Re-capturing
 
-These go stale on purpose — see *What the laptop arm is still for* above. If the engine's format moves and the laptop arm goes red, the fix is to correct the parser and then re-capture, never to re-capture alone. Both commands below are run from the portal root (`C:\Claude\community-bus-maps`), and `<source>`/`<case>` are the two columns of the tables above:
+These go stale on purpose — see *What the laptop arm is still for* above. If the engine's format moves and the laptop arm goes red, the fix is to correct the parser and then re-capture, never to re-capture alone. Both commands below are run from the portal root (`C:\Buses\community-bus-maps`), and `<source>`/`<case>` are the two columns of the tables above:
 
 ```bash
-cp "C:/u3a St Ives/Using AI/Buses/<source>/build-warnings.txt" "scripts/fixtures/build-warnings/<case>/build-warnings.txt"
+cp "C:/Buses/buses-data/<source>/build-warnings.txt" "scripts/fixtures/build-warnings/<case>/build-warnings.txt"
 ```
 
 For a town's score, `<Town>` is the town's folder name under `Areas/` and `<run>` its newest `S2-geometry` run:
 
 ```bash
-cp "C:/u3a St Ives/Using AI/Buses/Areas/<Town>/S2-geometry/<run>/complexity.json" "scripts/fixtures/complexity/<Town>/complexity.json"
+cp "C:/Buses/buses-data/Areas/<Town>/S2-geometry/<run>/complexity.json" "scripts/fixtures/complexity/<Town>/complexity.json"
 ```
