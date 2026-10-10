@@ -53,6 +53,10 @@ eq('empty portal ⇒ nothing actionable', empty.meta.actionable, 0);
 
 // --- fixtures ---------------------------------------------------------------
 const customerId = db.insertCustomer({ name: 'Testshire Parish Council', type: 'council' });
+// A real council is one whose maps are THEIRS, not ours — the admin console's
+// "Sample maps" switch, off. Left at the column's default it would be us, and
+// its proposed updates would be the operator's own move (see below).
+db.updateCustomerAdmin(customerId, { is_sample: false });
 
 // A built + published-ready map, with a pending publish request against it.
 const liveId = db.insertMap({ customer_id: customerId, slug: 'teston', name: 'Teston', kind: 'area', status: 'draft' });
@@ -119,6 +123,34 @@ check('… and is not counted as actionable', buildWorklist().meta.actionable ==
 backdate('proposed_update', proposedId, 20);
 eq('one left 20 days becomes a nudge', byKey(`proposed-${proposedId}`).rank, 6);
 check('… and the wording changes to say why', /going stale/.test(byKey(`proposed-${proposedId}`).why));
+check('a real customer\'s update is not marked as our own', !byKey(`proposed-${proposedId}`).own);
+
+// --- proposed updates when the customer is US (2026-10-10) ------------------
+// Proposed update #171 to St Ives Bus Station belonged to the "BusMaps.uk
+// pilot" organisation and read "Waiting on BusMaps.uk pilot … Nothing for you
+// to do unless it sits" — so the operator, who IS that customer, did nothing.
+// The flag is customer.is_sample ("are this organisation's maps ours"), never
+// the name; this fixture is named like a real council to prove it.
+const ourOrgId = db.insertCustomer({ name: 'Notourname Trust', type: 'other' });
+const ourMapId = db.insertMap({ customer_id: ourOrgId, slug: 'ourtown', name: 'Ourtown', kind: 'area', status: 'published' });
+const ourPuId = db.insertProposedUpdate({ map_id: ourMapId, source_note: 'BODS 2026-10 refresh' });
+const ours = buildWorklist({ baseUrl: 'https://busmaps.uk' }).items.find((i) => i.key === `proposed-${ourPuId}`);
+eq('a fresh update on our own map is our move, beside the refresh it continues', ours?.rank, 5);
+eq('… in the your-move band', ours?.band, 'Your move');
+check('… marked as our own', ours?.own === true);
+check('… titled as ours to accept or decline, not as waiting on someone',
+  /^Accept or decline your own proposed update to "Ourtown"$/.test(ours?.title || ''), ours?.title);
+check('… never saying there is nothing to do', !/nothing for you to do/i.test(ours?.why || ''), ours?.why);
+check('… keeping the type and quoted map name bus-work reads it back by',
+  ours?.type === 'awaiting-customer' && (ours?.title || '').includes('"Ourtown"'));
+check('… and the steps go Refreshes → the map → Review',
+  JSON.stringify((ours?.do || []).map((d) => d.url)) === JSON.stringify(['/app/admin', `/app/maps/${ourMapId}`, '/app/review'].map((p) => `https://busmaps.uk${p}`)),
+  (ours?.do || []).map((d) => d.url).join(' '));
+backdate('proposed_update', ourPuId, 20);
+eq('… and it is not demoted to a "nudge" when it sits — it stays ours', byKey(`proposed-${ourPuId}`)?.rank, 5);
+db.updateCustomerAdmin(ourOrgId, { is_sample: false });
+eq('the same org handed to its community waits on them again', byKey(`proposed-${ourPuId}`)?.rank, 6);
+db.db.prepare("UPDATE proposed_update SET status = 'declined' WHERE id = ?").run(ourPuId);   // out of the way of what follows
 
 // A flag raised AFTER the last proposed update is open again — the town moved on.
 db.insertMessage({ kind: 'refresh-flag', body: 'Upcoming bus changes for Teston (report 2026-09-01): 1 upcoming.', map_id: liveId });

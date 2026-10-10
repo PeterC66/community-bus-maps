@@ -1,7 +1,7 @@
 # Daily To-do Quickstart (H2) — BusMaps.uk
 
-<!-- docstamp v1.9 | 2026-10-08 | sha=306ccd89 -->
-**v1.9** · updated 8 October 2026
+<!-- docstamp v1.10 | 2026-10-10 | sha=e69c9ef6 -->
+**v1.10** · updated 10 October 2026
 
 **For:** the operator (Peter), doing an ordinary daily/weekly pass. **Assumes:** you're working against the **live portal — `busmaps.uk`** — signed in there as admin. That's the normal case now the pilot is deployed; every command below defaults to it.
 
@@ -197,6 +197,8 @@ Stops itself if a label/POI would be lost in the process — read the message if
 ## 8. `awaiting-customer` — staged, ball's in their court
 
 Nothing to do if it's recent. If it's been **2+ weeks**: send a nudge email naming the map and what changed, and note that you nudged them (so it doesn't nag you again next week).
+
+**Unless the customer is us.** When the map's organisation has **Sample maps** on in the admin console (`customer.is_sample` — "this organisation's maps are ours", as the BusMaps.uk pilot's are), the row carries `own: true`, ranks 5 in *Your move*, and reads *"Accept or decline your own proposed update to "<map>""*, because nobody else ever will. On the live site: busmaps.uk/app/admin → **Refreshes** → the map's link previews old against new → **Accept** or **Decline**. Accept makes a draft, not a publication: open the map at `/app/maps/<id>`, **Send … for review**, then approve it at `/app/review`. Proposed update #171 to St Ives Bus Station sat unnoticed on 2026-10-10 under the old "nothing for you to do" wording.
 
 ---
 
