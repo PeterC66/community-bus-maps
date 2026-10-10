@@ -196,6 +196,9 @@ CREATE TABLE IF NOT EXISTS map_version (
                                                 -- ENFORCED, since 2026-09-03: src/db/enums.js REVIEW_STATES installs a
                                                 -- BEFORE INSERT/UPDATE trigger that ABORTs anything else, and
                                                 -- scripts/test-db-constraints.mjs holds THIS COMMENT to that list.
+  retired_at      TEXT,                     -- buses-data OA-572: set when the version was RETIRED — its render
+                                            -- files removed, the row kept so its number is never reused and its
+                                            -- sign-off survives. NULL = live. src/publish/retire.js decides what may go.
   UNIQUE (map_id, major, minor)
 );
 

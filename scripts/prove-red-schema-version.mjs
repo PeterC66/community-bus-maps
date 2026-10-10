@@ -119,12 +119,12 @@ arm('a new column borrows a described column\'s BARE name (the matcher\'s own fi
 // --- the numbered history ---------------------------------------------------
 
 arm('the constant is bumped and no block is written for it',
-  (t) => damage(t, 'src/db/index.js', 'export const SCHEMA_VERSION = 7;', 'export const SCHEMA_VERSION = 8;'),
+  (t) => damage(t, 'src/db/index.js', 'export const SCHEMA_VERSION = 8;', 'export const SCHEMA_VERSION = 9;'),
   'equals the highest block');
 
 arm('a block is written and the constant is not bumped',
-  (t) => damage(t, 'src/db/index.js', ' */\nexport const SCHEMA_VERSION = 7;',
-    ' * 8 = a generation nobody bumped for.\n */\nexport const SCHEMA_VERSION = 7;'),
+  (t) => damage(t, 'src/db/index.js', ' */\nexport const SCHEMA_VERSION = 8;',
+    ' * 9 = a generation nobody bumped for.\n */\nexport const SCHEMA_VERSION = 8;'),
   'equals the highest block');
 
 arm('the history gains a gap (a block is tidied away)',
