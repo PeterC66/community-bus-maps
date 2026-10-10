@@ -155,8 +155,14 @@ const LOOKS_HASHED = /^[0-9a-f]{64}$/;
  *     admin Plan box is still free text, so typing a value outside the list
  *     there is refused by the trigger with the database's own message rather
  *     than saved. `isManaged()` reads the normalised value identically.
+ * 8 = 2026-10-10, buses-data OA-572: one new nullable column,
+ *     `map_version.retired_at`, stamped by scripts/prune-versions.mjs when a
+ *     version's render files are removed and its row kept. Additive in the plain
+ *     sense: a v7 release opens a v8 database and ignores the column, so it lists
+ *     a retired version again, with no downloads, and its revert picker already
+ *     refuses a version whose files are gone (chooseRevertTarget).
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /** What the database says it last saw, or null on a database written before this existed. */
 export function recordedSchemaVersion() {
@@ -256,6 +262,9 @@ export function recordedSchemaVersion() {
     db.exec('ALTER TABLE map_version ADD COLUMN data_change_json TEXT');
     backfillDataChanges();
   }
+
+  // OA-572: a version can be RETIRED — files gone, row kept — rather than deleted.
+  if (!verCols.includes('retired_at')) db.exec('ALTER TABLE map_version ADD COLUMN retired_at TEXT');
 
   // Every customer needs a public slug for /o/<slug>; backfill the ones created
   // before P6 (and any created by a script that predates ensureCustomerSlug).
@@ -781,13 +790,33 @@ export function setMapDataDir(mapId, dir) {
 
 // `overrides_json` rides along so the editor's version list can offer "copy
 // these settings into a new draft" (findings H8) without a second query.
+//
+// A RETIRED version (OA-572) is left out: its files are gone, so it has nothing to
+// show, download or compare. nextVersion() deliberately does NOT filter, so a
+// retired number is never handed out again.
 export function listVersions(mapId) {
   return db
     .prepare(
       `SELECT id, major, minor, note, storage_key, review_state, created_at, overrides_json
+         FROM map_version WHERE map_id = ? AND retired_at IS NULL ORDER BY major DESC, minor DESC`,
+    )
+    .all(Number(mapId));
+}
+
+/** Every version of a map, retired ones included, with what the retire rule needs (OA-572). */
+export function listVersionsForRetire(mapId) {
+  return db
+    .prepare(
+      `SELECT id, major, minor, storage_key, review_state, retired_at, created_at
          FROM map_version WHERE map_id = ? ORDER BY major DESC, minor DESC`,
     )
     .all(Number(mapId));
+}
+
+/** Stamp a version retired. The caller removes its render folder (OA-572). Returns true if this call retired it. */
+export function markVersionRetired(versionId) {
+  const info = db.prepare(`UPDATE map_version SET retired_at = ${NOW_SQL} WHERE id = ? AND retired_at IS NULL`).run(Number(versionId));
+  return info.changes === 1;
 }
 
 export function getVersion(mapId, storageKey) {
