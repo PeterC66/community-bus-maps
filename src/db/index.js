@@ -1087,7 +1087,8 @@ export function listPendingProposedUpdates() {
     .prepare(
       `SELECT pu.id, pu.created_at, pu.source_note, pu.summary_json, pu.map_id,
               m.name AS map_name, m.kind AS map_kind, m.subject AS map_subject,
-              m.customer_id, c.name AS customer_name
+              m.customer_id, c.name AS customer_name,
+              c.is_demo, c.is_sample   -- the worklist asks whether the customer is us
          FROM proposed_update pu
          JOIN map m ON m.id = pu.map_id
          LEFT JOIN customer c ON c.id = m.customer_id

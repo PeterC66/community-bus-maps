@@ -31,6 +31,7 @@ import { loadStatusSnapshot } from '../status-snapshot.js';
 import { emailHealth, FAILURE_THRESHOLD } from '../email/health.js';
 import { publicBaseUrl } from '../config.js';
 import { dbDateMs } from '../db/dates.js';
+import { isSampleCustomer } from '../render/pilotStamp.js';   // PILOT: "is this customer us" — see docs/PILOT.md
 
 // An address nobody can be reached at is, by definition, an address nobody is
 // waiting behind. RFC 2606 reserves example.com/.net/.org and the .example,
@@ -247,8 +248,36 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
 
   // 6 / 9 — staged and waiting on the customer. Not your work until it sits:
   // an unaccepted update means their published map is quietly going stale.
+  //
+  // 5 — unless the customer is US. When the map's organisation is our own
+  // (customer.is_sample, read through isSampleCustomer: "are this
+  // organisation's maps ours"), nobody else will ever accept it, and "Waiting on
+  // BusMaps.uk pilot … nothing for you to do" is how proposed update #171 to
+  // St Ives Bus Station sat unnoticed on 2026-10-10. It ranks beside the
+  // refresh it continues. Every way of not knowing answers "ours", which here
+  // fails towards the operator looking rather than towards silence.
+  //
+  // The type stays 'awaiting-customer' on purpose: claude-skills' bus-work
+  // reads this row back by that type and the quoted map name
+  // (stage_refresh.mjs) and routes it by type (concurrency.mjs). `own` is the
+  // distinction.
   for (const p of listPendingProposedUpdates()) {
     const age = daysSince(p.created_at);
+    if (isSampleCustomer(p)) {
+      add({
+        key: `proposed-${p.id}`, rank: 5, type: 'awaiting-customer', own: true,
+        title: `Accept or decline your own proposed update to "${p.map_name}"`,
+        why: `${p.customer_name || 'This map\'s organisation'} is our own, so you are the customer: nobody else will accept or decline it${age ? `, and it was staged ${age} day${age === 1 ? '' : 's'} ago` : ''}. Until you do, the published map stays on the old data.`,
+        who: p.customer_name || 'unowned', ageDays: age,
+        where: url('/app/admin'), runbook: 'R4',
+        do: [
+          { kind: 'portal-ui', what: `Admin → Refreshes: open the map link for "${p.map_name}" to preview old against new, then Accept (or Decline).`, url: url('/app/admin') },
+          { kind: 'portal-ui', what: `Accept makes a draft, not a publication: open the map and "Send … for review".`, url: url(`/app/maps/${p.map_id}`) },
+          { kind: 'portal-ui', what: 'Approve it at Review.', url: url('/app/review') },
+        ],
+      });
+      continue;
+    }
     const stale = age != null && age >= 14;
     add({
       key: `proposed-${p.id}`, rank: stale ? 6 : 9, type: 'awaiting-customer',
