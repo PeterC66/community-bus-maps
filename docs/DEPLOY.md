@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.127 | 2026-10-08 | sha=0ce20185 -->
-**v1.127** · updated 8 October 2026
+<!-- docstamp v1.128 | 2026-10-11 | sha=c180b078 -->
+**v1.128** · updated 11 October 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -316,9 +316,7 @@ node scripts/restore-drill.mjs --snapshot C:/Buses/community-bus-maps/backups/li
 
 ### Restore drill (do it once, before you need it)
 
-If running under `compose.yaml` as written (a named volume, not a bind mount at `/var/lib/cbm` —
-that path was this section's original assumption; performed for real 2026-08-09 and corrected to
-match what's actually deployed):
+If running under `compose.yaml` as written (a named volume, not a bind mount at `/var/lib/cbm` — that path was this section's original assumption; performed for real 2026-08-09 and corrected to match what's actually deployed):
 
 ```bash
 docker compose stop portal

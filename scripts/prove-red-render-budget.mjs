@@ -1,6 +1,6 @@
 // prove-red-render-budget.mjs — falsify the per-user render budget (buses-data OA-039).
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`, no placeholders):
+// Run from the repository root (`C:\Buses\community-bus-maps`, no placeholders):
 //     npm run test:prove-red-render-budget
 //
 // WHY. Every failure this guards against is SILENT and looks exactly like

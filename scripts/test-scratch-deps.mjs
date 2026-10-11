@@ -83,7 +83,7 @@ try {
   check('a worktree INSIDE the checkout borrows the main checkout', same(depsRoot(inside), main),
     `it said ${JSON.stringify(depsRoot(inside))}`);
   check('a worktree BESIDE the checkout borrows it too', same(depsRoot(beside), main),
-    'this is the shape walking up cannot answer — C:\\Claude\\cbm-* are all like this');
+    'this is the shape walking up cannot answer — C:\\Buses\\cbm-* are all like this');
   check('depsFrom routes node_modules there and nothing else',
     same(depsFrom(beside, 'node_modules'), path.join(main, 'node_modules'))
     && depsFrom(beside, 'engine') === path.join(beside, 'engine'));

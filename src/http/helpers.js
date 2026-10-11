@@ -9,7 +9,7 @@
 // env reader" item the same review lists for later, not a claim this file makes.
 import crypto from 'node:crypto';
 import { STEP_UP_MINUTES, stepUpFresh } from '../auth/index.js';
-import { emailProvider, metricsToken, operatorToken, publicBaseUrl } from '../config.js';
+import { ENVIRONMENT, emailProvider, metricsToken, operatorToken, publicBaseUrl } from '../config.js';
 import { dbDateMs } from '../db/dates.js';
 
 // ---- request-shaped values and the constants the routes validate against ----
@@ -39,6 +39,18 @@ const MAP_KINDS = ['area', 'place'];
 // In dev (no email provider) the invite/sign-in link is surfaced to the admin UI
 // so the whole apply→approve→sign-in loop is demoable without a mailbox.
 const DEV_LINKS = !emailProvider();   // snapshotted at load, as it always was
+// THE CONSOLE COPY OF A LINK IS A DEVELOPMENT CONVENIENCE AND NOTHING ELSE
+// (codebase review 2026-10-11, portal G12). DEV_LINKS means "no provider", and
+// that is also the state a MISCONFIGURED production container is in — and there
+// the same `console.log` put a live sign-in link into the container log, which
+// the json-file driver keeps for 30 MB. The sign-in route was already safe,
+// because signInSendable() refuses that configuration under NODE_ENV=production;
+// the three admin invite routes had no such gate. They all take this one now.
+// The RESPONSE field (`inviteLink`) is unchanged: an admin holding a customer
+// who cannot sign in still gets the link back, in a reply only they can read.
+// scripts/test-invite-link-log.mjs runs an invite with no provider under
+// NODE_ENV=production and reads the process's real stdout for `token=`.
+const DEV_CONSOLE_LINKS = DEV_LINKS && !ENVIRONMENT.isProduction;
 
 const str = (v, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const isEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
@@ -362,6 +374,6 @@ function renderBudgetSpent(user) {
 }
 
 export {
-  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, requireAdviser, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited, startHitsSweep,
+  ORG_TYPES, MSG_KINDS, MSG_STATUSES, MAP_KINDS, DEV_LINKS, DEV_CONSOLE_LINKS, str, isEmail, isHttps, parseOutputs, slugify, parseJson, BASE_URL, baseUrl, authLink, requireUser, requireAdmin, requireApprover, requireAdviser, stepUpDeadline, requireStepUp, tokenMatches, bearerToken, opsAuthorised, operatorRead, xmlEscape, rateLimited, startHitsSweep,
   RENDER_BUDGET, RENDER_WINDOW_MS, RENDER_BUDGET_MESSAGE, renderBudgetSpent,
 };

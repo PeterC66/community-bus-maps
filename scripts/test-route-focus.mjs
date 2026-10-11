@@ -3,7 +3,7 @@
 //
 //   node scripts/test-route-focus.mjs [path/to/map-viewer.js [path/to/styles.css]]
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). With no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). With no
 // arguments it reads the shipped files; the two optional paths are for
 // prove-red-route-focus.mjs, which hands it mutated copies.
 //

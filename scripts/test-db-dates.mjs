@@ -13,7 +13,7 @@
 // duplication was not a bug in any one of those nine lines — each was locally
 // correct on the input its author had in mind — it was a bug in there being nine.
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:db-dates
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';

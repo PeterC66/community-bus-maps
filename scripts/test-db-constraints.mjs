@@ -23,7 +23,7 @@
 // with DB_PATH pointed at it, which is what runs the migration. Nothing here
 // touches the real store.
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:db-constraints
 
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';

@@ -184,7 +184,8 @@
     "test:client-scripts": "node scripts/test-client-scripts.mjs",
     "test:route-focus": "node scripts/test-route-focus.mjs",
     "test:prove-red-route-focus": "node scripts/prove-red-route-focus.mjs",
-    "test:magic-link-email": "node scripts/test-magic-link-email.mjs"
+    "test:magic-link-email": "node scripts/test-magic-link-email.mjs",
+    "test:invite-link-log": "node scripts/test-invite-link-log.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.5",

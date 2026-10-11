@@ -35,7 +35,7 @@
 //    use, which is how 63 dead ones accumulated there unnoticed through the
 //    OA-231 cuts before this one removed them.
 //
-// Usage, from the repository root (C:\Claude\community-bus-maps), no placeholders:
+// Usage, from the repository root (C:\Buses\community-bus-maps), no placeholders:
 //     node scripts/test-public-plugin.mjs
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';

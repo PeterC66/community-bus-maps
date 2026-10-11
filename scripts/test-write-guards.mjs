@@ -3,7 +3,7 @@
 //
 //   node scripts/test-write-guards.mjs   (or: npm run test:write-guards)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments and there are no placeholders. It runs no script; it reads them.
 //
 // OA-228 gave nine writers the guard docs/CONVENTIONS.md prescribes, one pull
@@ -35,6 +35,11 @@ const GUARDED = {
   'propose-update.mjs': 'remote',
   'deploy-caddy.mjs': 'remote',
   'apply-chrome.mjs': 'local',
+  // Took confirm('local') when it was written and was never listed here; the
+  // 2026-10-11 codebase review (portal C10) counted ten confirm() callers and
+  // nine entries. The list is still typed by hand — deriving it from the source
+  // is that review's Tier 2.5.
+  'build-guide.mjs': 'local',
 };
 
 /** Why this source breaks the rule for `kind`, or null when it keeps it. */

@@ -4,7 +4,7 @@
 //
 //   node scripts/test-propose-update.mjs   (or: npm run test:propose-update)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments, there are no placeholders, and it works in a throwaway DATA_DIR — it
 // never touches the real portal data, needs no network, and removes
 // EMAIL_PROVIDER from the child's environment so nothing can actually be sent.

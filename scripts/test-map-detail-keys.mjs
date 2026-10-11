@@ -27,7 +27,7 @@
 // shim" was found to have been preserved in WORDING and broken in POSITION,
 // because only one half of it was asserted.
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:map-detail-keys
 
 import { readFileSync } from 'node:fs';

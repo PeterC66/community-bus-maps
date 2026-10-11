@@ -3,7 +3,7 @@
 //
 //   node scripts/test-directory.mjs        (or: npm run test:directory)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags, no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags, no
 // placeholders, no database and no network: the subject is a vendored JSON file
 // and two pure modules.
 //

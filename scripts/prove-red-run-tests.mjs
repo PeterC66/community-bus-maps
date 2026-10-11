@@ -1,6 +1,6 @@
 // prove-red-run-tests.mjs — falsify the test runner (OA-224 Tier 2.2).
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`, no placeholders):
+// Run from the repository root (`C:\Buses\community-bus-maps`, no placeholders):
 //     npm run test:prove-red-run-tests
 //
 // WHY THIS EXISTS. `run-tests.mjs` is the thing that decides whether `npm test`
@@ -11,11 +11,11 @@
 // so a file could sit on disk untested (four did) or be run with different flags
 // under the same name.
 //
-// Six cases, each of which must produce ITS OWN outcome, plus an intact control.
+// Seven cases, each of which must produce ITS OWN outcome, plus an intact control.
 // Every one runs against a scratch repository under os.tmpdir() built from a
-// handful of one-line files: the real suite is never invoked, so this costs ~3 s
-// rather than the 95 s the real one takes, and it cannot be turned green or red
-// by anything in this checkout.
+// handful of one-line files: the real suite is never invoked, so this costs a few
+// seconds rather than the minute and a half the real one takes, and it cannot be
+// turned green or red by anything in this checkout.
 //
 //   0  control: three passing tests           -> exit 0, "0 failed"
 //   1  one failing test                       -> exit 1, and it is NAMED
@@ -38,6 +38,14 @@
 //                                                that rebuilt the command as a
 //                                                bare `node scripts/<file>`
 //                                                turns this red
+//
+//   7  a test that never exits                 -> killed at the per-file timeout,
+//                                                reported as TIMEOUT by name,
+//                                                exit 1, and the file after it
+//                                                still ran. Before 2026-10-11 a
+//                                                hung test held the suite to the
+//                                                15-minute job cap and no summary
+//                                                was ever printed (review T13)
 //
 // Case 6 is the one worth the most: `test:svg` really does carry that flag in
 // this repository, and a chain entry that forgot it would have run a different
@@ -315,6 +323,36 @@ withTree({
 }, ({ code }) => {
   if (code === 1) ok('control for 6: a script without the flag does not get the .env, so case 6 tested the script and not the ambient environment');
   else fail(`control for 6: expected exit 1 without the flag in the script, got ${code}`);
+});
+
+/*
+ * 7 — a test that never exits is killed, named, and does not stop the rest.
+ *
+ * The runner's PER_FILE_TIMEOUT_MS is patched down to half a second and the
+ * scratch test sleeps for five. Without the `timeout` on spawnSync this case
+ * takes five seconds and exits 0 — which is the quiet shape of the real fault,
+ * where a hung test sat until the job cap. The file sorting AFTER the hang must
+ * still run: a timeout is a failure, not a halt, for the same reason as case 2.
+ */
+withTree({
+  files: {
+    'test-hang.mjs': "setTimeout(() => { console.log('test-hang.mjs woke up'); process.exit(0); }, 5000);\n",
+    'test-z.mjs': 0,
+  },
+  patch: (s) => {
+    const patched = s.replace(/const PER_FILE_TIMEOUT_MS = [0-9_]+;/, 'const PER_FILE_TIMEOUT_MS = 500;');
+    if (patched === s) { console.error('Could not find PER_FILE_TIMEOUT_MS in run-tests.mjs — this harness has gone stale.'); process.exit(2); }
+    return patched;
+  },
+}, ({ code, out }) => {
+  if (code === 1) ok('a test that never exits makes the run exit 1');
+  else fail(`a hanging test exited ${code}, expected 1\n${out}`);
+  if (/TIMEOUT.*test-hang\.mjs/.test(out)) ok('and it is reported as TIMEOUT, by name');
+  else fail(`the hung test was not reported as TIMEOUT\n${out}`);
+  if (!/test-hang\.mjs woke up/.test(out)) ok('and it was killed rather than waited for');
+  else fail('the hung test ran to completion — the timeout did not fire');
+  if (/test-z\.mjs ran/.test(out)) ok('and the test AFTER it still ran');
+  else fail('the timeout stopped the run');
 });
 
 for (const t of trees) rmSync(t, { recursive: true, force: true });

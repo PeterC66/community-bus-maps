@@ -1,6 +1,6 @@
 // prove-red-visitor-ip.mjs — falsify the visitor-address mask (buses-data OA-086 phase 1).
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`, no placeholders):
+// Run from the repository root (`C:\Buses\community-bus-maps`, no placeholders):
 //     npm run test:prove-red-visitor-ip
 //
 // WHY. /legal.html now tells the public "your IP address is masked before it

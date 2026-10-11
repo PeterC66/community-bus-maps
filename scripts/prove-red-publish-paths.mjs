@@ -3,7 +3,7 @@
 //
 //   node scripts/prove-red-publish-paths.mjs   (or: npm run test:prove-red-publish-paths)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments and there are no placeholders. It writes nothing outside a temporary
 // directory: other sessions share this checkout, and a mutated source file left
 // behind by a crashed harness would be a guard that had quietly stopped guarding.

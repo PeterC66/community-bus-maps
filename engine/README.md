@@ -1,7 +1,7 @@
 # engine/ — the deterministic renderer (vendored reference)
 
-<!-- docstamp v1.3 | 2026-08-26 | sha=85fcfbe7 -->
-**v1.3** · updated 26 August 2026
+<!-- docstamp v1.4 | 2026-10-11 | sha=59fae27b -->
+**v1.4** · updated 11 October 2026
 
 These are the generic, publishable pieces of the map engine:
 
@@ -25,7 +25,7 @@ Everything under `engine/` is either a **byte-for-byte copy** of a file whose so
 
 `npm test` runs `scripts/test-vendored.mjs`, which fails when a vendored copy has been edited without being re-vendored, when a vendored file has gone missing, and — the part that matters most — when a `.js` file appears under `engine/` that the manifest does not name. That last rule is why the manifest exists at all: the older drift check lived in the skills repository, listed eleven files by hand, and went green for four days while `area/gen_external_radial.js` was stale, because nobody had added its row (`technical-audit_2026-08-25` N14).
 
-**To re-vendor**, run this from the repository root (`C:\Claude\community-bus-maps`) on the laptop, where the skill tree is present:
+**To re-vendor**, run this from the repository root (`C:\Buses\community-bus-maps`) on the laptop, where the skill tree is present:
 
 ```bash
 npm run vendor:engine

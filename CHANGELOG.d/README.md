@@ -32,7 +32,7 @@ title: "The header says where you are"
   with the evidence in the same sentence. Look at any existing fragment.
 ```
 
-Then, from the repository root (`C:\Claude\community-bus-maps`), with no placeholders:
+Then, from the repository root (`C:\Buses\community-bus-maps`), with no placeholders:
 
 ```bash
 npm run changelog

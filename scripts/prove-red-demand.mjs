@@ -3,7 +3,7 @@
 //
 //   node scripts/prove-red-demand.mjs      (or: npm run test:prove-red-demand)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags and
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags and
 // no placeholders.
 //
 // THE ARM THAT MATTERS MOST IS 4. Everything else here is ordinary falsification

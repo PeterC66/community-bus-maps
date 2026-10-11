@@ -3,7 +3,7 @@
 //
 //   node scripts/test-build-guide.mjs   (or: npm run test:guide)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments and there are no placeholders. It writes nothing: every case renders
 // in memory and compares against the committed page.
 //
