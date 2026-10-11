@@ -35,7 +35,7 @@ import { dbDateMs } from '../db/dates.js';
 // PILOT: both lines. Remove with docs/PILOT.md.
 import { isSampleCustomer } from '../render/pilotStamp.js';
 import { reconcileMapRenders } from '../render/pilotReconcile.js';
-import { DEV_LINKS, MSG_STATUSES, ORG_TYPES, authLink, baseUrl, isEmail, isHttps, operatorRead, parseJson, requireAdmin, requireStepUp, str } from '../http/helpers.js';
+import { DEV_CONSOLE_LINKS, DEV_LINKS, MSG_STATUSES, ORG_TYPES, authLink, baseUrl, isEmail, isHttps, operatorRead, parseJson, requireAdmin, requireStepUp, str } from '../http/helpers.js';
 
 export default async function adminRoutes(app) {
   app.addHook('preHandler', async (req, reply) => {
@@ -176,7 +176,10 @@ export default async function adminRoutes(app) {
         // transaction just above, so the letter cannot disagree with the record.
         const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: appn.org_name });
         emailed = !!r.sent;
-        if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+        // Development only (DEV_CONSOLE_LINKS, src/http/helpers.js): in a
+        // production container with no provider this print was the live link in
+        // the container log. The response below still carries it to the admin.
+        if (!r.sent && DEV_CONSOLE_LINKS) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
         emailError = e.message;
         req.log.error({ email, err: e.message }, 'invite email failed to send');
@@ -453,7 +456,7 @@ export default async function adminRoutes(app) {
         // for one reader becoming a false sentence to another.
         const r = await sendMagicLink({ to: email, link, kind: 'invite', orgName: customerName, role });
         emailed = !!r.sent;
-        if (!r.sent) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
+        if (!r.sent && DEV_CONSOLE_LINKS) console.log(`\n🔗  Invite (sign-in) link for ${email}:\n    ${link}\n`);
       } catch (e) {
         emailError = e.message;
         req.log.error({ email, err: e.message }, 'invite email failed to send');
@@ -633,7 +636,7 @@ export default async function adminRoutes(app) {
       try {
         const r = await sendMagicLink({ to: email, link, kind: 'adviser', mapName: map.name });
         emailed = !!r.sent;
-        if (!r.sent) console.log(`\n🔗  Adviser sign-in link for ${email}:\n    ${link}\n`);
+        if (!r.sent && DEV_CONSOLE_LINKS) console.log(`\n🔗  Adviser sign-in link for ${email}:\n    ${link}\n`);
       } catch (e) {
         emailError = e.message;
         req.log.error({ email, err: e.message }, 'adviser invite email failed to send');

@@ -3,7 +3,7 @@
 //
 //   node scripts/test-deploy-caddy.mjs   (or: npm run test:deploy-caddy)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments and there are no placeholders. It never reaches the real VPS: the
 // child's DEPLOY_HOST is a name under `.invalid`, which RFC 2606 guarantees no
 // resolver will answer, and DEPLOY_SSH_KEY is removed from its environment.

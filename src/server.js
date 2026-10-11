@@ -17,7 +17,7 @@
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { counts, authCounts, getMap, nextVersion, insertVersion, setCurrentVersion, setMapOutputs, quotaUsage, getCustomer, purgeExpiredSessions, updateCustomerAdmin, getOpenRequestForMap, listPublicMaps, setCustomerBranding, publicCounts, deleteSession, purgeExpiredPersonalData, peekMagicLink } from './db/index.js';
+import { counts, authCounts, getMap, nextVersion, insertVersion, setCurrentVersion, setMapOutputs, quotaUsage, getCustomer, purgeExpiredSessions, updateCustomerAdmin, getOpenRequestForMap, listPublicMaps, setCustomerBranding, publicCounts, deleteSession, purgeExpiredPersonalData, peekMagicLink, drainMigrationNotes } from './db/index.js';
 import { saveStatusSnapshot } from './status-snapshot.js';
 import { sanitizeBranding, brandingForPublic, ACCENTS } from './branding/index.js';
 import { publicMaps, orgPageUrl } from './public/index.js';
@@ -33,7 +33,7 @@ import { PILOT, listenOn, noListen, statusToken } from './config.js'; // PILOT: 
 import { loggableReq } from './public/logRedaction.js';
 import { APP_VERSION, GIT_SHA, BUILT_AT } from './version.js';
 import { errorEnvelope, notFoundEnvelope, wantsJson } from './http/errors.js';
-import { str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited, startHitsSweep } from './http/helpers.js';
+import { DEV_CONSOLE_LINKS, str, isEmail, isHttps, parseOutputs, parseJson, authLink, requireUser, requireAdmin, tokenMatches, bearerToken, opsAuthorised, rateLimited, startHitsSweep } from './http/helpers.js';
 import { withMapLock, downloadsForVersion } from './maps/detail.js';
 import adminRoutes from './routes/admin.js';
 import adviserRoutes from './routes/adviser.js';
@@ -120,6 +120,18 @@ const app = Fastify({
   bodyLimit: 256 * 1024,
   trustProxy: TRUST_PROXY,
 });
+
+// THE MIGRATION'S WARNINGS REACH THE SAME LOG AS EVERYTHING ELSE (codebase
+// review 2026-10-11, portal G15). src/db/index.js migrates on import, before
+// this app and its Pino logger exist, so until now its four warnings — a
+// database written by a NEWER schema, an enum column holding a value the guard
+// no longer accepts, a token row that could not be hashed — went to `console`,
+// which is to say to a stream nobody reads on the VPS, while every other line
+// the operator reads is structured JSON. The module now records them and this
+// is where they are written, synchronously, before the first `await` below, so
+// the console fallback in that module (which fires on the next timer tick, for
+// the sixty-odd scripts that import the store without a server) never fires here.
+drainMigrationNotes(app.log);
 
 // THE ROUTE TABLE, recorded as it is built (OA-231, 2026-09-02). scripts/test-admin-plugin.mjs
 // asserts it against scripts/route-table.json, the table this file registered on the
@@ -510,8 +522,10 @@ app.post('/api/auth/request', async (req, reply) => {
       } else {
         // DEV_LINKS: no email provider configured — print the link to the SERVER CONSOLE.
         // Only reachable outside production; signInSendable() refuses this
-        // configuration when NODE_ENV=production.
-        console.log(`\n🔗  Sign-in link for ${email}:\n    ${link}\n`);
+        // configuration when NODE_ENV=production. Gated on DEV_CONSOLE_LINKS all
+        // the same, so the four link prints in src/ share one condition and the
+        // admin routes' gate (helpers.js) cannot drift from this one.
+        if (DEV_CONSOLE_LINKS) console.log(`\n🔗  Sign-in link for ${email}:\n    ${link}\n`);
         req.log.info({ email }, 'magic link issued (see console)');
       }
     } catch (e) {

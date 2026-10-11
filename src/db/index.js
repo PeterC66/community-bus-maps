@@ -172,6 +172,28 @@ export function recordedSchemaVersion() {
   } catch { return null; }   // table absent: a database from before N13
 }
 
+// WHERE A MIGRATION'S WARNINGS GO (codebase review 2026-10-11, portal G15).
+//
+// migrate() runs on import, before any logger exists, so its four warnings
+// went to `console` — on the VPS, a stream nobody reads, beside a structured
+// log that every other line goes to. They are recorded here instead and the
+// server hands them to its Pino logger the moment it has one (src/server.js,
+// `drainMigrationNotes(app.log)`, synchronously after the app is built). The
+// timer below is the fallback for the scripts that import this module with no
+// server behind them — create-admin, import-map, the tests — where the console
+// IS the operator's log: it fires on the next tick, finds whatever the server
+// did not drain, and prints it as before. In the server it finds nothing,
+// because module evaluation and the drain complete before any timer can run.
+export const MIGRATION_NOTES = [];
+const migrationNote = (level, msg) => { MIGRATION_NOTES.push({ level, msg }); };
+export function drainMigrationNotes(log) {
+  while (MIGRATION_NOTES.length) {
+    const { level, msg } = MIGRATION_NOTES.shift();
+    log[level](msg);
+  }
+}
+setTimeout(() => drainMigrationNotes({ warn: console.warn, error: console.error, info: console.log }), 0);
+
 (function migrate() {
   const mapCols = tableColumns('map');
   if (!mapCols.includes('customer_id')) db.exec('ALTER TABLE map ADD COLUMN customer_id INTEGER');
@@ -329,7 +351,7 @@ export function recordedSchemaVersion() {
       `SELECT ${column} AS v, COUNT(*) AS c FROM ${table} WHERE ${column} NOT IN (${list}) GROUP BY ${column}`,
     ).all();
     for (const row of bad) {
-      console.warn(`[migrate] ${qualified} holds ${row.c} row(s) with the unrecognised value `
+      migrationNote('warn', `[migrate] ${qualified} holds ${row.c} row(s) with the unrecognised value `
         + `${JSON.stringify(row.v)}. The new guard rejects it on the next write to those rows; `
         + `existing rows are left alone. Legal values: ${values.join(', ')}.`);
     }
@@ -369,7 +391,7 @@ export function recordedSchemaVersion() {
   if (seen !== null && seen > SCHEMA_VERSION) {
     // The rollback case, and the only one worth saying out loud. Not fatal:
     // refusing to boot here would turn a rollback into an outage.
-    console.warn(`[migrate] this database was last written by schema v${seen}; this code is v${SCHEMA_VERSION}.`
+    migrationNote('warn', `[migrate] this database was last written by schema v${seen}; this code is v${SCHEMA_VERSION}.`
       + ' Reading a newer database with older code is supported (additive columns only) but is'
       + ' the state a rollback leaves behind — see docs/DEPLOY.md and scripts/test-schema-compat.mjs.');
   } else if (seen !== SCHEMA_VERSION) {
@@ -409,9 +431,9 @@ export function hashStoredTokens() {
       // the service down, so one bad row is skipped and reported rather than
       // being allowed to stop the other rows migrating.
       try { upd.run(tokenHash(r.token), r.token); }
-      catch (e) { console.error(`[migrate] ${table}: could not hash one row — ${e.message}`); }
+      catch (e) { migrationNote('error', `[migrate] ${table}: could not hash one row — ${e.message}`); }
     }
-    console.log(`[migrate] ${table}: hashed ${stale.length} stored token(s) (technical-audit_2026-08-25 N3)`);
+    migrationNote('info', `[migrate] ${table}: hashed ${stale.length} stored token(s) (technical-audit_2026-08-25 N3)`);
   }
 }
 

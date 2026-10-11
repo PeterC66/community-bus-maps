@@ -29,7 +29,7 @@
 // variables, whatever this laptop's .env holds, so nothing here can reach a
 // host even by accident.
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run it from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:accept-publish-guards
 // It is also discovered by `npm test`.
 

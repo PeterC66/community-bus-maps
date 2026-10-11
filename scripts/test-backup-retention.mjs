@@ -1,6 +1,6 @@
 // Backup retention (src/ops/backup-retention.js).
 //
-// RUN IT FROM: the repository root, C:\Claude\community-bus-maps
+// RUN IT FROM: the repository root, C:\Buses\community-bus-maps
 //
 //   node scripts/test-backup-retention.mjs
 //

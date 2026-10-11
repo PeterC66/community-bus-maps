@@ -1,6 +1,6 @@
 // prove-red-trust-proxy.mjs — falsify the forwarded-address rules (buses-data OA-256).
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`, no placeholders):
+// Run from the repository root (`C:\Buses\community-bus-maps`, no placeholders):
 //     npm run test:prove-red-trust-proxy
 //
 // WHY. Every failure this guards against is SILENT. Nothing 500s, no page

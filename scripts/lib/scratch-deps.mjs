@@ -24,7 +24,7 @@
 // WHAT THIS DOES INSTEAD. It asks git where the main checkout is rather than
 // guessing, because the guess has two shapes to get right and only one of them
 // is a parent: `.claude/worktrees/<name>` sits INSIDE the checkout, and the
-// `C:\Claude\cbm-*` worktrees sit beside it, where walking up finds nothing.
+// `C:\Buses\cbm-*` worktrees sit beside it, where walking up finds nothing.
 // `git rev-parse --git-common-dir` answers both, because a worktree's common
 // dir is the main checkout's `.git` whatever the directory layout.
 //

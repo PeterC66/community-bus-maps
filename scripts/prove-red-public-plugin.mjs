@@ -1,6 +1,6 @@
 // prove-red-public-plugin.mjs — falsify the public front's checks (OA-232 Tier 3.2).
 //
-// Run from the repository root (C:\Claude\community-bus-maps), no placeholders:
+// Run from the repository root (C:\Buses\community-bus-maps), no placeholders:
 //     npm run test:prove-red-public-plugin
 //
 // WHY THIS EXISTS, AND WHY IT IS THE ODD ONE OUT. Every other prove-red harness

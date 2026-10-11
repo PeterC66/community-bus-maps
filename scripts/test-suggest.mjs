@@ -4,7 +4,7 @@
 //
 //   node scripts/test-suggest.mjs          (or: npm run test:suggest)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags, no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags, no
 // placeholders, no database and no network: the subject is two pure modules.
 //
 // WHAT IS ACTUALLY AT RISK HERE, and so what this file is mostly about. The

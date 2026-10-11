@@ -5,7 +5,7 @@
  *
  *     npm run test:deploy-history
  *
- * Run from the repository root (`C:\Claude\community-bus-maps`), no
+ * Run from the repository root (`C:\Buses\community-bus-maps`), no
  * placeholders.
  *
  * The subject is a JOIN — "every commit about to go live is named somewhere a

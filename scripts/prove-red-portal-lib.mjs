@@ -1,6 +1,6 @@
 // prove-red-portal-lib.mjs — falsify test-portal-lib.mjs (OA-224 Tier 3.3 / 3.6).
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`, no placeholders):
+// Run from the repository root (`C:\Buses\community-bus-maps`, no placeholders):
 //     npm run test:prove-red-portal-lib
 //
 // WHY. `test-portal-lib.mjs` is a suite of small assertions about three helpers

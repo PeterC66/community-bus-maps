@@ -4,7 +4,7 @@
 //
 //   node scripts/test-branding-unsaved-edits.mjs     (or: npm run test:branding-unsaved-edits)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`); it takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`); it takes no
 // arguments.
 //
 // WHY IT EXISTS. The admin console's grids learned to say when a row had unsaved

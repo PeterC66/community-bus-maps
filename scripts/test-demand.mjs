@@ -4,7 +4,7 @@
 //
 //   node scripts/test-demand.mjs           (or: npm run test:demand)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags and
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags and
 // no placeholders. It runs against a throwaway DATA_DIR in the system temp
 // directory and never touches the real portal data.
 //

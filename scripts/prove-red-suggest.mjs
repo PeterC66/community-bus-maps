@@ -3,7 +3,7 @@
 //
 //   node scripts/prove-red-suggest.mjs     (or: npm run test:prove-red-suggest)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags and
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags and
 // no placeholders.
 //
 // test-suggest.mjs was green on its first run, which by itself means nothing:

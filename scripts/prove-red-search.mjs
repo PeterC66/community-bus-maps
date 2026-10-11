@@ -3,7 +3,7 @@
 //
 //   node scripts/prove-red-search.mjs      (or: npm run test:prove-red-search)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags,
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags,
 // no placeholders, no database of its own: each arm copies src/ and scripts/
 // into a scratch tree, breaks ONE thing there, and runs the real test against
 // the copy.

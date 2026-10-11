@@ -3,7 +3,7 @@
 //
 //   node scripts/test-description-unsaved.mjs     (or: npm run test:description-unsaved)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`); no arguments.
+// Run it from the repository root (`C:\Buses\community-bus-maps`); no arguments.
 //
 // WHY IT EXISTS. The description panel on a map's editor page had a Save button
 // that was always enabled, no unload guard, and reported through the page-top

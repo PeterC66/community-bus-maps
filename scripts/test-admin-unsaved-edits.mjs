@@ -3,7 +3,7 @@
 //
 //   node scripts/test-admin-unsaved-edits.mjs     (or: npm run test:admin-unsaved-edits)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`); it takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`); it takes no
 // arguments.
 //
 // WHY IT EXISTS. Peter unticked `Sample maps` on the first real customer, found

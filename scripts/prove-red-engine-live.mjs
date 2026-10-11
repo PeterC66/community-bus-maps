@@ -18,7 +18,7 @@
 //   5  --engine-unchecked left in the args forwarded to the host     -> "stripped"
 //
 // IT MUTATES A COPY AND NEVER THE REPOSITORY. Run it from the repository root
-// (`C:\Claude\community-bus-maps`); it takes no arguments.
+// (`C:\Buses\community-bus-maps`); it takes no arguments.
 
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';

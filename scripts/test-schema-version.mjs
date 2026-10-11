@@ -28,7 +28,7 @@
 // SAYS, so parsing it is the honest instrument; building a database would answer a
 // different question and would answer it green either way.
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:schema-version
 //
 // It resolves its tree from its OWN location rather than from the cwd, so the

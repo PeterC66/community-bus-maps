@@ -3,7 +3,7 @@
 //
 //   node scripts/test-apply-chrome.mjs   (or: npm run test:apply-chrome)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments and there are no placeholders. It never touches public/: every run
 // points the child at a throwaway copy with `--dir`.
 //

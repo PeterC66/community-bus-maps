@@ -1,6 +1,6 @@
 // prove-red-unlisted-draft.mjs — falsify the OA-295 half of test-worklist.mjs.
 //
-// Run from the repository root (`C:\Claude\community-bus-maps`, no placeholders):
+// Run from the repository root (`C:\Buses\community-bus-maps`, no placeholders):
 //     npm run test:prove-red-unlisted-draft
 //
 // WHY. OA-295 is a check that reported on a predicate it never evaluated: the

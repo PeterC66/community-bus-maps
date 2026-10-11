@@ -76,6 +76,10 @@ const EXCLUDED = {
     'slow (rasterises every sheet the fixture declares) — runs in verify.yml, "self-sufficient" step',
   'prove-red-selfsufficient.mjs':
     'slow (four scratch portals, each rasterising) — runs in verify.yml, "prove the self-sufficiency gate can go red"',
+  // It falsifies THIS runner, so it runs before `npm test` rather than inside it;
+  // discovered here as well, it ran twice on every push (codebase review 2026-10-11, portal T12).
+  'prove-red-run-tests.mjs':
+    'falsifies this runner — runs in test.yml, "prove the test runner can go red", the step before npm test',
 };
 
 const args = process.argv.slice(2);
@@ -197,12 +201,42 @@ if (listOnly) {
 
 // --- run ------------------------------------------------------------------
 
+// ONE HUNG TEST USED TO HOLD THE WHOLE SUITE (codebase review 2026-10-11, portal
+// T13). The files run in series and spawnSync had no `timeout`, so a test that
+// never exited sat until test.yml's 15-minute job cap and the summary was never
+// printed — the stall OA-513 met in the hygiene step, which was then capped at
+// three minutes while `npm test` was not. The whole suite takes about a minute
+// and a half; no single file is near this. A file that reaches it is killed,
+// reported as TIMEOUT with the time it was given, and counts as a failure, so
+// the run stays red and the files after it still run. prove-red-run-tests.mjs
+// case 7 patches this constant down and runs a test that sleeps past it.
+const PER_FILE_TIMEOUT_MS = 180_000;
+
+// WITHOUT A SHELL, OR THE KILL NEVER REACHES THE TEST. The first version of the
+// timeout kept `shell: true` and case 7 of the prove-red went red for the right
+// reason: the signal killed cmd.exe and the node process under it carried on,
+// orphaned, and printed its "woke up" five seconds later into the inherited
+// stdout. Every command the runner can be given is `node [--flag] scripts/<file>`
+// (134 of them when this was written, one flag between them, no quoting), so a
+// node invocation is split on whitespace and run as this node binary directly,
+// and the timeout kills the test itself. Anything else still goes through the
+// shell, with no promise about what the timeout reaches.
+function spawnSpec(cmd) {
+  const words = cmd.trim().split(/\s+/);
+  if (words[0] === 'node' && words.every((w) => !/['"&|;<>]/.test(w))) {
+    return { file: process.execPath, args: words.slice(1), shell: false };
+  }
+  return { file: cmd, args: [], shell: true };
+}
+
 function run(label, cmd) {
   const started = Date.now();
-  const r = spawnSync(cmd, { cwd: ROOT, shell: true, stdio: 'inherit' });
+  const spec = spawnSpec(cmd);
+  const r = spawnSync(spec.file, spec.args, { cwd: ROOT, shell: spec.shell, stdio: 'inherit', timeout: PER_FILE_TIMEOUT_MS, killSignal: 'SIGKILL' });
   const ms = Date.now() - started;
-  const code = r.status === null ? 1 : r.status;
-  return { label, cmd, code, ms };
+  const timedOut = !!(r.error && r.error.code === 'ETIMEDOUT');
+  const code = timedOut || r.status === null ? 1 : r.status;
+  return { label, cmd, code, ms, timedOut };
 }
 
 const results = [];
@@ -220,9 +254,9 @@ const total = results.reduce((n, r) => n + r.ms, 0);
 
 console.log('\n' + '='.repeat(72));
 for (const r of results) {
-  const verdict = r.code === 0 ? 'ok  ' : `FAIL`;
+  const verdict = r.timedOut ? 'TIMEOUT' : r.code === 0 ? 'ok  ' : `FAIL`;
   console.log(`${verdict}  ${String(r.ms).padStart(6)} ms  ${r.label}` +
-    (r.code === 0 ? '' : `  (exit ${r.code})`));
+    (r.timedOut ? `  (killed after ${PER_FILE_TIMEOUT_MS / 1000} s)` : r.code === 0 ? '' : `  (exit ${r.code})`));
 }
 console.log('='.repeat(72));
 console.log(`${results.length} run, ${failed.length} failed, ${skipped.length} excluded, ${(total / 1000).toFixed(1)} s`);

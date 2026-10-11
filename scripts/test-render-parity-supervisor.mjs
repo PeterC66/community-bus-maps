@@ -18,7 +18,7 @@
 // the real rasterisation (about two seconds here), so the whole file takes
 // under fifteen.
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run it from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:render-parity-supervisor
 // It is also discovered by `npm test`.
 

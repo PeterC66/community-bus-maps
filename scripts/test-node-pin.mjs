@@ -27,7 +27,7 @@
 // It is deliberately not a lint rule and not a comment. The five pins drifted for
 // months while every one of them was individually correct-looking.
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`), no arguments:
+// Run it from the repository root (`C:\Buses\community-bus-maps`), no arguments:
 //     npm run test:node-pin
 // It is also discovered by `npm test`.
 

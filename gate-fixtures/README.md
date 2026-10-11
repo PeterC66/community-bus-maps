@@ -1,7 +1,7 @@
 # `gate-fixtures/` — the map packs this repository's byte gates run against
 
-<!-- docstamp v1.0 | 2026-09-18 | sha=c00d3bc5 -->
-**v1.0** · updated 18 September 2026
+<!-- docstamp v1.1 | 2026-10-11 | sha=b53d4195 -->
+**v1.1** · updated 11 October 2026
 
 **What this is.** A vendored copy of two fixture packs that are produced in the private `buses-data` repository: one TOWN pack (`Areas/_portal-fixture`) and two PLACE packs (`Places/_portal-fixture`). Each is a complete map pack — everything a generator reads, plus the shipped SVGs it is compared against — so `npm run verify` can demonstrate the product's central technical claim, that the same inputs produce the same bytes, on any machine that has cloned this repository and nothing else.
 
@@ -14,7 +14,7 @@
 These packs are copies, and a copy that has quietly fallen behind does not make a byte gate red — it makes it green about last month's artwork. Refreshing has three steps, and only the third writes here:
 
 1. Rebuild the map in `buses-data` and refresh the fixture there — `refresh_area_fixture.js` in the engine for the town pack, [`scripts/refresh-place-fixture.mjs`](../scripts/refresh-place-fixture.mjs) in this repository for a place pack. Both write into `buses-data`, from an S5 render that only the laptop has.
-2. Re-vendor. From this repository's root (`C:\Claude\community-bus-maps`), with no placeholders — `--buses` is needed only when `buses-data` is somewhere the script cannot guess:
+2. Re-vendor. From this repository's root (`C:\Buses\community-bus-maps`), with no placeholders — `--buses` is needed only when `buses-data` is somewhere the script cannot guess:
 
 ```bash
 npm run fixtures:vendor -- --apply

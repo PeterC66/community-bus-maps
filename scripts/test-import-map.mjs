@@ -3,7 +3,7 @@
 //
 //   node scripts/test-import-map.mjs   (or: npm run test:import-map)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). It takes no
+// Run it from the repository root (`C:\Buses\community-bus-maps`). It takes no
 // arguments, there are no placeholders, and it works in a throwaway DATA_DIR — it
 // never touches the real portal data and needs no network.
 //

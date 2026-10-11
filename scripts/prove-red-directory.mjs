@@ -3,7 +3,7 @@
 //
 //   node scripts/prove-red-directory.mjs     (or: npm run test:prove-red-directory)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags and
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags and
 // no placeholders.
 //
 // A test written the same hour as its subject and green on its first run has

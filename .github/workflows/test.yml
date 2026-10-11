@@ -81,8 +81,10 @@ jobs:
       # FALSIFY THE RUNNER FIRST. `npm test` is no longer a chain of commands
       # this file can read - it is one script that DISCOVERS the tests, so a bug
       # in it does not make one test wrong, it makes the whole verdict wrong in
-      # the reassuring direction. Six cases on scratch repositories under the
-      # temp dir, plus two controls; ~3 s, no database, no fixture repository.
+      # the reassuring direction. Its cases run on scratch repositories under the
+      # temp dir, each with a control; a few seconds, no database, no fixture
+      # repository. It is the one prove-red `npm test` EXCLUDES, because this is
+      # where it runs (codebase review 2026-10-11, portal T12).
       - name: prove the test runner can go red
         run: npm run test:prove-red-run-tests
 

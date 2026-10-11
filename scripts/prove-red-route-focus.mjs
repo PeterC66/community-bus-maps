@@ -2,7 +2,7 @@
 //
 //   node scripts/prove-red-route-focus.mjs   (or: npm run test:prove-red-route-focus)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`); no arguments.
+// Run it from the repository root (`C:\Buses\community-bus-maps`); no arguments.
 //
 // A test that has never been seen to fail proves nothing. Each arm removes one
 // behaviour from a SCRATCH COPY of map-viewer.js or styles.css and requires the

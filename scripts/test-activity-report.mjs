@@ -3,7 +3,7 @@
 //
 //   node scripts/test-activity-report.mjs     (or: npm run test:activity-report)
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No flags and
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No flags and
 // no placeholders. It builds a throwaway DATA_DIR in the system temp directory
 // and never touches the real portal data.
 //

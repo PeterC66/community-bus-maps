@@ -5,7 +5,7 @@
 //
 //   node scripts/test-sample-band.mjs
 //
-// Run it from the repository root (`C:\Claude\community-bus-maps`). No
+// Run it from the repository root (`C:\Buses\community-bus-maps`). No
 // arguments and no placeholders.
 //
 // FOUR SECTIONS, AND THE THIRD IS THE ONE THAT EARNS ITS KEEP.
