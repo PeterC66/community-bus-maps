@@ -20,7 +20,7 @@
 //
 // Runs against a throwaway DATA_DIR — it never touches the real portal data.
 
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -144,7 +144,7 @@ check('… never saying there is nothing to do', !/nothing for you to do/i.test(
 check('… keeping the type and quoted map name bus-work reads it back by',
   ours?.type === 'awaiting-customer' && (ours?.title || '').includes('"Ourtown"'));
 check('… and the steps go Refreshes → the map → Review',
-  JSON.stringify((ours?.do || []).map((d) => d.url)) === JSON.stringify(['/app/admin', `/app/maps/${ourMapId}`, '/app/review'].map((p) => `https://busmaps.uk${p}`)),
+  JSON.stringify((ours?.do || []).map((d) => d.url)) === JSON.stringify(['/app/admin#refreshes', `/app/maps/${ourMapId}`, '/app/review'].map((p) => `https://busmaps.uk${p}`)),
   (ours?.do || []).map((d) => d.url).join(' '));
 backdate('proposed_update', ourPuId, 20);
 eq('… and it is not demoted to a "nudge" when it sits — it stays ours', byKey(`proposed-${ourPuId}`)?.rank, 5);
@@ -160,6 +160,19 @@ check('a flag raised after the last staging re-opens', keys().includes('refresh-
 const linked = buildWorklist({ baseUrl: 'https://busmaps.uk/' });
 check('baseUrl is applied without doubling the slash', linked.items.every((i) => !i.where || /^https:\/\/busmaps\.uk\/[a-z]/.test(i.where)),
   linked.items.map((i) => i.where).join(' '));
+// A row that sends you to one admin queue names that queue's tab, and the tab
+// must exist on the page: a bare /app/admin opens on To do, so the row's Open
+// went back to the row (adhoc review-tab-wrong, 2026-10-12).
+const TABS = [...readFileSync(new URL('../views/app/admin.html', import.meta.url), 'utf8').matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]);
+const adminLinks = linked.items.flatMap((i) => [i.where, ...(i.do || []).map((d) => d.url)]).filter((u) => u && u.includes('/app/admin'));
+check('every admin link with a fragment names a tab the page has',
+  adminLinks.every((u) => !u.includes('#') || TABS.includes(u.split('#')[1])), adminLinks.join(' '));
+const TABBED = ['application', 'request-decision', 'build', 'awaiting-customer'];
+const tabbedRows = linked.items.filter((i) => TABBED.includes(i.type));
+check('the rows for a tabbed queue are present to be checked', tabbedRows.length > 0);
+check('… and each one\'s admin links name their tab',
+  tabbedRows.every((i) => [i.where, ...i.do.map((d) => d.url)].filter((u) => u && u.includes('/app/admin')).every((u) => u.includes('#'))),
+  tabbedRows.map((i) => `${i.type}:${i.where}`).join(' '));
 
 // --- pushed status snapshot (item 3: ranks 0 / 8) ---------------------------
 // Nobody has pushed yet ⇒ no rank 0/8 items — the server guesses nothing.

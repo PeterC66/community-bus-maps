@@ -183,8 +183,8 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
       why: `${group.length === 1 ? 'Waiting' : `Waiting: ${names.join(', ')}`}.${demo ? ' Every one of these has an unreachable (RFC 2606 reserved) address, so they are seed data — nobody is waiting.' : ''} Approving creates the customer, its first editor and a passwordless invite. Vet against the quota + vetting policy first.`,
       who: group.length === 1 ? names[0] : `${group.length} organisations`,
       ageDays: Math.max(...group.map((a) => daysSince(a.created_at) ?? 0)),
-      where: url('/app/admin'), runbook: 'R2', count: group.length,
-      do: [{ kind: 'portal-ui', what: 'Admin → Applications → Approve or Reject.', url: url('/app/admin') }],
+      where: url('/app/admin#applications'), runbook: 'R2', count: group.length,
+      do: [{ kind: 'portal-ui', what: 'Admin → Applications → Approve or Reject.', url: url('/app/admin#applications') }],
     });
   }
 
@@ -196,8 +196,8 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
       title: `Approve or reject the map request "${m.name}" (${m.kind})`,
       why: `${m.customer_name || 'unowned'} requested it${m.requested_by_email ? ` (${m.requested_by_email})` : ''}. Nothing can be built until it is approved — approval is the quota gate.`,
       who: m.customer_name || 'unowned', ageDays: daysSince(m.created_at), detail: m.request_note || null,
-      where: url('/app/admin'), runbook: 'R1',
-      do: [{ kind: 'portal-ui', what: 'Admin → Map requests → Approve (or Reject, which frees the quota slot).', url: url('/app/admin') }],
+      where: url('/app/admin#requests'), runbook: 'R1',
+      do: [{ kind: 'portal-ui', what: 'Admin → Map requests → Approve (or Reject, which frees the quota slot).', url: url('/app/admin#requests') }],
     });
   }
 
@@ -210,7 +210,7 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
       title: `Build the ${m.kind} map "${m.name}"${m.subject && m.subject !== m.name ? ` (${m.subject})` : ''}`,
       why: `Approved for ${m.customer_name || 'unowned'}${m.requested_by_email ? ` (${m.requested_by_email})` : ''} and awaiting a build. Fulfilling the request in place keeps it one row with quota counted once.`,
       who: m.customer_name || 'unowned', ageDays: daysSince(m.created_at), detail: m.request_note || null,
-      where: url('/app/admin'), runbook: 'R1',
+      where: url('/app/admin#requests'), runbook: 'R1',
       kind: m.kind, subject: m.subject || m.name, slug: m.slug,
       skill: place ? 'make-place-bus-leaflet' : 'make-bus-leaflet',
       do: [
@@ -269,9 +269,9 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
         title: `Accept or decline your own proposed update to "${p.map_name}"`,
         why: `${p.customer_name || 'This map\'s organisation'} is our own, so you are the customer: nobody else will accept or decline it${age ? `, and it was staged ${age} day${age === 1 ? '' : 's'} ago` : ''}. Until you do, the published map stays on the old data.`,
         who: p.customer_name || 'unowned', ageDays: age,
-        where: url('/app/admin'), runbook: 'R4',
+        where: url('/app/admin#refreshes'), runbook: 'R4',
         do: [
-          { kind: 'portal-ui', what: `Admin → Refreshes: open the map link for "${p.map_name}" to preview old against new, then Accept (or Decline).`, url: url('/app/admin') },
+          { kind: 'portal-ui', what: `Admin → Refreshes: open the map link for "${p.map_name}" to preview old against new, then Accept (or Decline).`, url: url('/app/admin#refreshes') },
           { kind: 'portal-ui', what: `Accept makes a draft, not a publication: open the map and "Send … for review".`, url: url(`/app/maps/${p.map_id}`) },
           { kind: 'portal-ui', what: 'Approve it at Review.', url: url('/app/review') },
         ],
@@ -286,8 +286,8 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
         ? `Staged ${age} days ago and still neither accepted nor declined; their published map is going stale.`
         : 'Staged and waiting for the customer to accept or decline. Nothing for you to do unless it sits.',
       who: p.customer_name || 'unowned', ageDays: age,
-      where: url('/app/admin'), runbook: 'R4',
-      do: [{ kind: 'portal-ui', what: 'Admin → Refreshes. Nudge by email if it has sat.', url: url('/app/admin') }],
+      where: url('/app/admin#refreshes'), runbook: 'R4',
+      do: [{ kind: 'portal-ui', what: 'Admin → Refreshes. Nudge by email if it has sat.', url: url('/app/admin#refreshes') }],
     });
   }
 
