@@ -111,6 +111,12 @@ function showTab(name) {
   if (LOADERS[name]) LOADERS[name]();
 }
 $('tabs').querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+// A link can name its tab as a fragment — /app/admin#refreshes — which is how
+// the To do rows send you to the queue they mean. Without it every such link
+// landed on To do, and the row's "Open" took you back to the row you came from.
+// Clicking one from this page changes only the hash, so listen for that too.
+const tabFromHash = () => { const h = location.hash.slice(1); return SECTIONS.includes(h) ? h : null; };
+window.addEventListener('hashchange', () => { const t = tabFromHash(); if (t) showTab(t); });
 window.addEventListener('beforeunload', (e) => { if (UnsavedEdits.count(document)) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---- summary badges ---------------------------------------------------------
@@ -881,5 +887,5 @@ $('askAdviserBtn').addEventListener('click', askAdviser);
   await loadSummary();
   // The first thing an admin sees should be the work, not a queue they then
   // have to cross-reference against five other queues.
-  showTab('todo');
+  showTab(tabFromHash() || 'todo');
 })();
