@@ -120,6 +120,22 @@ export const emailProvider = () => process.env.EMAIL_PROVIDER || '';
  *  is two spellings of one default that are a bug the day they disagree, which
  *  is the shape `publicBaseUrl` was given this comment for. */
 export const emailFrom = (env = process.env) => env.EMAIL_FROM || 'BusMaps.uk <noreply@busmaps.uk>';
+/** Whether the five customer notifications (src/email/notify.js) are paused,
+ *  '' when they are not. Any other value pauses them and is returned as it was
+ *  written, so the convention of writing the date the pause began
+ *  (`NOTIFICATIONS_PAUSED=2026-10-13`) is what the worklist and the readiness
+ *  probe say it has been paused since. `0` counts as unset, so the line can be
+ *  switched off without being deleted.
+ *
+ *  IT PAUSES NOTIFICATIONS AND NOTHING ELSE. Sign-in links, invitations and the
+ *  adviser letter go through sendMagicLink(), not notify(), and are untouched:
+ *  blanking EMAIL_PROVIDER would have stopped these too, and with them every
+ *  sign-in. Asked for by Peter on 2026-10-13, to pause customer email for some
+ *  weeks while how we operate is reviewed. */
+export const notificationsPaused = (env = process.env) => {
+  const v = String(env.NOTIFICATIONS_PAUSED || '').trim();
+  return v && v !== '0' ? v : '';
+};
 /** Resend's API key, '' when unset. Deliberately NOT rotatable by rotate-secret.mjs. */
 export const resendApiKey = () => process.env.RESEND_API_KEY || '';
 

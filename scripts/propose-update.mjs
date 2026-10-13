@@ -49,6 +49,7 @@ import {
 import { ensureProposedDirs, mapDataDir, BASE_OVERRIDES, BUILD_WARNINGS, writeSheetDeclaration } from '../src/maps/store.js';
 import { dataChangeSummary, isMajorChange, transformedRoutes } from '../src/refresh/index.js';
 import { notify, appUrl, isManaged } from '../src/email/notify.js';
+import { notificationsPaused } from '../src/config.js';
 import { arg, has, confirm } from './lib/cli.mjs';
 
 
@@ -158,6 +159,7 @@ if (dryRun) {
   printSummary({ ...dataChangeSummary(liveData, SRC), ...(forceMajor ? { forceMajor: true } : {}) });
   if (noNotify) console.log('· would email nobody: --no-notify was given.');
   else if (isManaged(map.customer_id)) console.log(`· would email nobody: "${who}" is a managed customer.`);
+  else if (notificationsPaused()) console.log(`· would email nobody: customer notifications are paused (NOTIFICATIONS_PAUSED=${notificationsPaused()}); it would be recorded as held back.`);
   else console.log(`· would email "${who}" that the update is waiting (update-ready).`);
   console.log(`\ndry run complete — nothing staged for "${map.name}"; no row, no folder, no email.`);
   process.exit(0);
@@ -227,7 +229,9 @@ const mailed = await notify('update-ready', {
   mapName: map.name, sourceNote: note,
   mapUrl: appUrl(`/app/maps/${map.id}`),
 });
-console.log(mailed.sent
+console.log(mailed.paused
+  ? `  No email sent: customer notifications are paused (NOTIFICATIONS_PAUSED). Recorded as held back for ${mailed.heldBack} person${mailed.heldBack === 1 ? '' : 's'}; the update is staged either way.`
+  : mailed.sent
   ? `  Emailed ${mailed.sent} person${mailed.sent === 1 ? '' : 's'} at "${map.customer_name || 'the customer'}".`
   : '  No email sent (no EMAIL_PROVIDER, or nobody with a deliverable address).');
 process.exit(0);

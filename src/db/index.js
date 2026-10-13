@@ -1022,6 +1022,14 @@ export function listAudit({ limit = 200 } = {}) {
     .all(Math.max(1, Math.min(1000, Number(limit) | 0)));
 }
 
+/** Audit rows of one action, newest first — the held-back notifications
+ *  (`notify.paused`) are read back this way by the worklist. */
+export function listAuditByAction(action, { limit = 200 } = {}) {
+  return db
+    .prepare('SELECT * FROM audit_log WHERE action = ? ORDER BY id DESC LIMIT ?')
+    .all(String(action), Math.max(1, Math.min(1000, Number(limit) | 0)));
+}
+
 // ---------------------------------------------------------------------------
 // Proposed updates (P5): a staged monthly data refresh awaiting the customer's
 // accept/decline. At most one is 'pending' per map (a newer refresh supersedes
