@@ -393,7 +393,7 @@ function togglePicker(id) {
   row.insertAdjacentHTML('afterend', `<div class="colour-picker" role="group" aria-label="Colour for route ${esc(id)}">
       <div class="cp-head">
         <span class="route-badge cp-badge">${esc(id)}</span>
-        <input class="field cp-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Colour as a hex code, such as #1a6fb0">
+        <input class="cp-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Colour as a hex code, such as #1a6fb0">
         <button class="btn btn-ghost btn-xs cp-done" type="button">Done</button>
       </div>
       <label class="cp-slider"><span>Hue</span><input type="range" min="0" max="359" step="1" data-ch="0"></label>

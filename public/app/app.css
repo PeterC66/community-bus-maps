@@ -65,7 +65,8 @@
 /* the in-page colour picker (buses-data OA-619) — opens under its own row */
 .colour-picker { margin: 4px 0 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); display: grid; gap: 8px; }
 .colour-picker .cp-head { display: flex; align-items: center; gap: 8px; }
-.colour-picker .cp-hex { width: 8.5em; font-family: ui-monospace, Consolas, monospace; }
+.colour-picker .cp-hex { width: 8.5em; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-family: ui-monospace, Consolas, monospace; font-size: .85rem; }
+.colour-picker .cp-hex:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
 .colour-picker .cp-hex.bad { border-color: var(--err); }
 .colour-picker .cp-done { margin-left: auto; }
 .colour-picker .cp-slider { display: grid; grid-template-columns: 5.5em 1fr; align-items: center; gap: 8px; font-size: .82rem; color: var(--muted); }
