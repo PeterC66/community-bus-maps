@@ -28,8 +28,8 @@
 
 import { sendEmail } from './index.js';
 import { escapeHtml as h } from '../html.js';
-import { getCustomer, listPendingProposedUpdates, listUsersAdmin } from '../db/index.js';
-import { publicBaseUrl } from '../config.js';
+import { getCustomer, listPendingProposedUpdates, listUsersAdmin, recordAudit } from '../db/index.js';
+import { notificationsPaused, publicBaseUrl } from '../config.js';
 
 /**
  * A managed customer is written to by Peter, never by the portal (buses-data
@@ -194,6 +194,25 @@ export async function notify(kind, { customerId, log = console, ...fields }) {
   }
   let msg;
   try { msg = compose(kind, fields); } catch (e) { log.warn?.({ kind, err: e.message }, 'notification: could not compose'); return { sent: 0, skipped: to.length }; }
+  // PAUSED (NOTIFICATIONS_PAUSED, src/config.js). Checked after the recipients
+  // and the wording, so the record says what WOULD have gone and to how many:
+  // a pause of weeks ends with somebody deciding whom to tell what they missed,
+  // and that decision needs the list. Nothing is queued and nothing is replayed
+  // when the pause lifts — "your map was published" arriving three weeks late
+  // misleads more than it informs. Addresses are not recorded, only the count;
+  // the customer id names who.
+  const paused = notificationsPaused();
+  if (paused) {
+    const maps = Array.isArray(fields.maps) ? fields.maps.map((m) => m.mapName) : [fields.mapName].filter(Boolean);
+    try {
+      recordAudit({
+        actorEmail: 'notify', action: 'notify.paused',
+        detail: { kind, customerId, maps, subject: msg.subject, recipients: to.length, pausedSince: paused },
+      });
+    } catch (e) { log.warn?.({ kind, err: e.message }, 'notification: paused, and the record of it failed'); }
+    log.info?.({ kind, customerId, recipients: to.length }, 'notification: customer notifications are paused — nothing sent, recorded as notify.paused');
+    return { sent: 0, skipped: 0, paused: true, heldBack: to.length };
+  }
   let sent = 0, skipped = 0;
   for (const addr of to) {
     try {

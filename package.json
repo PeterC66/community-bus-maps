@@ -95,6 +95,7 @@
     "test:lifecycle": "node scripts/test-lifecycle.mjs",
     "test:worklist": "node scripts/test-worklist.mjs",
     "test:notify": "node scripts/test-notify.mjs",
+    "test:notifications-paused": "node scripts/test-notifications-paused.mjs",
     "test:search": "node scripts/test-search.mjs",
     "test:prove-red-search": "node scripts/prove-red-search.mjs",
     "check:publish-paths": "node scripts/check-publish-paths.mjs",

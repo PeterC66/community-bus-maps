@@ -19,6 +19,7 @@ import { MAPS_DIR, mapDir, mapDataDir, rendersDir, proposedRoot, archiveRoot } f
 import { ENGINE_DIR } from '../render/renderMap.js';
 import { EXPERT_DIR } from '../maps/engine.js';
 import { configStatus, emailHealth } from '../email/health.js';
+import { notificationsPaused } from '../config.js';
 
 const STARTED = Date.now();
 
@@ -77,6 +78,13 @@ export async function readiness() {
   checks.email = email.ok
     ? { ok: true, mode: email.mode, provider: email.provider, from: email.from }
     : { ok: false, mode: email.mode, provider: email.provider, from: email.from, error: email.error };
+
+  // Customer notifications paused (NOTIFICATIONS_PAUSED). REPORTED, NEVER A
+  // FAILURE: it is a deliberate state, this probe drives the uptime alert, and
+  // sign-in works throughout. It is here so the one read that says what the live
+  // site is doing also says that it is not telling customers anything.
+  const paused = notificationsPaused();
+  checks.notifications = { ok: true, paused: !!paused, since: paused || null };
 
   return { ok: Object.values(checks).every((c) => c.ok), checks };
 }

@@ -26,10 +26,11 @@
 import {
   listPendingPublishRequests, listApplications, listMapsByStatus, listAwaitingBuild,
   listPendingProposedUpdates, listMessages, listProposedForMap, listUnsubmittedDrafts,
+  listAuditByAction, getCustomer,
 } from '../db/index.js';
 import { loadStatusSnapshot } from '../status-snapshot.js';
 import { emailHealth, FAILURE_THRESHOLD } from '../email/health.js';
-import { publicBaseUrl } from '../config.js';
+import { notificationsPaused, publicBaseUrl } from '../config.js';
 import { dbDateMs } from '../db/dates.js';
 import { isSampleCustomer } from '../render/pilotStamp.js';   // PILOT: "is this customer us" — see docs/PILOT.md
 
@@ -130,6 +131,35 @@ export function buildWorklist({ baseUrl = publicBaseUrl() } = {}) {
       do: [
         { kind: 'shell', cwd: 'portal', cmd: 'npm run smoke:signin', note: 'sends one real link to ADMIN_EMAIL and reads the result back off /health?deep=1' },
         { kind: 'shell', cwd: 'portal', cmd: 'npm run ssh -- "docker compose logs --tail 100 portal | grep -i mail"' },
+      ],
+    });
+  }
+
+  // 8 — customer notifications are paused (NOTIFICATIONS_PAUSED, src/config.js).
+  // Not a fault: it was switched on deliberately, and sign-in still works. But a
+  // switch meant to stay on for weeks is exactly the one that is left on for
+  // months, so it is on the list for as long as it is on, and it carries the
+  // record of what customers were not told — the list the person lifting it
+  // needs. Only this pause's records count: each row carries the value the
+  // switch held when it was written.
+  const paused = notificationsPaused();
+  if (paused) {
+    const held = listAuditByAction('notify.paused', { limit: 1000 })
+      .map((a) => { try { return { at: a.created_at, ...JSON.parse(a.detail_json || '{}') }; } catch { return null; } })
+      .filter((d) => d && d.pausedSince === paused);
+    const nameOf = (id) => (id != null && getCustomer(id)?.name) || (id != null ? `customer #${id}` : 'no customer');
+    add({
+      key: 'notifications-paused', rank: 8, type: 'email',
+      title: `Customer notifications are paused (since ${paused})`,
+      why: `NOTIFICATIONS_PAUSED is set, so the five customer emails — update ready, published, sent back and their two digests — are not sent. Sign-in, invitation and adviser emails are unaffected. ${held.length} notification${held.length === 1 ? ' has' : 's have'} been held back so far; none will be sent when the pause lifts.`,
+      who: '—', ageDays: daysSince(paused),
+      runbook: 'R6',
+      detail: held.length
+        ? held.slice(0, 12).map((d) => `- ${d.at} ${d.kind} · ${nameOf(d.customerId)} · ${(d.maps || []).join(', ') || '—'} (${d.recipients} recipient${d.recipients === 1 ? '' : 's'})`).join('\n')
+          + (held.length > 12 ? `\n- … and ${held.length - 12} more (audit action notify.paused)` : '')
+        : 'Nothing has been held back yet.',
+      do: [
+        { kind: 'shell', cwd: 'portal', cmd: 'npm run ssh -- "cd /opt/community-bus-maps && grep -n NOTIFICATIONS_PAUSED .env"', note: 'to lift the pause, delete that line from the VPS .env (or set it to 0) and restart the portal container; then decide who to tell about what is listed here' },
       ],
     });
   }

@@ -87,6 +87,7 @@ if (dryRun) {
 const { results } = await notifyUpdateRound(ids, { info() {}, warn: console.warn });
 recordAudit({ actorEmail: 'notify-update-round.mjs', action: 'notify.update-ready-batch', detail: { proposedIds: ids, skipped, results } });
 for (const r of results) console.log(`  customer #${r.customerId}: ${r.sent} sent, ${r.skipped} not sent (${r.maps} map(s))`);
+if (results.some((r) => r.paused)) console.log('Customer notifications are paused (NOTIFICATIONS_PAUSED): nothing was sent, and each digest is recorded as held back.');
 console.log(results.some((r) => r.sent)
   ? 'Sent.'
   : 'No email sent (no EMAIL_PROVIDER, or nobody with a deliverable address). The updates stay staged either way.');
