@@ -37,6 +37,9 @@ services:
       # Magic-link email. Unset = links are printed to the container log (dev only).
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
+      # Pause the five customer notifications, not sign-in (#499; .env.example).
+      # Merged without this line and would have been ignored live, 2026-10-13.
+      NOTIFICATIONS_PAUSED: ${NOTIFICATIONS_PAUSED:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       # Set to expose /metrics to a scraper (unset = /metrics is hidden).
       METRICS_TOKEN: ${METRICS_TOKEN:-}
