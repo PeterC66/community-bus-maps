@@ -44,6 +44,98 @@ function inkFor(bg, want) {
 }
 const routeInk = (r) => inkFor(staged.colors[r.id] || r.defaultColor, r.textOn);
 
+// ---- colour distance (buses-data OA-619) -------------------------------------
+// The route swatch used to be the browser's own <input type="color">, whose
+// dialog the operating system opens over the routes list and will not let you
+// move — so a colour was chosen without sight of the colours it had to differ
+// from, and March's ZIP2 landed beside the 33A. The picker is now drawn in the
+// page under its row, with every other route's colour beside it, and each pair
+// of routes is measured in CIEDE2000: a pair closer than CLOSE_DE is flagged on
+// both rows, in the picker, and once more at save. The badge's own number is
+// held to BADGE_MIN_CONTRAST against the colour it sits on.
+const CLOSE_DE = 10;
+const BADGE_MIN_CONTRAST = 3;
+
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+}
+const rgbToHex = (rgb) => '#' + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+
+// sRGB (D65) → CIELAB.
+function rgbToLab(rgb) {
+  const [r, g, b] = rgb.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  const xyz = [
+    (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047,
+    (0.2126729 * r + 0.7151522 * g + 0.0721750 * b) / 1.0,
+    (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883,
+  ];
+  const [fx, fy, fz] = xyz.map((t) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116));
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
+// CIEDE2000 (Sharma, Wu & Dalal 2005), kL = kC = kH = 1.
+function deltaE2000([L1, a1, b1], [L2, a2, b2]) {
+  const rad = Math.PI / 180, deg = 180 / Math.PI, p7 = 25 ** 7;
+  const Cb = (Math.hypot(a1, b1) + Math.hypot(a2, b2)) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Cb ** 7 / (Cb ** 7 + p7)));
+  const a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+  const C1p = Math.hypot(a1p, b1), C2p = Math.hypot(a2p, b2);
+  const hue = (b, a) => (b === 0 && a === 0 ? 0 : (Math.atan2(b, a) * deg + 360) % 360);
+  const h1p = hue(b1, a1p), h2p = hue(b2, a2p);
+  const chroma = C1p * C2p !== 0;
+  let dhp = 0;
+  if (chroma) { dhp = h2p - h1p; if (dhp > 180) dhp -= 360; else if (dhp < -180) dhp += 360; }
+  const dLp = L2 - L1, dCp = C2p - C1p;
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * rad);
+  const Lbp = (L1 + L2) / 2, Cbp = (C1p + C2p) / 2;
+  let hbp = h1p + h2p;
+  if (chroma) hbp = Math.abs(h1p - h2p) <= 180 ? hbp / 2 : (hbp < 360 ? (hbp + 360) / 2 : (hbp - 360) / 2);
+  const T = 1 - 0.17 * Math.cos((hbp - 30) * rad) + 0.24 * Math.cos(2 * hbp * rad)
+    + 0.32 * Math.cos((3 * hbp + 6) * rad) - 0.20 * Math.cos((4 * hbp - 63) * rad);
+  const dTheta = 30 * Math.exp(-(((hbp - 275) / 25) ** 2));
+  const RC = 2 * Math.sqrt(Cbp ** 7 / (Cbp ** 7 + p7));
+  const SL = 1 + (0.015 * (Lbp - 50) ** 2) / Math.sqrt(20 + (Lbp - 50) ** 2);
+  const SC = 1 + 0.045 * Cbp, SH = 1 + 0.015 * Cbp * T;
+  const RT = -Math.sin(2 * dTheta * rad) * RC;
+  return Math.sqrt((dLp / SL) ** 2 + (dCp / SC) ** 2 + (dHp / SH) ** 2 + RT * (dCp / SC) * (dHp / SH));
+}
+function colourDistance(x, y) {
+  const a = hexToRgb(x), b = hexToRgb(y);
+  return a && b ? deltaE2000(rgbToLab(a), rgbToLab(b)) : null;
+}
+// [{id, colour}] → every pair closer than CLOSE_DE, as {a, b, de}.
+function closePairs(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const de = colourDistance(list[i].colour, list[j].colour);
+      if (de !== null && de < CLOSE_DE) out.push({ a: list[i].id, b: list[j].id, de });
+    }
+  }
+  return out;
+}
+
+// The sliders work in HSL, which is what a person can steer by; h 0–360, s and l 0–100.
+function hexToHsl(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((v) => v / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [0, 0, l * 100];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, s * 100, l * 100];
+}
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return rgbToHex([f(0), f(8), f(4)].map((v) => v * 255));
+}
+
 // ---- overrides <-> staged ----------------------------------------------------
 /*
  * THIS PAGE MUST CARRY THE LANDMARK ANSWER THROUGH UNTOUCHED (OA-215).
@@ -232,39 +324,137 @@ async function askForDiagram() {
 }
 
 // ---- controls: routes --------------------------------------------------------
+// The swatch opens the picker under its own row, inside the page (OA-619, see
+// "colour distance" above): the rows stay where they were and the picker repeats
+// every other route's colour, so nothing the new colour must differ from is ever
+// covered. One picker is open at a time.
+const routeColour = (r) => (staged.colors[r.id] || r.defaultColor).toLowerCase();
+const routeById = (id) => detail.routes.find((x) => x.id === id);
+const routeClashes = () => closePairs(detail.routes.map((r) => ({ id: r.id, colour: routeColour(r) })));
+const nearOf = (pairs, id) => pairs.filter((p) => p.a === id || p.b === id).map((p) => ({ id: p.a === id ? p.b : p.a, de: p.de }));
+let openPicker = null;
+
 function buildRoutes() {
   const box = $('routes');
+  openPicker = null;
   box.innerHTML = detail.routes.map((r) => {
     const sub = r.desc ? esc(Array.isArray(r.desc) ? r.desc.join(' · ') : r.desc) : '';
     return `<div class="route-row" data-route="${esc(r.id)}">
-      <input class="route-swatch" type="color" value="${esc((staged.colors[r.id] || r.defaultColor).toLowerCase())}" data-route="${esc(r.id)}" aria-label="Colour for route ${esc(r.id)}">
-      <span class="route-badge" style="background:${esc(staged.colors[r.id] || r.defaultColor)};color:${esc(routeInk(r))}">${esc(r.id)}</span>
-      <span class="route-desc"><span class="r-title" title="${sub || ('Route ' + esc(r.id))}">${sub || ('Route ' + esc(r.id))}</span></span>
-      <button class="link-btn r-reset" data-route="${esc(r.id)}" ${staged.colors[r.id] ? '' : 'disabled'}>reset</button>
+      <button class="route-swatch" type="button" data-route="${esc(r.id)}" aria-expanded="false" aria-label="Choose a colour for route ${esc(r.id)}" title="Choose a colour"></button>
+      <span class="route-badge">${esc(r.id)}</span>
+      <span class="route-desc"><span class="r-title" title="${sub || ('Route ' + esc(r.id))}">${sub || ('Route ' + esc(r.id))}</span><span class="r-warn" hidden></span></span>
+      <button class="link-btn r-reset" type="button" data-route="${esc(r.id)}">reset</button>
     </div>`;
   }).join('');
   $('routeCount').textContent = detail.routes.length + ' routes';
-  box.querySelectorAll('input.route-swatch').forEach((inp) => inp.addEventListener('input', () => {
-    const r = inp.dataset.route;
-    const def = detail.routes.find((x) => x.id === r).defaultColor.toLowerCase();
-    if (inp.value.toLowerCase() === def) delete staged.colors[r]; else staged.colors[r] = inp.value;
-    syncRouteRow(r); onEdit();
-  }));
+  box.querySelectorAll('button.route-swatch').forEach((b) => b.addEventListener('click', () => togglePicker(b.dataset.route)));
   box.querySelectorAll('button.r-reset').forEach((b) => b.addEventListener('click', () => {
-    const r = b.dataset.route;
-    delete staged.colors[r];
-    box.querySelector(`.route-row[data-route="${CSS.escape(r)}"] input.route-swatch`).value = detail.routes.find((x) => x.id === r).defaultColor.toLowerCase();
-    syncRouteRow(r); onEdit();
+    setRouteColour(b.dataset.route, routeById(b.dataset.route).defaultColor);
+    paintPicker(true);
   }));
+  syncRouteRows();
 }
-function syncRouteRow(r) {
-  const row = $('routes').querySelector(`.route-row[data-route="${CSS.escape(r)}"]`);
-  if (!row) return;
-  const def = detail.routes.find((x) => x.id === r);
-  const badge = row.querySelector('.route-badge');
-  badge.style.background = staged.colors[r] || def.defaultColor;
-  badge.style.color = routeInk(def);
-  row.querySelector('.r-reset').disabled = !staged.colors[r];
+
+function setRouteColour(id, hex) {
+  const r = routeById(id);
+  if (hex.toLowerCase() === r.defaultColor.toLowerCase()) delete staged.colors[id]; else staged.colors[id] = hex.toLowerCase();
+  syncRouteRows(); onEdit();
+}
+
+// A clash belongs to both routes, so a change to one repaints every row.
+function syncRouteRows() {
+  const pairs = routeClashes();
+  for (const r of detail.routes) {
+    const row = $('routes').querySelector(`.route-row[data-route="${CSS.escape(r.id)}"]`);
+    if (!row) continue;
+    const colour = routeColour(r);
+    row.querySelector('.route-swatch').style.background = colour;
+    const badge = row.querySelector('.route-badge');
+    badge.style.background = colour;
+    badge.style.color = routeInk(r);
+    row.querySelector('.r-reset').disabled = !staged.colors[r.id] || isLocked();
+    const near = nearOf(pairs, r.id);
+    const warn = row.querySelector('.r-warn');
+    warn.hidden = !near.length;
+    warn.textContent = near.length ? `Close in colour to ${near.map((n) => n.id).join(', ')}` : '';
+    row.classList.toggle('clash', near.length > 0);
+  }
+}
+
+function togglePicker(id) {
+  const box = $('routes');
+  const old = box.querySelector('.colour-picker');
+  if (old) old.remove();
+  box.querySelectorAll('.route-swatch').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  if (openPicker === id || id === null) { openPicker = null; return; }
+  openPicker = id;
+  const row = box.querySelector(`.route-row[data-route="${CSS.escape(id)}"]`);
+  row.querySelector('.route-swatch').setAttribute('aria-expanded', 'true');
+  row.insertAdjacentHTML('afterend', `<div class="colour-picker" role="group" aria-label="Colour for route ${esc(id)}">
+      <div class="cp-head">
+        <span class="route-badge cp-badge">${esc(id)}</span>
+        <input class="cp-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Colour as a hex code, such as #1a6fb0">
+        <button class="btn btn-ghost btn-xs cp-done" type="button">Done</button>
+      </div>
+      <label class="cp-slider"><span>Hue</span><input type="range" min="0" max="359" step="1" data-ch="0"></label>
+      <label class="cp-slider"><span>Strength</span><input type="range" min="0" max="100" step="1" data-ch="1"></label>
+      <label class="cp-slider"><span>Lightness</span><input type="range" min="0" max="100" step="1" data-ch="2"></label>
+      <div class="cp-status" aria-live="polite"></div>
+      <div class="cp-others-title">The other routes on this map</div>
+      <div class="cp-others"></div>
+    </div>`);
+  const panel = box.querySelector('.colour-picker');
+  const sliders = [...panel.querySelectorAll('input[type=range]')];
+  sliders.forEach((s) => s.addEventListener('input', () => {
+    setRouteColour(id, hslToHex(...sliders.map((x) => Number(x.value))));
+    paintPicker(false);
+  }));
+  const hex = panel.querySelector('.cp-hex');
+  hex.addEventListener('input', () => {
+    const v = hex.value.trim();
+    const ok = /^#?[0-9a-f]{6}$/i.test(v);
+    hex.classList.toggle('bad', !ok);
+    if (ok) { setRouteColour(id, rgbToHex(hexToRgb(v))); paintPicker(true, true); }
+  });
+  panel.querySelector('.cp-done').addEventListener('click', () => { togglePicker(null); row.querySelector('.route-swatch').focus(); });
+  panel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { togglePicker(null); row.querySelector('.route-swatch').focus(); } });
+  paintPicker(true);
+  sliders[0].focus();
+}
+
+// `fromColour`: set the sliders from the colour (opening, typing, reset) rather
+// than the other way round, so a drag is never nudged by HSL rounding.
+function paintPicker(fromColour, keepHex) {
+  const panel = $('routes').querySelector('.colour-picker');
+  if (!panel || !openPicker) return;
+  const r = routeById(openPicker);
+  const colour = routeColour(r);
+  const badge = panel.querySelector('.cp-badge');
+  badge.style.background = colour;
+  badge.style.color = routeInk(r);
+  if (!keepHex) { panel.querySelector('.cp-hex').value = colour; panel.querySelector('.cp-hex').classList.remove('bad'); }
+  const sliders = [...panel.querySelectorAll('input[type=range]')];
+  const hsl = hexToHsl(colour) || [0, 0, 50];
+  if (fromColour) sliders.forEach((s, i) => { s.value = String(Math.round(hsl[i])); });
+  const [h, s, l] = sliders.map((x) => Number(x.value));
+  sliders[0].style.background = `linear-gradient(to right, ${[0, 60, 120, 180, 240, 300, 359].map((x) => hslToHex(x, s, l)).join(', ')})`;
+  sliders[1].style.background = `linear-gradient(to right, ${hslToHex(h, 0, l)}, ${hslToHex(h, 100, l)})`;
+  sliders[2].style.background = `linear-gradient(to right, #000000, ${hslToHex(h, s, 50)}, #ffffff)`;
+
+  const near = nearOf(routeClashes(), r.id);
+  const ink = contrast(colour, routeInk(r));
+  const lines = [];
+  if (near.length) lines.push(`Too close to ${near.map((n) => n.id).join(' and ')} — readers may not tell ${near.length === 1 ? 'the two' : 'them'} apart on the printed map. Move the hue or the lightness further away.`);
+  if (ink !== null && ink < BADGE_MIN_CONTRAST) lines.push(`The route number is hard to read on this colour (contrast ${ink.toFixed(1)} : 1).`);
+  const status = panel.querySelector('.cp-status');
+  status.className = 'cp-status ' + (lines.length ? 'warn' : 'ok');
+  status.textContent = lines.length ? lines.join(' ') : 'Clearly different from every other route on this map.';
+
+  const nearIds = new Set(near.map((n) => n.id));
+  panel.querySelector('.cp-others').innerHTML = detail.routes.filter((x) => x.id !== r.id).map((x) => {
+    const de = colourDistance(colour, routeColour(x));
+    return `<span class="route-badge cp-chip${nearIds.has(x.id) ? ' near' : ''}" style="background:${esc(routeColour(x))};color:${esc(routeInk(x))}" title="Route ${esc(x.id)} · ${esc(routeColour(x))} · difference ${de === null ? '?' : de.toFixed(1)}">${esc(x.id)}</span>`;
+  }).join('') || '<span class="hint-line">This map has no other routes.</span>';
 }
 
 // ---- controls: operator filter (opt-in per customer) -------------------------
@@ -1038,6 +1228,10 @@ async function loadSavedSvg() {
 
 // ---- save --------------------------------------------------------------------
 $('saveBtn').addEventListener('click', async () => {
+  // Asked only about a pair this editor made: two routes the data already drew
+  // close together are flagged on their rows, but are not this save's doing.
+  const clashes = routeClashes().filter((p) => staged.colors[p.a] || staged.colors[p.b]);
+  if (clashes.length && !confirm(`${clashes.map((p) => `${p.a} and ${p.b}`).join('; ')} ${clashes.length === 1 ? 'are' : 'are pairs'} very close in colour, and readers may confuse them on the printed map.\n\nSave anyway?`)) return;
   const btn = $('saveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const res = await fetch(`/api/maps/${MAP_ID}/save`, {

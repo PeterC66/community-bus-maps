@@ -56,9 +56,29 @@
   display: inline-flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: .82rem; letter-spacing: .01em;
 }
-.route-swatch { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; cursor: pointer; flex: 0 0 auto; }
-.route-swatch::-webkit-color-swatch-wrapper { padding: 2px; }
-.route-swatch::-webkit-color-swatch { border: none; border-radius: 6px; }
+.route-swatch { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 8px; box-shadow: inset 0 0 0 2px var(--bg); cursor: pointer; flex: 0 0 auto; }
+.route-swatch[aria-expanded="true"] { outline: 2px solid var(--primary); outline-offset: 2px; }
+.route-swatch[disabled] { cursor: default; opacity: .6; }
+.route-row.clash .route-badge { outline: 2px solid var(--err); outline-offset: 1px; }
+.route-desc .r-warn { display: block; color: var(--err); font-size: .76rem; font-weight: 600; }
+.route-desc .r-warn[hidden] { display: none; }
+/* the in-page colour picker (buses-data OA-619) — opens under its own row */
+.colour-picker { margin: 4px 0 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); display: grid; gap: 8px; }
+.colour-picker .cp-head { display: flex; align-items: center; gap: 8px; }
+.colour-picker .cp-hex { width: 8.5em; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-family: ui-monospace, Consolas, monospace; font-size: .85rem; }
+.colour-picker .cp-hex:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
+.colour-picker .cp-hex.bad { border-color: var(--err); }
+.colour-picker .cp-done { margin-left: auto; }
+.colour-picker .cp-slider { display: grid; grid-template-columns: 5.5em 1fr; align-items: center; gap: 8px; font-size: .82rem; color: var(--muted); }
+.colour-picker input[type=range] { -webkit-appearance: none; appearance: none; height: 14px; border-radius: 7px; border: 1px solid var(--border); margin: 0; }
+.colour-picker input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #333; cursor: pointer; }
+.colour-picker input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid #333; cursor: pointer; }
+.colour-picker .cp-status { font-size: .82rem; padding: 6px 8px; border-radius: 6px; }
+.colour-picker .cp-status.ok { color: var(--muted); }
+.colour-picker .cp-status.warn { color: var(--text); background: color-mix(in srgb, var(--err) 12%, transparent); border: 1px solid color-mix(in srgb, var(--err) 40%, transparent); }
+.colour-picker .cp-others-title { color: var(--muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.colour-picker .cp-others { display: flex; flex-wrap: wrap; gap: 6px; }
+.colour-picker .cp-chip.near { outline: 2px solid var(--err); outline-offset: 2px; }
 .route-desc { flex: 1; min-width: 0; }
 /* display:block matters — text-overflow: ellipsis has no effect on an inline box,
    so without it long route names overrun the `reset` button instead of truncating. */
