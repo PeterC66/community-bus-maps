@@ -45,14 +45,20 @@ const EXEMPT = {
   DB_PATH: 'derives from DATA_DIR inside the image (src/db/index.js). Making it settable from the host .env would let the database be pointed OUTSIDE the mounted volume, which loses data on the next container recreate.',
 };
 
-/** Every `process.env.X` the shipped app reads, with the file it appears in. */
+/** Every `process.env.X` the shipped app reads, with the file it appears in.
+ *  `env.X` counts too: src/config.js reads through an `(env = process.env)`
+ *  parameter, and a pattern that wanted the `process.` prefix let
+ *  NOTIFICATIONS_PAUSED (#499) merge with no compose line, green, on 2026-10-13.
+ *  An assignment is not a read: src/render/renderMap.js WRITES `env.X = …` into
+ *  the engine child's environment, and those must not be asked of compose. */
+const READ = /\benv\.([A-Z_][A-Z0-9_]*)\b(?!\s*=(?!=))/g;
 function readsOf(dir, acc = new Map()) {
   for (const name of readdirSync(dir)) {
     const p = path.join(dir, name);
     if (statSync(p).isDirectory()) { readsOf(p, acc); continue; }
     if (!/\.(js|mjs)$/.test(name)) continue;
     const src = readFileSync(p, 'utf8');
-    for (const m of src.matchAll(/process\.env\.([A-Z_][A-Z0-9_]*)/g)) {
+    for (const m of src.matchAll(READ)) {
       if (!acc.has(m[1])) acc.set(m[1], path.relative(ROOT, p).replace(/\\/g, '/'));
     }
   }
@@ -137,6 +143,9 @@ const selfTests = [
       compose: '  portal:\n    environment:\n      KNOWN: x\n    volumes:\n      - x:/x\n\n  backup:\n    environment:\n      ONLYBACKUP: y\n',
       docker: FAKE_DOCKER,
     }).length === 1],
+  ['a read through an `env` parameter is found, as is process.env; a write is not',
+    [...'(env = process.env) => env.VIA_PARAM || process.env.DIRECT; env.WRITTEN = 1; env.CMP === 2'.matchAll(READ)]
+      .map((m) => m[1]).join() === 'VIA_PARAM,DIRECT,CMP'],
 ];
 const broken = selfTests.filter(([, ok]) => !ok).map(([n]) => n);
 if (broken.length) {
