@@ -189,7 +189,7 @@
     "test:invite-link-log": "node scripts/test-invite-link-log.mjs"
   },
   "dependencies": {
-    "@fastify/static": "^10.1.5",
+    "@fastify/static": "^10.1.6",
     "fastify": "^5.12.5",
     "sharp": "^0.35.5"
   }
