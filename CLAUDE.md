@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.37 | 2026-10-08 | sha=51273d96 -->
-**v1.37** · updated 8 October 2026
+<!-- docstamp v1.38 | 2026-10-13 | sha=74692f1d -->
+**v1.38** · updated 13 October 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -147,6 +147,7 @@ verify scripts before you suspect the generator. Never relax a gate to make it p
 - Server-enforced always; client-side checks are UX, not security.
 - Attribution (OpenStreetMap ODbL, BODS OGL) is not optional — see `NOTICE`.
 - Record what changed and why as a **fragment** in `CHANGELOG.d/` — `YYYY-MM-DD-slug.md`, with `date:` and `title:` front matter. **Commit the fragment and nothing else.** `CHANGELOG.md` is generated from `CHANGELOG.head.md` plus the fragments and is **gitignored** as of 2026-09-03: it was committed, every commit regenerated it, and 60 of the last 60 commits touched it, so two concurrent sessions conflicted on one line of index every time — which is what portal #215 and #216 did. `npm run changelog` rebuilds the local copy if you want to read the assembled page; `npm test` validates the fragments, not an index. See [`CHANGELOG.d/README.md`](CHANGELOG.d/README.md).
+- **Claude may merge its own pull request when the diff touches only `CHANGELOG.d/` and every check is green** — explicitly with `gh pr merge <n> --squash`, never `--auto`, and the merge only, not the deploy; every other pull request waits for Peter (granted 2026-10-13, after #499–#501).
 
 ## Review checklist & admin to-do — 2026-08-15 session
 
