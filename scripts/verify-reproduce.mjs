@@ -23,7 +23,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { ENGINE_DIR, generateSvg, rasterise } from '../src/render/renderMap.js';
 import { warnIfStaleSibling } from './lib/fixture-freshness.mjs';
-import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
+import { resolveFixtures, reportNoFixture, plantAreaGenerators } from './lib/fixtures.mjs';
 
 // FIXTURE_DIR may be a `;`-separated LIST — verify-reproduce-defaults.mjs needs
 // several towns because no single one exercises all thirteen escape hatches (see its
@@ -100,11 +100,14 @@ async function checkOne(scratch, shippedDir, generator, svgName, jpgName) {
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-'));
 cpSync(FIXTURE, scratch, { recursive: true });
+// A pack with no generators of its own is drawn with the vendored engine (OA-635).
+const PLANTED = plantAreaGenerators(scratch);
 
 console.log('Byte-identical reproduce test');
 console.log('  fixture :', FIXTURE);
 console.log('  source  :', FIXTURE_SOURCE === 'env' ? '$FIXTURE_DIR' : 'committed fixture (Areas/_portal-fixture)');
 console.log('  icons   :', ICONS);
+if (PLANTED.length) console.log('  drawn by:', 'the vendored engine (' + PLANTED.join(', ') + ' planted; the pack carries none)');
 console.log('');
 warnIfStaleSibling(FIXTURE);
 

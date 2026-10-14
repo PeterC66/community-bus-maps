@@ -124,7 +124,10 @@ function pickExternal() {
   const cands = ['gen_external_radial.js', 'gen_external_busway.js']
     .map((n) => path.join(ENGINE, 'area', n))
     .filter((p) => existsSync(p));
-  if (existsSync(packGen)) {
+  // A pack with no generator of its own — the estate pack vendored since buses-data
+  // OA-635 — has nothing to match: it is drawn with radial, the one area template.
+  if (!existsSync(packGen)) return { gen: path.join(ENGINE, 'area', 'gen_external_radial.js'), note: null };
+  {
     const want = readFileSync(packGen);
     for (const c of cands) if (readFileSync(c).equals(want)) return { gen: c, note: null };
   }

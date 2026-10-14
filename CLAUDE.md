@@ -1,7 +1,7 @@
 # BusMaps.uk — portal
 
-<!-- docstamp v1.38 | 2026-10-13 | sha=74692f1d -->
-**v1.38** · updated 13 October 2026
+<!-- docstamp v1.39 | 2026-10-14 | sha=fb58c08f -->
+**v1.39** · updated 14 October 2026
 
 A self-serve portal that lets approved organisations generate and maintain printable bus maps.
 **Public repo** — made public on 2026-09-03 so its Actions minutes stop being billed (GitHub bills
@@ -258,7 +258,7 @@ gate NOT go red** — see the header comment in `verify-reproduce-defaults.mjs` 
 sheet. Confirmed working by the same method as everything else in this project — **the mutation was
 in the wrong file the first time**: the AREA fixture (`FIXTURE_DIR`) runs the `gen_internal.js` COPY
 bundled inside the fixture's own S5-render folder (gitignored, see the duplication map in the Buses
-repo's `Documentation\README - How to enhance the system.md`), not `engine/place/gen_internal.js` —
+repo's `Documentation\README - How to enhance the system.md`), not `engine/place/gen_internal.js` (true until buses-data OA-635 on 2026-10-14: the area pack is now the engine estate's St Ives, which carries no generators, so both gates draw with the vendored engine) —
 mutating the wrong one made the area-side gate un-testable by construction, not passing for a good
 reason. Once mutated in the right file, deleting `iconSet`'s escape hatch correctly turned red
 **exactly one row, `iconSet`, on both the area-side and place-side gates**, with the other twelve

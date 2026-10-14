@@ -38,6 +38,7 @@
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { writeEngineSource, ENGINE_SOURCE_FILE } from './lib/engine-source.mjs';
+import { AREA_GENERATORS } from './lib/fixtures.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -190,7 +191,7 @@ const PLACE_ENGINE_DIR = fileURLToPath(new URL('../engine/place', import.meta.ur
 // AREA maps fall back to the vendored area engine when the payload carries no
 // generators of its own -- see engine/area/README.md. gen_internal.js is shared
 // with the place engine and is vendored once, in engine/place/.
-const AREA_ENGINE_DIR = fileURLToPath(new URL('../engine/area', import.meta.url));
+// The files and their names are AREA_GENERATORS in scripts/lib/fixtures.mjs.
 // --external-style TOOK TWO VALUES UNTIL 2026-09-02, and now takes one, because
 // the engine vendors one area external template. The flag is kept and VALIDATED
 // rather than deleted: a runbook, a shell history or a person's memory will go on
@@ -250,10 +251,8 @@ if (isPlace) {
   // fallback existed the import simply refused, and since the skill stopped
   // staging generators on 2026-08-04 that meant every real area delivery.
   if (!presentGens.length) {
-    const vendored = [
-      [path.join(PLACE_ENGINE_DIR, 'gen_internal.js'), 'gen_internal.js'],
-      [path.join(AREA_ENGINE_DIR, `gen_external_${AREA_STYLE}.js`), 'gen_external.js'],
-    ];
+    // The same list the byte gates plant into a fixture's scratch copy (OA-635).
+    const vendored = AREA_GENERATORS.map(([rel, as]) => [path.join(ENGINE_ROOT, rel), as]);
     for (const [from, as] of vendored) if (!existsSync(from)) {
       console.error(`✗ vendored area engine is missing ${path.basename(from)} at ${from}`);
       process.exit(3);

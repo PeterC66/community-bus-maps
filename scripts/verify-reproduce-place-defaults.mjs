@@ -56,9 +56,11 @@ const KEYS = [
   ['sheetQr', { design: { sheetQr: false } }],
   ['keyCols', { design: { keyCols: 1 } }],
   // Promoted 2026-08-27 (OA-120). This is the ONLY gate that can see this key.
-  // verify-reproduce-defaults.mjs runs the AREA fixture's own gen_internal.js --
+  // verify-reproduce-defaults.mjs ran the AREA fixture's own gen_internal.js --
   // a pre-2026-08-04 snapshot with no knowledge of lane_normals.js -- so a row
-  // added there would report DIFFERS on nothing and assert precisely zero. The
+  // added there would have reported DIFFERS on nothing and asserted precisely zero.
+  // (Since buses-data OA-635 the area pack carries no generators and that gate
+  // draws with engine/place/gen_internal.js too, so the row could now live there.) The
   // place gate vendors engine/place/gen_internal.js in, so it exercises the
   // real code. Its escape hatch IS `false`: the engine tests `!== false`, so a
   // missing key is now adoption and only an explicit false declines.
