@@ -11,7 +11,9 @@
 #
 # Both halves of the fix are needed for this file to mean anything:
 #   1. buses-data now COMMITS an area fixture at Areas/_portal-fixture/, the way
-#      it already committed a place one at Places/_portal-fixture/;
+#      it already committed a place one at Places/_portal-fixture/ (both vendored
+#      under gate-fixtures/ since OA-398; the area one's source is claude-skills'
+#      engine estate since buses-data OA-635);
 #   2. scripts/lib/fixtures.mjs FAILS rather than skips when there is no fixture,
 #      so this job cannot go green by finding nothing.
 #

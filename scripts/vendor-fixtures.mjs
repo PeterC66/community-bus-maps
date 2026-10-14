@@ -1,46 +1,55 @@
 #!/usr/bin/env node
-// vendor-fixtures.mjs — copy the two byte gates' fixtures OUT of buses-data and
-// INTO this repository, and say when the copy has fallen behind.
+// vendor-fixtures.mjs — copy the byte gates' fixtures INTO this repository from
+// the two repositories that own them, and say when the copy has fallen behind.
 //
-// WHY THIS EXISTS (buses-data OA-398, R5 of the 2026-09-17 process review). Until
-// 2026-09-18 `verify.yml` cloned PeterC66/buses-data with CROSS_REPO_PAT2 to read
-// `Areas/_portal-fixture` and `Places/_portal-fixture`. That token expires on
-// 22 November 2026, and because this repository requires `verify` and forbids
-// bypassing, its expiry would have blocked every pull request here outright. The
-// fix is not a longer-lived token: it is that a public repository gates fixtures
-// IT HOLDS, so the gate needs no credential, no second checkout and no opinion
-// about what somebody else pushed a minute ago.
+// WHERE EACH HALF COMES FROM (buses-data OA-635, 2026-10-14).
 //
-// WHAT MOVED AND WHAT DID NOT. The SOURCE of a fixture is still a real render in
-// buses-data — `refresh_area_fixture.js` in the engine writes `Areas/_portal-fixture`,
-// `refresh-place-fixture.mjs` in this repository writes `Places/_portal-fixture`,
-// both into buses-data, both from an S5 run that only the laptop has. This script
-// is the third step, and it is the only one that writes here. So the chain is:
-// render -> refresh the fixture in buses-data -> vendor it here.
+//   Areas/   from claude-skills, `make-bus-leaflet/test/fixtures/estate/Areas/<Town>/
+//            ci-reference/`. That is the engine's own miniature estate, which
+//            `npm run fixture:estate -- --apply` re-stamps and redraws in the same
+//            pull request as every engine edit, so the area fixture is current by
+//            construction. Until OA-635 it came from buses-data's
+//            `Areas/_portal-fixture/St Ives`, a copy of the real town's newest
+//            render: the real St Ives could then be rebuilt only together with a
+//            pin bump (claude-skills' `fixture_donor.js`, OA-532), and the copy
+//            described whatever the town last rendered rather than the engine.
+//   Places/  from buses-data, `Places/_portal-fixture/`, as before. That pack is not
+//            a copy of any place's own render (it carries `base-overrides.json`),
+//            so it has no engine-estate twin.
 //
-// THE JPGs ARE DELIBERATELY LEFT BEHIND, and the argument is not ours: the area
-// fixture's own README in buses-data has excluded them since the day it was
-// created, because rasterisation is platform-dependent by design and committing
-// 4.4 MB of JPG buys a comparison that is expected to differ for ever.
-// `verify-reproduce.mjs` guards its JPG arm with an existsSync and calls it
-// informational; `render-parity.yml` is the gate that really asks that question.
-// Vendoring them would have quadrupled this folder to buy nothing. Measured: the
-// 78 tracked fixture files are 8.5 MB with the four JPGs and 3.8 MB without.
+// WHICH AREA TOWNS is read from this repository's own `gate-fixtures/Areas/
+// _portal-fixture/`, not typed here, because claude-skills' board (portal_fixtures.js)
+// asks the same question the same way and two typed lists are two lists that must
+// agree. `--town "<Town>"` vendors one more, once.
 //
-// WHERE `--check` RUNS FOR REAL. Not here — this repository has no buses-data to
-// compare against, which is the whole point. It runs from the laptop, and as a
-// step in buses-data's own `gates.yml`, which checks this public repository out
-// with no token at all. That is OA-218's rule applied straight: a check belongs
-// in the suite that fires when its SUBJECT changes, and the subject of "has the
-// vendored copy fallen behind" is the fixture in buses-data.
+// WHY THIS EXISTS AT ALL (buses-data OA-398, R5 of the 2026-09-17 process review).
+// Until 2026-09-18 `verify.yml` cloned PeterC66/buses-data with CROSS_REPO_PAT2.
+// That token expires on 22 November 2026, and because this repository requires
+// `verify` and forbids bypassing, its expiry would have blocked every pull request
+// here outright. The fix was not a longer-lived token: a public repository gates
+// fixtures IT HOLDS, so the gate needs no credential, no second checkout and no
+// opinion about what somebody else pushed a minute ago.
+//
+// THE JPGs ARE DELIBERATELY LEFT BEHIND: rasterisation is platform-dependent by
+// design, so a JPG comparison is expected to differ for ever. `verify-reproduce.mjs`
+// guards its JPG arm with an existsSync and calls it informational;
+// `render-parity.yml` is the gate that really asks that question. Markdown is left
+// behind too: a README written about another repository has relative links that
+// climb out of it. What a reader of `gate-fixtures/` needs is in its own README.
+//
+// WHERE `--check` RUNS FOR REAL. From the laptop; and the Places half, as a step in
+// buses-data's own `gates.yml` (`--only Places`), because the subject of "has the
+// Places copy fallen behind" is a fixture in buses-data. The Areas half's subject is
+// claude-skills' estate, which claude-skills' board reports on as a chore.
 //
 // Run from this repository's root (C:\Buses\community-bus-maps). There are no
-// placeholders; `--buses` is only needed when buses-data is somewhere this script
-// cannot guess:
+// placeholders; `--skills` and `--buses` are needed only when a checkout is
+// somewhere this script cannot guess (a worktree of this repository is one):
 //
 //     npm run fixtures:vendor                 -- says what would change, writes nothing
 //     npm run fixtures:vendor -- --apply      -- rewrites gate-fixtures/
-//     npm run fixtures:vendor -- --buses "C:/Buses/buses-data"
+//     npm run fixtures:vendor -- --only Places --buses "C:/Buses/buses-data"
+//     npm run fixtures:vendor -- --skills "C:/Buses/claude-skills" --buses "C:/Buses/buses-data"
 //
 // EXIT CODES follow the house convention: 0 in step, 1 BEHIND (a --check finding),
 // 2 used wrongly or no source to compare against. `--allow-skip` turns the third
@@ -50,7 +59,7 @@
 import { existsSync, readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { busesDirCandidates, VENDORED_FIXTURE_ROOT } from './lib/fixtures.mjs';
+import { busesDirCandidates, skillsDirCandidates, VENDORED_FIXTURE_ROOT, ESTATE_REL } from './lib/fixtures.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = path.resolve(HERE, '..');
@@ -62,37 +71,28 @@ const flagValue = (name) => {
   const i = argv.indexOf('--' + name);
   return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
 };
+for (const name of ['buses', 'skills', 'only', 'town']) {
+  if (argv.includes('--' + name) && !flagValue(name)) {
+    console.error(`vendor-fixtures: --${name} needs a value.`);
+    process.exit(2);
+  }
+}
+const ONLY = flagValue('only');
+if (ONLY && ONLY !== 'Areas' && ONLY !== 'Places') {
+  console.error(`vendor-fixtures: --only takes Areas or Places, not ${ONLY}.`);
+  process.exit(2);
+}
+const KINDS = ['Areas', 'Places'].filter((k) => !ONLY || ONLY === k);
 
-/* The two folders, named once. A fixture kind is a folder in buses-data and the
- * same folder under gate-fixtures/ here, so `busesDirCandidates()` can be handed
- * this repository's own root and find them with no special case. */
-const KINDS = ['Areas', 'Places'];
-
-/* A file we do not vendor. The JPGs, for the reason in the header. And MARKDOWN,
- * which is the trap this repository's own house style names: buses-data's
- * `Areas/_portal-fixture/README.md` is written about buses-data, and its relative
- * links climb out of it — vendored here they would resolve on a laptop that has
- * both trees side by side and 404 for everybody else, with `check-doc-links.mjs`
- * reporting findings against prose nobody here owns. What a reader of this folder
- * needs is written once, in `gate-fixtures/README.md`, which is ours. */
 const skip = (rel) => /\.jpe?g$/i.test(rel) || /\.md$/i.test(rel);
 
 /* LINE ENDINGS ARE NORMALISED ON BOTH SIDES, AND THIS IS NOT TIDINESS (OA-398).
- * Every file vendored here is text. `core.autocrlf=true` is set on the laptop, so
- * buses-data's WORKING TREE holds CRLF in files git stores as LF, while this
- * repository's `.gitattributes` says `* text=auto eol=lf` and checks them out as
- * LF. A byte comparison between the two working trees therefore reported 15 files
- * as `differs` the moment they were vendored — a check that is red for ever,
- * about a newline, on the one script whose whole job is to be believed about a
- * copy. It is the same fault buses-data's `assemble.mjs` shipped: an index built
- * with LF compared against a file git stores with CRLF, green on Windows and red
- * on its first CI run.
- *
- * So the copy is WRITTEN as LF — which is what git would have stored anyway, so
- * the committed bytes and the working-tree bytes agree here — and the comparison
- * normalises both sides before asking. A file that differs only in its line
- * endings is not drift, and calling it drift would train the reader to re-vendor
- * on no evidence. */
+ * `core.autocrlf=true` is set on the laptop, so a source repository's WORKING TREE
+ * holds CRLF in files git stores as LF, while this repository's `.gitattributes`
+ * says `* text=auto eol=lf`. A byte comparison between the two working trees
+ * reported 15 files as `differs` the moment they were first vendored — a check red
+ * for ever, about a newline. So the copy is WRITTEN as LF and the comparison
+ * normalises both sides before asking. */
 const lf = (buf) => Buffer.from(buf.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
 
 /** Every file under `dir`, relative to it, sorted, recursing. */
@@ -110,80 +110,111 @@ function walk(dir, base = dir) {
   return out;
 }
 
-/* WHERE buses-data IS. `--buses` wins, then the resolver this repository already
- * uses for everything else — minus this repository itself, which that resolver
- * now offers first and which is the copy we are trying to compare AGAINST. A
- * source that turned out to be the destination would report "in step" for ever,
- * which is the shape of every check in this estate that has ever lied. */
-const explicit = flagValue('buses');
-if (argv.includes('--buses') && !explicit) {
-  console.error('vendor-fixtures: --buses needs a path.');
-  process.exit(2);
-}
 const VENDORED = path.resolve(PORTAL_ROOT, VENDORED_FIXTURE_ROOT);
-const sources = (explicit ? [explicit] : busesDirCandidates())
-  .filter((d) => path.resolve(d) !== VENDORED && path.resolve(d) !== PORTAL_ROOT)
-  .filter((d) => KINDS.some((k) => existsSync(path.join(d, k, '_portal-fixture'))));
+const notHere = (d) => path.resolve(d) !== VENDORED && path.resolve(d) !== PORTAL_ROOT;
 
-if (!sources.length) {
-  const msg = 'no buses-data checkout holding Areas/_portal-fixture or Places/_portal-fixture';
-  if (ALLOW_SKIP) {
-    console.log(`· SKIPPED (--allow-skip): ${msg}.`);
-    console.log('  NOTHING WAS PROVED about whether gate-fixtures/ is still in step with buses-data.');
-    process.exit(0);
+/* WHERE EACH SOURCE IS. An explicit flag wins, then the resolvers this repository
+ * already uses — minus this repository itself, which `busesDirCandidates()` offers
+ * first and which is the copy we are comparing AGAINST: a source that turned out
+ * to be the destination would report "in step" for ever. */
+function findSource(kind) {
+  if (kind === 'Places') {
+    const explicit = flagValue('buses');
+    const tried = (explicit ? [explicit] : busesDirCandidates()).filter(notHere);
+    const hit = tried.find((d) => existsSync(path.join(d, 'Places', '_portal-fixture')));
+    return { tried, root: hit ? path.join(path.resolve(hit), 'Places', '_portal-fixture') : null, what: 'buses-data checkout holding Places/_portal-fixture' };
   }
-  console.error(`✗ vendor-fixtures: ${msg}.`);
-  console.error('  Looked in, in order:');
-  for (const d of explicit ? [explicit] : busesDirCandidates()) console.error('    ' + d);
-  console.error('  Point at it with --buses "<dir>", or set BUSES_DIR.');
-  console.error('  This repository cannot answer the question on its own, and that is deliberate: the');
-  console.error('  whole of OA-398 is that its gates no longer need buses-data to RUN.');
-  process.exit(2);
+  const explicit = flagValue('skills');
+  const tried = explicit ? [explicit] : skillsDirCandidates();
+  const hit = tried.find((d) => existsSync(path.join(d, ESTATE_REL, 'Areas')));
+  return { tried, root: hit ? path.join(path.resolve(hit), ESTATE_REL, 'Areas') : null, what: `claude-skills checkout holding ${ESTATE_REL}/Areas` };
 }
-const BUSES = path.resolve(sources[0]);
+
+/* Each kind as { rel -> source file } under `<kind>/_portal-fixture/`. */
+function wanted(kind, root) {
+  const out = new Map();
+  if (kind === 'Places') {
+    for (const rel of walk(root).filter((r) => !skip(r))) out.set(rel, path.join(root, rel));
+    return { files: out, orphans: [] };
+  }
+  const have = new Set(walk(path.join(VENDORED, 'Areas', '_portal-fixture')).map((r) => r.split('/')[0]));
+  const extra = flagValue('town');
+  if (extra) have.add(extra);
+  const orphans = [];
+  for (const town of [...have].filter(Boolean).sort()) {
+    const pack = path.join(root, town, 'ci-reference');
+    if (!existsSync(pack)) { orphans.push(town); continue; }
+    for (const rel of walk(pack).filter((r) => !skip(r))) out.set(town + '/' + rel, path.join(pack, rel));
+  }
+  if (!have.size) orphans.push('(none — name the estate town to vendor with --town "<Town>")');
+  return { files: out, orphans };
+}
 
 let behind = 0;
 const changes = [];
+const sourcesUsed = [];
+let missingSource = false;
 
 for (const kind of KINDS) {
-  const src = path.join(BUSES, kind, '_portal-fixture');
+  const src = findSource(kind);
+  if (!src.root) {
+    missingSource = true;
+    const msg = `no ${src.what}`;
+    if (ALLOW_SKIP) {
+      console.log(`· SKIPPED ${kind} (--allow-skip): ${msg}.`);
+      console.log(`  NOTHING WAS PROVED about whether gate-fixtures/${kind}/ is still in step with its source.`);
+      continue;
+    }
+    console.error(`✗ vendor-fixtures: ${msg}.`);
+    console.error('  Looked in, in order:');
+    for (const d of src.tried) console.error('    ' + d);
+    console.error(`  Point at it with --${kind === 'Places' ? 'buses' : 'skills'} "<dir>"${kind === 'Places' ? ', or set BUSES_DIR' : ', or set SKILLS_DIR'}, or ask one half with --only.`);
+    console.error('  This repository cannot answer the question on its own, and that is deliberate: the');
+    console.error('  whole of OA-398 is that its gates no longer need another repository to RUN.');
+    continue;
+  }
+  sourcesUsed.push(`${kind} <- ${src.root}`);
   const dst = path.join(VENDORED, kind, '_portal-fixture');
-  const want = walk(src).filter((r) => !skip(r));
-  const have = walk(dst);
-
-  for (const rel of want) {
-    const a = path.join(src, rel);
+  const { files, orphans } = wanted(kind, src.root);
+  for (const town of orphans) {
+    behind++;
+    changes.push(`orphan   ${kind}/_portal-fixture/${town}  (no pack at ${ESTATE_REL}/Areas/${town}/ci-reference)`);
+  }
+  for (const [rel, from] of files) {
     const b = path.join(dst, rel);
-    const from = lf(readFileSync(a));
-    const same = existsSync(b) && lf(readFileSync(b)).equals(from);
-    if (same) continue;
+    const bytes = lf(readFileSync(from));
+    if (existsSync(b) && lf(readFileSync(b)).equals(bytes)) continue;
     behind++;
     changes.push(`${existsSync(b) ? 'differs' : 'missing'}  ${kind}/_portal-fixture/${rel}`);
     if (APPLY) {
       mkdirSync(path.dirname(b), { recursive: true });
-      writeFileSync(b, from);
+      writeFileSync(b, bytes);
     }
   }
-
-  for (const rel of have) {
-    if (want.includes(rel)) continue;
+  for (const rel of walk(dst)) {
+    if (files.has(rel)) continue;
+    if (kind === 'Areas' && orphans.includes(rel.split('/')[0])) continue;
     behind++;
-    changes.push(`stale    ${kind}/_portal-fixture/${rel}  (buses-data no longer writes it)`);
+    changes.push(`stale    ${kind}/_portal-fixture/${rel}  (its source no longer has it)`);
     if (APPLY) rmSync(path.join(dst, rel), { force: true });
   }
 }
 
-console.log(`vendored fixtures: ${VENDORED_FIXTURE_ROOT}/  <-  ${BUSES}`);
+if (missingSource && !ALLOW_SKIP) process.exit(2);
+
+console.log(`vendored fixtures: ${VENDORED_FIXTURE_ROOT}/`);
+for (const s of sourcesUsed) console.log('  ' + s);
 for (const c of changes) console.log('  ' + c);
 
+if (!sourcesUsed.length) process.exit(0);   // only reached under --allow-skip, which has said what it skipped
 if (!behind) {
-  console.log('  in step — every fixture file here is byte-identical to buses-data.');
+  console.log('  in step — every fixture file here is byte-identical to its source.');
   process.exit(0);
 }
 if (APPLY) {
-  console.log(`\n${behind} file(s) rewritten. Commit gate-fixtures/ and say which buses-data commit they came from.`);
+  console.log(`\n${behind} item(s) rewritten. Commit gate-fixtures/ and say which commits they came from.`);
   process.exit(0);
 }
-console.error(`\n✗ ${behind} file(s) BEHIND buses-data. Re-vendor from this repository's root, with no placeholders:`);
+console.error(`\n✗ ${behind} item(s) BEHIND. Re-vendor from this repository's root, with no placeholders:`);
 console.error('    npm run fixtures:vendor -- --apply');
 process.exit(1);

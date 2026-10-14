@@ -63,8 +63,10 @@
 // header (technical-audit_2026-08-19 V2).
 //
 // Measured 2026-08-20 against the committed fixture: St Ives ALONE exercises all
-// thirteen keys. That was not true two days earlier and may stop being true
-// again, which is the whole reason FIXTURES is still a list — if a key reports
+// thirteen keys. Measured again 2026-10-14 (buses-data OA-635), when the pack
+// moved to claude-skills' engine estate and began to be drawn with the vendored
+// engine: St Ives alone still exercises every key in KEYS. That was not true two
+// days before the first measurement and may stop being true again, which is the whole reason FIXTURES is still a list — if a key reports
 // dead, ask first whether this town stopped exercising it, and prefer adding a
 // second fixture to excluding the key.
 
@@ -72,7 +74,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import os from 'node:os';
 import path from 'node:path';
 import { ENGINE_DIR, generateSvg } from '../src/render/renderMap.js';
-import { resolveFixtures, reportNoFixture } from './lib/fixtures.mjs';
+import { resolveFixtures, reportNoFixture, plantAreaGenerators } from './lib/fixtures.mjs';
 
 const { fixtures: FIXTURES } = resolveFixtures('area');
 const ICONS = process.env.SKILL_ASSETS || ENGINE_DIR;
@@ -128,6 +130,7 @@ console.log('');
 function runFixture(fixture) {
   const scratch = mkdtempSync(path.join(os.tmpdir(), 'cbm-verify-defaults-'));
   cpSync(fixture, scratch, { recursive: true });
+  plantAreaGenerators(scratch);   // a pack with no generators is drawn with the vendored engine (OA-635)
   const routesPath = path.join(scratch, 'routes.json');
   const baseRoutesJson = JSON.parse(readFileSync(routesPath, 'utf8'));
 

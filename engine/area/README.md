@@ -1,11 +1,11 @@
 # `engine/area/` — the vendored AREA generators
 
-<!-- docstamp v1.2 | 2026-09-02 | sha=41bca982 -->
-**v1.2** · updated 2 September 2026
+<!-- docstamp v1.3 | 2026-10-14 | sha=0501e1f1 -->
+**v1.3** · updated 14 October 2026
 
 Area (town) maps used to carry their own generators inside the delivered payload: `import-map.mjs` required `gen_internal.js` and `gen_external.js` in `--src`, and refused the import without them. The map skill stopped staging a generator into S3/S4 on 2026-08-04, so a modern `S5-render` folder has no `.js` in it at all and every real area delivery failed its pre-flight until somebody copied the two files in by hand.
 
-`Areas/_portal-fixture/St Ives` is a pre-2026-08-04 snapshot that still carries its generators, so `npm run verify` stayed green throughout. The gate could not see the bug, because the gate's own fixture was the one shape that still worked.
+`Areas/_portal-fixture/St Ives` was a pre-2026-08-04 snapshot that still carried its generators, so `npm run verify` stayed green throughout. (Since buses-data OA-635, 2026-10-14, that pack is vendored from claude-skills' engine estate and carries none, so the gates plant these files exactly as an import does — `AREA_GENERATORS` in `scripts/lib/fixtures.mjs`.) The gate could not see the bug, because the gate's own fixture was the one shape that still worked.
 
 So the area engine is vendored here, exactly as `engine/place/` already is, and `import-map.mjs` falls back to it when the payload carries no generators. A payload that DOES carry them still wins — an older map, or a town with a hand-edited generator, imports byte-for-byte as it always did.
 

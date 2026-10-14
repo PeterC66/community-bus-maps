@@ -1,0 +1,9 @@
+---
+date: 2026-10-14
+title: "The St Ives area fixture is vendored from the engine's own estate, and drawn with the vendored engine"
+---
+
+- **The area fixture has a new source (buses-data OA-635).** `npm run fixtures:vendor` now copies `gate-fixtures/Areas/_portal-fixture/St Ives/` from claude-skills' `make-bus-leaflet/test/fixtures/estate/Areas/St Ives/ci-reference/`, which `npm run fixture:estate -- --apply` re-stamps with every engine change. It used to copy buses-data's `Areas/_portal-fixture/St Ives`, a copy of the real town's newest render, which made the real St Ives a special case that could only be rebuilt together with an engine pin bump. The place packs still come from buses-data. `--skills`, `--only Areas|Places` and `--town` are new; buses-data's `gates.yml` asks `--only Places`.
+- **The gates draw the area pack with the vendored engine.** The new pack carries no generator copies, so `verify:area` and `verify:defaults` plant `engine/place/gen_internal.js` and `engine/area/gen_external_radial.js` into their scratch copy, the same two files `import-map.mjs` plants into a delivery (one list, `AREA_GENERATORS` in `scripts/lib/fixtures.mjs`). Before this the gate ran the copies bundled in the old pack, and its `gen_external.js` was measured older than the vendored template. Re-vendored bytes: `routes.json` (the engine stamp) changes and the three bundled generators are removed; every SVG is unchanged. `verify:area`, both halves of `verify:defaults` (every escape hatch still live on St Ives alone) and `test:selfsufficient` passed, and `verify:area` went red on a scratch copy with one byte of `external.svg` changed.
+- **`scripts/prove-red-vendored-fixtures.mjs` builds three trees** and adds two cases: a vendored area town with no estate pack must read `orphan`, and `--only Places` must not read the Areas half.
+- **What a customer sees.** Nothing: no schema, route or UI change, and the fixture is not a published map.

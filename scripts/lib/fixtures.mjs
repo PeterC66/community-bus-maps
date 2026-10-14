@@ -25,14 +25,16 @@
 //    buses-data, the way `Places/_portal-fixture` already committed a place
 //    one. `resolveFixtures()` finds it automatically, so the normal case needs
 //    no configuration at all: clone both repos side by side, or set BUSES_DIR,
-//    and `npm run verify` runs for real.
+//    and `npm run verify` runs for real. (Both are vendored under gate-fixtures/
+//    since OA-398, and the area one comes from claude-skills' engine estate
+//    since buses-data OA-635 — see ESTATE_REL below.)
 //
 // 2. When there is genuinely nothing to run against, the gate FAILS. Not
 //    skips. `--allow-skip` exists for the one legitimate case — a contributor
 //    who has cloned only the portal and wants `npm test` to pass — and it says
 //    loudly what it did not prove.
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, copyFileSync } from 'node:fs';
 import { warnIfBehindCommitted } from './fixture-freshness.mjs';
 import { advanceToNewestRender } from './newest-render.mjs';
 import path from 'node:path';
@@ -77,6 +79,58 @@ export function busesDirCandidates() {
   out.push(path.resolve(PORTAL_ROOT, '..', 'buses-data'));
   out.push(path.resolve(PORTAL_ROOT, '..', 'Buses'));
   return out;
+}
+
+/**
+ * Where the AREA fixture's source lives in a claude-skills checkout (buses-data
+ * OA-635): the engine's own miniature estate, re-stamped by `npm run fixture:estate`
+ * with every engine change. `vendor-fixtures.mjs` copies `Areas/<Town>/ci-reference/`
+ * from here into `gate-fixtures/Areas/_portal-fixture/<Town>/`.
+ */
+export const ESTATE_REL = 'make-bus-leaflet/test/fixtures/estate';
+
+/**
+ * Candidate claude-skills checkouts, in order: SKILLS_DIR, the sibling of this
+ * checkout, and the sibling of the MAIN checkout when this is a git worktree
+ * (`.claude/worktrees/<name>` has no sibling claude-skills of its own).
+ */
+export function skillsDirCandidates() {
+  const out = [];
+  if (process.env.SKILLS_DIR) out.push(process.env.SKILLS_DIR);
+  out.push(path.resolve(PORTAL_ROOT, '..', 'claude-skills'));
+  const m = /^(.*?)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$/.exec(PORTAL_ROOT);
+  if (m) out.push(path.resolve(m[1], '..', 'claude-skills'));
+  return out;
+}
+
+/**
+ * The AREA generators a pack without its own is drawn with: [path under engine/,
+ * the name it is planted as]. One list, because `import-map.mjs` plants these into a
+ * delivered map and the byte gates plant them into a fixture's scratch copy, and the
+ * two must draw with the same files. `gen_internal.js` is vendored once, under
+ * `engine/place/`; see engine/area/README.md.
+ */
+export const AREA_GENERATORS = [
+  ['place/gen_internal.js', 'gen_internal.js'],
+  ['area/gen_external_radial.js', 'gen_external.js'],
+];
+
+/**
+ * Plant the vendored area generators into `dir` when it carries none of its own,
+ * and return the names planted. A pack that DOES carry generators keeps them,
+ * exactly as `import-map.mjs` lets an older payload win.
+ *
+ * WHY THE GATES NEED THIS (buses-data OA-635). The area fixture used to be a render
+ * folder from before 2026-08-04 that still carried copies of the generators, so
+ * `verify:area` ran THOSE copies — and on 2026-10-14 its `gen_external.js` was
+ * measured older than the vendored `engine/area/gen_external_radial.js`. The pack
+ * vendored from the engine estate carries no generators, so the gate now draws with
+ * the engine this repository actually ships, which is the question it should ask.
+ */
+export function plantAreaGenerators(dir, engineDir = path.resolve(PORTAL_ROOT, 'engine')) {
+  if (AREA_GENERATORS.some(([, as]) => existsSync(path.join(dir, as)))) return [];
+  for (const [rel, as] of AREA_GENERATORS) copyFileSync(path.join(engineDir, rel), path.join(dir, as));
+  return AREA_GENERATORS.map(([, as]) => as);
 }
 
 /** Every committed fixture folder under `<kind>/_portal-fixture/`, sorted. */
