@@ -554,7 +554,20 @@ export function listMaps({ customerId } = {}) {
               v.major AS cur_major, v.minor AS cur_minor, v.storage_key AS cur_key,
               pv.storage_key AS pub_key,
               (SELECT COUNT(*) FROM publish_request pr WHERE pr.map_id = m.id AND pr.status = 'pending') AS pending_reviews,
-              (SELECT COUNT(*) FROM proposed_update pu WHERE pu.map_id = m.id AND pu.status = 'pending') AS pending_updates
+              (SELECT COUNT(*) FROM proposed_update pu WHERE pu.map_id = m.id AND pu.status = 'pending') AS pending_updates,
+              -- The last time the central pipeline DELIVERED this map: its first version
+              -- (import-map.mjs writes it) or its newest proposed_update of any status
+              -- (propose-update.mjs, which deliver-map.mjs runs). A version the customer
+              -- saved is not a delivery, so it does not count. Retired versions keep
+              -- their rows, so the import time survives a prune. NULL = never built.
+              -- bus-work's worklist compares it with the newest local S5 render to
+              -- raise "built here, never delivered" (buses-data, 2026-10-16); nothing
+              -- on the host records WHICH render a delivery came from (deliver-map.mjs
+              -- step 0b), so the time is the one fact both sides hold.
+              NULLIF(MAX(
+                COALESCE((SELECT MIN(fv.created_at) FROM map_version fv WHERE fv.map_id = m.id), ''),
+                COALESCE((SELECT MAX(lu.created_at) FROM proposed_update lu WHERE lu.map_id = m.id), '')
+              ), '') AS last_delivery_at
          FROM map m
          LEFT JOIN customer c ON c.id = m.customer_id
          LEFT JOIN map_version v ON v.id = m.current_version_id
