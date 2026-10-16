@@ -80,6 +80,10 @@ export default async function editorRoutes(app) {
         status: m.status, currentVersion: m.cur_key || null,
         publishedVersion: m.pub_key || null, pendingReview: !!m.pending_reviews,
         pendingUpdate: !!m.pending_updates,
+        // When the pipeline last delivered this map (first import or newest proposed
+        // update), the database's UTC 'YYYY-MM-DD HH:MM:SS'; null if never built.
+        // See listMaps() for what counts and why.
+        lastDeliveryAt: m.last_delivery_at || null,
         // P6 — set only when the map really is on the public site (same query the
         // public pages use, so a suspension or an un-listing shows through here).
         publicUrl: m.pub_key && m.public_listed && getPublicMapBySlug(m.slug) ? mapPageUrl(m.slug) : null,
