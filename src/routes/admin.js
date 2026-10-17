@@ -27,6 +27,8 @@ import { orgPageUrl } from '../public/index.js';
 import { opsSnapshot } from '../ops/index.js';
 import { SESSION_DAYS, STEP_UP_MINUTES, clearCookie, handleFromHash, requestMagicLink, sessionTokenHash } from '../auth/index.js';
 import { logAudit } from '../audit/index.js';
+import { classifyVersions, decideRetire } from '../publish/retire.js';
+import { retireFactsFor, retireVersion } from '../publish/retire-write.js';
 import { bumpSearchIndex } from '../search/index.js';
 import { APP_VERSION } from '../version.js';
 import { sendMagicLink } from '../email/index.js';
@@ -565,6 +567,33 @@ export default async function adminRoutes(app) {
         maps: listAdviserGrantsForUser(u.id).map((g) => ({ id: g.map_id, name: g.map_name, askedAt: g.created_at })),
       })),
     };
+  });
+
+  // Retire one version of a map from the page — buses-data OA-622, step 2 of
+  // `Development Docs/deleting-published-map-versions_2026-10-06.md`. The same
+  // answers scripts/prune-versions.mjs gives, because both ask classifyVersions()
+  // and both write through retireVersion(): the GET lists every version with its
+  // verdict, and the POST retires one. A once-published version needs a reason, as
+  // `--include-published --reason` does. Step-up, as on the owner move: the render
+  // folder is removed and there is no un-retire.
+  app.get('/maps/:id/versions/retire-verdicts', async (req, reply) => {
+    const m = getMap(Number(req.params.id));
+    if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    return { ok: true, mapId: m.id, verdicts: classifyVersions(retireFactsFor(m)) };
+  });
+
+  app.post('/maps/:id/versions/:vid/retire', async (req, reply) => {
+    const m = getMap(Number(req.params.id));
+    if (!m) return reply.code(404).send({ ok: false, error: 'No such map.' });
+    const reason = str((req.body || {}).reason, 2000);
+    const decided = decideRetire(classifyVersions(retireFactsFor(m)), Number(req.params.vid), { admin: true, reason });
+    if (decided.error) return reply.code(decided.code).send({ ok: false, error: decided.error });
+    if (!requireStepUp(req, reply, 'retiring a version of a map')) return;
+    const v = decided.verdict;
+    const done = retireVersion({ map: m, verdict: v, actor: req.user, reason: reason || null, via: 'admin-button' });
+    if (!done.retired) return reply.code(409).send({ ok: false, error: `${v.version} was retired by someone else a moment ago.` });
+    req.log.warn({ mapId: m.id, version: v.version, by: req.user.email }, 'map version retired');
+    return { ok: true, retired: v.version, oncePublished: v.adminOnly, filesRemoved: done.filesRemoved };
   });
 
   app.get('/maps/:id/advisers', async (req, reply) => {

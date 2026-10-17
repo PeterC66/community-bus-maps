@@ -652,13 +652,54 @@ function buildVersionList() {
         <span class="muted">${esc(PC().fmtDay(v.createdAt))}</span>
         ${isHead ? '<span class="muted">· the one you are editing</span>' : ''}
         ${v.note ? `<span class="ver-note">${esc(v.note)}</span>` : ''}</summary>
-      <div class="ver-body">${dls}${copy}</div>
+      <div class="ver-body">${dls}${copy}<span class="v-retire-slot" data-id="${v.id}"></span></div>
     </details>`;
   }).join('');
   box.innerHTML = `<h3>Every version of this map <span class="count">${list.length}</span></h3>
-    <p class="hint-line">Nothing is ever deleted. Copying an earlier version's settings starts a new draft — it does not change what the public is being served, which only an approver can do.</p>
+    <p class="hint-line">Earlier versions stay here unless an administrator retires one. Copying an earlier version's settings starts a new draft — it does not change what the public is being served, which only an approver can do.</p>
     ${rows}`;
   box.querySelectorAll('.v-copy').forEach((b) => b.addEventListener('click', () => copySettingsFrom(b.dataset.ver)));
+  if (isAdmin()) addRetireButtons(box);
+}
+
+// ---- retire a version (admin; buses-data OA-622) -----------------------------
+// The server's classifyVersions() decides which rows get a button — the same rule
+// scripts/prune-versions.mjs uses — so this page never works out for itself what
+// may go. A once-published version asks for a reason, as --include-published does.
+async function addRetireButtons(box) {
+  let verdicts;
+  try {
+    const r = await fetch(`/api/admin/maps/${MAP_ID}/versions/retire-verdicts`);
+    const b = await r.json();
+    if (!r.ok || !b.ok) return;
+    verdicts = b.verdicts;
+  } catch { return; }
+  for (const v of verdicts) {
+    const slot = box.querySelector(`.v-retire-slot[data-id="${v.id}"]`);
+    if (!slot || v.verdict !== 'retirable') continue;
+    slot.innerHTML = `<button class="link-btn v-retire" type="button">Retire this version</button>
+      <span class="muted">${esc(v.adminOnly ? 'Once published: an administrator only, with a reason.' : 'Never published.')}</span>`;
+    slot.querySelector('.v-retire').addEventListener('click', () => retireOneVersion(v));
+  }
+}
+
+async function retireOneVersion(v) {
+  let reason = '';
+  if (v.adminOnly) {
+    reason = (prompt(`${v.version} was once published. Retiring it removes its files, so it can no longer be viewed here or reverted to; the public page is not affected. Why should it go? (kept in the audit trail)`) || '').trim();
+    if (!reason) return;
+  } else if (!confirm(`Retire ${v.version}? Its files are removed and it leaves this list. The version number is never reused.`)) {
+    return;
+  }
+  try {
+    const r = await fetch(`/api/admin/maps/${MAP_ID}/versions/${v.id}/retire`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }),
+    });
+    const b = await r.json().catch(() => ({}));
+    if (!r.ok || !b.ok) { notice('err', (b && b.error) || `Retiring ${v.version} failed.`, true); return; }
+    notice('ok', `Retired ${b.retired}${b.filesRemoved ? ' — its files are removed' : ''}.`, true);
+  } catch { notice('err', 'Network error retiring the version.', true); return; }
+  await reloadPublish();   // re-reads /api/maps/:id, which no longer lists the retired version
 }
 
 function copySettingsFrom(key) {

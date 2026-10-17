@@ -15,7 +15,8 @@
 //
 // Section 1 asks the rule directly, case by case. Section 2 runs the real script
 // against a throwaway database and a throwaway render store and reads back the
-// rows, the folders and the audit log.
+// rows, the folders and the audit log. Section 3 drives the admin button's two
+// routes in-process (OA-622) and pins what a public link to a retired version gets.
 //
 // It takes one optional positional argument, a tree to read src/ and scripts/
 // from, so scripts/prove-red-prune-versions.mjs can point it at a mutated copy.
@@ -40,7 +41,7 @@ const check = (name, cond, extra) => {
 
 console.log('1  the rule');
 
-const { classifyVersions } = await import(pathToFileURL(path.join(TREE, 'src', 'publish', 'retire.js')).href);
+const { classifyVersions, decideRetire } = await import(pathToFileURL(path.join(TREE, 'src', 'publish', 'retire.js')).href);
 
 // v1.0 published then superseded; v1.1 published then superseded (the revert
 // target); v1.2 a draft nobody published; v1.3 the published one; v1.4 rejected;
@@ -86,6 +87,20 @@ check('a once-published, superseded version is retirable by an admin only', r0['
   const f = { ...facts, publishedOrder: [], versions: facts.versions.map((v) => (v.id === 12 ? { ...v, reviewState: 'superseded' } : v)) };
   check('a superseded version with no publish request still counts as once published',
     by(classifyVersions(f))['v1.2'].adminOnly === true);
+}
+
+{
+  // decideRetire() is the question a button asks of those same verdicts (OA-622).
+  const rows = classifyVersions(facts);
+  check('decideRetire lets an editor retire a never-published draft', !!decideRetire(rows, 12, { admin: false }).verdict);
+  const ed = decideRetire(rows, 10, { admin: false, reason: 'x' });
+  check('decideRetire refuses an editor a once-published version (admin only)', ed.code === 403, JSON.stringify(ed));
+  const noWhy = decideRetire(rows, 10, { admin: true, reason: '  ' });
+  check('decideRetire refuses an admin a once-published version without a reason', noWhy.code === 400, JSON.stringify(noWhy));
+  check('decideRetire lets an admin retire it with a reason', !!decideRetire(rows, 10, { admin: true, reason: 'dev build' }).verdict);
+  const pub = decideRetire(rows, 13, { admin: true, reason: 'x' });
+  check('decideRetire refuses the published version even to an admin', pub.code === 409, JSON.stringify(pub));
+  check('decideRetire answers 404 for a version not on this map', decideRetire(rows, 999, { admin: true }).code === 404);
 }
 
 console.log('');
@@ -173,6 +188,86 @@ if (seed.code !== 0) {
 
   const again = node([SCRIPT, '--map', String(mapId), '--keep', '0', '--include-published', '--reason', 'again', '--yes']);
   check('a second run retires nothing more', again.code === 0 && (state().audit || []).length === 2, again.out.slice(-300));
+}
+
+console.log('');
+console.log('3  the admin button and the public site, in-process (OA-622)');
+// The server is imported from the repository, not from TREE: a scratch copy of
+// src/ has no node_modules to resolve fastify from. It writes through the same
+// retireVersion() the script does, so section 2 covers the write itself.
+{
+  const s3 = mkdtempSync(path.join(os.tmpdir(), 'cbm-retire-btn-'));
+  Object.assign(process.env, { DATA_DIR: s3, DB_PATH: path.join(s3, 'portal.sqlite'), CBM_NO_LISTEN: '1', NODE_ENV: 'test' });
+  const db = await import(pathToFileURL(path.join(ROOT, 'src', 'db', 'index.js')).href);
+  const { versionDir } = await import(pathToFileURL(path.join(ROOT, 'src', 'maps', 'store.js')).href);
+  const { app } = await import(pathToFileURL(path.join(ROOT, 'src', 'server.js')).href);
+  await app.ready();
+
+  const cust = db.insertCustomer({ name: 'Button Council', type: 'council', quota_areas: 2, quota_places: 2 });
+  const adminId = db.insertUser({ email: 'admin@example.com', name: 'Admin', role: 'admin', customer_id: cust });
+  const editorId = db.insertUser({ email: 'editor@example.com', name: 'Editor', role: 'editor', customer_id: cust });
+  const mapId = db.insertMap({ customer_id: cust, slug: 'buttonville', name: 'Buttonville', kind: 'area', data_dir: '', status: 'published' });
+  const ids = {};
+  for (let minor = 0; minor <= 4; minor++) {
+    ids['v1.' + minor] = db.insertVersion({ map_id: mapId, major: 1, minor, storage_key: 'v1.' + minor, overrides: {} });
+    const dir = versionDir(mapId, 'v1.' + minor);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 'internal.svg'), `<svg xmlns="http://www.w3.org/2000/svg"><text>v1.${minor}</text></svg>`);
+  }
+  const publish = (key, prev) => {
+    const pr = db.insertPublishRequest({ map_id: mapId, version_id: ids[key] });
+    db.decidePublishRequest(pr, { status: 'approved', decisionNote: 'ok' });
+    if (prev) db.setVersionState(ids[prev], 'superseded');
+    db.setVersionState(ids[key], 'published');
+    db.setPublishedVersion(mapId, ids[key]);
+  };
+  publish('v1.0'); publish('v1.1', 'v1.0'); publish('v1.3', 'v1.1');
+  db.setCurrentVersion(mapId, ids['v1.4']);
+  db.setMapPublicListed(mapId, true);
+
+  const sqlPlus = (ms) => new Date(Date.now() + ms).toISOString().slice(0, 19).replace('T', ' ');
+  const tok = (uid) => { const t = `tok-${uid}-${Math.random()}`; db.insertSession(t, uid, sqlPlus(86_400_000)); return t; };
+  const adminTok = tok(adminId), editorTok = tok(editorId);
+  const CSRF = 'test-csrf-token-value';
+  const send = (method, url, token, body) => app.inject({
+    method, url,
+    headers: { cookie: `cbm_session=${token}; cbm_csrf=${CSRF}`, 'x-csrf-token': CSRF, 'content-type': 'application/json' },
+    payload: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const base = `/api/admin/maps/${mapId}/versions`;
+
+  const list = await send('GET', `${base}/retire-verdicts`, adminTok);
+  const vs = Object.fromEntries(((list.json() || {}).verdicts || []).map((v) => [v.version, v]));
+  check('the admin GET lists every version with the verdict the rule gives', list.statusCode === 200
+    && vs['v1.2'] && vs['v1.2'].verdict === 'retirable' && vs['v1.3'].verdict === 'keep' && vs['v1.0'].adminOnly === true,
+    `${list.statusCode} ${list.body.slice(0, 200)}`);
+  check('an editor is refused the admin GET', (await send('GET', `${base}/retire-verdicts`, editorTok)).statusCode === 403);
+  const kept = await send('POST', `${base}/${ids['v1.3']}/retire`, adminTok, { reason: 'x' });
+  check('the button refuses the published version (409)', kept.statusCode === 409, `${kept.statusCode} ${kept.body}`);
+  const noWhy = await send('POST', `${base}/${ids['v1.0']}/retire`, adminTok, {});
+  check('the button refuses a once-published version without a reason (400)', noWhy.statusCode === 400, `${noWhy.statusCode} ${noWhy.body}`);
+  const draft = await send('POST', `${base}/${ids['v1.2']}/retire`, adminTok, {});
+  check('the button retires a never-published draft', draft.statusCode === 200 && (draft.json() || {}).retired === 'v1.2', `${draft.statusCode} ${draft.body}`);
+  check('the button leaves the draft with no files and off listVersions', !existsSync(versionDir(mapId, 'v1.2'))
+    && !db.listVersions(mapId).some((v) => v.storage_key === 'v1.2'));
+  const old = await send('POST', `${base}/${ids['v1.0']}/retire`, adminTok, { reason: 'development build nobody linked to' });
+  check('the button retires a once-published version with a reason', old.statusCode === 200 && (old.json() || {}).oncePublished === true, `${old.statusCode} ${old.body}`);
+  const audit = db.db.prepare("SELECT actor_email AS who, detail_json AS d FROM audit_log WHERE action = 'version.retire' AND version_id = ?").get(ids['v1.0']);
+  const ad = audit ? JSON.parse(audit.d) : {};
+  check('the button writes one version.retire audit row naming the admin, the reason and the door',
+    audit && audit.who === 'admin@example.com' && ad.reason === 'development build nobody linked to' && ad.via === 'admin-button', JSON.stringify(audit));
+  const twice = await send('POST', `${base}/${ids['v1.0']}/retire`, adminTok, { reason: 'again' });
+  check('retiring it again is refused as already retired (409)', twice.statusCode === 409, `${twice.statusCode} ${twice.body}`);
+
+  // What retiring a superseded publication does NOT do: break a public link. Every
+  // public route serves the published key looked up by slug, so a link that still
+  // carries the retired key gets the CURRENT file, on the short cache, not a 404.
+  const pubOld = await app.inject({ method: 'GET', url: '/api/public/maps/buttonville/internal.svg?v=v1.0' });
+  check('a public link carrying a retired version key is answered 200 with the published file',
+    pubOld.statusCode === 200 && pubOld.body.includes('<text>v1.3</text>'), `${pubOld.statusCode} ${pubOld.body.slice(0, 120)}`);
+  check('a public link carrying a retired version key gets the short cache, not the immutable one',
+    String(pubOld.headers['cache-control']).includes('max-age=300'), String(pubOld.headers['cache-control']));
+  await app.close();
 }
 
 console.log('');

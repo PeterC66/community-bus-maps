@@ -9,9 +9,9 @@
 // implications it rests on are buses-data
 // `Development Docs/deleting-published-map-versions_2026-10-06.md`.
 //
-// ONE RULE, IN ONE PLACE, AND PURE. scripts/prune-versions.mjs uses it today; the
-// admin and editor buttons (step 2) and the managed-customer retention job (step 3)
-// are to call this same function, so the answer to "may this go?" cannot differ
+// ONE RULE, IN ONE PLACE, AND PURE. scripts/prune-versions.mjs and the admin
+// button (OA-622) use it; the editor button and the managed-customer retention job
+// (OA-623) are to call this same function, so the answer to "may this go?" cannot differ
 // between the three. It reads no database and no disk — the caller gathers the
 // facts — so it is tested the way chooseRevertTarget() is, away from HTTP.
 //
@@ -30,9 +30,12 @@
 //     - a version that was NEVER published (a draft, a rejected one, one that was
 //       simply overtaken) is retirable by an editor or an admin;
 //     - a version that WAS published and has since been superseded is retirable by
-//       an admin only, with a written reason, because published renders are served
-//       from an immutable URL with a one-year cache: a link or an embed of it will
-//       404 and a browser that holds it will go on showing it.
+//       an admin only, with a written reason, because it is history somebody may want
+//       back. NOT because a link to it breaks: every public route serves the map's
+//       published key, looked up by slug, and an old `?v=<key>` is simply answered
+//       with the current file under the five-minute cache (pinned by
+//       scripts/test-prune-versions.mjs, OA-622). What retiring it loses is the
+//       editor's view of it and the option to revert the public site to it.
 //   A pending `proposed_update` points at no version (only an ACCEPTED one sets
 //   `accepted_version_id`), so it protects nothing here.
 
@@ -84,8 +87,30 @@ export function classifyVersions({
     if (openRequestVersionIds.includes(v.id)) return out('keep', 'a publish request for it is awaiting review');
     if (newestLive.includes(v.id)) return out('keep', `one of the newest ${keepN} kept by --keep`);
     if (everPublished(v, { publishedVersionId, approvedVersionIds: publishedOrder })) {
-      return out('retirable', 'once published, since superseded — an admin only, with a reason (its URL will 404)', true);
+      return out('retirable', 'once published, since superseded — an admin only, with a reason (it can no longer be viewed in the editor or reverted to)', true);
     }
     return out('retirable', `never published (${v.reviewState})`);
   });
+}
+
+/**
+ * May THIS caller retire THIS version, given the verdicts? The question a button
+ * asks, answered from classifyVersions()'s rows so the button and the CLI cannot
+ * disagree. Pure.
+ *
+ * @param {ReturnType<typeof classifyVersions>} verdicts
+ * @param {number} versionId
+ * @param {{admin:boolean, reason?:string}} who
+ * @returns {{verdict:object}|{code:number, error:string}}
+ */
+export function decideRetire(verdicts, versionId, { admin = false, reason = '' } = {}) {
+  const v = (verdicts || []).find((r) => r.id === Number(versionId));
+  if (!v) return { code: 404, error: 'No such version of this map.' };
+  if (v.verdict === 'retired') return { code: 409, error: `${v.version} is already retired.` };
+  if (v.verdict !== 'retirable') return { code: 409, error: `${v.version} cannot be retired: ${v.why}.` };
+  if (v.adminOnly && !admin) return { code: 403, error: `${v.version} was once published, so only an administrator can retire it.` };
+  if (v.adminOnly && !String(reason || '').trim()) {
+    return { code: 400, error: `${v.version} was once published. Say why it should go — the reason is kept in the audit trail.` };
+  }
+  return { verdict: v };
 }

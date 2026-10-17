@@ -12,11 +12,17 @@
 //   2  the rule stops protecting the highest number                   -> "highest number is kept"
 //   3  the rule stops protecting a version under review               -> "under review is kept"
 //   4  the rule lets an editor retire a once-published version        -> "admin only"
-//   5  the script removes the files without stamping the row          -> "stamped retired"
-//   6  the script writes no audit row                                 -> "audit row"
+//   5  the shared write removes the files without stamping the row    -> "stamped retired"
+//   6  the shared write writes no audit row                           -> "audit row"
 //   7  listVersions() goes on listing retired versions                -> "listVersions leaves"
 //   8  the script accepts --include-published with no reason          -> "without a reason is refused"
 //   9  the script accepts --all with --yes                            -> "--all with --yes is refused"
+//  10  decideRetire lets an editor retire a once-published version    -> "refuses an editor"
+//
+// Arms 5 and 6 break src/publish/retire-write.js, which the script and the admin
+// button share (OA-622); section 2 sees them through the script. Section 3 drives
+// the button's routes from the repository rather than the scratch copy, because a
+// copy of src/ has no node_modules for the server, so no arm here reaches it.
 //
 // IT MUTATES A COPY AND NEVER THE REPOSITORY: each arm copies `src/` and
 // `scripts/` into a scratch tree, edits the copy, and runs the shipped test
@@ -33,6 +39,7 @@ const TEST = path.join(ROOT, 'scripts', 'test-prune-versions.mjs');
 const RULE = path.join('src', 'publish', 'retire.js');
 const SCRIPT = path.join('scripts', 'prune-versions.mjs');
 const DB = path.join('src', 'db', 'index.js');
+const WRITE = path.join('src', 'publish', 'retire-write.js');
 
 let failures = 0;
 const fail = (m) => { console.error(`  ✗ ${m}`); failures++; };
@@ -105,15 +112,16 @@ arm(3, 'the rule stops protecting a version under review',
   /under review is kept/);
 
 arm(4, 'the rule lets an editor retire a once-published version',
-  edit(RULE, "an admin only, with a reason (its URL will 404)', true);", "an admin only, with a reason (its URL will 404)', false);"),
+  edit(RULE, "an admin only, with a reason (it can no longer be viewed in the editor or reverted to)', true);",
+    "an admin only, with a reason (it can no longer be viewed in the editor or reverted to)', false);"),
   /admin only/);
 
-arm(5, 'the script removes the files without stamping the row',
-  edit(SCRIPT, 'if (!markVersionRetired(v.id)) continue;', '/* no stamp */'),
+arm(5, 'the shared write removes the files without stamping the row',
+  edit(WRITE, 'if (!markVersionRetired(verdict.id)) return { retired: false, filesRemoved: false };', '/* no stamp */'),
   /stamped retired/);
 
-arm(6, 'the script writes no audit row',
-  edit(SCRIPT, "        action: 'version.retire',", "        action: 'version.retire-unrecorded',"),
+arm(6, 'the shared write writes no audit row',
+  edit(WRITE, "    action: 'version.retire',", "    action: 'version.retire-unrecorded',"),
   /audit row/);
 
 arm(7, 'listVersions() goes on listing retired versions',
@@ -127,6 +135,10 @@ arm(8, 'the script accepts --include-published with no reason',
 arm(9, 'the script accepts --all with --yes',
   edit(SCRIPT, "if (all && yes) usage('--all is a dry run only", "if (false) usage('--all is a dry run only"),
   /--all with --yes is refused/);
+
+arm(10, 'decideRetire lets an editor retire a once-published version',
+  edit(RULE, '  if (v.adminOnly && !admin) return', '  if (false) return'),
+  /refuses an editor/);
 
 console.log('');
 if (failures) {
