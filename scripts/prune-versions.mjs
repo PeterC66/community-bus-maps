@@ -25,20 +25,20 @@
 // WHAT MAY GO is decided by classifyVersions() in src/publish/retire.js and nowhere
 // else — the working head, the published version, the revert target, the highest
 // number and anything awaiting review are never retired, whatever the flags say. A
-// once-published version needs --include-published AND a reason, because published
-// renders are served from an immutable URL with a one-year cache: a link to one will
-// 404, and a browser that holds it will keep showing it.
+// once-published version needs --include-published AND a reason, because it is
+// history: retiring it loses the editor's view of it and the option to revert to it.
+// (A public link does NOT break — public routes serve the published key by slug.)
+//
+// THE WRITE is retireVersion() in src/publish/retire-write.js, the same function the
+// admin button calls (OA-622), so the two doors cannot retire differently.
 //
 // Run with the server STOPPED where it writes, like the other writing scripts
 // (docs/H1-operations-handbook.md §6). Exit codes: 0 done (or dry run), 1 a map
 // not found or a write failed, 2 used wrongly.
 
-import { existsSync, rmSync } from 'node:fs';
-import {
-  db, getMap, getMapBySlug, recordAudit, listVersionsForRetire, listPublishedHistory, markVersionRetired,
-} from '../src/db/index.js';
-import { versionDir } from '../src/maps/store.js';
+import { db, getMap, getMapBySlug } from '../src/db/index.js';
 import { classifyVersions } from '../src/publish/retire.js';
+import { retireFactsFor, retireVersion } from '../src/publish/retire-write.js';
 import { arg, has } from './lib/cli.mjs';
 
 const slug = arg('slug');
@@ -59,7 +59,7 @@ const usage = (msg) => {
 if ([slug, mapArg].filter((x) => x != null).length + (all ? 1 : 0) !== 1) usage('name exactly one of --slug, --map or --all');
 if ((has('keep') && keepArg == null) || !Number.isInteger(keep) || keep < 0) usage(`--keep must be a whole number of 0 or more, not ${JSON.stringify(keepArg)}`);
 if (all && yes) usage('--all is a dry run only; act on one map at a time with --map or --slug');
-if (includePublished && !reason) usage('--include-published needs --reason "<text>": a once-published version\'s URL will 404, so say why');
+if (includePublished && !reason) usage('--include-published needs --reason "<text>": a once-published version\'s history somebody may want back, so say why');
 
 let maps;
 if (all) {
@@ -73,29 +73,12 @@ if (all) {
   maps = [getMap(found.id)];
 }
 
-/** The facts the rule needs, gathered here so the rule itself reads nothing. */
-function factsFor(map) {
-  const versions = listVersionsForRetire(map.id).map((v) => ({
-    id: v.id, major: v.major, minor: v.minor, storageKey: v.storage_key,
-    reviewState: v.review_state, retiredAt: v.retired_at || null,
-  }));
-  const publishedOrder = listPublishedHistory(map.id).map((h) => h.version_id);
-  const openRequestVersionIds = db.prepare(
-    "SELECT version_id FROM publish_request WHERE map_id = ? AND status = 'pending'",
-  ).all(map.id).map((r) => r.version_id);
-  return {
-    versions, publishedOrder, openRequestVersionIds, keep,
-    currentVersionId: map.current_version_id ?? null,
-    publishedVersionId: map.published_version_id ?? null,
-  };
-}
-
 let totalWould = 0;
 let totalDone = 0;
 let failed = 0;
 
 for (const map of maps) {
-  const verdicts = classifyVersions(factsFor(map));
+  const verdicts = classifyVersions(retireFactsFor(map, { keep }));
   const go = verdicts.filter((v) => v.verdict === 'retirable' && (!v.adminOnly || includePublished));
   const held = verdicts.filter((v) => v.verdict === 'retirable' && v.adminOnly && !includePublished);
   if (all && !go.length && !held.length) continue;   // the estate listing names only maps with something to say
@@ -111,24 +94,9 @@ for (const map of maps) {
   if (!yes || !go.length) continue;
 
   for (const v of go) {
-    const dir = versionDir(map.id, v.version);
     try {
-      // Stamp FIRST, then remove the files. The other order can leave a LIVE row
-      // whose files are gone, which the editor would list and fail to show; this
-      // order can at worst leave a retired row with files still on disk.
-      if (!markVersionRetired(v.id)) continue;            // someone else retired it meanwhile
-      const hadFiles = existsSync(dir);
-      if (hadFiles) rmSync(dir, { recursive: true, force: true });
-      recordAudit({
-        actorEmail: 'cli:prune-versions',
-        action: 'version.retire',
-        mapId: map.id,
-        versionId: v.id,
-        detail: {
-          version: v.version, why: v.why, oncePublished: v.adminOnly,
-          reason: reason || null, keep, filesRemoved: hadFiles,
-        },
-      });
+      const done = retireVersion({ map, verdict: v, actor: { email: 'cli:prune-versions' }, reason, keep, via: 'cli' });
+      if (!done.retired) continue;                         // someone else retired it meanwhile
       totalDone++;
     } catch (e) {
       failed++;
