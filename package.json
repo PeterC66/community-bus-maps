@@ -192,7 +192,7 @@
   },
   "dependencies": {
     "@fastify/static": "^10.1.6",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.7",
     "sharp": "^0.35.5"
   }
 }
