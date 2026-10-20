@@ -54,6 +54,12 @@
 //      the scp. Per-decision deferrals with expiry dates live in
 //      scripts/local-decision-waivers.json; --local-decisions-unchecked
 //      "<reason>" is the one-off escape hatch.
+//   0e. INK REVIEW — refresh mode only: refuse a map the month's ink review lists
+//      unless no ink moved on this build or Peter accepted THIS build (buses-data
+//      OA-658, scripts/lib/ink-review.mjs). Local, before the scp. After step 6
+//      (step 8) the staging is recorded in that review by the bus-work tool that
+//      owns it, as `--by <who>` (default deliver-map), the session that ran it.
+//      --ink-unchecked "<reason>" is the one-off escape hatch.
 //   0d. LIVE ENGINE — refuse when the host's checkout differs from a freshly
 //      fetched origin/main under engine/, naming `npm run deploy`. One ssh
 //      `git rev-parse HEAD`, before the scp: step 2 verifies with the host's
@@ -111,6 +117,8 @@ import { checkNewestRender } from './lib/newest-render.mjs';
 import { checkLocalDecisions, findDecisionWaiver } from './lib/local-decisions.mjs';
 import { checkEngineLive } from './lib/engine-live.mjs';
 import { arg, has } from './lib/cli.mjs';
+import { checkInkReview, proposalFrom, recordArgs } from './lib/ink-review.mjs';
+import { skillsDirCandidates } from './lib/fixtures.mjs';
 
 
 const SRC = arg('src');
@@ -152,6 +160,16 @@ function sshRun(remoteCmd) {
   return run(SSH[0], [...SSH.slice(1), remoteCmd]);
 }
 
+// As sshRun, and the remote stdout kept as well as shown: step 4's
+// "proposed update #N staged" is what step 8 records in the ink review.
+function sshRunTee(remoteCmd) {
+  console.log(`$ ${SSH[0]} ${[...SSH.slice(1), remoteCmd].join(' ')}`);
+  const r = spawnSync(SSH[0], [...SSH.slice(1), remoteCmd], { stdio: ['inherit', 'pipe', 'inherit'], encoding: 'utf8' });
+  if (r.error) throw r.error;
+  process.stdout.write(r.stdout || '');
+  return { status: r.status, out: r.stdout || '' };
+}
+
 // import-map.mjs / propose-update.mjs flags this script doesn't itself need to
 // inspect are forwarded verbatim, --src rewritten to the remote staging path.
 // --kind is deliberately left in for import mode (import-map.mjs reads it
@@ -171,6 +189,10 @@ const passthroughArgs = process.argv.slice(2).filter((a, i, all) => {
   if (all[i - 1] === '--local-decisions-unchecked') return false;
   if (a === '--engine-unchecked') return false;
   if (all[i - 1] === '--engine-unchecked') return false;
+  if (a === '--ink-unchecked') return false;
+  if (all[i - 1] === '--ink-unchecked') return false;
+  if (a === '--by') return false;
+  if (all[i - 1] === '--by') return false;
   return true;
 });
 
@@ -504,6 +526,65 @@ if (LOCAL_DECISIONS_UNCHECKED) {
 }
 
 // ---------------------------------------------------------------------------
+// STEP 0e — does the month's ink review let THIS build through?
+// buses-data OA-658; scripts/lib/ink-review.mjs carries the incident.
+//
+// Refresh mode only: a new map is in no review. On 2026-10-20 two place maps
+// were delivered by hand under accepts for the build before, because only
+// stage_refresh.mjs asked the review and this script did not. Same shape as
+// steps 0–0c: local, before the scp, refusing a CANNOT TELL, and a one-off
+// escape hatch, --ink-unchecked "<reason>". A map no review lists passes out
+// loud as N/A. The verdict is kept, because after step 4 it names the review
+// the staging is recorded in.
+// ---------------------------------------------------------------------------
+const INK_UNCHECKED = (() => {
+  const i = process.argv.indexOf('--ink-unchecked');
+  return i === -1 ? null : (process.argv[i + 1] || '(no reason given)');
+})();
+
+function gateInkReview() {
+  const r = checkInkReview({ srcDir: SRC });
+  if (r.verdict === 'covered') { console.log(`-- 0e. Ink review: OK — ${r.message}`); return r; }
+  if (r.verdict === 'not-in-review') { console.log(`-- 0e. Ink review: N/A — ${r.message}`); return r; }
+  if (r.verdict === 'cannot-tell') {
+    console.error('\n✗ 0e. Ink review: CANNOT TELL — nothing has been uploaded.');
+    console.error(`  ${r.message}`);
+    console.error('  Refusing rather than assuming, as steps 0–0c do. Repair what could not be read, or add');
+    console.error('  --ink-unchecked "<reason>" if you mean to deliver regardless.');
+    process.exit(1);
+  }
+  if (r.verdict !== 'uncovered' && r.verdict !== 'already-staged') {
+    console.error(`\n✗ 0e. Ink review: UNKNOWN VERDICT "${r.verdict}" — nothing has been uploaded.`);
+    console.error('  scripts/lib/ink-review.mjs produced a verdict this gate does not know how to');
+    console.error('  judge. Teach gateInkReview() what it means rather than widening the pass.');
+    process.exit(1);
+  }
+  console.error(`\n✗ 0e. Ink review: REFUSED (${r.verdict === 'already-staged' ? 'ALREADY STAGED' : 'NOT ACCEPTED'}) — nothing has been uploaded and the live service is untouched.`);
+  console.error(`  ${r.message}`);
+  console.error(`  The review: ${r.file}`);
+  console.error('\n  Do one of these:');
+  if (r.verdict === 'already-staged') {
+    console.error('   1. Nothing — the customer already has this build waiting (the right answer).');
+  } else {
+    console.error(`   1. Ask in a session for the ${r.scan} ink review to be brought up to date: it re-collects, answers by rule`);
+    console.error('      what needs no person, and puts the rest to Peter as accept or hold (the right answer).');
+  }
+  console.error('   2. --ink-unchecked "<reason>" for a one-off, which is recorded in this log and nowhere else.');
+  process.exit(1);
+}
+
+let INK = null;
+if (MODE === 'propose') {
+  if (INK_UNCHECKED) {
+    console.log('!! 0e. Ink review: SKIPPED BY HAND');
+    console.log(`   reason: ${INK_UNCHECKED}`);
+    console.log('   Nothing has established that the month\'s ink review lets this build through, and no staging is recorded in it.');
+  } else {
+    INK = gateInkReview();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // STEP 0d — does the live host run the engine origin/main vendors?
 // scripts/lib/engine-live.mjs carries the incident: on 2026-10-01 the host was
 // at a96a758, origin/main had re-vendored legend_key.js and place_pointer.js,
@@ -630,12 +711,14 @@ const targetScript = MODE === 'propose' ? 'scripts/propose-update.mjs' : 'script
 const importArgsStr = ['--src', '/import', ...passthroughArgs].map((a) => `'${String(a).replace(/'/g, `'\\''`)}'`).join(' ');
 console.log(`\n-- 4. ${targetScript} ${importArgsStr}`);
 let importOk = true;
+let importOut = '';
 if (!DRY_RUN) {
   const importCmd =
     `cd ${APP_DIR} && docker compose run --rm -v ${remoteStage}:/import:ro ` +
     `portal node ${targetScript} ${importArgsStr}`;
-  const rc = sshRun(importCmd);
-  importOk = rc === 0;
+  const res = sshRunTee(importCmd);
+  importOut = res.out;
+  importOk = res.status === 0;
   if (!importOk) {
     console.error(`✗ ${MODE === 'propose' ? 'propose-update' : 'import'} failed. The portal is left STOPPED on purpose — see this file's header before restarting it.`);
   }
@@ -677,6 +760,28 @@ if (!DRY_RUN) sshRun(`rm -rf ${remoteStage}`);
 
 if (!importOk) process.exit(1);
 if (!healthOk) process.exit(1);
+
+// 8. Record the staging in the ink review (buses-data OA-658), with the tool that
+// owns the record. A failure here is LOUD and does not change the exit code: the
+// update is staged and may have emailed its customer, and a non-zero exit reads as
+// "nothing happened, try again", which would stage it twice. stage_refresh.mjs
+// writes its own record when it finds none.
+if (MODE === 'propose' && INK && INK.verdict === 'covered' && !DRY_RUN) {
+  console.log(`\n-- 8. record the staging in the ${INK.scan} ink review`);
+  const proposal = proposalFrom(importOut);
+  const inkReviewJs = skillsDirCandidates().map((d) => path.join(d, 'bus-work', 'assets', 'ink_review.mjs')).find((f) => existsSync(f));
+  const argv = recordArgs({ inkReviewJs: inkReviewJs || '<claude-skills>/bus-work/assets/ink_review.mjs', root: INK.root, scan: INK.scan, map: INK.map, slug: MAP, proposal: proposal ?? '<n>', by: arg('by', 'deliver-map'), notify: has('no-notify') ? 'digest' : null });
+  const unrecorded = (why) => {
+    console.error(`\nNOT RECORDED: ${why}. The update IS staged. Record it by hand, so no second delivery is offered:`);
+    console.error(`  node ${argv.map((a) => (/[\s<>]/.test(a) ? `"${a}"` : a)).join(' ')}`);
+  };
+  if (!inkReviewJs) unrecorded('no claude-skills checkout was found (SKILLS_DIR, or a sibling of this checkout)');
+  else if (proposal == null) unrecorded('propose-update.mjs printed no "proposed update #N staged" line');
+  else {
+    const rc = run(process.execPath, argv);
+    if (rc !== 0) unrecorded(`ink_review.mjs --staged exited ${rc}`);
+  }
+}
 console.log(MODE === 'propose'
   ? '\n✓ staged — see the propose-update output above for the customer review link.'
   : '\n✓ delivered.');
