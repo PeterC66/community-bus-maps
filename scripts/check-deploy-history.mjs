@@ -11,7 +11,9 @@
 // laptop. `npm run deploy` runs this first, after a `git fetch`, and refuses
 // on exit 1. Every first-parent commit after `BASELINE` (scripts/lib/
 // deploy-history.mjs) up to `<ref>` must add a CHANGELOG.d/ fragment, edit
-// docs/DEPLOY.md, or be named in one of them by `#NNN` or short sha.
+// docs/DEPLOY.md, be named in one of them by `#NNN` or short sha, or be a
+// Dependabot patch/minor bump that describes itself (not sharp, not the
+// Dockerfile, not a major — `bumpVerdict` in the library).
 //
 // Exit codes (docs/CONVENTIONS.md): 0 every commit is described, 1 at least
 // one is not, 2 used wrongly or git could not answer.
@@ -19,7 +21,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { arg, has } from './lib/cli.mjs';
-import { BASELINE, prNumber, readCommits, readDescriptions, undescribed } from './lib/deploy-history.mjs';
+import { BASELINE, bumpVerdict, prNumber, readCommits, readDescriptions, undescribed } from './lib/deploy-history.mjs';
 
 if (has('help')) {
   console.log('usage: node scripts/check-deploy-history.mjs [--to <ref>] [--repo <path>]');
@@ -39,13 +41,23 @@ try {
   process.exit(2);
 }
 
+// Say which bumps went through on their own word, so it is never silent.
+for (const c of commits) {
+  if (!c.bump || missing.includes(c)) continue;
+  const v = bumpVerdict(c.bump);
+  if (v.ok) console.log(`  self-describing Dependabot bump: ${c.sha}  ${v.why}`);
+}
+
 if (missing.length === 0) {
   console.log(`deploy history: all ${commits.length} commit(s) in ${from}..${to} are described.`);
   process.exit(0);
 }
 
 console.error(`✗ deploy history: ${missing.length} of ${commits.length} commit(s) in ${from}..${to} would go live described by nothing:`);
-for (const c of missing) console.error(`    ${c.sha}  ${c.subject}`);
+for (const c of missing) {
+  console.error(`    ${c.sha}  ${c.subject}`);
+  if (c.bump) console.error(`             a Dependabot bump, but not self-describing: ${bumpVerdict(c.bump).why}`);
+}
 console.error('');
 console.error('  Each one needs a line saying what it changes, before it is deployed (docs/DEPLOY.md §3b).');
 const prs = missing.map((c) => prNumber(c.subject)).filter(Boolean);
