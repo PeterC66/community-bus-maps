@@ -664,6 +664,8 @@ export default async function publicRoutes(app) {
     b.innerHTML = '<div class="container pilot-banner-inner">'
       + '<span class="pilot-badge">${jsStr(PILOT.word)}</span>'
       + '<span class="pilot-text">${jsStr(PILOT.short)}.'
+      // A temporary notice (PILOT.notice) sits outside .pilot-more so phones see it too.
+      + '${PILOT.notice ? ` <span class="pilot-notice">${jsStr(PILOT.notice)}</span>` : ''}'
       // The full explanation is the point of the banner on a desktop, but it
       // eats a phone screen — small viewports get the headline and the link,
       // which lands on the same words at /faq.html#pilot.

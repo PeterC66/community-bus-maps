@@ -25,6 +25,10 @@ export const PILOT = {
     + 'Community Association is our first customer; every other map shown here '
     + 'was made by us to show what it produces. '
     + 'Nothing here is a commitment to a service level.',
+  // A temporary line shown beside `short`, at every width (unlike `long`, which
+  // phones hide). Empty string = none. Set for Peter's absence, 25 October to
+  // 22 November 2026 (buses-data OA-494 (a)); OA-494 (d) takes it off again.
+  notice: 'Replies may be slower than usual until late November.',
   href: '/faq.html#pilot',
   // Drawn onto every rendered sheet while the pilot is on (one banner line
   // across the top — see src/render/pilotStamp.js).
