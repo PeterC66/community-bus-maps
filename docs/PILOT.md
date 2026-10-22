@@ -1,7 +1,7 @@
 # Pilot mode — what it claims, and how to switch it off
 
-<!-- docstamp v1.13 | 2026-10-10 | sha=8e128f37 -->
-**v1.13** · updated 10 October 2026
+<!-- docstamp v1.14 | 2026-10-22 | sha=8ac275c2 -->
+**v1.14** · updated 22 October 2026
 
 **For:** the operator. **Status:** pilot mode is **ON**.
 
@@ -32,6 +32,8 @@ Considered and rejected: *experimental* (reads as "may break your data" — wron
 **Search engines are no longer on that list.** Until 2026-08-21 `PILOT_MODE` also served `Disallow: /`, and that conflated two different claims: the banner and the sheet band say *"this is a pilot"*, which is honest and worth keeping for as long as it is true, while `Disallow: /` says *"nobody may find this at all"*. Tying them to one switch meant the only way to become discoverable was to stop admitting it was a pilot. Indexing is now its own flag, `ALLOW_INDEXING` (default off, see `src/config.js` §INDEXING and `scripts/test-indexing.mjs`), so the two can be set independently — including the useful middle state of an indexed site that still says plainly that it is a pilot.
 
 The banner is injected by one generated script rather than pasted into seventeen hand-written HTML files, because there is no template engine here. Each page carries a single `<script src="/js/site-banner.js" defer>` tag.
+
+**A temporary line goes in `PILOT.notice`**, which the banner shows beside the headline at every width, unlike `PILOT.long`, which phones hide; an empty string shows none. From 22 October 2026 it reads "Replies may be slower than usual until late November." for Peter's absence (buses-data OA-494 (a)), and OA-494 (d) empties it on 22 November.
 
 The sheet band **reserves space** rather than overlaying. The sheets have no reliable whitespace — the corners are taken by the title, the Services panel and the credits line — so the artwork is shrunk ~4% and slid down, and the band sits in space that belongs to nothing. That works for all five outputs and for any output added later. It is applied *after* the generator runs, which is why the byte-identical reproduce gate is unaffected (see below).
 

@@ -136,6 +136,13 @@ check('/sitemap.xml is a urlset with the static pages in it',
 const banner = await app.inject({ method: 'GET', url: '/js/site-banner.js' });
 check('/js/site-banner.js is JavaScript and carries the version badge',
   banner.statusCode === 200 && banner.payload.includes("m.name = 'app-version'"), banner.payload.slice(0, 80));
+const { PILOT } = await import('../src/config.js');
+if (PILOT.on && PILOT.notice) {
+  check('a PILOT.notice is served outside .pilot-more, so phones see it too',
+    banner.payload.includes(`<span class="pilot-notice">${PILOT.notice}</span>`)
+      && banner.payload.indexOf('class="pilot-notice"') < banner.payload.indexOf('class="pilot-more"'),
+    PILOT.notice);
+}
 
 // ---------------------------------------------------------------------------
 // 4. The source-level half — what a running app cannot tell you.
