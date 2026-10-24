@@ -1,7 +1,7 @@
 # Second-operator handover drill (H3) — BusMaps.uk portal
 
-<!-- docstamp v1.1 | 2026-09-21 | sha=81ac7741 -->
-**v1.1** · updated 21 September 2026
+<!-- docstamp v1.2 | 2026-10-24 | sha=0297b249 -->
+**v1.2** · updated 24 October 2026
 
 **For:** whoever picks this service up if Peter cannot — a hypothetical reader today, since `PeterC66` is the only GitHub collaborator ([CONVENTIONS.md](CONVENTIONS.md), Git). **Purpose:** prove, or say honestly where it is not yet proven, that this service can be deployed, verified and restored by somebody working from these documents alone, with none of Peter's tacit knowledge (`technical-audit_2026-08-19` C4: *"prove somebody else can deploy, verify and restore from the documentation alone"*).
 
@@ -51,7 +51,7 @@ Nothing in this section duplicates a command from DEPLOY.md; it is the order to 
 
 ## 4. What has actually been drilled, and by whom
 
-[DEPLOY.md §5](DEPLOY.md)'s own table records three real drills — 9 August, and twice on 3 September 2026. **Every one of them was run by Peter.** That proves the *procedure* works; it proves nothing about whether a second operator, with no tacit knowledge and starting only from these documents, could do the same thing, because nobody who is not Peter has ever tried. That gap is real and this document does not close it; it is closed by §2's access questions being answered and then a real person who is not Peter actually doing §3 top to bottom and reporting what this document got wrong.
+[DEPLOY.md §5](DEPLOY.md)'s own table records four real drills — 9 August, twice on 3 September, and on 24 October 2026 the laptop's backup restored on a second laptop. **Every one of them was run by Peter.** That proves the *procedure* works; it proves nothing about whether a second operator, with no tacit knowledge and starting only from these documents, could do the same thing, because nobody who is not Peter has ever tried. That gap is real and this document does not close it; it is closed by §2's access questions being answered and then a real person who is not Peter actually doing §3 top to bottom and reporting what this document got wrong.
 
 ## Done when
 
