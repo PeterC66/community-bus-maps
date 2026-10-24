@@ -1,7 +1,7 @@
 # Deploying and running the portal (P7)
 
-<!-- docstamp v1.129 | 2026-10-21 | sha=e2eded5a -->
-**v1.129** · updated 21 October 2026
+<!-- docstamp v1.130 | 2026-10-24 | sha=24d234dd -->
+**v1.130** · updated 24 October 2026
 
 Small service, deliberately: **one Node process, one SQLite file, one data volume.** No database server, no queue, no build step. Scale by giving the VM more disk, not by adding components — the plan says single-VM until something actually binds.
 
@@ -315,6 +315,7 @@ node scripts/restore-drill.mjs --snapshot C:/Buses/community-bus-maps/backups/li
 | 2026-08-09 | Full restore into the live volume, unencrypted database | Passed; corrected this section's volume assumption |
 | 2026-09-03 | `restore-drill.mjs` end-to-end on an encrypted snapshot, throwaway key | Passed, and seen to fail on the wrong key |
 | 2026-09-03 | `restore-drill.mjs` on the **live** `2026-09-02T22-29-58` snapshot with the real `BACKUP_RECIPIENT` key, `--db-only` | **Passed, every check green.** The first time an encrypted snapshot had been opened since `BACKUP_RECIPIENT` was added on 2026-08-25 |
+| 2026-10-24 | The **laptop** backup (buses-data `Documentation/laptop-backup.mjs`, encrypted to the same `BACKUP_RECIPIENT`): a real `small` archive decrypted and unpacked on a second laptop by Peter, with the key from the password manager | **Passed.** Found the archives had been going to the St Ives u3a account's Google Drive, not Peter's; moved to his own the same day, and the script now refuses any other account's. Not covered: the ops register, `C:Claudecommunity-bus-maps-ops`, is in no backup. Record: buses-data `Documentation/README - Laptop backup.md`, Checked |
 
 ### Restore drill (do it once, before you need it)
 
